@@ -12,17 +12,21 @@
 % to display URLs in blue roman font according to Springer's eBook style:
 % \renewcommand\UrlFont{\color{blue}\rmfamily}
 
+\usepackage{amsmath}
+\usepackage{amssymb}
+
 \input{local}
+
 
 \begin{document}
 %
-\title{Context-Sensitive Refinement Types for Imperative Programs}
+\title{Context- and Flow-Sensitive Refinement Types for Imperative Programs}
 %
 %\titlerunning{Abbreviated paper title}
 % If the paper title is too long for the running head, you can set
 % an abbreviated paper title here
 %
-\author{Ren Siqi \and Kohei Suenaga \and Atsushi Igarashi}
+\author{Ren Siqi \and Kohei Suenaga \and Atsushi Igarashi \and Naoki Kobayashi}
 %
 \authorrunning{Ren Siqi et al.}
 % First names are abbreviated in the running head.
@@ -43,6 +47,18 @@
 \section{Simple setting without indirection of pointers and without subtyping}
 
 \subsection{Language}
+
+\[
+\begin{array}{rcl}  
+    \decl &::=& \set{f \mapsto (x_1,\dots,x_n)\stmt}\\
+    \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
+    \stmt &::=& \SKIP \mid x \WRITE \expr \mid \LET x = \expr \IN \stmt \mid \IFZERO x \THEN \stmt_1 \ELSE \stmt_2 \mid \ASSERT(\expr_1 = \expr_2)\\
+    &\mid& f(e_1,\dots,e_n)\\
+    \prog &::=& \tuple{\decl_1 \cup \dots \cup \decl_n, \stmt}\\
+    \typ &::=& \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
+    \ownership &\in& [0,1] \subseteq \RAT
+\end{array}
+\]
 
 \subsection{Type system}
 
