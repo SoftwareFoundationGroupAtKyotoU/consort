@@ -51,28 +51,83 @@
 
 \[
 \begin{array}{rcl}  
-    \decl &::=& \set{f \mapsto (x_1,\dots,x_n)\expr}\\
-    % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
-    \expr &::=& \LET x = \MKREF y \IN \expr \mid \LET x = y \IN \expr \mid \LET x = \intconst \IN \expr \mid \LET x = f^l(e_1,\dots,e_n) \IN \expr\\
-    &\mid& \LET x = \NULL \IN \expr \mid \IFZERO x \THEN \expr_1 \ELSE \expr_2 \mid \ASSERT(\expr_1 = \expr_2) \mid \intconst \mid x \mid x \WRITE y \SEQ \expr\\
-    \prog &::=& \tuple{\decl_1 \cup \dots \cup \decl_n, \expr}\\
-    \typ &::=& \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
-    \funtyp &::=& 
-    \ownership &\in& [0,1] \subseteq \RAT
+  \decl &::=& \set{f \mapsto (x_1,\dots,x_n)\expr}\\
+  % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
+  \expr &::=& \LET x = \MKREF y \IN \expr \mid \LET x = y \IN \expr \mid \LET x = \intconst \IN \expr \mid \LET x = f^l(e_1,\dots,e_n) \IN \expr\\
+        &\mid& \LET x = \NULL \IN \expr \mid \IFZERO x \THEN \expr_1 \ELSE \expr_2 \mid \ASSERT(\expr_1 = \expr_2) \mid \intconst \mid x \mid x \WRITE y \SEQ \expr\\
+  \prog &::=& \tuple{\decl_1 \cup \dots \cup \decl_n, \expr}\\
+  \typ &::=& \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
+  \funtyp &::=& \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n}\ra\tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
+  \ownership &\in& [0,1] \subseteq \RAT\\
 \end{array}
 \]
 
 \subsection{Type system}
+
+\paragraph{Operations on types.}
+
+\begin{figure}[t]
+  \infrule[Tadd-Ref1]
+  {u_1 \ne 0 \andalso u_2 \ne 0}
+  {\set{x \COL \TINT \mid \varphi} \TREF^{\ownership_1} + \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_2} = \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_1 + \ownership_2}}
+
+  \infax[Tadd-Ref2]
+  {\typ_1 \TREF^0 + \typ_2 \TREF^{\ownership} = \typ_2 \TREF^{\ownership}}
+
+  \caption{Rules for $\typ_1 \addt \typ_2$.}
+  \label{fig:addition}
+\end{figure}
+
+\begin{definition}
+  $\typ_1 + \typ_2$ is the least commutative operation that satisfies the rules in Figure~\ref{fig:addition}.
+\end{definition}
+
+\paragraph{Subtyping.}
+
+\begin{figure}[t]
+
+  \infrule[Sub-Int1]
+  {
+    \tenv \models \varphi_1 \iff \varphi_2
+  }
+  {\tenv \vdash \set{x \COL \TINT \mid \varphi_1} \TREF^1 \subt \set{x \COL \TINT \mid \varphi_2} \TREF^1}
+
+  \infrule[Sub-Int2]
+  {
+    0 < u < 1
+    \andalso
+    \tenv \models \varphi_1 \implies \varphi_2
+  }
+  {\tenv \vdash \set{x \COL \TINT \mid \varphi_1} \TREF^{u} \subt \set{x \COL \TINT \mid \varphi_2} \TREF^{u}}
+
+  \infrule[Sub-Ref]
+  {
+    u_1 \ge u_2
+    \andalso
+    u_2 \ge 1 \implies \tenv \vdash \typ_2 \subt \typ_1
+    \andalso
+    u_2 > 0 \implies \tenv \vdash \typ_1 \subt \typ_2
+  }
+  {\tenv \vdash \typ_1 \TREF^{u_1} \subt \typ_2 \TREF^{u_2}}
+  
+  \caption{Rules for subtyping.}
+  \label{fig:subtyping}
+\end{figure}
 
 \paragraph{Type judgment.}
 
 \begin{figure}[t]
 
 \infrule[T-Call]
-{}
-{\funenv; [l\beta/\alpha](x_1\COL\typ_1,\dots,x_n\COL\typ_n); \beta \p \LET y = f^l(x_1,\dots,x_n) \IN e \COL \typ \produces \tenv\diff y}
+{
+  \funenv(f) = \forall \alpha. \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n} \ra \tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
+  \funenv \mid [l\beta/\alpha](x_1\COL\typ_1',\dots,x_n\COL\typ_n',y\COL\typ) \mid \beta \vdash \expr \COL \typ' \produces \tenv'
+  \andalso
+  y \notin \fv(\typ)
+}
+{\funenv \mid [l\beta/\alpha](x_1\COL\typ_1,\dots,x_n\COL\typ_n) \mid \beta \p \LET y = f^l(x_1,\dots,x_n) \IN \expr \COL \typ \produces \tenv' \diff y}
 
-\label{Typing rules.}
+\caption{Typing rules.}
 \label{fig:typingRules}
 \end{figure}
 
