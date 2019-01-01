@@ -15,6 +15,7 @@
 
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{stmaryrd}
 
 \input{local}
 
@@ -54,15 +55,40 @@
   \decl &::=& \set{f \mapsto (x_1,\dots,x_n)\expr}\\
   % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
   \expr &::=& \LET x = \MKREF y \IN \expr \mid \LET x = y \IN \expr \mid \LET x = \intconst \IN \expr \mid \LET x = f^l(e_1,\dots,e_n) \IN \expr\\
-        &\mid& \LET x = \NULL \IN \expr \mid \IFZERO x \THEN \expr_1 \ELSE \expr_2 \mid \ASSERT(\expr_1 = \expr_2) \mid \intconst \mid x \mid x \WRITE y \SEQ \expr\\
+        &\mid& \IFZERO x \THEN \expr_1 \ELSE \expr_2 \mid \ALIAS(\expr_1 = \expr_2) \mid \ASSERT(\varphi) \mid \intconst \mid x \mid x \WRITE y \SEQ \expr\\
   \prog &::=& \tuple{\decl_1 \cup \dots \cup \decl_n, \expr}\\
-  \typ &::=& \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
+  \typ &::=& \TUNIT \mid \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
   \funtyp &::=& \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n}\ra\tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
   \ownership &\in& [0,1] \subseteq \RAT\\
 \end{array}
 \]
 
 \subsection{Type system}
+
+\begin{definition}
+  $\sem{\typ}_y$ is defined as follows:
+  \[
+    \begin{array}{rcl}
+      \sem{\TUNIT}_y &=& \TRUE\\
+      \sem{\set{x \COL \TINT \mid \varphi}}_y &=& [y/x]\varphi\\
+      \sem{\set{x \COL \TINT \mid \varphi} \TREF^{\ownership}}_y &=& \TRUE.
+    \end{array}
+  \]
+\end{definition}
+
+\begin{definition}
+  $\sem{\Gamma}$ is defined as follows:
+  \[
+    \begin{array}{rcl}
+      \sem{\emptyset} &=& \TRUE\\
+      \sem{x\COL\typ, \Gamma} &=& \sem{\typ}_x \land \sem{\Gamma}.
+    \end{array}
+  \]
+\end{definition}
+
+\begin{definition}
+  We write $\Gamma \models \varphi$ if $\models \sem{\Gamma} \implies \varphi$ holds.
+\end{definition}
 
 \paragraph{Operations on types.}
 
@@ -125,6 +151,26 @@
   {\funenv \mid \tenv, y \COL (\typ_1 + \typ_2) \mid \beta \p \LET x = \MKREF y \IN \expr \COL \typ' \produces \tenv' \diff x}
 
   \rulesp
+
+  \infrule[T-Let]
+  {\funenv \mid \tenv, x \COL \typ_1, y \COL \typ_2 \mid \beta \p \expr \COL \typ' \produces \tenv'
+    \andalso
+  x \notin \fv(\typ')}
+  {\funenv \mid \tenv, y\COL(\typ_1+\typ_2) \mid \beta \p \LET x = y \IN \expr \COL \typ' \produces \tenv' \diff x}
+
+  \rulesp
+
+  \infrule[T-LetInt]
+  {
+    \funenv \mid \tenv, x\COL\set{x \COL \TINT \mid x = \intconst} \mid \beta \p \expr \COL \typ' \produces \tenv'
+    \andalso
+    x \notin \fv(\typ')
+  }
+  {\funenv \mid \tenv \mid \beta \p \LET x = \intconst \IN \expr \COL \typ' \produces \tenv' \diff x}
+  
+  \infrule[T-Assert]
+  {\Gamma \models \varphi}
+  {\funenv \mid \Gamma \mid \beta \vdash \ASSERT(\varphi) \COL \TUNIT \produces \Gamma}
   
   \infrule[T-Call]
   {
@@ -144,7 +190,12 @@
     \alpha \notin \fcv(\funenv)
   }
   {\funenv \vdash \set{f \mapsto (x_1,\dots,x_n)\expr}}
-  
+
+  \infrule[T-Prog]
+  {
+  }
+  {\vdash \tuple{\decl_1 \cup \dots \cup \decl_n, \expr}}
+
 \caption{Typing rules.}
 \label{fig:typingRules}
 \end{figure}
