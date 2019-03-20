@@ -53,7 +53,7 @@
 
 \[
   \begin{array}{rcl}
-  \decl &::=& \set{f \mapsto (x_1,\dots,x_n)\expr}\\
+  \decl &::=& f \mapsto (x_1,\dots,x_n)\expr \\
   % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
   \expr &::= &
               \intconst \mid
@@ -66,13 +66,14 @@
               \LET x = f^\ell(e_1,\dots,e_n) \IN \expr \\ &\mid&
               x \WRITE y \SEQ \expr \mid
               \ALIAS(\expr_1 = \expr_2) \SEQ \expr_3 \mid
-              \ASSERT(\varphi) \SEQ e \\
-    \prog &::=& \tuple{\decl_1 \cup \dots \cup \decl_n, \expr}\\
-    \pp &\in& \textbf{Labels}
+              \ASSERT(\varphi) \SEQ \expr \\
+    \prog &::=& \tuple{\set{\decl_1, \dots, \decl_n}, \expr}\\
+    \pp &\in& \textbf{Labels}\\
+  \pps &\in& \textbf{Labels}^*
   \end{array}
 \]
 
-\(\varphi\) stands for a logical formula.
+\(\varphi\) stands for a logical formula over integers and paths $\pps$).
 
 \subsection{Type system}
 
@@ -80,8 +81,7 @@
 \begin{array}{rcl}
   \typ &::=& \TUNIT \mid \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
   \funtyp &::=& \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n}\ra\tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
-  \ownership &\in& [0,1] \subseteq \RAT\\
-  \pps &\in& \textbf{Labels}^*
+  \ownership &\in& [0,1] \subseteq \RAT
 \end{array}
 \]
 \begin{definition}
@@ -100,7 +100,8 @@
   \[
     \begin{array}{rcl}
       \sem{\emptyset} &=& \TRUE\\
-      \sem{x\COL\typ, \Gamma} &=& \sem{\typ}_x \land \sem{\Gamma}.
+      \sem{\Gamma, x\COL\typ} &=& \sem{\Gamma} \land \sem{\typ}_x \\
+      \sem{\Gamma, \varphi} & = & \sem{\Gamma} \land \varphi.
     \end{array}
   \]
 \end{definition}
@@ -112,15 +113,26 @@
 \paragraph{Operations on types.}
 
 \begin{figure}[t]
-\leavevmode
+  \leavevmode
+  \infax[Tadd-Unit]{
+    \TUNIT + \TUNIT = \TUNIT
+  }
+  \infax[Tadd-Int]{
+    \set{x \COL \TINT \mid \varphi} + \set{x \COL \TINT \mid \varphi} = \set{x \COL \TINT \mid \varphi}
+    }
   \infrule[Tadd-Ref1]{
     \ownership_1 \ne 0 \andalso
     \ownership_2 \ne 0
   }{
     \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_1} + \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_2} = \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_1 + \ownership_2}
   }
-  \infax[Tadd-Ref2]{
+  \infrule[Tadd-Ref2]{
+    r > 0
+    }{
     \typ_1 \TREF^0 + \typ_2 \TREF^{\ownership} = \typ_2 \TREF^{\ownership}
+  }
+  \infax[Tadd-Ref3]{
+    \typ_1 \TREF^0 + \typ_2 \TREF^0 = \set{x \COL \TINT \mid \textbf{true}} \TREF^0
   }
 
   \caption{Rules for $\typ_1 \addt \typ_2$.}
@@ -128,26 +140,26 @@
 \end{figure}
 
 \begin{definition}
-  $\typ_1 + \typ_2$ is the least commutative operation that satisfies the rules in Figure~\ref{fig:addition}.
+  $\typ_1 + \typ_2$ is the least commutative partial operation that satisfies the rules in Figure~\ref{fig:addition}.
   \AI{Rules for unit and int types.}
 \end{definition}
 
 \paragraph{Subtyping.}
 
-\AI{What is the intention of \rn{Sub-Int1}?  Since ref types do not nest, \rn{Sub-Ref} doesn't make much sense.}
-  \AI{Rules for unit and int types.}
 \begin{figure}[t]
 \leavevmode
-  \infrule[Sub-Int1]{
-    \tenv \models \varphi_1 \iff \varphi_2
-  }{
-    \tenv \vdash \set{x \COL \TINT \mid \varphi_1} \TREF^1 \subt \set{x \COL \TINT \mid \varphi_2} \TREF^1
+  % \infrule[Sub-Int1]{
+  %   \tenv \models \varphi_1 \iff \varphi_2
+  % }{
+  %   \tenv \vdash \set{x \COL \TINT \mid \varphi_1} \TREF^1 \subt \set{x \COL \TINT \mid \varphi_2} \TREF^1
+  % }
+  \infax[Sub-Unit]{
+    \tenv \vdash \TUNIT \subt \TUNIT
   }
-  \infrule[Sub-Int2]{
-    0 < u < 1 \andalso
+  \infrule[Sub-Int]{
     \tenv \models \varphi_1 \implies \varphi_2
   }{
-    \tenv \vdash \set{x \COL \TINT \mid \varphi_1} \TREF^{u} \subt \set{x \COL \TINT \mid \varphi_2} \TREF^{u}
+    \tenv \vdash \set{x \COL \TINT \mid \varphi_1} \subt \set{x \COL \TINT \mid \varphi_2}
   }
   \infrule[Sub-Ref]{
     \ownership_1 \ge \ownership_2
@@ -158,7 +170,12 @@
   }{
     \tenv \vdash \typ_1 \TREF^{\ownership_1} \subt \typ_2 \TREF^{\ownership_2}
   }
-  
+  \infrule[Sub-TyEnv]{
+    \tenv \vdash \tenv(x) \subt \tenv'(x) \quad (x \in dom(\tenv')) \\
+    \models \sem{\tenv} \implies \sem{\tenv'}
+  }{
+    \tenv \subt \tenv'
+  }
   \caption{Rules for subtyping.}
   \label{fig:subtyping}
 \end{figure}
@@ -168,20 +185,22 @@
 \AI{\rn{T-Let} loses information that $x$ is equal to $y$ (unlike \rn{T-LetInt}).}
 
 \begin{figure}[t]
-\leavevmode
-  \infrule[T-MkRef]{
-    \funenv \mid \tenv, x \COL \typ_1 \TREF^1, y \COL \typ_2 \mid \beta \vdash \expr \COL \typ' \produces \tenv'
-    \andalso
-    x \notin \fv(\typ')
+  \leavevmode
+  \infrule[T-Int]{
   }{
-    \funenv \mid \tenv, y \COL (\typ_1 + \typ_2) \mid \beta \p \LET x = \MKREF y \IN \expr \COL \typ' \produces \tenv' \diff x
+    \funenv \mid \tenv
+            \mid \beta \vdash n \COL \set{x \COL \TINT \mid x = \intconst} \COL \tenv
+  }
+  \infrule[T-Var]{
+  }{
+    \funenv \mid \tenv_1, x\COL(\typ_1+\typ_2),\tenv_2 \mid \beta \vdash x \COL  \typ_1 \produces \tenv_1, x\COL \typ_2, \tenv_2
   }
   \infrule[T-Let]{
-    \funenv \mid \tenv, x \COL \typ_1, y \COL \typ_2 \mid \beta \p \expr \COL \typ' \produces \tenv'
+    \funenv \mid \tenv_1, y \COL \typ_2, \tenv_2, x \COL \typ_1, x =_{\typ_1} y \mid \beta \p \expr \COL \typ' \produces \tenv'
     \andalso
     x \notin \fv(\typ')
   }{
-    \funenv \mid \tenv, y\COL(\typ_1+\typ_2) \mid \beta \p \LET x = y \IN \expr \COL \typ' \produces \tenv' \diff x
+    \funenv \mid \tenv_1, y\COL(\typ_1+\typ_2), \tenv_2 \mid \beta \p \LET x = y \IN \expr \COL \typ' \produces \tenv' \diff x
   }
   \infrule[T-LetInt]{
     \funenv \mid \tenv, x\COL\set{x \COL \TINT \mid x = \intconst} \mid \beta \p \expr \COL \typ' \produces \tenv'
@@ -190,34 +209,97 @@
   }{
     \funenv \mid \tenv \mid \beta \p \LET x = \intconst \IN \expr \COL \typ' \produces \tenv' \diff x
   }
-  \infrule[T-Assert]{
-    \Gamma \models \varphi
+  \infrule[T-If]{
+    \tenv = \tenv_1, x : \set{y:\TINT \mid \varphi}, \tenv_2 \\
+    \funenv \mid \tenv_1, x : \set{y:\TINT \mid \varphi \land y = 0}, \tenv_2 \mid \beta \vdash \expr_1 \COL \typ \produces \tenv' \\
+    \funenv \mid \tenv_1, x : \set{y:\TINT \mid \varphi \land y \neq 0}, \tenv_2 \mid \beta \vdash \expr_2 \COL \typ \produces \tenv'
   }{
-    \funenv \mid \Gamma \mid \beta \vdash \ASSERT(\varphi) \COL \TUNIT \produces \Gamma
+    \funenv \mid \tenv_1, x : \set{y:\TINT \mid \varphi}, \tenv_2 \mid \beta \vdash \IFZERO x \THEN \expr_1 \ELSE \expr_2 \COL \typ \produces \tenv'
+  }
+  \infrule[T-MkRef]{
+    \funenv \mid \tenv_1, y \COL \typ_2, \tenv_2, x \COL \typ_1 \TREF^1 \mid \beta \vdash \expr \COL \typ' \produces \tenv'
+    \andalso
+    x \notin \fv(\typ')
+  }{
+    \funenv \mid \tenv_1, y \COL (\typ_1 + \typ_2), \tenv_2 \mid \beta \p \LET x = \MKREF y \IN \expr \COL \typ' \produces \tenv' \diff x
+  }
+  \infrule[T-Deref]{
+    r > 0 \andalso
+    \funenv \mid \tenv_1, y \COL \typ_1 \TREF^r, \tenv_2, x \COL \typ_2 \mid \beta \vdash \expr \COL \typ' \produces \tenv' \andalso
+    x \not \in \fv(\typ')
+  }{
+    \funenv \mid \tenv_1, y \COL (\typ_1 + \typ_2) \TREF^r, \tenv_2 \mid \beta \vdash \LET x = *y \IN \expr \COL \typ' \produces \tenv' \diff x
   }
   \infrule[T-Call]{
     \funenv(f) = \forall \pps_1. \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n} \ra \tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
-    \funenv \mid [\pp\pps_2/\pps_1](x_1\COL\typ_1',\dots,x_n\COL\typ_n',y\COL\typ) \mid \pps_2 \vdash \expr \COL \typ' \produces \tenv'
+    \funenv \mid \tenv,[\pp\pps_2/\pps_1](x_1\COL\typ_1',\dots,x_n\COL\typ_n',y\COL\typ) \mid \pps_2 \vdash \expr \COL \typ' \produces \tenv'
     \andalso
     y \notin \fv(\typ)
   }{
-    \funenv \mid [\pp\pps_2/\pps_1](x_1\COL\typ_1,\dots,x_n\COL\typ_n) \mid \pps_2 \p \LET y = f^\pp(x_1,\dots,x_n) \IN \expr \COL \typ \produces \tenv' \diff y
+    \funenv \mid \tenv,[\pp\pps_2/\pps_1](x_1\COL\typ_1,\dots,x_n\COL\typ_n) \mid \pps_2 \p \LET y = f^\pp(x_1,\dots,x_n) \IN \expr \COL \typ' \produces \tenv' \diff y
+  }
+  \infrule[T-Assign]{
+    (\text{The shapes of $\typ'$ and $\typ_2$ are similar}) \\
+    \funenv \mid \tenv_1,  y : \typ_2, \tenv_2, x : \typ_1 \TREF^1 \mid \beta \vdash  \expr \COL \typ \produces \tenv'
+  }{
+    \funenv \mid \tenv_1, y : (\typ_1+\typ_2), \tenv_2, x : \typ' \TREF^1 \mid \beta \vdash  x \WRITE y \SEQ \expr \COL \typ \produces \tenv'
+  }
+  \infrule[T-Alias]{
+    \typ_1 \TREF^{r_1} + \typ_2 \TREF^{r_2} = \typ'_1 \TREF^{r'_1} + \typ'_2 \TREF^{r'_2}
+    \\
+    \funenv \mid \tenv, x : \typ'_1 \TREF^{r'_1}, y : \typ'_2 \TREF^{r'_2} \mid \beta \vdash \expr_3 \COL \tau \produces \tenv'
+  }{
+    \funenv \mid \tenv, x : \typ_1 \TREF^{r_1}, y : \typ_2 \TREF^{r_2} \mid \beta \vdash \ALIAS(x = y) \SEQ \expr_3 \COL \tau \produces \tenv'
+  }
+  \infrule[T-Assert]{
+    \tenv \models \varphi \andalso
+    \funenv \mid \tenv \mid \beta \vdash \expr \COL \tau \produces \tenv'
+  }{
+    \funenv \mid \tenv \mid \beta \vdash \ASSERT(\varphi)\SEQ \expr \COL \tau \produces \tenv'
+  }
+  \infrule[T-Sub]{
+    \tenv \subt \tenv' \andalso
+    \funenv \mid \tenv' \mid \beta \vdash \expr \COL \tau \produces \tenv'' \andalso
+    \tenv'', x:\typ \subt \tenv''', x:\typ'
+  }{
+    \funenv \mid \tenv \mid \beta \vdash \expr \COL \typ' \produces \tenv'''
   }
   \infrule[T-FunDef]{
     \funenv(f) = \forall \alpha. \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n}\ra\tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
     \funenv \mid x_1\COL\typ_1,\dots,x_n\COL\typ_n \mid \alpha \vdash \expr \COL \typ \produces x_1\COL\typ_1',\dots,x_n\COL\typ_n'\\
     \alpha \notin \fcv(\funenv)
   }{
-    \funenv \vdash \set{f \mapsto (x_1,\dots,x_n)\expr}
+    \funenv \vdash f \mapsto (x_1,\dots,x_n)\expr
   }
   \infrule[T-Prog]{
+    \funenv \vdash d_1 \quad \cdots \quad
+    \funenv \vdash d_n \andalso
+    \funenv \mid \emptyset \mid \varepsilon \vdash e : \TUNIT \produces \tenv'
   }{
-    \vdash \tuple{\decl_1 \cup \dots \cup \decl_n, \expr}
+    \vdash \tuple{\set{\decl_1, \dots, \decl_n}, \expr}
   }
-
 \caption{Typing rules.}
 \label{fig:typingRules}
 \end{figure}
+
+\AI{\rn{T-Let} discards all the refinement on \(x\).  Probably we should propagate it to $\tenv'$.}
+
+\AI{\rn{T-Let} and \rn{T-LetInt} can be merged.}
+
+\AI{Define \(x =_\typ y\).}
+
+\AI{\rn{T-Call} requires actual arguments to be variables introduced at the end of the type environment.  This is not a restriction because one can introduce let-expressions before a function call and alias-expressions after the call.}
+
+\AI{$\varepsilon$ in \rn{T-Prog} stands for the empty string.}
+
+\AI{$\tenv_1, x:\typ \TREF^1, \tenv_2 \subt \tenv_1, \tenv_2, x:\typ \TREF^1$ should always hold ($\tenv_2$ cannot reference $x$).}
+
+\section{TODO}
+
+\begin{itemize}
+\item Running example.
+\item Inference (constraint generation) algorithm.
+\end{itemize}
 
 \bibliographystyle{plain}
 \bibliography{main.bib}
