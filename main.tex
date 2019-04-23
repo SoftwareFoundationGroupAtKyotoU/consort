@@ -294,12 +294,100 @@
 
 \AI{$\tenv_1, x:\typ \TREF^1, \tenv_2 \subt \tenv_1, \tenv_2, x:\typ \TREF^1$ should always hold ($\tenv_2$ cannot reference $x$).}
 
+%edit by shiki
+\subsection{Transition rules}
+For each language expression occurs, we accomplish writing the rules for transition. Here, $\langle H, R, E \rangle$ represent heap(memory),
+register(environment), program respectively.
+It's obvious when $e$ is an integer $n$, when it's a variable $x$, in order to better handle with recursive types,
+we refresh every variable $x$ to $x'$ after executing expression.
+Define a named local expression $\LET x=y \IN e$, which $x$ can then be used later on in the function instead of $y$, so that the
+register of $x$ update to the $R(y)$.
+The expression $x:=y$ only update the register of $x$ to $y$.
+The same changes happen when $\LET x=n \IN e$, the only difference is that now we use an integer instead of a variable.
+It becomes a little bit complex when dealing with reference, in transition rule for $\LET x=*y \IN e$, we update the register of $x$ to $H(R(y))$,
+which means the memory address of the variable $y$.
+If you want to $\MKREF$, first it should satisfies that the variable $y$ doesn't used in memory before, after executing, heap
+turns to $H(y\ra v)$, here $v$ represents a new memory cell.
+We divide the expression $\IFZERO x\THEN e_1 \ELSE e_2$ into two parts, $e_1$ will be given if $x\ra 0$ in the initial register,
+otherwise we will get $e_2$.
+When handling with $\ALIAS$ and $\ASSERT$, we introduce $\bf{AliasFail}$ and $\bf{AssertFail}$ to the rules. They will be thrown if the memory cell or
+the environment can't hold for some states.
+The expression about function definition, we just replace it by the fuction body itself.
 \section{TODO}
 
 \begin{itemize}
 \item Running example.
 \item Inference (constraint generation) algorithm.
 \end{itemize}
+
+%edit by shiki
+\begin{figure}[t]
+  \leavevmode
+  \infrule[]{
+  }{
+    \langle H, R, E[n] \rangle \ra_D \langle H, R(n), E\rangle
+  }
+  \infrule[]{
+  }{
+    \langle H, R, E[x] \rangle \ra_D \langle H, R(x'), E[x'/x]\rangle
+  }
+  \infrule[]{
+  }{
+    \langle H, R, E[\LET x=y \IN e] \rangle \ra_D \langle H, R(x'\ra R(y)), E[[x'/x]e]\rangle
+  }
+  \infrule[]{
+  }{
+    \langle H, R, E[\LET x=n \IN e] \rangle \ra_D \langle H, R(x'\ra n), E[[x'/x]e]\rangle
+  }
+  \infrule[]{
+  }{
+    \langle H, R(x\ra 0), E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R(x\ra 0), E[e_1]\rangle
+  }
+  \infrule[]{R(x\neq 0)
+  }{
+    \langle H, R, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, E[e_2]\rangle
+  }
+  \infrule[]{y\notin dom(H)
+  }{
+    \langle H, R, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H(y\ra v), R(x'\ra y), E[[x'/x]e]\rangle
+  }
+  \infrule[]{
+  }{
+    \langle H, R, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R(x'\ra H(R(y))), E[[x'/x]e]\rangle
+  }
+  \infrule[]{f^l(\tilde{x})=e\in P
+  }{
+    \langle H, R, E[\LET x=f^l(\tilde{e}) \IN e] \rangle \ra_D \langle H, R, E[[\tilde{e}/\tilde{x}]e]\rangle
+  }
+  \infrule[]{
+  }{
+    \langle H, R, E[x:=y; e] \rangle \ra_D \langle H, R(x'\ra y), E[[x'/x]e]\rangle
+  }
+  \infrule[]{H, R\models (e_1=e_2)
+  }{
+    \langle H, R, E[\ALIAS(e_1=e_2); e_3] \rangle \ra_D \langle H, R, E[e_3]\rangle
+  }
+  \infrule[]{H, R\not\models (e_1=e_2)
+  }{
+    \langle H, R, E[\ALIAS(e_1=e_2); e_3] \rangle \ra_D \bf{AliasFail}
+  }
+  \infrule[]{H, R\models \phi
+  }{
+    \langle H, R, E[\ASSERT(\phi)] \rangle \ra_D \langle H, R, E\rangle
+  }
+  \infrule[]{H, R\not\models \phi
+  }{
+    \langle H, R, E[\ASSERT(\phi)] \rangle \ra_D \bf{AssertFail}
+  }
+\caption{Transition Rules.}
+\label{fig:transitionRules}
+\end{figure}
+
+
+
+
+
+
 
 \bibliographystyle{plain}
 \bibliography{main.bib}
