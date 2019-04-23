@@ -49,6 +49,8 @@
 
 \section{Simple setting without indirection of pointers and without subtyping}
 
+\newcommand\val{v}
+
 \subsection{Language}
 
 \[
@@ -56,17 +58,18 @@
   \decl &::=& f \mapsto (x_1,\dots,x_n)\expr \\
   % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
   \expr &::= &
-              \intconst \mid
+              \val \mid
               x \mid
               \LET x = y \IN \expr \mid
-              \LET x = \intconst \IN \expr \mid
+              \LET x = \val \IN \expr \mid
               \IFZERO x \THEN \expr_1 \ELSE \expr_2  \\ &\mid&
               \LET x = \MKREF y \IN \expr \mid
               \LET x = *y \IN \expr \mid
-              \LET x = f^\ell(e_1,\dots,e_n) \IN \expr \\ &\mid&
+              \LET x = f^\ell(x_1,\dots,x_n) \IN \expr \\ &\mid&
               x \WRITE y \SEQ \expr \mid
               \ALIAS(\expr_1 = \expr_2) \SEQ \expr_3 \mid
               \ASSERT(\varphi) \SEQ \expr \\
+    \val &::=& a \mid n\\
     \prog &::=& \tuple{\set{\decl_1, \dots, \decl_n}, \expr}\\
     \pp &\in& \textbf{Labels}\\
   \pps &\in& \textbf{Labels}^*
@@ -74,6 +77,7 @@
 \]
 
 \(\varphi\) stands for a logical formula over integers and paths $\pps$).
+We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and a set of \emph{locations}, which is ranged over by $a,b,c,\dots$.
 
 \subsection{Type system}
 
@@ -320,44 +324,53 @@ The expression about function definition, we just replace it by the fuction body
 \item Inference (constraint generation) algorithm.
 \end{itemize}
 
+\newcommand\DOM{\textit{dom}}
+\newcommand\EXTEND[1]{\{{#1}\}}
+
 %edit by shiki
 \begin{figure}[t]
   \leavevmode
+  %% \infrule[]{
+  %% }{
+  %%   \langle H, R, E[n] \rangle \ra_D \langle H, R(n), E\rangle
+  %% }
   \infrule[]{
   }{
-    \langle H, R, E[n] \rangle \ra_D \langle H, R(n), E\rangle
+    \langle H, R, E[x] \rangle \ra_D \langle H, R, E[R(x)]\rangle
   }
   \infrule[]{
+    x' \notin \DOM(R)
   }{
-    \langle H, R, E[x] \rangle \ra_D \langle H, R(x'), E[x'/x]\rangle
+    \langle H, R, E[\LET x=y \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto R(y)}, E[[x'/x]e]\rangle
   }
   \infrule[]{
+    x' \notin \DOM(R)    
   }{
-    \langle H, R, E[\LET x=y \IN e] \rangle \ra_D \langle H, R(x'\ra R(y)), E[[x'/x]e]\rangle
+    \langle H, R, E[\LET x=n \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto n}, E[[x'/x]e]\rangle
   }
   \infrule[]{
+    R(x) = 0
   }{
-    \langle H, R, E[\LET x=n \IN e] \rangle \ra_D \langle H, R(x'\ra n), E[[x'/x]e]\rangle
+    \langle H, R, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, E[e_1]\rangle
   }
   \infrule[]{
-  }{
-    \langle H, R(x\ra 0), E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R(x\ra 0), E[e_1]\rangle
-  }
-  \infrule[]{R(x\neq 0)
+    R(x) \neq 0
   }{
     \langle H, R, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, E[e_2]\rangle
   }
-  \infrule[]{y\notin dom(H)
+  \infrule[]{
+    a \notin \DOM(H) \andalso x' \notin \DOM(R)
   }{
-    \langle H, R, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H(y\ra v), R(x'\ra y), E[[x'/x]e]\rangle
+    \langle H, R, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H \EXTEND{a \mapsto v}, R \EXTEND{x' \mapsto y}, E[[x'/x]e]\rangle
   }
   \infrule[]{
+    R(y) = a \andalso H(a) = v \andalso x' \notin \DOM(R)
   }{
-    \langle H, R, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R(x'\ra H(R(y))), E[[x'/x]e]\rangle
+    \langle H, R, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R\EXTEND{x' \mapsto v}, E[[x'/x]e]\rangle
   }
   \infrule[]{f^l(\tilde{x})=e\in P
   }{
-    \langle H, R, E[\LET x=f^l(\tilde{e}) \IN e] \rangle \ra_D \langle H, R, E[[\tilde{e}/\tilde{x}]e]\rangle
+    \langle H, R, E[\LET x=f^l(\tilde{y}) \IN e'] \rangle \ra_D \langle H, R, E[[\tilde{y}/\tilde{x}]e]\rangle
   }
   \infrule[]{
   }{
