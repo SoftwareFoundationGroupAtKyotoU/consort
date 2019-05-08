@@ -300,8 +300,8 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 %edit by shiki
 \subsection{Transition rules}
-For each language expression occurs, we accomplish writing the rules for transition. Here, $\langle H, R, E \rangle$ represent heap(memory),
-register(environment), program respectively.
+For each language expression occurs, we accomplish writing the rules for transition. Here, $\langle H, R,\overrightarrow{E}, E \rangle$ represent heap(memory),
+register(environment), a sequence of context, program respectively.
 It's obvious when $e$ is an integer $n$, when it's a variable $x$, in order to better handle with recursive types,
 we refresh every variable $x$ to $x'$ after executing expression.
 Define a named local expression $\LET x=y \IN e$, which $x$ can then be used later on in the function instead of $y$, so that the
@@ -316,7 +316,9 @@ We divide the expression $\IFZERO x\THEN e_1 \ELSE e_2$ into two parts, $e_1$ wi
 otherwise we will get $e_2$.
 When handling with $\ALIAS$ and $\ASSERT$, we introduce $\bf{AliasFail}$ and $\bf{AssertFail}$ to the rules. They will be thrown if the memory cell or
 the environment can't hold for some states.
-The expression about function definition, we just replace it by the fuction body itself.
+The expression about function definition, we replace it by the function body itself and we also need to remember to bind $x$ to
+the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written by $\LET x=[] \IN e$.
+
 \section{TODO}
 
 \begin{itemize}
@@ -336,61 +338,61 @@ The expression about function definition, we just replace it by the fuction body
   %% }
   \infrule[]{
   }{
-    \langle H, R, E[x] \rangle \ra_D \langle H, R, E[R(x)]\rangle
+    \langle H, R, \overrightarrow{E}, E[x] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[R(x)]\rangle
   }
   \infrule[]{
     x' \notin \DOM(R)
   }{
-    \langle H, R, E[\LET x=y \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto R(y)}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=y \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto R(y)}, \overrightarrow{E}, E[[x'/x]e]\rangle
   }
   \infrule[]{
-    x' \notin \DOM(R)    
+    x' \notin \DOM(R)
   }{
-    \langle H, R, E[\LET x=n \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto n}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=n \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto n}, \overrightarrow{E}, E[[x'/x]e]\rangle
   }
   \infrule[]{
     R(x) = 0
   }{
-    \langle H, R, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, E[e_1]\rangle
+    \langle H, R, \overrightarrow{E}, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[e_1]\rangle
   }
   \infrule[]{
     R(x) \neq 0
   }{
-    \langle H, R, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, E[e_2]\rangle
+    \langle H, R, \overrightarrow{E}, E[\IFZERO x\THEN e_1 \ELSE e_2] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[e_2]\rangle
   }
   \infrule[]{
     a \notin \DOM(H) \andalso x' \notin \DOM(R)
   }{
-    \langle H, R, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H \EXTEND{a \mapsto v}, R \EXTEND{x' \mapsto y}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H \EXTEND{a \mapsto v}, R \EXTEND{x' \mapsto y}, \overrightarrow{E}, E[[x'/x]e]\rangle
   }
   \infrule[]{
     R(y) = a \andalso H(a) = v \andalso x' \notin \DOM(R)
   }{
-    \langle H, R, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R\EXTEND{x' \mapsto v}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R\EXTEND{x' \mapsto v}, \overrightarrow{E}, E[[x'/x]e]\rangle
   }
   \infrule[]{f^l(\tilde{x})=e\in P
   }{
-    \langle H, R, E[\LET x=f^l(\tilde{y}) \IN e'] \rangle \ra_D \langle H, R, E[[\tilde{y}/\tilde{x}]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=f^l(\tilde{y}) \IN e] \rangle \ra_D \langle H, R, \overrightarrow{E}:E[\LET x=[] \IN e], E[[\tilde{y}/\tilde{x}]e']\rangle
   }
   \infrule[]{
   }{
-    \langle H, R, E[x:=y; e] \rangle \ra_D \langle H, R(x'\ra y), E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[x:=y; e] \rangle \ra_D \langle H, R(x'\ra y), \overrightarrow{E}, E[[x'/x]e]\rangle
   }
   \infrule[]{H, R\models (e_1=e_2)
   }{
-    \langle H, R, E[\ALIAS(e_1=e_2); e_3] \rangle \ra_D \langle H, R, E[e_3]\rangle
+    \langle H, R, \overrightarrow{E}, E[\ALIAS(e_1=e_2); e_3] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[e_3]\rangle
   }
   \infrule[]{H, R\not\models (e_1=e_2)
   }{
-    \langle H, R, E[\ALIAS(e_1=e_2); e_3] \rangle \ra_D \bf{AliasFail}
+    \langle H, R, \overrightarrow{E}, E[\ALIAS(e_1=e_2); e_3] \rangle \ra_D \bf{AliasFail}
   }
   \infrule[]{H, R\models \phi
   }{
-    \langle H, R, E[\ASSERT(\phi)] \rangle \ra_D \langle H, R, E\rangle
+    \langle H, R, \overrightarrow{E}, E[\ASSERT(\phi)] \rangle \ra_D \langle H, R, \overrightarrow{E}, E\rangle
   }
   \infrule[]{H, R\not\models \phi
   }{
-    \langle H, R, E[\ASSERT(\phi)] \rangle \ra_D \bf{AssertFail}
+    \langle H, R, \overrightarrow{E}, E[\ASSERT(\phi)] \rangle \ra_D \bf{AssertFail}
   }
 \caption{Transition Rules.}
 \label{fig:transitionRules}
