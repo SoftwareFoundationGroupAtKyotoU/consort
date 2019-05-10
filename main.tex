@@ -16,6 +16,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{stmaryrd}
+\usepackage{parcolumns}
 
 \input{local}
 
@@ -300,7 +301,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 %edit by shiki
 \subsection{Transition rules}
-For each language expression occurs, we accomplish writing the rules for transition. Here, $\langle H, R,\overrightarrow{E}, E \rangle$ represent heap(memory),
+For each language expression occurs, we accomplish writing the rules for transition. In order to deal with function, we introduce the stack in the system. Here, $\langle H, R,\overrightarrow{E}, E \rangle$ represent heap(memory),
 register(environment), a sequence of context, program respectively.
 It's obvious when $e$ is an integer $n$, when it's a variable $x$, in order to better handle with recursive types,
 we refresh every variable $x$ to $x'$ after executing expression.
@@ -319,10 +320,197 @@ the environment can't hold for some states.
 The expression about function definition, we replace it by the function body itself and we also need to remember to bind $x$ to
 the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written by $\LET x=[] \IN e$.
 
+\subsection{Examples}
+For examples, consider the following programs, written in an ML-like language.
+The righthand side shows the types assigned to each variable before execution of
+each line.
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[1]
+  let x = mkref 1 in
+  let y = *x in
+    assert(y>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[2]
+  let x = mkref 1 in
+  let y = *x in
+    assert(y<0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[1] and example[2], from typing rule for T-MkRef, the ownership for varible $x$ will be 1.
+As for dereference, $y$ will hold the same value as $x$.The only difference in the programs is the
+assert statements, from the types of varible $y$, it's clear that the example[1] will return true,
+and the example[2] will be false.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[3]
+  let x = mkref 1 in
+  let y = x in
+  let z = *y in
+    assert(z>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[3], from T-Let $x$ will transfer the ownership of the reference cell to $y$, so that the
+owership of $y$ will be 1 and then can be dereferenced to $z$ with the return value, the result of
+the assertion is true.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[4]
+  let x = mkref 1 in
+  let y = x in
+    y := -1;
+    let z = *y in
+      assert(z>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $y \COL \set{r \COL \TINT \mid r = -1} \TREF^1$ \newline
+  $y \COL \set{r \COL \TINT \mid r = -1} \TREF^1, z \COL \set{r \COL \TINT \mid r = -1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[4], it contains update the value of $y$ to $-1$. From T-Assign it only changes the value of $y$.
+And the result should be false obviously.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[5]
+  let x = mkref 1 in
+  let y = x in
+  let z_1 = *y in
+  let z_2 = *x in
+    assert(z_1>0 && z_2>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[5], dereferencing doesn't change the ownership of each variable, and the result
+of assertion is true.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[6]
+  let x = mkref 1 in
+  let y = x in
+  let z_1 = *y in
+  let z_2 = *x in
+    x := 0;
+    let z_3 = *x in
+      assert(z_3=0)
+
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  safe but cannot be typed
+  \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[6], after dereferencing $x$ to $z_2$ the ownership of $x$ will become 0, which means that
+it can't be updated in our type system. But we can add statement \textbf{alias}(x=y)
+to shuffle the ownerships between $x$ and $y$, then the program will be typable as belows. And the assert
+statement will give true result.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[6 typable]
+  let x = mkref 1 in
+  let y = x in
+  let z_1 = *y in
+  let z_2 = *x in
+    alias(x=y)
+    x := 0;
+    let z_3 = *x in
+      assert(z_3=0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\Phi$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1} \TREF^0$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, z_3 \COL \set{r \COL \TINT \mid r = 0}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+
 \section{TODO}
 
 \begin{itemize}
 \item Running example.
+\item Context-Sensitiveness example.
 \item Inference (constraint generation) algorithm.
 \end{itemize}
 
@@ -332,10 +520,10 @@ the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written
 %edit by shiki
 \begin{figure}[t]
   \leavevmode
-  %% \infrule[]{
-  %% }{
-  %%   \langle H, R, E[n] \rangle \ra_D \langle H, R(n), E\rangle
-  %% }
+  \infrule[]{
+  }{
+   \langle H, R, \overrightarrow{E}:E, v \rangle \ra_D \langle H, R, \overrightarrow{E}, E[v]\rangle
+  }
   \infrule[]{
   }{
     \langle H, R, \overrightarrow{E}, E[x] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[R(x)]\rangle
