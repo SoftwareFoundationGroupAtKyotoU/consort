@@ -383,7 +383,7 @@ and the example[2] will be false.
   $\Phi$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z \COL \set{r \COL \TINT \mid r = 1}$ \newline
 }
 \colplacechunks
 \end{parcolumns}
@@ -409,14 +409,15 @@ the assertion is true.
   $\Phi$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $y \COL \set{r \COL \TINT \mid r = -1} \TREF^1$ \newline
-  $y \COL \set{r \COL \TINT \mid r = -1} \TREF^1, z \COL \set{r \COL \TINT \mid r = -1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = -1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0,y \COL \set{r \COL \TINT \mid r = -1} \TREF^1, z \COL \set{r \COL \TINT \mid r = -1}$ \newline
 }
 \colplacechunks
 \end{parcolumns}
 
 In example[4], it contains update the value of $y$ to $-1$. From T-Assign it only changes the value of $y$.
 And the result should be false obviously.
+The refinement type $\set{r \COL \TINT \mid r = 1}$ of $x$ after the command $y := -1$ does not reflect the actual value of $*x$.  This is OK in our type system because the ownership of the reference $x$ is $0$; the refinment attached to this reference type is not reliable.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
@@ -434,9 +435,9 @@ And the result should be false obviously.
 \newline
   $\Phi$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},z_1 \COL \set{r \COL \TINT \mid r = 1},z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
 }
 \colplacechunks
 \end{parcolumns}
@@ -462,10 +463,10 @@ of assertion is true.
 \newline
 \newline
   $\Phi$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{r_1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{1-r_1} \mbox{where $1 > r_1 > 0$}$ \newline
+  $\dots$ \newline
+  $r_1 = 1 \mbox{ which contradicts to $1 > r_1 > 0$}$ \newline
   safe but cannot be typed
   \newline
 }
@@ -496,11 +497,12 @@ statement will give true result.
 \newline
   $\Phi$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1} \TREF^0$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, z_3 \COL \set{r \COL \TINT \mid r = 0}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0},\dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1},\dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1},z_3 \COL \set{r \COL \TINT \mid r = 0},\dots$ \newline
 }
 \colplacechunks
 \end{parcolumns}
