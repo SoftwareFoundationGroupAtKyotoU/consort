@@ -17,6 +17,11 @@
 \usepackage{amssymb}
 \usepackage{stmaryrd}
 \usepackage{parcolumns}
+\usepackage{listings}% http://ctan.org/pkg/listings
+\lstset{
+  basicstyle=\ttfamily,
+  mathescape
+}
 
 \input{local}
 
@@ -336,7 +341,7 @@ each line.
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}$ \newline
 }
@@ -355,7 +360,7 @@ each line.
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}$ \newline
 }
@@ -365,7 +370,7 @@ each line.
 In example[1] and example[2], from typing rule for T-MkRef, the ownership for varible $x$ will be 1.
 As for dereference, $y$ will hold the same value as $x$.The only difference in the programs is the
 assert statements, from the types of varible $y$, it's clear that the example[1] will return true,
-and the example[2] will be false.
+and the example[2] will be false, since $y \COL \set{r \COL \TINT \mid r = 1} \models y > 0$.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
@@ -380,7 +385,7 @@ and the example[2] will be false.
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z \COL \set{r \COL \TINT \mid r = 1}$ \newline
@@ -390,7 +395,7 @@ and the example[2] will be false.
 
 In example[3], from T-Let $x$ will transfer the ownership of the reference cell to $y$, so that the
 owership of $y$ will be 1 and then can be dereferenced to $z$ with the return value, the result of
-the assertion is true.
+the assertion is true, since $z \COL \set{r \COL \TINT \mid r = 1} \models z>0$
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
@@ -406,7 +411,7 @@ the assertion is true.
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = -1} \TREF^1$ \newline
@@ -416,24 +421,25 @@ the assertion is true.
 \end{parcolumns}
 
 In example[4], it contains update the value of $y$ to $-1$. From T-Assign it only changes the value of $y$.
-And the result should be false obviously.
-The refinement type $\set{r \COL \TINT \mid r = 1}$ of $x$ after the command $y := -1$ does not reflect the actual value of $*x$.  This is OK in our type system because the ownership of the reference $x$ is $0$; the refinment attached to this reference type is not reliable.
+And the result should be false obviously, because $z \COL \set{r \COL \TINT \mid r = -1} \not\models z>0$.
+The refinement type $\set{r \COL \TINT \mid r = 1}$ of $x$ after the command $y := -1$ does not reflect the actual value of $*x$.
+This is OK in our type system because the ownership of the reference $x$ is $0$; the refinment attached to this reference type is not reliable.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
-\begin{verbatim}
+\begin{lstlisting}
 [5]
   let x = mkref 1 in
   let y = x in
-  let z_1 = *y in
-  let z_2 = *x in
-    assert(z_1>0 && z_2>0)
-\end{verbatim}
+  let $z_1$ = *y in
+  let $z_2$ = *x in
+    assert($z_1$>0 && $z_2$>0)
+\end{lstlisting}
 }
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
@@ -443,26 +449,26 @@ The refinement type $\set{r \COL \TINT \mid r = 1}$ of $x$ after the command $y 
 \end{parcolumns}
 
 In example[5], dereferencing doesn't change the ownership of each variable, and the result
-of assertion is true.
+of assertion is true, because $z_1 \COL \set{r \COL \TINT \mid r = 1},z_2 \COL \set{r \COL \TINT \mid r = 1}\models z_1, z_2>0$.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
-\begin{verbatim}
+\begin{lstlisting}
 [6]
   let x = mkref 1 in
   let y = x in
-  let z_1 = *y in
-  let z_2 = *x in
+  let $z_1$ = *y in
+  let $z_2$ = *x in
     x := 0;
-    let z_3 = *x in
-      assert(z_3=0)
+    let $z_3$ = *x in
+      assert($z_3$=0)
 
-\end{verbatim}
+\end{lstlisting}
 }
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{r_1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{1-r_1} \mbox{where $1 > r_1 > 0$}$ \newline
   $\dots$ \newline
@@ -476,26 +482,26 @@ of assertion is true.
 In example[6], after dereferencing $x$ to $z_2$ the ownership of $x$ will become 0, which means that
 it can't be updated in our type system. But we can add statement \textbf{alias}(x=y)
 to shuffle the ownerships between $x$ and $y$, then the program will be typable as belows. And the assert
-statement will give true result.
+statement will give true result, since $z_3 \COL \set{r \COL \TINT \mid r = 0}\models z_3 = 0$.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
-\begin{verbatim}
+\begin{lstlisting}
 [6 typable]
   let x = mkref 1 in
   let y = x in
-  let z_1 = *y in
-  let z_2 = *x in
+  let $z_1$ = *y in
+  let $z_2$ = *x in
     alias(x=y)
     x := 0;
-    let z_3 = *x in
-      assert(z_3=0)
-\end{verbatim}
+    let $z_3$ = *x in
+      assert($z_3$=0)
+\end{lstlisting}
 }
 \colchunk[2]{%
 \newline
 \newline
-  $\Phi$ \newline
+  $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
@@ -507,6 +513,102 @@ statement will give true result.
 \colplacechunks
 \end{parcolumns}
 
+In order to derive example for Context-Sensitiveness, we first focus on examples for function. Here are examples for “push/pull/goto” instructions.
+We can see that function $\bf{push}$ is just assign an integer $x$ to variable $p$. $\bf{pull}$ is to pop the integer stored in $p$.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[7 push]
+  fun push(p, x) =
+    let p := x;
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\bf{push} \COL \emptyset \ra \set{r \COL \TINT \mid r = x} \TREF^1$ \newline
+  $\emptyset$ \newline
+  $p \COL \set{r \COL \TINT \mid r = x} \TREF^1$
+}
+\colplacechunks
+\end{parcolumns}
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[8 pull]
+  fun pull(p) =
+    return *x;
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\bf{pull} \COL \set{r \COL \TINT \mid r = x} \TREF^1 \ra \emptyset$ \newline
+  $p \COL \set{r \COL \TINT \mid r = x} \TREF^1$ \newline
+  $\emptyset$
+}
+\colplacechunks
+\end{parcolumns}
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[9 goto]
+  fun goto(l) =
+    l : statement;
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\bf{goto} \COL$ type changes in the statement.
+}
+\colplacechunks
+\end{parcolumns}
+
+After writing the types changing for each function, now we can take an example for explaining context-sensitiveness of our type-system.
+In the example[10], it's clearly that after execution in $l_1$ and $l_2$, $p \COL \set{r \COL \TINT \mid r = 0} \TREF^1$ will lose it owership,
+so that in the assertion part, $x$ can only read from $p \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ and $p \COL \set{r \COL \TINT \mid r = 2} \TREF^1$,
+which can give the result that $x \COL \set{r \COL \TINT \mid r = 1} \models x>0$ and $x \COL \set{r \COL \TINT \mid r = 2} \models x>0$, so that
+the result of assertion will be true.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{lstlisting}
+[10 Context-Sensitiveness]
+  push(p, 0)
+  goto {b$\ra l_1$, $\neg$b$\ra l_2$}
+
+  $l_1$ : x := pull(p)
+  push(p, x + 1)
+  goto $l_3$
+
+  $l_2$ : x := pull(p)
+  push(p, x + 2)
+  goto $l_3$
+
+  $l_3$ : x := pull(p)
+  assert(x > 0)
+\end{lstlisting}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\bf{push} \COL \emptyset \ra p \COL \set{r \COL \TINT \mid r = 0} \TREF^1$ \newline
+  $\bf{goto} \COL$ type changes in $l_1$ and $l_2$. \newline \newline
+  $l_1 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 0}, p \COL \set{r \COL \TINT \mid r = 0} \TREF^1\ra \emptyset$ \newline
+  $\bf{push} \COL \emptyset \ra p \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $\bf{goto} \COL$ type changes in $l_3$. \newline \newline
+  $l_2 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 0}, p \COL \set{r \COL \TINT \mid r = 0} \TREF^1\ra \emptyset$ \newline
+  $\bf{push} \COL \emptyset \ra p \COL \set{r \COL \TINT \mid r = 2} \TREF^1$ \newline
+  $\bf{goto} \COL$ type changes in $l_3$. \newline \newline
+  $l_3 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 1}, p \COL \set{r \COL \TINT \mid r = 1} \TREF^1\ra \emptyset$ \newline
+  or $l_3 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 2}, p \COL \set{r \COL \TINT \mid r = 2} \TREF^1\ra \emptyset$ \newline
+}
+\colplacechunks
+\end{parcolumns}
 
 \section{TODO}
 
