@@ -610,6 +610,91 @@ the result of assertion will be true.
 \colplacechunks
 \end{parcolumns}
 
+\paragraph{2-CFA Call Sensitivity}
+
+Consider the following program:
+\begin{lstlisting}
+f(x, b):
+  if b then
+    f$^{\ell_3}$(x + 1, false)
+  else
+    g$^{\ell_4}$(x)
+g(x): x + 1
+
+let $r_1$ = f$^{\ell_1}$(0, true) in
+let $r_2$ = g$^{\ell_2}$(0) in
+assert ($r_1 + r_2 \geq 3$);
+\end{lstlisting}
+
+This program is clearly correct, as \lstinline{f} will recurse exactly once before execution
+flows through to the else branch and the call to \lstinline{g}.
+
+The type system can verify this example if we give f and g the following types:
+\begin{align*}
+  f: \forall \alpha.\langle&x: \{ n : int \mid (\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \} \\
+                           &b: \{ n: bool \mid (\alpha = \ell_3? \produces n = 0) \wedge (\alpha \neq \ell_3? \produces n = 1) \}\rangle \\
+                           & \ra \{ n : int \mid n > 1 \} \\
+  g: \forall \beta.\langle&x: \{ n : int \mid (\beta = \ell_4\ell_3? \produces n \geq 1) \wedge n \geq 0 \}\rangle \\
+                           & \ra \{ n: int \mid n = n_{pre} + 1\}
+\end{align*}
+(Here we abbreviate $\tuple{x_1:\typ_1,\ldots,x_n:\typ_n} \ra \tuple{x_1:\typ_1,\ldots,x_n:\typ_n\mid \typ}$ as $\tuple{x_1:\typ_1,\ldots,x_n:\typ_n} \ra \typ$ when the types of the arguments
+do not change.)
+
+The key step in the typing derivation is at the call to g within the body of $f$. We reach the
+call in the type environment:
+
+\begin{align*}
+  x: & \{ n : int \mid (\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \} \\
+  b: & \{ n: bool \mid (\alpha = \ell_3? \produces n = 0) \wedge (\alpha \neq \ell_3? \produces n = 1) \wedge n = 0 \}
+\end{align*}
+Notice that we have propagated the path condition induced by the if
+statement to the type of $b$.
+
+We then apply the rule T-Call. Performing substitution on the path variable in the type
+of g indicates that the argument $x$ must have type:
+
+\[
+  [\ell_4\alpha/\beta]\{ n : int \mid (\beta = \ell_4\ell_3? \produces n \geq 1) \wedge n \geq 0 \} = \{ n : int \mid (\ell_4\alpha = \ell_4\ell_3?)\} \produces n \geq 1) \wedge n \geq 0 \}
+\]
+
+$x$ indeed has this type. Simplifying the result type of $g$ we have that the overall expression has type:
+
+\[
+  \{ n : int \mid (\alpha = \ell_3? \produces n \geq 2) \wedge n \geq 1 \}
+\]
+
+It remains to verify that this type satisfies the result type of $f$, i.e.,
+$\{ n : int \mid n > 1 \}$. Applying the rule T-Sub, it suffices to
+show that:
+
+\begin{align*}
+  \models \big( & (\alpha = \ell_3? \produces b = 0) \wedge (\alpha \neq \ell_3? \produces b = 1) \wedge b = 0\big) \produces \\
+  & \big((\alpha  = \ell_3? \produces n \geq 2) \wedge n \geq 1\big) \produces n > 1
+\end{align*}
+
+In the above, we have omitted the constraint generated from the type of $x$ in the environment
+as it is irrelevant. The automated theorem prover Z3 discharges the above implication,
+indicating the above subtyping relationship is valid.
+
+It is instructive to also consider the typing of the recursive call in
+the true branch of $f$'s body. Per the rule T-Call, substituting
+$\ell_3\alpha$ for $\alpha$ in the argument types of $f$ indicates that
+\lstinline{x + 1} must have type:
+\[
+  \{ n : int \mid (\ell_3\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \}
+\]
+and \lstinline{false} (i.e., \lstinline{0}) must have type:
+\[
+  \{ n : bool | (\ell_3\alpha = ell_3? \produces n = 0) \wedge (\ell_3\alpha \neq \ell_3? \produces n = 1) \}
+\]
+The latter type simplifies to $\{ n : bool \mid n = 0 \}$ which the constant \lstinline{0} has
+(tehnically an application of the subtyping rule is required, but it is straightforward).
+We must also verify that:
+\[
+  \tenv \p \{ n : int \mid (\alpha = \ell_3? \produces n \geq 2) \wedge n \geq 1 \} \subt \{ n : int \mid (\ell_3\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \}
+\]
+It is easy to verify this relationship holds.
+
 \section{TODO}
 
 \begin{itemize}
