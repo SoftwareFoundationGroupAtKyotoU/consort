@@ -513,23 +513,24 @@ statement will give true result, since $z_3 \COL \set{r \COL \TINT \mid r = 0}\m
 \colplacechunks
 \end{parcolumns}
 
-In order to derive example for Context-Sensitiveness, we first focus on examples for function. Here are examples for “push/pull/goto” instructions.
-We can see that function $\bf{push}$ is just assign an integer $x$ to variable $p$. $\bf{pull}$ is to pop the integer stored in $p$.
+In order to derive example for Context-Sensitiveness, we first focus on examples for function. Here are examples for “push/pull” instructions.
+We can see that function $\bf{push}$ is just assign an integer $x$ to variable $p$. $\bf{pull}$ is to pop the integer stored in $p$. Here we write
+$\sigma \COL\COL= \forall \beta.<\dots>\ra <\dots\mid\tau>$ to contain the return values.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
 \begin{verbatim}
 [7 push]
-  fun push(p, x) =
-    let p := x;
+  def push(p, x) =
+    p := x;
 \end{verbatim}
 }
 \colchunk[2]{%
 \newline
 \newline
-  $\bf{push} \COL \emptyset \ra \set{r \COL \TINT \mid r = x} \TREF^1$ \newline
-  $\emptyset$ \newline
-  $p \COL \set{r \COL \TINT \mid r = x} \TREF^1$
+  $\bf{push} \COL \newline
+  \forall \beta. p\COL \set{n \COL \TINT \mid T}\TREF^1, x\COL \set{n \COL \TINT \mid \frac{(\beta[0]=l_1\Rightarrow n=0)\land}{(\beta[0]\neq l_1\Rightarrow n>0))}} \ra \newline
+  p\COL \set{n \COL \TINT \mid n=x_{pre}}\TREF^1, x\COL \set{n \COL \TINT \mid x_{pre}=x}$ \newline
 }
 \colplacechunks
 \end{parcolumns}
@@ -538,74 +539,57 @@ We can see that function $\bf{push}$ is just assign an integer $x$ to variable $
 \colchunk[1]{%
 \begin{verbatim}
 [8 pull]
-  fun pull(p) =
-    return *x;
+  def pull(p) =
+    *p;
 \end{verbatim}
 }
 \colchunk[2]{%
 \newline
 \newline
-  $\bf{pull} \COL \set{r \COL \TINT \mid r = x} \TREF^1 \ra \emptyset$ \newline
-  $p \COL \set{r \COL \TINT \mid r = x} \TREF^1$ \newline
-  $\emptyset$
+  $\bf{pull} \COL \newline
+  \forall \beta. p\COL \set{n \COL \TINT \mid \frac{(\beta[0]=l_6\Rightarrow n>0)\land}{(\beta[0]\neq l_6\Rightarrow n\geq 0))}}\TREF^1\ra \newline
+  p\COL \set{n \COL \TINT \mid p_{pre}=p}\TREF^1\mid \set{n \COL \TINT \mid \frac{(\beta[0]=l_6\Rightarrow n>0)\land}{(\beta[0]\neq l_6\Rightarrow n\geq 0))}}$ \newline
 }
 \colplacechunks
 \end{parcolumns}
 
-\begin{parcolumns}{2}
-\colchunk[1]{%
-\begin{verbatim}
-[9 goto]
-  fun goto(l) =
-    l : statement;
-\end{verbatim}
-}
-\colchunk[2]{%
-\newline
-\newline
-  $\bf{goto} \COL$ type changes in the statement.
-}
-\colplacechunks
-\end{parcolumns}
 
 After writing the types changing for each function, now we can take an example for explaining context-sensitiveness of our type-system.
-In the example[10], it's clearly that after execution in $l_1$ and $l_2$, $p \COL \set{r \COL \TINT \mid r = 0} \TREF^1$ will lose it owership,
-so that in the assertion part, $x$ can only read from $p \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ and $p \COL \set{r \COL \TINT \mid r = 2} \TREF^1$,
-which can give the result that $x \COL \set{r \COL \TINT \mid r = 1} \models x>0$ and $x \COL \set{r \COL \TINT \mid r = 2} \models x>0$, so that
-the result of assertion will be true.
+In the example[9], using the types changes in the above, we can write the types before executing for each statement.
+For every function $\bf{push/pull}$, we also give labels $l_1,\dots,l_6$ to distinguish the context-flow.
+It's obvious that the result of assertion should be true, since $x \COL \set{n \COL \TINT \mid n > 0}\models x > 0$.
 
 \begin{parcolumns}{2}
 \colchunk[1]{%
 \begin{lstlisting}
-[10 Context-Sensitiveness]
-  push(p, 0)
-  goto {b$\ra l_1$, $\neg$b$\ra l_2$}
-
-  $l_1$ : x := pull(p)
-  push(p, x + 1)
-  goto $l_3$
-
-  $l_2$ : x := pull(p)
-  push(p, x + 2)
-  goto $l_3$
-
-  $l_3$ : x := pull(p)
-  assert(x > 0)
+[9 Context-Sensitiveness]
+let p = mkref _ in
+let x = mkref _ in
+  push$^{l_1}$(p, 0)
+  if b then
+    x := pull$^{l_2}$(p)
+    push$^{l_3}$(p, *x+1)
+  else
+    x := pull$^{l_4}$(p)
+    push$^{l_5}$(p, *x+2)
+  x := pull$^{l_6}$(p)
+  assert(*x > 0)
 \end{lstlisting}
 }
 \colchunk[2]{%
 \newline
 \newline
-  $\bf{push} \COL \emptyset \ra p \COL \set{r \COL \TINT \mid r = 0} \TREF^1$ \newline
-  $\bf{goto} \COL$ type changes in $l_1$ and $l_2$. \newline \newline
-  $l_1 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 0}, p \COL \set{r \COL \TINT \mid r = 0} \TREF^1\ra \emptyset$ \newline
-  $\bf{push} \COL \emptyset \ra p \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
-  $\bf{goto} \COL$ type changes in $l_3$. \newline \newline
-  $l_2 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 0}, p \COL \set{r \COL \TINT \mid r = 0} \TREF^1\ra \emptyset$ \newline
-  $\bf{push} \COL \emptyset \ra p \COL \set{r \COL \TINT \mid r = 2} \TREF^1$ \newline
-  $\bf{goto} \COL$ type changes in $l_3$. \newline \newline
-  $l_3 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 1}, p \COL \set{r \COL \TINT \mid r = 1} \TREF^1\ra \emptyset$ \newline
-  or $l_3 \COL x \COL \emptyset \ra \set{r \COL \TINT \mid r = 2}, p \COL \set{r \COL \TINT \mid r = 2} \TREF^1\ra \emptyset$ \newline
+\newline
+\newline
+  $p\COL \set{n \COL \TINT \mid T}\TREF^1, x\COL \set{n \COL \TINT \mid T}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid T}\TREF^1$ \newline\newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n>0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid T}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n>0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n>0}\TREF^1, x\COL \set{n \COL \TINT \mid n>0}\TREF^1$ \newline
+
 }
 \colplacechunks
 \end{parcolumns}
