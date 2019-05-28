@@ -17,6 +17,7 @@
 \usepackage{amssymb}
 \usepackage{stmaryrd}
 \usepackage{parcolumns}
+\usepackage{cases}
 \usepackage{listings}% http://ctan.org/pkg/listings
 \lstset{
   basicstyle=\ttfamily,
@@ -694,6 +695,61 @@ It is easy to verify this relationship holds.
 \newcommand\DOM{\textit{dom}}
 \newcommand\EXTEND[1]{\{{#1}\}}
 
+\newcommand\HOLE{[]}
+
+\begin{figure}
+  \leavevmode
+  \infrule[]{
+    \funenv \mid \tenv, \HOLE:\typ\produces\tenv' \mid \beta \ctxtp E : \typ'\produces\tenv'' \andalso \funenv \mid \tenv'' \mid \beta \p e : \typ'' \produces \tenv'''
+  }{
+    \funenv \mid \tenv,\HOLE:\typ\produces\tenv' \mid \beta \ctxtp E;e : \typ''\produces\tenv'''
+  }
+  \infrule[]{
+  }{
+    \funenv \mid \tenv,\HOLE:\typ\produces\tenv' \mid \beta \ctxtp \HOLE : \typ\produces\tenv'
+  }
+  \infrule[]{
+    \funenv \mid \tenv', x: \typ \mid \beta \p e : \typ' \produces \tenv''
+  }{
+    \funenv \mid \tenv,\HOLE:\typ\produces\tenv' \mid \beta \ctxtp \LET x = \HOLE \IN e : \typ' \produces \tenv''
+  }
+\caption{Context typing}
+\label{fig:context-typing}
+\end{figure}
+
+\begin{figure}
+  \leavevmode
+  \infrule[]{
+    \overrightarrow{\ell} = Trace(\overrightarrow{E}) \andalso n = |\overrightarrow{E}| = |\overrightarrow{\ell}| \andalso \funenv \p D \andalso \overrightarrow{\ell_i} = tail^{n-i+1}(\overrightarrow{\ell}) \\
+    Cons(H, R, \tenv) \andalso \forall i \in \{1 ... n\}.\funenv\mid\tenv,\HOLE:\typ_{i+1}\produces\tenv_{i+1}\mid \overrightarrow{\ell_i} \ctxtp E_i : \typ_i \produces \tenv_i  \\
+    \funenv \mid \tenv,\HOLE:\typ_e\produces\tenv_e \overrightarrow{\ell} \ctxtp E:\typ_{n+1}\produces\tenv_{n+1} \andalso \funenv \mid \tenv \mid \overrightarrow{\ell} \p e : \typ_e\produces\tenv_e
+  }{\Cp \tuple{H,R,\overrightarrow{E},E[e]}}
+
+  \begin{align*}
+    Trace(\cdot) = \cdot && Trace(E[\LET x = \HOLE^{\ell} \IN x] : \overrightarrow{E}) = \ell : Trace(\overrightarrow{E})
+  \end{align*}
+
+  \begin{align*}
+    Cons(H,R,\tenv) = & SAT(H,R,\tenv) \wedge \forall h \in \DOM(H).F(h) \leq 1 \\
+    SAT(H,R,\tenv) = & \forall x \in \DOM(\tenv). \\
+    & \begin{cases}
+      R(x) \in \mathbb{Z} \wedge [R(x)/n]\denote{\phi} & \tenv(x) = \{ n : int \mid \phi(n) \} \\
+      (0 \leq r \leq 1) \wedge (r > 0 \produces & \tenv(x) =  \{ n : int \mid \phi(n) \} \TREF^r \\
+      \,\,\,R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi}) & 
+    \end{cases} \\
+\iffalse                     \Big[\tenv(x) & = \{ n : int \mid \phi(n) \} \produces \Big] \wedge \\
+    \Big[\tenv(x)  & =  \{ n : int \mid \phi(n) \} \TREF^r \produces \\
+                    & (0 \leq r \leq 1) \wedge (r > 0 \produces R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi})\Big] \\\fi
+    F(h) = &  \Sigma_{x \in \DOM(\tenv)} \mathbf{own}(H,R(x),\tenv(x)) \\
+    \mathbf{own}(H, v, \typ) &  = \begin{cases}
+      \{ h \mapsto r \} & v = h \in \DOM(H) \\
+      \emptyset & o.w.
+    \end{cases}
+  \end{align*}
+\caption{Machine state typing}
+\label{fig:state-typing}
+\end{figure}
+
 %edit by shiki
 \begin{figure}[t]
   \leavevmode
@@ -737,7 +793,7 @@ It is easy to verify this relationship holds.
   }
   \infrule[]{f^l(\tilde{x})=e'\in P
   }{
-    \langle H, R, \overrightarrow{E}, E[\LET x=f^l(\tilde{y}) \IN e] \rangle \ra_D \langle H, R, E[\LET x=[] \IN e]:\overrightarrow{E}, [\tilde{y}/\tilde{x}]e']\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=f^l(\tilde{y}) \IN e] \rangle \ra_D \langle H, R, E[\LET x=[]^l \IN e]:\overrightarrow{E}, [\tilde{y}/\tilde{x}]e']\rangle
   }
   \infrule[]{
   }{
@@ -762,10 +818,6 @@ It is easy to verify this relationship holds.
 \caption{Transition Rules.}
 \label{fig:transitionRules}
 \end{figure}
-
-
-
-
 
 
 
