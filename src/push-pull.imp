@@ -1,0 +1,32 @@
+push(p,x)
+  p := x
+
+pull(p)
+  let x = *p in x
+
+{
+let x = mkref _ in
+let p = mkref _ in
+let b = * in
+let z = 0 in
+let one = 1 in
+let two = 2 in
+{
+  push(p, z);
+  if b then {
+    let t = pull(p) in x := t;
+	let t = *x in
+      let incr = t + one in
+	  x := incr;
+	let up = *x in push(p, up)
+  } else {
+    let t = pull(p) in x := t;
+	let t = *x in
+      let incr = t + two in
+	  x := incr;
+	let up = *x in push(p, up)
+  };
+  let a = pull(p) in
+  assert(one < a)
+}
+}
