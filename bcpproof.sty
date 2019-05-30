@@ -1,0 +1,210 @@
+
+\def\endofpfmarker{\mbox{$\square$}}
+\def\endofpfcommands{%
+  \ifmmode
+    % This assumes that the fleqn style is being used:
+    \egroup$\hbox{\ }\hfill\endofpfmarker$\bgroup
+  \else
+    ~\hfill\endofpfmarker
+  \fi
+  }
+\def\endofpf{}
+\def\startofpf{\gdef\endofpf{\endofpfcommands\gdef\endofpf{}}}
+
+\newcommand{\prooflabelface}{\bf}
+
+\newenvironment{pf}{%
+   \startofpf \trivlist
+     \item[\hskip \labelsep{\prooflabelface
+                     Proof: 
+                   }]%
+   }{\endofpf\endtrivlist}
+\newenvironment{pfof}[1]{%
+   \startofpf \trivlist
+     \item[\hskip \labelsep{\prooflabelface 
+                     Proof of #1: 
+                   }]%
+   }{\endofpf\endtrivlist}
+\newenvironment{pfsketch}{%
+   \startofpf \trivlist
+     \item[\hskip \labelsep{\prooflabelface 
+                     Proof sketch: 
+                   }]%
+   }{\endofpf\endtrivlist}
+
+% Aliases
+\newenvironment{proof}{\begin{pf}}{\end{pf}}
+\newenvironment{proofof}{\begin{pfof}}{\end{pfof}}
+\newenvironment{proofsketch}{\begin{pfsketch}}{\end{pfsketch}}
+
+% These are now deprecated:
+\newenvironment{pfnobox}{\begin{pf}}{\end{pf}}
+\newenvironment{pfofnobox}[1]{%
+   \trivlist  \startofpf
+     \item[\hskip \labelsep{\bf 
+                     Proof of #1: 
+                   }]%
+   }{\endofpf\endtrivlist}
+\newenvironment{pfsketchnobox}{%
+   \trivlist  \startofpf
+     \item[\hskip \labelsep{\bf 
+                     Proof sketch: 
+                   }]%
+   }{\endofpf\endtrivlist}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Still needs to be fixed!!
+\newcommand{\casefont}[1]{\textbf{#1}}
+\newcounter{casecounter}
+\renewcommand{\thecasecounter}{\roman{casecounter}}
+
+\def\flushtopCaseHeader#1{%
+   \raise 0.5\baselineskip
+   \hbox{%
+    {\setbox\@tempboxa\hbox{#1}%
+     \@tempdima\dp\@tempboxa
+     \@tempdimb\ht\@tempboxa
+     \ht\@tempboxa\z@
+     \lower \@tempdimb \box\@tempboxa
+     }}}
+
+\def\indentedtext{\list{}{
+   \listparindent 1.5em 
+ % \itemindent\listparindent
+ % \advance\leftmargin -1em
+   \advance\leftmargin .5em 
+ \itemindent 0em
+ \parsep 0pt plus 1pt
+ \partopsep 0pt 
+ \topsep 0pt plus 1pt minus 1pt}\item[]}
+\let\endindentedtext=\endlist
+
+\newenvironment{bcpcasearray}{\quad\begin{array}[t]{@{}l@{\qquad}l@{\qquad}l@{\qquad}l}}{\end{array}}
+
+% \newenvironment{namedcase}[1]{%
+%         \smallbreak \pagebreak[3]
+%         \noindent #1 \nobreak 
+%         \list{}{\topsep 0pt plus 1pt
+%                 \partopsep 0pt
+%                 \parskip 0pt
+%                 \leftmargin 1.5pc  
+%                 \@beginparpenalty\@M
+%                 }\item[]\clubpenalty\@M}%
+%         {\endlist}
+\newenvironment{namedcase}[1]{%
+        \smallbreak \pagebreak[3]
+        \noindent #1 \\[\smallskipamount] \ignorespaces}%
+        {}
+
+\newenvironment{case}[1]{%
+        \refstepcounter{casecounter}%
+        \begin{namedcase}{\casefont{Case \thecasecounter: } #1}%
+        }{\end{namedcase}}
+
+\newenvironment{textcase}[1]{%
+        \refstepcounter{casecounter}%
+        \begin{namedcase}{\casefont{Case: } #1}%
+        }{\end{namedcase}}
+
+\newenvironment{namedeqncase}[2]{%
+        \begin{namedcase}{\casefont{Case {\rm #1}: } $\bcpcasearray{#2}$ }%
+        }{\end{namedcase}}
+
+\newenvironment{numberedcase}[2]{%
+        \begin{namedcase}{\casefont{Case {\rm #1}: } $\bcpcasearray{#2}$ }%
+        }{\end{namedcase}}
+
+\newenvironment{numberedcases}[2]{%
+        \begin{namedcase}{\casefont{Cases {\rm #1}: } $\bcpcasearray{#2}$ }%
+        }{\end{namedcase}}
+
+\newenvironment{namedcases}[1]{%
+        \begin{namedcase}{\casefont{Cases {\rm #1}: }}%
+        }{\end{namedcase}}
+
+\newenvironment{rncase}[1]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}: }}%
+        }{\end{namedcase}}
+
+\newenvironment{rntextcase}[2]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}: } #2}%
+        }{\end{namedcase}}
+
+\newenvironment{rneqncase}[2]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}: }
+           $\begin{bcpcasearray} #2 \end{bcpcasearray}$ }%
+        }{\end{namedcase}}
+
+\newenvironment{rnsubcase}[1]{%
+        \begin{namedcase}{\casefont{Subcase \rn{#1}: }}%
+        }{\end{namedcase}}
+
+\newenvironment{rneqnsubcase}[2]{%
+        \begin{namedcase}{\casefont{Subcase \rn{#1}: } 
+           $\begin{bcpcasearray} #2 \end{bcpcasearray}$ }%
+        }{\end{namedcase}}
+
+\newenvironment{textsubcase}[1]{%
+        \begin{namedcase}{\casefont{Subcase: } #1}\ignorespaces
+        }{\end{namedcase}}
+
+\newenvironment{eqncase}[1]{%
+        \begin{namedcase}{\casefont{Case: } 
+           $\begin{bcpcasearray} #1 \end{bcpcasearray}$ }\ignorespaces
+        }{\end{namedcase}}
+
+\newenvironment{eqnsubcase}[1]{%
+        \begin{namedcase}{\casefont{Subcase: } 
+           $\begin{bcpcasearray} #1 \end{bcpcasearray}$ }\ignorespaces
+        }{\end{namedcase}}
+
+\newenvironment{rulepaircase}[3]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}/\rn{#2}: }
+        $#3$}\smallskip%
+        }{\end{namedcase}}
+
+\newenvironment{rulecase}[2]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}:}\hfill
+        \advancedepthby{0.5\baselineskip}%
+                       {\flushtopCaseHeader{\small #2}}\hfill}}{\end{namedcase}}
+
+\newenvironment{infaxcase}[2]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}: } $#2$}\smallskip %
+        }{\end{namedcase}}
+
+\newenvironment{infrulecase}[3]{%
+        \begin{namedcase}{\casefont{Case \rn{#1}: } 
+                          ${\strut\displaystyle #2}
+                           \over
+                           {\strut\displaystyle #3}$}
+                         \smallskip
+        }{\end{namedcase}}
+
+\newenvironment{infaxpluscase}[3]{%
+        \begin{namedcase}{\casefont{Case #1: } $#2$\ \ \ #3}\smallskip
+        }{\end{namedcase}}
+
+\newenvironment{infrulepluscase}[4]{%
+        \begin{namedcase}{\casefont{Case #1: } 
+                          ${\strut\displaystyle #2}
+                           \over
+                           {\strut\displaystyle #3}$
+                          \ \ \ #4}
+                         \smallskip
+        }{\end{namedcase}}
+
+\newenvironment{basecase}[1]{%
+        \begin{namedcase}{\casefont{Base step: } #1}%
+        }{\end{namedcase}}
+
+\newenvironment{inductioncase}[1]{%
+        \begin{namedcase}{\casefont{Induction step: } #1}%
+        }{\end{namedcase}}
+
+
