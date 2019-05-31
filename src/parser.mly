@@ -7,6 +7,8 @@
 	  let accum = List.hd rev in
 	  List.fold_left (fun curr next  ->
 					   Seq (next, curr)) accum (List.tl rev)
+
+	let _label = ref 0;;
 %}
 // values
 %token UNIT
@@ -26,6 +28,8 @@
 %token SEMI COMMA
 // structure
 %token RPAREN LPAREN LBRACE RBRACE EOF
+
+%token COLON
 
 %token UNDERSCORE
 
@@ -76,7 +80,9 @@ let lhs :=
   | STAR; { Nondet }
   | v1 = ID; PLUS; v2 = ID; <Plus>
 
-let fn_call := callee = ID; arg_names = arg_list; { {callee; arg_names} }
+let fn_call := callee = ID; lbl = option(call_label); arg_names = arg_list; { {callee; arg_names; label = match lbl with Some l -> l | None -> (incr _label; !_label)} }
+
+let call_label := COLON; ~ = INT; <>
 
 let ref_cont :=
   | ~ = ID; <RVar>

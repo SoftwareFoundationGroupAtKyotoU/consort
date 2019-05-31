@@ -7,7 +7,8 @@ type ref_init =
 
 type fn_call = {
   callee: string;
-  arg_names: string list
+  arg_names: string list;
+  label: int;
 }
 
 
@@ -47,8 +48,8 @@ let pprint_var ff = fprintf ff "%s"
 
 let pprint_int ff = fprintf ff "%d"
 
-let pprint_fn_call ff { callee; arg_names } =
-  fprintf ff "%s(%s)" callee @@ String.concat ", " arg_names
+let pprint_fn_call ff { callee; arg_names; label } =
+  fprintf ff "%s:%d(%s)" callee label @@ String.concat ", " arg_names
 
 let pprint_rinit ff = function
   | RNone -> pp_print_string ff "_"

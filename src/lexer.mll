@@ -29,6 +29,7 @@ rule read =
   | "in" { IN }
   | '*' { STAR }
   | ';' { SEMI }
+  | ':' { COLON }
   | ',' { COMMA }
   | "mkref" { MKREF }
   | "alias" { ALIAS }
