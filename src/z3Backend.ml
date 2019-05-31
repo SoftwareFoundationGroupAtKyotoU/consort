@@ -1,0 +1,124 @@
+open Format
+open RefinementTypes
+
+(*let ovar_name ovar = Printf.sprintf "ovar-%d" ovar*)
+
+let pred_name p = Printf.sprintf "pred-%d" p
+
+let pp_sexpr printer ff =
+  pp_open_box ff 2;
+  pp_print_string ff "(";
+  printer (pp_print_space ff) (fun s -> pp_print_string ff s);
+  pp_print_string ff ")";
+  pp_close_box ff ()
+
+let rec iter_print ~spc pf l = match l with
+  | [] -> ()
+  | [h] -> pf h
+  | h::t -> pf h; spc (); iter_print ~spc pf t
+
+let rec init i f =
+  if i = 0 then []
+  else (f i)::(init (i - 1) f)
+
+let print_string_list l ff =
+  pp_sexpr (fun spc ps ->
+    iter_print ~spc ps l
+  ) ff
+
+let print_generic head l ff =
+  pp_sexpr (fun spc ps ->
+    ps head; spc ();
+    iter_print ~spc (fun susp -> susp ff) l
+  ) ff
+
+let pg = print_generic
+
+module IntMap = RefinementTypes.IntMap
+module SM = RefinementTypes.SM
+
+let plift s ff = pp_print_string ff s
+
+let pp_lin_op lo ff = match lo with
+  | LConst i -> pp_print_string ff @@ string_of_int i
+  | LVar (1,n) -> pp_print_string ff n
+  | LVar (0,_) -> pp_print_string ff "0"
+  | LVar (k,n) when k > 0 -> print_string_list [ "*"; (string_of_int k) ; n ] ff
+  | LVar (k,n) when k < 0 -> print_string_list [ "*"; Printf.sprintf "(- %d)" @@ abs k; n ] ff
+  | _ -> assert false
+
+let pp_imm o ff = match o with
+  | Ast.IVar v -> pp_print_string ff v
+  | Ast.IInt i -> pp_print_string ff @@ string_of_int i
+
+let pp_relop binding r ff = match r with
+  | Nu -> pp_print_string ff binding
+  | RImm ri -> pp_imm ri ff
+
+let refine_args o l = match o with
+  | Some v -> List.filter ((<>) v) l
+  | None -> l
+  
+
+let rec pp_refine r binding ff = match r with
+  | Pred (i,args,o) ->
+    print_string_list ([ pred_name i; "CTXT"; binding ] @ (refine_args o args)) ff
+  | CtxtPred (ctxt,i,args,o) -> print_string_list ([ pred_name i; string_of_int ctxt; binding ] @ (refine_args o args)) ff
+  | Top -> pp_print_string ff "true"
+  | ConstEq n -> print_string_list [ "="; binding; string_of_int n ] ff
+  | Linear { op1; op2 } ->
+    print_generic "=" [
+        plift binding;
+        print_generic "+" [
+          pp_lin_op op1;
+          pp_lin_op op2
+        ]
+      ] ff
+  | Relation {rel_op1; rel_cond; rel_op2 } ->
+    pg (Ast.cond_to_string rel_cond) [
+          pp_relop binding rel_op1;
+          pp_imm rel_op2
+      ] ff
+  | And (r1,r2) ->
+    pg "and" [
+        pp_refine r1 binding;
+        pp_refine r2 binding
+      ] ff
+      
+    
+
+let pp_constraint ff { env; ante; conseq; _ } =
+  let gamma = SM.bindings env in
+  let free_vars = ["(CTXT Int)"; "(NU Int)"] @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
+  let denote_gamma = List.map (fun (k,t) ->
+      pp_refine (RefinementTypes.get_refinement t) k
+    ) gamma in
+  pg "assert" [
+    pg "forall" [
+      print_string_list free_vars;
+      pg "=>" [
+        pg "and" ((pp_refine ante "NU")::denote_gamma);
+        pp_refine conseq "NU"
+      ]
+    ]
+  ] ff;
+  pp_print_cut ff ()
+
+let solve _owner_cons refinements arity =
+  let buf = Buffer.create 1024 in
+  let ff = Format.formatter_of_buffer buf in
+  pp_open_vbox ff 0;
+  IntMap.iter (fun k v ->
+    pp_sexpr (fun spc ps ->
+      ps "declare-fun"; spc ();
+      ps @@ pred_name k; spc();
+      print_string_list (init v (fun _ -> "Int")) ff;
+      spc ();
+      ps "Bool"
+    ) ff;
+    pp_print_cut ff ()
+  ) arity;
+  List.iter (pp_constraint ff) refinements;
+  pp_close_box ff ();
+  print_endline @@ Buffer.contents buf;
+  true
