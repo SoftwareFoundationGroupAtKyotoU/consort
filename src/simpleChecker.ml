@@ -1,6 +1,13 @@
 open Ast
+open SimpleTypes
 
-module UnionFind = struct
+module UnionFind : sig
+  type t
+  val find: t -> int -> int
+  val union: t -> int -> int -> unit
+  val mk: (parent:int -> child:int -> unit) -> t
+  val new_node: t -> int
+end = struct
   type node = {
     id: int;
     mutable parent: node;
@@ -34,13 +41,16 @@ module UnionFind = struct
       node.parent <- found;
       found
 
-  let find uf id1 =
+  let find_internal uf id1 =
     let node = Hashtbl.find uf.table id1 in
-    compress node
+    (compress node)
+
+  let find uf id1 =
+    (find_internal uf id1).id
 
   let union uf id1 id2 =
-    let n1 = find uf id1 in
-    let n2 = find uf id2 in
+    let n1 = find_internal uf id1 in
+    let n2 = find_internal uf id2 in
     if n1 == n2 then
       ()
     else begin
@@ -63,12 +73,6 @@ end
 
 module StringMap = Map.Make(String)
 
-type r_typ = [
-  | `Int
-  | `Unit
-  | `IntRef
-]
-
 type typ = [
   | `Var of int
   | r_typ
@@ -77,11 +81,6 @@ type typ = [
 type funtyp_v = {
   arg_types_v: int list;
   ret_type_v: int
-}
-
-type funtyp = {
-  arg_types: r_typ list;
-  ret_type: r_typ
 }
 
 type funenv = funtyp_v StringMap.t
@@ -110,7 +109,7 @@ let resolve_type uf resolv r =
   match r with
   | #r_typ -> r
   | `Var v ->
-    let id = (UnionFind.find uf v).UnionFind.id in
+    let id = UnionFind.find uf v in
     if Hashtbl.mem resolv id then
       (Hashtbl.find resolv id :> typ)
     else r
@@ -131,7 +130,7 @@ let unify ctxt t1 t2 =
   | ((#r_typ as t1), (#r_typ as t2)) when t1 = t2 -> ()
   | _ -> failwith "Ill-typed"
 
-let process_call lkp ctxt { callee; arg_names } =
+let process_call lkp ctxt { callee; arg_names; _ } =
     let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
     List.iter2 (fun a_var t_var ->
       unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
@@ -210,17 +209,6 @@ let typecheck_prog (fns,body) =
     let ret_type = get_soln @@ `Var ret_type_v in
     StringMap.add name { arg_types; ret_type } acc
   ) StringMap.empty fns
-
-let type_to_string = function
-  | `Int -> "int"
-  | `IntRef -> "int ref"
-  | `Unit -> "unit"
-
-let fntype_to_string { arg_types; ret_type} =
-  Printf.sprintf "(%s) -> %s" 
-    (String.concat ", " @@ List.map type_to_string arg_types) @@
-    type_to_string ret_type
-  
 
 (* names typecheck prog =
  *   let constr = gather_constraints prog in

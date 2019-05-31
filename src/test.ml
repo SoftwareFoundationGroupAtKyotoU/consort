@@ -8,5 +8,5 @@ let () =
   let open SimpleChecker in
   let program_types = typecheck_prog ast in
   StringMap.iter (fun n a ->
-    Printf.printf "%s: %s\n" n @@ fntype_to_string a
+    Printf.printf "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
   ) program_types
