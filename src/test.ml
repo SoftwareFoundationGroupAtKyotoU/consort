@@ -9,4 +9,7 @@ let () =
   let program_types = typecheck_prog ast in
   StringMap.iter (fun n a ->
     Printf.printf "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
-  ) program_types
+  ) program_types;
+  let (o, r, a) = RefinementTypes.infer program_types ast in
+  ignore @@ Z3Backend.solve o r a
+      

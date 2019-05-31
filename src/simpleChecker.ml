@@ -140,6 +140,10 @@ let rec process_expr ctxt e =
   let res t = resolve ctxt t in
   let lkp n = StringMap.find n ctxt.tyenv |> res in
   let unify_var n typ = unify ctxt (lkp n) typ in
+  let unify_imm c = match c with
+    | IInt _ -> ();
+    | IVar v -> unify_var v `Int
+  in
   match e with
   | EVar v -> lkp v
   | EInt _ -> `Int
@@ -160,9 +164,9 @@ let rec process_expr ctxt e =
     unify_var v1 `IntRef;
     unify_var v2 `IntRef;
     `Unit
-  | Assert (_,v1,v2) ->
-    unify_var v1 `Int;
-    unify_var v2 `Int;
+  | Assert { rop1; rop2; _ } ->
+    unify_imm rop1;
+    unify_imm rop2;
     `Unit
   | ECall c -> process_call lkp ctxt c
   | Let (x,lhs,expr) ->
@@ -175,13 +179,13 @@ let rec process_expr ctxt e =
       | Deref v -> unify_var v `IntRef; `Int
       | Call c -> process_call lkp ctxt c
       | Plus (v1, v2) ->
-        unify_var v1 `Int;
-        unify_var v2 `Int;
+        unify_imm v1;
+        unify_imm v2;
         `Int
       | Nondet -> `Int
     in
     process_expr { ctxt with tyenv = StringMap.add x v_type ctxt.tyenv } expr
-        
+
 let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt =  { uf; fenv; tyenv; resolv } in
@@ -209,7 +213,3 @@ let typecheck_prog (fns,body) =
     let ret_type = get_soln @@ `Var ret_type_v in
     StringMap.add name { arg_types; ret_type } acc
   ) StringMap.empty fns
-
-(* names typecheck prog =
- *   let constr = gather_constraints prog in
- *   solve_constraints constr *)

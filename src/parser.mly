@@ -61,7 +61,7 @@ let expr :=
   | x = ID; ASSIGN; y = ID; <Assign>
   | call = fn_call; <ECall>
   | ALIAS; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
-  | ASSERT; LPAREN; x = ID; cond = relation; y = ID; RPAREN; { Assert(cond, x, y) }
+  | ASSERT; LPAREN; rop1 = imm_op; cond = relation; rop2 = imm_op; RPAREN; { Assert { rop1; cond; rop2 } }
   | ~ = ID; <EVar>
   | ~ = INT; <EInt>
 
@@ -78,9 +78,12 @@ let lhs :=
   | MKREF; ~ = ref_cont; <Mkref>
   | STAR; ~ = ID; <Deref>
   | STAR; { Nondet }
-  | v1 = ID; PLUS; v2 = ID; <Plus>
+  | v1 = imm_op; PLUS; v2 = imm_op; <Plus>
 
 let fn_call := callee = ID; lbl = option(call_label); arg_names = arg_list; { {callee; arg_names; label = match lbl with Some l -> l | None -> (incr _label; !_label)} }
+
+let imm_op := ~ = INT; <IInt> | ~ = ID; <IVar>
+
 
 let call_label := COLON; ~ = INT; <>
 

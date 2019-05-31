@@ -1,4 +1,5 @@
 open Format
+open Sexplib.Std
 
 type ref_init =
   | RNone
@@ -12,12 +13,16 @@ type fn_call = {
 }
 
 
+type imm_op =
+    IVar of string
+  | IInt of int [@@deriving sexp]
+
 type lhs =
   | Var of string
   | Const of int
   | Mkref of ref_init
   | Deref of string
-  | Plus of string * string
+  | Plus of imm_op * imm_op
   | Call of fn_call
   | Nondet
 
@@ -25,7 +30,13 @@ type cond =
   | Leq
   | Eq
   | Neq
-  | Lt
+  | Lt [@@deriving sexp]
+
+type relation = {
+  rop1: imm_op;
+  cond: cond;
+  rop2: imm_op
+}
 
 type exp =
   | Unit
@@ -36,7 +47,7 @@ type exp =
   | Assign of string * string
   | Let of string * lhs * exp
   | Alias of string * string
-  | Assert of cond * string * string
+  | Assert of relation
   | ECall of fn_call
 
 
@@ -56,12 +67,20 @@ let pprint_rinit ff = function
   | RVar v -> pprint_var ff v
   | RInt i -> pprint_int ff i
 
+let pprint_imm_op ff = function
+  | IInt i -> pprint_int ff i
+  | IVar v -> pprint_var ff v
+
 let pprint_lhs ff = function
   | Var x -> pprint_var ff x
   | Const i -> pprint_int ff i
   | Mkref v -> pp_print_string ff "mkref "; pprint_rinit ff v
   | Deref v -> fprintf ff "*%s" v
-  | Plus (v1,v2) -> fprintf ff "%s + %s" v1 v2
+  | Plus (v1,v2) -> begin
+      pprint_imm_op ff v1;
+      pp_print_string ff " + ";
+      pprint_imm_op ff v2
+    end
   | Call c -> pprint_fn_call ff c
   | Nondet -> pp_print_string ff "*"
 
@@ -110,10 +129,12 @@ let rec pprint_expr ~force_brace ff e =
     pprint_expr ~force_brace:true ff fl
   | Alias(x,y) ->
     fprintf ff "alias(%s = %s)" x y
-  | Assert(cond,x,y) ->
-    fprintf ff "assert(%s " x;
+  | Assert { rop1; cond; rop2 } ->
+    fprintf ff "assert(";
+    pprint_imm_op ff rop1;
     pprint_cond ff cond;
-    fprintf ff " %s)" y
+    pprint_imm_op ff rop2;
+    fprintf ff " )"
   | EVar v -> pprint_var ff v
   | EInt i -> pprint_int ff i
   | ECall c -> pprint_fn_call ff c
