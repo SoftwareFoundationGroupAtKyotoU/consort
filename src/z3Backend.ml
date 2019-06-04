@@ -168,6 +168,14 @@ let pp_oconstraint ff ocon =
   end;
   pp_print_cut ff ()
 
+let call_z3 cons =
+  let (i,o) = Unix.open_process "z3 -in -T:30" in
+  output_string o cons;
+  output_string o "(check-sat)\n";
+  close_out o;
+  let res = input_line i in
+  res = "sat"
+
 let solve owner_cons ovars refinements arity =
   let buf = Buffer.create 1024 in
   let ff = Format.formatter_of_buffer buf in
@@ -189,5 +197,6 @@ let solve owner_cons ovars refinements arity =
   List.iter (pp_oconstraint ff) owner_cons;
   List.iter (pp_constraint ff) refinements;
   pp_close_box ff ();
-  print_endline @@ Buffer.contents buf;
-  true
+  let cons = Buffer.contents buf in
+  Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons;
+  call_z3 cons
