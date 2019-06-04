@@ -1,7 +1,7 @@
 open Format
 open RefinementTypes
 
-(*let ovar_name ovar = Printf.sprintf "ovar-%d" ovar*)
+let ovar_name ovar = Printf.sprintf "ovar-%d" ovar
 
 let pred_name p = Printf.sprintf "pred-%d" p
 
@@ -38,6 +38,7 @@ module IntMap = RefinementTypes.IntMap
 module SM = RefinementTypes.SM
 
 let plift s ff = pp_print_string ff s
+let pl = plift
 
 let pp_lin_op lo ff = match lo with
   | LConst i -> pp_print_string ff @@ string_of_int i
@@ -58,7 +59,6 @@ let pp_relop binding r ff = match r with
 let refine_args o l = match o with
   | Some v -> List.filter ((<>) v) l
   | None -> l
-  
 
 let rec pp_refine r binding ff = match r with
   | Pred (i,args,o) ->
@@ -84,27 +84,91 @@ let rec pp_refine r binding ff = match r with
         pp_refine r1 binding;
         pp_refine r2 binding
       ] ff
-      
-    
 
-let pp_constraint ff { env; ante; conseq; _ } =
+let po = function
+  | OVar o -> pl @@ ovar_name o
+  | OConst f -> pl @@ string_of_float f
+
+let pp_owner_ante (o,c,f) =
+  let rel = match c with
+    | `Ge -> ">="
+    | `Gt -> ">"
+    | `Eq -> "="
+  in
+  pg rel [
+    po o;
+    plift @@ string_of_float f
+  ]
+
+let pp_constraint ff { env; ante; conseq; owner_ante } =
   let gamma = SM.bindings env in
   let free_vars = ["(CTXT Int)"; "(NU Int)"] @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
   let denote_gamma = List.map (fun (k,t) ->
-      pp_refine (RefinementTypes.get_refinement t) k
+      match t with
+      | `Int r -> pp_refine r k
+      | _ -> (fun _ -> ())
     ) gamma in
+  let oante = List.map pp_owner_ante owner_ante in
   pg "assert" [
     pg "forall" [
       print_string_list free_vars;
       pg "=>" [
-        pg "and" ((pp_refine ante "NU")::denote_gamma);
+        pg "and" ((pp_refine ante "NU")::(oante @ denote_gamma));
         pp_refine conseq "NU"
       ]
     ]
   ] ff;
   pp_print_cut ff ()
 
-let solve _owner_cons refinements arity =
+let pp_oconstraint ff ocon =
+  begin
+    match ocon with
+    | Write o -> pg "assert" [
+                     pg "=" [
+                       po o;
+                       plift "1.0"
+                     ]
+                   ] ff
+    | Live o -> pg "assert" [
+                    pg ">" [
+                      po o;
+                      plift "0.0"
+                    ]
+                  ] ff
+    | Shuff ((o1,o2),(o1',o2')) ->
+      pg "assert" [
+          pg "=" [
+            pg "+" [
+              po o1;
+              po o2
+            ];
+            pg "+" [
+              po o1';
+              po o2'
+            ];
+          ]
+        ] ff
+    | Split (o,(o1,o2)) ->
+      pg "assert" [
+          pg "=" [
+            po o;
+            pg "+" [
+              po o1;
+              po o2
+            ]
+          ]
+        ] ff
+    | Eq (o1,o2) ->
+      pg "assert" [
+          pg "=" [
+            po o1;
+            po o2
+          ]
+        ] ff
+  end;
+  pp_print_cut ff ()
+
+let solve owner_cons ovars refinements arity =
   let buf = Buffer.create 1024 in
   let ff = Format.formatter_of_buffer buf in
   pp_open_vbox ff 0;
@@ -118,6 +182,11 @@ let solve _owner_cons refinements arity =
     ) ff;
     pp_print_cut ff ()
   ) arity;
+  List.iter (fun ov ->
+    print_string_list [ "declare-fun"; ovar_name ov; "()"; "Real" ] ff;
+    pp_print_cut ff ()
+  ) ovars;
+  List.iter (pp_oconstraint ff) owner_cons;
   List.iter (pp_constraint ff) refinements;
   pp_close_box ff ();
   print_endline @@ Buffer.contents buf;
