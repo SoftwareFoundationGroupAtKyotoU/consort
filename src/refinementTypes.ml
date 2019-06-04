@@ -288,6 +288,10 @@ let imm_to_lin = function
 let lift_relation { rop1; cond; rop2 } =
   Relation { rel_op1 = RImm rop1; rel_cond = cond; rel_op2 = rop2 }
 
+let add_relation_constr t r =
+  let r' = And (get_refinement t,r) in
+  update_refinement r' t
+
 let dump_env ?(msg) tev =
   (match msg with
   | Some m -> print_endline m;
@@ -339,9 +343,11 @@ let rec process_expr ctxt e =
       add_type v (unsafe_get ret) ctxt
     | Deref ptr ->
       let (r,o) = lkp_ref ptr in
-      let target_type = deref r in
-      let (ctxt',(t1,t2)) = split_type ctxt (target_type :> typ) in
-      update_type ptr (ref_of t1 o) ctxt'
+      let target_type = (deref r :> typ) in
+      let (ctxt',(t1,t2)) = split_type ctxt target_type in
+      update_type ptr (add_relation_constr (ref_of t1 o) (Relation {
+            rel_op1 = Nu; rel_cond = Eq; rel_op2 = IVar v
+          })) ctxt'
       |> add_type v t2
       |> add_owner_con [Live o]
     | Mkref init ->
@@ -410,17 +416,14 @@ let rec process_expr ctxt e =
     (res, `UnitT)
   | Cond(i,v,e1,e2) ->
     let add_pc_refinement ctxt cond =
-      let curr_ref = match lkp v with
-        | `Int r -> r
-        | _ -> assert false
-      in
+      let curr_ref = lkp v in
       let branch_refinement = {
         rel_op1 = Nu;
         rel_cond = cond;
         rel_op2 = IInt 0
       } in
-      let new_refinement = And (curr_ref,Relation branch_refinement) in
-      update_type v (`Int new_refinement) ctxt
+      ctxt |>
+      update_type v @@ add_relation_constr curr_ref @@ Relation branch_refinement 
     in
     let (ctxt1,t1) = process_expr (add_pc_refinement ctxt Eq) e1 in
     let (ctxt2,t2) = process_expr (add_pc_refinement {

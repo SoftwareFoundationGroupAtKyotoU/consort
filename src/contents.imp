@@ -1,0 +1,6 @@
+{
+  let x = mkref _ in
+  let p = *x in
+  let q = *x in
+  assert(p = q)
+}
