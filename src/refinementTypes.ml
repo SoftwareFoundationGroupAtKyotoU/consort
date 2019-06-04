@@ -109,13 +109,14 @@ type context = {
   theta: funenv;
   gamma: tenv;
   ownership: ocon list;
+  ovars: int list;
   refinements: tcon list;
   pred_arity: int IntMap.t;
   v_counter: int
 }
 
 let alloc_ovar ctxt =
-  ({ ctxt with v_counter = ctxt.v_counter + 1 }, OVar ctxt.v_counter)
+  ({ ctxt with v_counter = ctxt.v_counter + 1; ovars = ctxt.v_counter::ctxt.ovars }, OVar ctxt.v_counter)
 
 let (>>) f g = fun st ->
   let (st',v1) = f st in
@@ -271,9 +272,6 @@ let dump_env ?(msg) tev =
     
 
 let rec process_expr ctxt e =
-  print_endline "Processing ";
-  Ast.pretty_print_expr e |> print_endline;
-  dump_env ~msg:"ENV =>>>" ctxt.gamma;
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
     | `IntRef (r,o) -> (r,o)
@@ -529,6 +527,7 @@ let infer st (fns,main) =
     theta = SM.empty;
     gamma = SM.empty;
     ownership = [];
+    ovars = [];
     refinements = [];
     pred_arity = IntMap.empty;
     v_counter = 0
@@ -536,10 +535,6 @@ let infer st (fns,main) =
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
   let (ctxt'',_) = process_expr ctxt' main in
-  let constraints = [%sexp_of: tcon list] ctxt''.refinements in
-  Sexplib.Sexp.output_hum_indent 2 Pervasives.stdout constraints;
   print_newline ();
-  (ctxt''.ownership, ctxt''.refinements, ctxt''.pred_arity)
-    
-(* solve ctxt'' *)
+  (ctxt''.ownership, ctxt''.ovars, ctxt''.refinements, ctxt''.pred_arity)
 

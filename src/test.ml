@@ -10,6 +10,12 @@ let () =
   StringMap.iter (fun n a ->
     Printf.printf "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
   ) program_types;
-  let (o, r, a) = RefinementTypes.infer program_types ast in
-  ignore @@ Z3Backend.solve o r a
+  let (o, ov, r, a) = RefinementTypes.infer program_types ast in
+  let res =
+    if Z3Backend.solve o ov r a then
+      "VERIFIED"
+    else
+      "UNVERIFIED"
+  in
+  print_endline res
       
