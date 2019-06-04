@@ -613,7 +613,6 @@ let infer st (fns,main) =
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
   let (ctxt'',_) = process_expr ctxt' main in
-  print_newline ();
   print_pred_details ctxt''.pred_detail;
   (ctxt''.ownership, ctxt''.ovars, ctxt''.refinements, ctxt''.pred_arity)
   

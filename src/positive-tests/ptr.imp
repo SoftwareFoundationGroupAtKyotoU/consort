@@ -6,6 +6,6 @@
       alias(x = y)
     };
     x := 3;
-	let t = *x in assert(t = 3)
+    let t = *x in assert(t = 3)
   }
 }
