@@ -3,6 +3,20 @@ open Sexplib.Std
     
 module SM = SimpleChecker.StringMap
 
+type pred_loc =
+  | LCond of int
+  | LArg of string
+  | LReturn of string
+  | LOutput of string
+  | LAlias of int
+  | LLet of int
+
+type pred_context = {
+  fv: string list;
+  loc: pred_loc;
+  target_var: string option
+}
+
 type rel_op =
     Nu
   | RImm of imm_op [@@deriving sexp]
@@ -112,7 +126,8 @@ type context = {
   ovars: int list;
   refinements: tcon list;
   pred_arity: int IntMap.t;
-  v_counter: int
+  v_counter: int;
+  pred_detail: (int,pred_context) Hashtbl.t
 }
 
 let alloc_ovar ctxt =
@@ -183,17 +198,21 @@ let constrain_type gamma t r ctxt =
 let constrain_var gamma ctxt var r =
   constrain_type gamma (SM.find var gamma) r ctxt
 
-let alloc_pred fv_count ctxt =
+let alloc_pred ?target_var ~loc fv ctxt =
   let n = ctxt.v_counter in
-  let arity = fv_count + 2 (* 1 for nu and 1 for context *) in
+  let arity = (List.length fv) -
+      (match target_var with
+      | Some v when List.mem v fv -> 1
+      | _ -> 0) + 2 (* 1 for nu and 1 for context *)
+  in
+  Hashtbl.add ctxt.pred_detail n { fv; loc; target_var };
   ({ ctxt with
      v_counter = n + 1;
      pred_arity = IntMap.add n arity ctxt.pred_arity
    }, n)
 
-let make_fresh_pred ?target_var ~fv ctxt =
-  let num_vars = (List.length fv) - (match target_var with Some v when List.mem v fv -> 1 | _ -> 0) in
-  let (ctxt',p) = alloc_pred num_vars ctxt in
+let make_fresh_pred ?target_var ~loc ~fv ctxt =
+  let (ctxt',p) = alloc_pred ?target_var ~loc fv ctxt in
   (ctxt',Pred (p,fv,target_var))
 
 let update_refinement r = function
@@ -210,8 +229,8 @@ let update_var_refinement var r ctxt =
   in
   update_type var new_type ctxt
 
-let subtype_fresh gamma ctxt v ~fv =
-  let (ctxt',fresh_pred) = make_fresh_pred ~fv ctxt in
+let subtype_fresh ~loc gamma ctxt v ~fv =
+  let (ctxt',fresh_pred) = make_fresh_pred ~target_var:v ~loc ~fv ctxt in
   constrain_var gamma ctxt' v fresh_pred
   |> update_var_refinement v fresh_pred
 
@@ -238,7 +257,7 @@ let predicate_vars kv =
       | _ -> acc
   ) [] kv |> List.rev
 
-let remove_var v ctxt =
+let remove_var ~loc v ctxt =
   let curr_te = ctxt.gamma in
   let ctxt = { ctxt with gamma = SM.remove v ctxt.gamma } in
   let bindings = SM.bindings ctxt.gamma in
@@ -249,7 +268,7 @@ let remove_var v ctxt =
         | `Int r -> free_vars_contains v r 
     ) bindings in
   List.fold_left (fun ctxt' (k,_) ->
-    subtype_fresh curr_te ctxt' k ~fv:in_scope
+    subtype_fresh ~loc curr_te ctxt' k ~fv:in_scope
   ) ctxt need_update
 
 let unsafe_get o =
@@ -298,7 +317,7 @@ let rec process_expr ctxt e =
     add_owner_con [Write o] ctxt
     |> update_type lhs @@ ref_of (`Int (ConstEq i)) o
     |> with_type `UnitT
-  | Let (_i,v,lhs,exp) ->
+  | Let (i,v,lhs,exp) ->
     let bound_ctxt = begin
     match lhs with
     | Var left_v ->
@@ -330,7 +349,7 @@ let rec process_expr ctxt e =
         |> add_type v (ref_of t2 @@ OConst 1.0)
     end in
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
-    remove_var v ctxt'
+    remove_var ~loc:(LLet i) v ctxt'
     |> with_type ret_t
   | ECall c -> begin
     let (ctxt, ret) = process_call ctxt c in
@@ -340,12 +359,13 @@ let rec process_expr ctxt e =
     end
   | Assert relation ->
     (add_constraint ctxt.gamma ctxt Top (lift_relation relation), `UnitT)
-  | Alias (_id,v1,v2) ->
+  | Alias (id,v1,v2) ->
+    let loc = LAlias id in
     let (r1,o1) = lkp_ref v1 in
     let (r2,o2) = lkp_ref v2 in
     let free_vars = predicate_vars @@ SM.bindings ctxt.gamma in
     let (ctxt',(o1',o2')) = ((alloc_ovar) >> (alloc_ovar)) ctxt in
-    let (ctxt'',(r1',r2')) = ((make_fresh_pred ~fv:free_vars) >> (make_fresh_pred ~fv:free_vars)) ctxt' in
+    let (ctxt'',(r1',r2')) = ((make_fresh_pred ~target_var:v1 ~loc ~fv:free_vars) >> (make_fresh_pred ~target_var:v2 ~loc ~fv:free_vars)) ctxt' in
     let constraints = [
       {
         env = ctxt''.gamma;
@@ -381,7 +401,7 @@ let rec process_expr ctxt e =
       |> update_type v2 @@ `IntRef (r2',o2')
     in
     (res, `UnitT)
-  | Cond(_i,v,e1,e2) ->
+  | Cond(i,v,e1,e2) ->
     let add_pc_refinement ctxt cond =
       let curr_ref = match lkp v with
         | `Int r -> r
@@ -398,16 +418,19 @@ let rec process_expr ctxt e =
     let (ctxt1,t1) = process_expr (add_pc_refinement ctxt Eq) e1 in
     let (ctxt2,t2) = process_expr (add_pc_refinement {
         ctxt with
-        refinements = ctxt1.refinements;
-        v_counter = ctxt1.v_counter;
-        ownership = ctxt1.ownership;
-      } Neq) e2 in
+          refinements = ctxt1.refinements;
+          v_counter = ctxt1.v_counter;
+          ownership = ctxt1.ownership;
+          pred_arity = ctxt1.pred_arity;
+          ovars = ctxt1.ovars
+        } Neq) e2 in
+    let loc = LCond i in
     let u_ctxt = { ctxt2 with gamma = SM.empty } in
     let b1 = SM.bindings ctxt1.gamma in
     let b2 = SM.bindings ctxt2.gamma in
     let predicate_vars = predicate_vars @@ b1 in
-    let subsume_types ctxt t1 t2 =
-      let (ctxt',t,r') = make_fresh_type ~fv:predicate_vars t1 ctxt in
+    let subsume_types ctxt ?target_var t1 t2 =
+      let (ctxt',t,r') = make_fresh_type ~loc ?target_var ~fv:predicate_vars t1 ctxt in
       let c_up =
         constrain_type ctxt1.gamma t1 r' ctxt'
         |> constrain_type ctxt2.gamma t2 r'
@@ -418,15 +441,15 @@ let rec process_expr ctxt e =
     in
     let c_sub = List.fold_left2 (fun ctxt (k1,t1) (k2,t2) ->
         assert (k1 = k2);
-        let (ctxt',t) = subsume_types ctxt t1 t2 in
+        let (ctxt',t) = subsume_types ctxt ~target_var:k1 t1 t2 in
         add_type k1 t ctxt'
       ) u_ctxt b1 b2 in
     match t1,t2 with
     | `UnitT,`UnitT -> (c_sub,`UnitT)
     | (#typ as t1),(#typ as t2) -> ((subsume_types c_sub t1 t2) :> (context * etype))
     | _ -> assert false
-and make_fresh_type ~fv t ctxt =
-  let (ctxt',r) = make_fresh_pred ~fv ctxt in 
+and make_fresh_type ?target_var ~loc ~fv t ctxt =
+  let (ctxt',r) = make_fresh_pred ?target_var ~loc ~fv ctxt in 
   match t with
   | `Int _ ->
     (ctxt',`Int r,r)
@@ -489,32 +512,54 @@ let process_function ctxt fdef =
   let c = process_function_bind ctxt fdef in
   { c with gamma = SM.empty }
 
+let loc_to_string =
+  let labeled_expr s i = Printf.sprintf "%s@%d" s i in
+  let fn_loc fn l = Printf.sprintf "fn %s %s" fn l in
+  function
+  | LCond i -> labeled_expr "if" i
+  | LArg f -> fn_loc f "Arg"
+  | LReturn f -> fn_loc f "Ret"
+  | LOutput f -> fn_loc f "Out"
+  | LAlias i -> labeled_expr "alias" i
+  | LLet i -> labeled_expr "let" i
+
+let print_pred_details t =
+  Hashtbl.iter (fun k { fv; loc; target_var } ->
+    Printf.fprintf stderr "%d: >>\n" k;
+    Printf.fprintf stderr "  Free vars: [%s]\n" @@ String.concat ", " fv;
+    Printf.fprintf stderr "  Target var: %s\n" @@ (match target_var with
+    | Some v -> v
+    | None -> "<NONE>");
+    Printf.fprintf stderr "  At: %s\n<<\n" @@ loc_to_string loc
+  ) t
+  
+
 let infer st (fns,main) =
   let init_fun_type ctxt f_def =
-    let gen_refine_templ ~is_var_ref pvar_count t ctxt =
+    let gen_refine_templ ?target_var ~loc free_vars t ctxt =
       match t with
       | `Int ->
-        let (ctxt',p) = alloc_pred (pvar_count - if is_var_ref then 1 else 0) ctxt in
+        let (ctxt',p) = alloc_pred ?target_var ~loc free_vars ctxt in
         (ctxt',(`Int p))
       | `Unit -> assert false
       | `IntRef ->
-        let (ctxt',(p,o)) = ((alloc_pred pvar_count) >> alloc_ovar) ctxt in
+        let (ctxt',(p,o)) = ((alloc_pred ?target_var ~loc free_vars) >> alloc_ovar) ctxt in
         (ctxt',`IntRef (p,o))
     in
-    let gen_arg_preds pvar_count arg_templ ctxt = List.fold_right (fun (_,t) (acc_c,acc_ty) ->
-        let (ctxt',t') = gen_refine_templ ~is_var_ref:true pvar_count t acc_c in
+    let gen_arg_preds ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
+        let (ctxt',t') = gen_refine_templ ~target_var:k ~loc fv t acc_c in
         (ctxt',t'::acc_ty)
       ) arg_templ (ctxt,[])
     in
     let simple_ftype = SM.find f_def.name st in
     let arg_templ = List.combine f_def.args simple_ftype.SimpleTypes.arg_types in
-    let pred_var_count = List.filter (fun (_,t) -> t = `Int) arg_templ |> List.length in
-    let (ctxt',arg_types) = gen_arg_preds pred_var_count arg_templ ctxt in
-    let (ctxt'',output_types) = gen_arg_preds pred_var_count arg_templ ctxt' in
+    let free_vars = List.filter (fun (_,t) -> t = `Int) arg_templ |> List.map fst in
+    let (ctxt',arg_types) = gen_arg_preds ~loc:(LArg f_def.name) free_vars arg_templ ctxt in
+    let (ctxt'',output_types) = gen_arg_preds ~loc:(LOutput f_def.name) free_vars arg_templ ctxt' in
     let (ctxt''', result_type) =
       match simple_ftype.SimpleTypes.ret_type with
       | `Unit -> (ctxt'',None)
-      | rt -> let (ctxt''',t) = (gen_refine_templ ~is_var_ref:false pred_var_count rt ctxt'') in
+      | rt -> let (ctxt''',t) = (gen_refine_templ ~loc:(LReturn f_def.name) free_vars rt ctxt'') in
         (ctxt''', Some t)
     in
     { ctxt''' with
@@ -530,11 +575,13 @@ let infer st (fns,main) =
     ovars = [];
     refinements = [];
     pred_arity = IntMap.empty;
-    v_counter = 0
+    v_counter = 0;
+    pred_detail = Hashtbl.create 10
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
   let (ctxt'',_) = process_expr ctxt' main in
   print_newline ();
+  print_pred_details ctxt''.pred_detail;
   (ctxt''.ownership, ctxt''.ovars, ctxt''.refinements, ctxt''.pred_arity)
-
+  
