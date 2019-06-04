@@ -186,7 +186,7 @@ let call_z3 cons =
   let res = input_line i in
   res = "sat"
 
-let solve owner_cons ovars refinements arity =
+let solve ~print_cons owner_cons ovars refinements arity =
   let buf = Buffer.create 1024 in
   let ff = Format.formatter_of_buffer buf in
   pp_open_vbox ff 0;
@@ -208,6 +208,7 @@ let solve owner_cons ovars refinements arity =
   List.iter (pp_constraint ff) refinements;
   pp_close_box ff ();
   let cons = Buffer.contents buf in
-  Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons;
-  flush stderr;
+  if print_cons then begin
+    Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons; flush stderr
+  end;
   call_z3 cons
