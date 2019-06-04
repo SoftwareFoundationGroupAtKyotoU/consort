@@ -1,0 +1,5 @@
+{
+  let x = * in
+  let y = x in
+  assert(x = y)
+}

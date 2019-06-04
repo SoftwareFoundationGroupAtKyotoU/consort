@@ -26,6 +26,8 @@ let print_string_list l ff =
     iter_print ~spc ps l
   ) ff
 
+let psl = print_string_list
+
 let print_generic head l ff =
   pp_sexpr (fun spc ps ->
     ps head; spc ();
@@ -102,7 +104,7 @@ let pp_owner_ante (o,c,f) =
     plift @@ string_of_float f
   ]
 
-let pp_constraint ff { env; ante; conseq; owner_ante } =
+let pp_constraint ff { env; ante; conseq; owner_ante; pc } =
   let gamma = SM.bindings env in
   let free_vars = ["(CTXT Int)"; "(NU Int)"] @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
   let denote_gamma = List.map (fun (k,t) ->
@@ -110,12 +112,18 @@ let pp_constraint ff { env; ante; conseq; owner_ante } =
       | `Int r -> pp_refine r k
       | _ -> (fun _ -> ())
     ) gamma in
+  let denote_path = List.map (fun (v1,v2) ->
+      match SM.find v1 env,SM.find v2 env with
+      | `Int _,`Int _ -> psl ["="; v1; v2]
+      | _ -> (fun _ -> ())
+    ) pc in
   let oante = List.map pp_owner_ante owner_ante in
+  let e_assum = denote_path @ oante @ denote_gamma in
   pg "assert" [
     pg "forall" [
       print_string_list free_vars;
       pg "=>" [
-        pg "and" ((pp_refine ante "NU")::(oante @ denote_gamma));
+        pg "and" ((pp_refine ante "NU")::e_assum);
         pp_refine conseq "NU"
       ]
     ]
