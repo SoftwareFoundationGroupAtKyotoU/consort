@@ -44,7 +44,7 @@ type exp =
   | EInt of int
   | Cond of string * exp * exp
   | Seq of exp * exp
-  | Assign of string * string
+  | Assign of string * imm_op
   | Let of string * lhs * exp
   | Alias of string * string
   | Assert of relation
@@ -121,7 +121,8 @@ let rec pprint_expr ~force_brace ff e =
     pprint_expr ~force_brace:true ff body;
     pp_close_box ff ()
   | Assign (x, y) ->
-    fprintf ff "%s := %s" x y
+    fprintf ff "%s := " x;
+    pprint_imm_op ff y
   | Cond (x,tr,fl) ->
     fprintf ff "if %s then " x;
     pprint_expr ~force_brace:true ff tr;

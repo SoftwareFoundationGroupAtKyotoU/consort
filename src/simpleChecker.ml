@@ -156,10 +156,12 @@ let rec process_expr ctxt e =
   | Seq (e1,e2) ->
     process_expr ctxt e1 |> ignore;
     process_expr ctxt e2
-  | Assign (v1,v2) ->
+  | Assign (v1,IVar v2) ->
     unify_var v1 `IntRef;
     unify_var v2 `Int;
     `Unit
+  | Assign (v1,IInt _) ->
+    unify_var v1 `IntRef; `Unit
   | Alias (v1, v2) ->
     unify_var v1 `IntRef;
     unify_var v2 `IntRef;
