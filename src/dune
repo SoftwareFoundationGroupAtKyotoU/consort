@@ -1,6 +1,18 @@
 (menhir (modules parser))
 (ocamllex lexer)
 
+(library
+ (name csr_core)
+ (preprocess (pps ppx_sexp_conv))
+ (wrapped false)
+ (modules (:standard \ Test Test_suite)))
+
 (executable
  (name test)
- (preprocess (pps ppx_sexp_conv)))
+ (libraries csr_core)
+ (modules Test))
+
+(executable
+ (name test_suite)
+ (libraries csr_core)
+ (modules Test_suite))

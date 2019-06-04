@@ -1,25 +1,4 @@
 let () =
   let in_name = Sys.argv.(1) in
-  let f = open_in in_name in
-  let lexbuf = Lexing.from_channel f in
-  let ast = try
-    Parser.prog Lexer.read lexbuf
-  with
-      Parser.Error -> let open Lexing in
-        failwith @@ Printf.sprintf "Parse error on line %d, col: %d" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
-  in
-  print_endline @@ Ast.pretty_print_program ast;
-  let open SimpleChecker in
-  let program_types = typecheck_prog ast in
-  StringMap.iter (fun n a ->
-    Printf.printf "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
-  ) program_types;
-  let (o, ov, r, a) = RefinementTypes.infer program_types ast in
-  let res =
-    if Z3Backend.solve o ov r a then
-      "VERIFIED"
-    else
-      "UNVERIFIED"
-  in
-  print_endline res
-      
+  let res = VerifyUtil.check_file ~print_ast:true in_name in
+  print_endline @@ if res then "VERIFIED" else "UNVERIFIED"
