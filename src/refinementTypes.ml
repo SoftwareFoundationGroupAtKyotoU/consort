@@ -59,13 +59,15 @@ type ownership =
     OVar of int
   | OConst of float[@@deriving sexp]
 
+type 'a ref_contents = [ `Int of 'a ] [@@deriving sexp]
+
 type 'a _typ = [
   | `Int of 'a
-  | `IntRef of 'a * ownership
+  | `Ref of 'a ref_contents * ownership
 ][@@deriving sexp]
 
 type typ = refinement _typ [@@deriving sexp]
-type ftyp = int _typ
+type ftyp = int  _typ
 
 type etype = [
   | `UnitT
@@ -153,26 +155,26 @@ let add_type v t ctxt =
   in
   { ctxt with gamma = te }
 
-let split_ref_type ctxt (r,o) =
+let split_ref_type ctxt (t,o) =
   let (ctxt,(o1,o2)) = (alloc_ovar >> alloc_ovar) ctxt in
-  let t1 = `IntRef (r,o1) in
-  let t2 = `IntRef (r,o2) in
+  let t1 = `Ref (t,o1) in
+  let t2 = `Ref (t,o2) in
   (add_owner_con [Split (o,(o1, o2))] ctxt, (t1, t2))
 
 let split_type ctxt t =
   match t with
   | `Int _ -> (ctxt, (t,t))
-  | `IntRef (r,o) ->
-    split_ref_type ctxt (r,o)
+  | `Ref (t,o) ->
+    split_ref_type ctxt (t,o)
 
 let with_type t ctxt = (ctxt, t)
 
 let ref_of t1 o =
   match t1 with
-  | `UnitT | `IntRef _ -> failwith "Can't have reference to t"
-  | `Int r -> `IntRef (r,o)
+  | `UnitT | `Ref _ -> failwith "Can't have reference to t"
+  | `Int _ as t -> `Ref (t,o)
 
-let deref r = `Int r
+let deref r = r
 
 let add_constraint gamma ctxt ?(o=[]) ante conseq =
   { ctxt with
@@ -186,14 +188,27 @@ let add_constraint gamma ctxt ?(o=[]) ante conseq =
 
 let constrain_owner t1 t2 ctxt =
   match t1,t2 with
-  | `IntRef (_,o1),`IntRef (_,o2) ->
+  | `Ref (_,o1),`Ref (_,o2) ->
     add_owner_con [Eq (o1,o2)] ctxt
   | _ -> ctxt
 
+let update_content_ref r = function
+  | `Int _ -> `Int r
+
+let update_refinement r = function
+  | `Int _ as t -> (update_content_ref r t :> 'a _typ)
+  | `Ref (t,o) -> `Ref (update_content_ref r t,o)
+
+let rec get_refinement : 'a _typ -> 'a = function
+    `Int r -> r
+  | `Ref (t,_) -> get_refinement (t :'a ref_contents :> 'a _typ)
+
+let unsafe_get_ownership = function
+  | `Ref (_,o) -> o
+  | _ -> failwith "This is why its unsafe"
+
 let constrain_type gamma t r ctxt =
-  add_constraint gamma ctxt (match t with
-    | `IntRef (r',_)
-    | `Int r' -> r') r
+  add_constraint gamma ctxt (get_refinement t) r
 
 let constrain_var gamma ctxt var r =
   constrain_type gamma (SM.find var gamma) r ctxt
@@ -214,14 +229,6 @@ let alloc_pred ?target_var ~loc fv ctxt =
 let make_fresh_pred ?target_var ~loc ~fv ctxt =
   let (ctxt',p) = alloc_pred ?target_var ~loc fv ctxt in
   (ctxt',Pred (p,fv,target_var))
-
-let update_refinement r = function
-  | `Int _ -> `Int r
-  | `IntRef (_,o) -> `IntRef (r,o)
-
-let get_refinement = function
-    `Int r -> r
-  | `IntRef (r,_) -> r
 
 let update_var_refinement var r ctxt =
   let new_type =
@@ -263,9 +270,7 @@ let remove_var ~loc v ctxt =
   let bindings = SM.bindings ctxt.gamma in
   let in_scope = predicate_vars bindings in
   let need_update = List.filter (fun (_,t) ->
-        match t with
-        | `IntRef (r,_)
-        | `Int r -> free_vars_contains v r 
+      get_refinement t |> free_vars_contains v
     ) bindings in
   List.fold_left (fun ctxt' (k,_) ->
     subtype_fresh ~loc curr_te ctxt' k ~fv:in_scope
@@ -293,7 +298,7 @@ let dump_env ?(msg) tev =
 let rec process_expr ctxt e =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
-    | `IntRef (r,o) -> (r,o)
+    | `Ref (r,o) -> (r,o)
     | _ -> failwith "Not actually a ref"
   in
   match e with
@@ -335,14 +340,14 @@ let rec process_expr ctxt e =
     | Deref ptr ->
       let (r,o) = lkp_ref ptr in
       let target_type = deref r in
-      let (ctxt',(t1,t2)) = split_type ctxt target_type in
+      let (ctxt',(t1,t2)) = split_type ctxt (target_type :> typ) in
       update_type ptr (ref_of t1 o) ctxt'
       |> add_type v t2
       |> add_owner_con [Live o]
     | Mkref init ->
       match init with
-      | RNone -> add_type v (`IntRef (Top,OConst 1.0)) ctxt
-      | RInt n -> add_type v (`IntRef (ConstEq n,OConst 1.0)) ctxt
+      | RNone -> add_type v (`Ref (`Int Top,OConst 1.0)) ctxt
+      | RInt n -> add_type v (`Ref (`Int (ConstEq n),OConst 1.0)) ctxt
       | RVar r_var ->
         let (ctxt',(t1,t2)) = split_type ctxt @@ lkp r_var in
         update_type r_var t1 ctxt'
@@ -364,31 +369,33 @@ let rec process_expr ctxt e =
     let (r1,o1) = lkp_ref v1 in
     let (r2,o2) = lkp_ref v2 in
     let free_vars = predicate_vars @@ SM.bindings ctxt.gamma in
-    let (ctxt',(o1',o2')) = ((alloc_ovar) >> (alloc_ovar)) ctxt in
-    let (ctxt'',(r1',r2')) = ((make_fresh_pred ~target_var:v1 ~loc ~fv:free_vars) >> (make_fresh_pred ~target_var:v2 ~loc ~fv:free_vars)) ctxt' in
+    let (ctxtf1,t1',p1') = make_fresh_type ~target_var:v1 ~loc ~fv:free_vars (lkp v1) ctxt in
+    let (ctxt'',t2',p2') = make_fresh_type ~target_var:v2 ~loc ~fv:free_vars (lkp v2) ctxtf1 in
+    let o1' = unsafe_get_ownership t1' in
+    let o2' = unsafe_get_ownership t2' in
     let constraints = [
       {
         env = ctxt''.gamma;
-        ante = r1;
-        conseq = r1';
+        ante = get_refinement (r1 :> typ);
+        conseq = p1';
         owner_ante = [(o1,`Gt,0.0); (o1',`Gt,0.0)]
       };
       {
         env = ctxt''.gamma;
-        ante = r1;
-        conseq = r2';
+        ante = get_refinement (r1 :> typ);
+        conseq = p2';
         owner_ante = [(o1,`Gt,0.0);(o2',`Gt,0.0)]
       };
       {
         env = ctxt''.gamma;
-        ante = r2;
-        conseq = r1';
+        ante = get_refinement (r2 :> typ);
+        conseq = p1';
         owner_ante = [(o2,`Gt,0.0);(o1',`Gt,0.0)]
       };
       {
         env = ctxt''.gamma;
-        ante = r2;
-        conseq = r2';
+        ante = get_refinement (r2 :> typ);
+        conseq = p2';
         owner_ante = [(o2,`Gt,0.0);(o2',`Gt,0.0)]
       }
     ] in
@@ -397,8 +404,8 @@ let rec process_expr ctxt e =
                 ownership = own::ctxt''.ownership;
                 refinements = constraints@ctxt''.refinements
               }
-      |> update_type v1 @@ `IntRef (r1',o1')
-      |> update_type v2 @@ `IntRef (r2',o2')
+      |> update_type v1 @@ t1'
+      |> update_type v2 @@ t2'
     in
     (res, `UnitT)
   | Cond(i,v,e1,e2) ->
@@ -448,14 +455,18 @@ let rec process_expr ctxt e =
     | `UnitT,`UnitT -> (c_sub,`UnitT)
     | (#typ as t1),(#typ as t2) -> ((subsume_types c_sub t1 t2) :> (context * etype))
     | _ -> assert false
-and make_fresh_type ?target_var ~loc ~fv t ctxt =
-  let (ctxt',r) = make_fresh_pred ?target_var ~loc ~fv ctxt in 
+and make_fresh_reftype ?target_var ~loc ~fv t ctxt =
   match t with
   | `Int _ ->
+    let (ctxt',r) = make_fresh_pred ?target_var ~loc ~fv ctxt in 
     (ctxt',`Int r,r)
-  | `IntRef (_,o) ->
-    let (ctxt'',o') = alloc_ovar ctxt' in
-    (add_owner_con [ Eq(o,o') ] ctxt'',`IntRef (r,o'),r)
+and make_fresh_type ?target_var ~loc ~fv t ctxt =
+  match t with
+  | `Int _ as t'-> (make_fresh_reftype ?target_var ~loc ~fv t' ctxt :> (context * typ * refinement))
+  | `Ref (r,_) -> 
+    let (ctxt',o') = alloc_ovar ctxt in
+    let (ctxt'',r',p) = make_fresh_reftype ?target_var ~loc ~fv r ctxt' in
+    (ctxt'',`Ref (r',o'),p)
 and process_call ctxt c =
   let arg_bindings = List.map (fun k ->
       (k,SM.find k ctxt.gamma)) c.arg_names
@@ -544,7 +555,7 @@ let infer st (fns,main) =
       | `Unit -> assert false
       | `IntRef ->
         let (ctxt',(p,o)) = ((alloc_pred ?target_var ~loc free_vars) >> alloc_ovar) ctxt in
-        (ctxt',`IntRef (p,o))
+        (ctxt',`Ref (`Int p,o))
     in
     let gen_arg_preds ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
         let (ctxt',t') = gen_refine_templ ~target_var:k ~loc fv t acc_c in
