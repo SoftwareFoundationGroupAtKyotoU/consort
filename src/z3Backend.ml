@@ -199,4 +199,5 @@ let solve owner_cons ovars refinements arity =
   pp_close_box ff ();
   let cons = Buffer.contents buf in
   Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons;
+  flush stderr;
   call_z3 cons
