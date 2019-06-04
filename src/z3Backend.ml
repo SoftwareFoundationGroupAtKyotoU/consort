@@ -74,6 +74,8 @@ let rec pp_refine r binding ff = match r with
           pp_lin_op op2
         ]
       ] ff
+  | Relation { rel_op1; rel_cond = Neq; rel_op2 } ->
+    pg "not" [ pp_refine (Relation { rel_op1; rel_cond = Eq; rel_op2 }) binding ] ff
   | Relation {rel_op1; rel_cond; rel_op2 } ->
     pg (Ast.cond_to_string rel_cond) [
           pp_relop binding rel_op1;
