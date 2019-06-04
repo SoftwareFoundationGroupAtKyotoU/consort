@@ -565,7 +565,7 @@ let print_pred_details t =
   ) t
   
 
-let infer st (fns,main) =
+let infer ~print_pred st (fns,main) =
   let init_fun_type ctxt f_def =
     let gen_refine_templ ?target_var ~loc free_vars t ctxt =
       match t with
@@ -613,6 +613,6 @@ let infer st (fns,main) =
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
   let (ctxt'',_) = process_expr ctxt' main in
-  print_pred_details ctxt''.pred_detail;
+  if print_pred then print_pred_details ctxt''.pred_detail;
   (ctxt''.ownership, ctxt''.ovars, ctxt''.refinements, ctxt''.pred_arity)
   
