@@ -58,7 +58,7 @@ let expr :=
 	  }
   | LET; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
-  | x = ID; ASSIGN; y = ID; <Assign>
+  | x = ID; ASSIGN; y = imm_op; <Assign>
   | call = fn_call; <ECall>
   | ALIAS; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
   | ASSERT; LPAREN; rop1 = imm_op; cond = relation; rop2 = imm_op; RPAREN; { Assert { rop1; cond; rop2 } }

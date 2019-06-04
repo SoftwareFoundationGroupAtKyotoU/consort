@@ -288,12 +288,17 @@ let rec process_expr ctxt e =
   | Seq (e1, e2) ->
     let (ctxt', _) = process_expr ctxt e1 in
     process_expr ctxt' e2
-  | Assign (lhs,rhs) ->
+  | Assign (lhs,IVar rhs) ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp rhs in
     let (_,o)  = lkp_ref lhs in
     add_owner_con [Write o] ctxt'
     |> update_type rhs t1
     |> update_type lhs (ref_of t2 o)
+    |> with_type `UnitT
+  | Assign (lhs,IInt i) ->
+    let (_,o) = lkp_ref lhs in
+    add_owner_con [Write o] ctxt
+    |> update_type lhs @@ ref_of (`Int (ConstEq i)) o
     |> with_type `UnitT
   | Let (v,lhs,exp) ->
     let bound_ctxt = begin

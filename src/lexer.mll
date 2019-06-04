@@ -14,10 +14,12 @@ let int = '-'? ['0'-'9']+
 let white = [' ' '\t']+
 let newline = '\n'
 let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let non_comment = [^ '(' '*' ')' ]+
+let comment_delim = [ '(' '*' ')' ]
 
-(* part "4" *)
 rule read =
   parse
+  | "(*" { comment lexbuf; read lexbuf }
   | white    { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "()" { UNIT }
@@ -48,3 +50,9 @@ rule read =
   | id { ID (Lexing.lexeme lexbuf) }
   | eof { EOF }
   | _ { failwith @@ "Invalid token " ^ (Lexing.lexeme lexbuf) }
+and comment =
+  parse
+  | non_comment { comment lexbuf }
+  | "*)" { () }
+  | "(*" { comment lexbuf; comment lexbuf }
+  | comment_delim { comment lexbuf }
