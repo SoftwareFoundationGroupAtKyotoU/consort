@@ -298,7 +298,7 @@ let rec process_expr ctxt e =
     add_owner_con [Write o] ctxt
     |> update_type lhs @@ ref_of (`Int (ConstEq i)) o
     |> with_type `UnitT
-  | Let (v,lhs,exp) ->
+  | Let (_i,v,lhs,exp) ->
     let bound_ctxt = begin
     match lhs with
     | Var left_v ->
@@ -340,7 +340,7 @@ let rec process_expr ctxt e =
     end
   | Assert relation ->
     (add_constraint ctxt.gamma ctxt Top (lift_relation relation), `UnitT)
-  | Alias (v1,v2) ->
+  | Alias (_id,v1,v2) ->
     let (r1,o1) = lkp_ref v1 in
     let (r2,o2) = lkp_ref v2 in
     let free_vars = predicate_vars @@ SM.bindings ctxt.gamma in
@@ -381,7 +381,7 @@ let rec process_expr ctxt e =
       |> update_type v2 @@ `IntRef (r2',o2')
     in
     (res, `UnitT)
-  | Cond(v,e1,e2) ->
+  | Cond(_i,v,e1,e2) ->
     let add_pc_refinement ctxt cond =
       let curr_ref = match lkp v with
         | `Int r -> r
