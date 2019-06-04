@@ -11,6 +11,18 @@ type pred_loc =
   | LAlias of int
   | LLet of int
 
+let loc_to_string =
+  let labeled_expr s i = Printf.sprintf "%s@%d" s i in
+  let fn_loc fn l = Printf.sprintf "fn %s %s" fn l in
+  function
+  | LCond i -> labeled_expr "if" i
+  | LArg f -> fn_loc f "Arg"
+  | LReturn f -> fn_loc f "Ret"
+  | LOutput f -> fn_loc f "Out"
+  | LAlias i -> labeled_expr "alias" i
+  | LLet i -> labeled_expr "let" i
+
+
 type pred_context = {
   fv: string list;
   loc: pred_loc;
@@ -103,7 +115,8 @@ type tcon = {
   env: tenv;
   ante: refinement;
   conseq: refinement;
-  owner_ante: oante list
+  owner_ante: oante list;
+  pc: (string * string) list
 }[@@deriving sexp]
 
 type ocon =
@@ -129,7 +142,8 @@ type context = {
   refinements: tcon list;
   pred_arity: int IntMap.t;
   v_counter: int;
-  pred_detail: (int,pred_context) Hashtbl.t
+  pred_detail: (int,pred_context) Hashtbl.t;
+  path_condition: (string * string) list
 }
 
 let alloc_ovar ctxt =
@@ -176,13 +190,14 @@ let ref_of t1 o =
 
 let deref r = r
 
-let add_constraint gamma ctxt ?(o=[]) ante conseq =
+let add_constraint pc gamma ctxt ?(o=[]) ante conseq =
   { ctxt with
     refinements = {
       env = gamma;
       ante;
       conseq;
-      owner_ante = o
+      owner_ante = o;
+      pc
     }::ctxt.refinements
   }
 
@@ -207,11 +222,11 @@ let unsafe_get_ownership = function
   | `Ref (_,o) -> o
   | _ -> failwith "This is why its unsafe"
 
-let constrain_type gamma t r ctxt =
-  add_constraint gamma ctxt (get_refinement t) r
+let constrain_type pc gamma t r ctxt =
+  add_constraint pc gamma ctxt (get_refinement t) r
 
-let constrain_var gamma ctxt var r =
-  constrain_type gamma (SM.find var gamma) r ctxt
+let constrain_var pc gamma ctxt var r =
+  constrain_type pc gamma (SM.find var gamma) r ctxt
 
 let alloc_pred ?target_var ~loc fv ctxt =
   let n = ctxt.v_counter in
@@ -236,10 +251,17 @@ let update_var_refinement var r ctxt =
   in
   update_type var new_type ctxt
 
-let subtype_fresh ~loc gamma ctxt v ~fv =
+let subtype_fresh ~loc pc gamma ctxt v ~fv =
   let (ctxt',fresh_pred) = make_fresh_pred ~target_var:v ~loc ~fv ctxt in
-  constrain_var gamma ctxt' v fresh_pred
+  constrain_var pc gamma ctxt' v fresh_pred
   |> update_var_refinement v fresh_pred
+
+let update_pc (new_pc : (string * string) list) ctxt =
+  { ctxt with path_condition = new_pc }
+
+let add_pc (p: string * string) ctxt =
+  let l : (string * string) list = ctxt.path_condition in
+  update_pc (p::l) ctxt
 
 let rec free_vars_contains v r =
   let imm_is_var i = match i with IInt _ -> false | IVar v' -> v = v' in
@@ -264,7 +286,7 @@ let predicate_vars kv =
       | _ -> acc
   ) [] kv |> List.rev
 
-let remove_var ~loc v ctxt =
+let remove_var pc ~loc v ctxt =
   let curr_te = ctxt.gamma in
   let ctxt = { ctxt with gamma = SM.remove v ctxt.gamma } in
   let bindings = SM.bindings ctxt.gamma in
@@ -273,7 +295,7 @@ let remove_var ~loc v ctxt =
       get_refinement t |> free_vars_contains v
     ) bindings in
   List.fold_left (fun ctxt' (k,_) ->
-    subtype_fresh ~loc curr_te ctxt' k ~fv:in_scope
+    subtype_fresh pc ~loc curr_te ctxt' k ~fv:in_scope
   ) ctxt need_update
 
 let unsafe_get o =
@@ -332,6 +354,7 @@ let rec process_expr ctxt e =
     | Var left_v ->
       let (ctxt',(t1,t2)) = split_type ctxt @@ lkp left_v in
       update_type left_v t1 ctxt'
+      |> add_pc (v,left_v)
       |> add_type v t2
     | Const n -> add_type v (`Int (ConstEq n)) ctxt
     | Plus (v1,v2) ->
@@ -360,7 +383,8 @@ let rec process_expr ctxt e =
         |> add_type v (ref_of t2 @@ OConst 1.0)
     end in
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
-    remove_var ~loc:(LLet i) v ctxt'
+    remove_var ctxt'.path_condition ~loc:(LLet i) v ctxt'
+    |> update_pc ctxt.path_condition
     |> with_type ret_t
   | ECall c -> begin
     let (ctxt, ret) = process_call ctxt c in
@@ -369,7 +393,7 @@ let rec process_expr ctxt e =
     | Some t -> (ctxt, (t :> etype))
     end
   | Assert relation ->
-    (add_constraint ctxt.gamma ctxt Top (lift_relation relation), `UnitT)
+    (add_constraint ctxt.path_condition ctxt.gamma ctxt Top (lift_relation relation), `UnitT)
   | Alias (id,v1,v2) ->
     let loc = LAlias id in
     let (r1,o1) = lkp_ref v1 in
@@ -384,25 +408,29 @@ let rec process_expr ctxt e =
         env = ctxt''.gamma;
         ante = get_refinement (r1 :> typ);
         conseq = p1';
-        owner_ante = [(o1,`Gt,0.0); (o1',`Gt,0.0)]
+        owner_ante = [(o1,`Gt,0.0); (o1',`Gt,0.0)];
+        pc = ctxt.path_condition
       };
       {
         env = ctxt''.gamma;
         ante = get_refinement (r1 :> typ);
         conseq = p2';
-        owner_ante = [(o1,`Gt,0.0);(o2',`Gt,0.0)]
+        owner_ante = [(o1,`Gt,0.0);(o2',`Gt,0.0)];
+        pc = ctxt.path_condition
       };
       {
         env = ctxt''.gamma;
         ante = get_refinement (r2 :> typ);
         conseq = p1';
-        owner_ante = [(o2,`Gt,0.0);(o1',`Gt,0.0)]
+        owner_ante = [(o2,`Gt,0.0);(o1',`Gt,0.0)];
+        pc = ctxt.path_condition
       };
       {
         env = ctxt''.gamma;
         ante = get_refinement (r2 :> typ);
         conseq = p2';
-        owner_ante = [(o2,`Gt,0.0);(o2',`Gt,0.0)]
+        owner_ante = [(o2,`Gt,0.0);(o2',`Gt,0.0)];
+        pc = ctxt.path_condition
       }
     ] in
     let own = Shuff ((o1,o2),(o1',o2')) in
@@ -442,8 +470,8 @@ let rec process_expr ctxt e =
     let subsume_types ctxt ?target_var t1 t2 =
       let (ctxt',t,r') = make_fresh_type ~loc ?target_var ~fv:predicate_vars t1 ctxt in
       let c_up =
-        constrain_type ctxt1.gamma t1 r' ctxt'
-        |> constrain_type ctxt2.gamma t2 r'
+        constrain_type ctxt1.path_condition ctxt1.gamma t1 r' ctxt'
+        |> constrain_type ctxt2.path_condition ctxt2.gamma t2 r'
         |> constrain_owner t1 t
         |> constrain_owner t2 t
       in
@@ -483,7 +511,7 @@ and process_call ctxt c =
   let callee_type = SM.find c.callee ctxt.theta in
   let in_out_types = List.combine callee_type.arg_types callee_type.output_types in
   let updated_ctxt = List.fold_left2 (fun acc (k,arg_t) (in_t,out_t) ->
-      constrain_var input_env acc k (inst ~target_var:k @@ get_refinement in_t)
+      constrain_var ctxt.path_condition input_env acc k (inst ~target_var:k @@ get_refinement in_t)
       |> constrain_owner arg_t in_t
       |> update_type k @@ subst_type ~target_var:k out_t
     ) ctxt arg_bindings in_out_types
@@ -512,30 +540,19 @@ let process_function_bind ctxt fdef =
   let out_typ_template = List.combine arg_names f_typ.output_types in
   let ctxt'' = List.fold_left (fun acc (v,out_ty) ->
       let out_pred = Pred ((get_refinement out_ty),fv,Some v) in
-      constrain_var acc.gamma acc v out_pred
+      constrain_var [] acc.gamma acc v out_pred
       |> constrain_owner out_ty (SM.find v acc.gamma)
     ) ctxt' out_typ_template in
   match f_typ.result_type,t' with
   | None,`UnitT -> ctxt''
   | Some ret_templ,(#typ as body_t) ->
     let return_pred = Pred ((get_refinement ret_templ),fv,None) in
-    constrain_type ctxt''.gamma body_t return_pred ctxt''
+    constrain_type [] ctxt''.gamma body_t return_pred ctxt''
   | _ -> assert false
 
 let process_function ctxt fdef =
   let c = process_function_bind ctxt fdef in
   { c with gamma = SM.empty }
-
-let loc_to_string =
-  let labeled_expr s i = Printf.sprintf "%s@%d" s i in
-  let fn_loc fn l = Printf.sprintf "fn %s %s" fn l in
-  function
-  | LCond i -> labeled_expr "if" i
-  | LArg f -> fn_loc f "Arg"
-  | LReturn f -> fn_loc f "Ret"
-  | LOutput f -> fn_loc f "Out"
-  | LAlias i -> labeled_expr "alias" i
-  | LLet i -> labeled_expr "let" i
 
 let print_pred_details t =
   Hashtbl.iter (fun k { fv; loc; target_var } ->
@@ -590,7 +607,8 @@ let infer st (fns,main) =
     refinements = [];
     pred_arity = IntMap.empty;
     v_counter = 0;
-    pred_detail = Hashtbl.create 10
+    pred_detail = Hashtbl.create 10;
+    path_condition = []
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
