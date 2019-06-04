@@ -1,0 +1,13 @@
+set(p,x) p := x
+
+{
+    let y = mkref _ in {
+    let z = 0 in
+    set(y, z);
+    let t = *y in {
+	  assert(t < 1);
+	  let up = t + 1 in set(y,up)
+	};
+    let t = *y in assert(0 < t)
+	}
+}
