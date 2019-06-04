@@ -5,7 +5,7 @@ pull(p)
   let x = *p in x
 
 {
-r  let y = mkref _ in
+  let y = mkref _ in
   let x = mkref _ in
   {
   let z = 0 in push(y,z);
