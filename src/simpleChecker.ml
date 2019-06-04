@@ -148,7 +148,7 @@ let rec process_expr ctxt e =
   | EVar v -> lkp v
   | EInt _ -> `Int
   | Unit -> `Unit
-  | Cond (v,e1,e2) ->
+  | Cond (_,v,e1,e2) ->
     unify_var v `Int;
     let t1 = process_expr ctxt e1 in
     let t2 = process_expr ctxt e2 in
@@ -162,7 +162,7 @@ let rec process_expr ctxt e =
     `Unit
   | Assign (v1,IInt _) ->
     unify_var v1 `IntRef; `Unit
-  | Alias (v1, v2) ->
+  | Alias (_,v1, v2) ->
     unify_var v1 `IntRef;
     unify_var v2 `IntRef;
     `Unit
@@ -171,7 +171,7 @@ let rec process_expr ctxt e =
     unify_imm rop2;
     `Unit
   | ECall c -> process_call lkp ctxt c
-  | Let (x,lhs,expr) ->
+  | Let (_id,x,lhs,expr) ->
     let v_type =
       match lhs with
       | Var v -> lkp v

@@ -56,11 +56,11 @@ let expr :=
   | LBRACE; e = expr; SEMI; rest = separated_nonempty_list(SEMI, expr); RBRACE; {
 		list_to_seq e rest
 	  }
-  | LET; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
-  | IF; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
+  | LET; lbl = expr_label; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
+  | IF; lbl = expr_label; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
   | x = ID; ASSIGN; y = imm_op; <Assign>
   | call = fn_call; <ECall>
-  | ALIAS; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
+  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
   | ASSERT; LPAREN; rop1 = imm_op; cond = relation; rop2 = imm_op; RPAREN; { Assert { rop1; cond; rop2 } }
   | ~ = ID; <EVar>
   | ~ = INT; <EInt>
@@ -80,12 +80,11 @@ let lhs :=
   | STAR; { Nondet }
   | v1 = imm_op; PLUS; v2 = imm_op; <Plus>
 
-let fn_call := callee = ID; lbl = option(call_label); arg_names = arg_list; { {callee; arg_names; label = match lbl with Some l -> l | None -> (incr _label; !_label)} }
+let fn_call := callee = ID; lbl = expr_label; arg_names = arg_list; { {callee; arg_names; label = lbl} }
 
 let imm_op := ~ = INT; <IInt> | ~ = ID; <IVar>
 
-
-let call_label := COLON; ~ = INT; <>
+let expr_label := COLON; ~ = INT; <> | { incr _label; !_label }
 
 let ref_cont :=
   | ~ = ID; <RVar>

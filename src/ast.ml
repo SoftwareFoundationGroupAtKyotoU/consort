@@ -42,11 +42,11 @@ type exp =
   | Unit
   | EVar of string
   | EInt of int
-  | Cond of string * exp * exp
+  | Cond of int * string * exp * exp
   | Seq of exp * exp
   | Assign of string * imm_op
-  | Let of string * lhs * exp
-  | Alias of string * string
+  | Let of int * string * lhs * exp
+  | Alias of int * string * string
   | Assert of relation
   | ECall of fn_call
 
@@ -113,9 +113,9 @@ let rec pprint_expr ~force_brace ff e =
     if local_force_brace then begin
       pp_print_string ff "}"; pp_close_box ff ()
     end else ()
-  | Let (var, lhs, body) ->
+  | Let (id,var, lhs, body) ->
     pp_open_hovbox ff 1;
-    fprintf ff "let %s = " var;
+    fprintf ff "let:%d %s = " id var;
     pprint_lhs ff lhs;
     fprintf ff " in@;";
     pprint_expr ~force_brace:true ff body;
@@ -123,13 +123,13 @@ let rec pprint_expr ~force_brace ff e =
   | Assign (x, y) ->
     fprintf ff "%s := " x;
     pprint_imm_op ff y
-  | Cond (x,tr,fl) ->
-    fprintf ff "if %s then " x;
+  | Cond (id,x,tr,fl) ->
+    fprintf ff "if:%d %s then " id x;
     pprint_expr ~force_brace:true ff tr;
     fprintf ff "@;else ";
     pprint_expr ~force_brace:true ff fl
-  | Alias(x,y) ->
-    fprintf ff "alias(%s = %s)" x y
+  | Alias(id,x,y) ->
+    fprintf ff "alias:%d(%s = %s)" id x y
   | Assert { rop1; cond; rop2 } ->
     fprintf ff "assert(";
     pprint_imm_op ff rop1;

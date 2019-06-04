@@ -2,8 +2,12 @@ let () =
   let in_name = Sys.argv.(1) in
   let f = open_in in_name in
   let lexbuf = Lexing.from_channel f in
-
-  let ast = Parser.prog Lexer.read lexbuf in
+  let ast = try
+    Parser.prog Lexer.read lexbuf
+  with
+      Parser.Error -> let open Lexing in
+        failwith @@ Printf.sprintf "Parse error on line %d, col: %d" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
+  in
   print_endline @@ Ast.pretty_print_program ast;
   let open SimpleChecker in
   let program_types = typecheck_prog ast in
