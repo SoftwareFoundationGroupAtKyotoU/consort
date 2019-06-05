@@ -7,6 +7,8 @@
 	  let accum = List.hd rev in
 	  List.fold_left (fun curr next  ->
 					   Seq (next, curr)) accum (List.tl rev)
+
+	let _label = ref 0;;
 %}
 // values
 %token UNIT
@@ -26,6 +28,8 @@
 %token SEMI COMMA
 // structure
 %token RPAREN LPAREN LBRACE RBRACE EOF
+
+%token COLON
 
 %token UNDERSCORE
 
@@ -52,12 +56,12 @@ let expr :=
   | LBRACE; e = expr; SEMI; rest = separated_nonempty_list(SEMI, expr); RBRACE; {
 		list_to_seq e rest
 	  }
-  | LET; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
-  | IF; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
-  | x = ID; ASSIGN; y = ID; <Assign>
+  | LET; lbl = expr_label; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
+  | IF; lbl = expr_label; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
+  | x = ID; ASSIGN; y = imm_op; <Assign>
   | call = fn_call; <ECall>
-  | ALIAS; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
-  | ASSERT; LPAREN; x = ID; cond = relation; y = ID; RPAREN; { Assert(cond, x, y) }
+  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
+  | ASSERT; LPAREN; rop1 = imm_op; cond = relation; rop2 = imm_op; RPAREN; { Assert { rop1; cond; rop2 } }
   | ~ = ID; <EVar>
   | ~ = INT; <EInt>
 
@@ -74,9 +78,13 @@ let lhs :=
   | MKREF; ~ = ref_cont; <Mkref>
   | STAR; ~ = ID; <Deref>
   | STAR; { Nondet }
-  | v1 = ID; PLUS; v2 = ID; <Plus>
+  | v1 = imm_op; PLUS; v2 = imm_op; <Plus>
 
-let fn_call := callee = ID; arg_names = arg_list; { {callee; arg_names} }
+let fn_call := callee = ID; lbl = expr_label; arg_names = arg_list; { {callee; arg_names; label = lbl} }
+
+let imm_op := ~ = INT; <IInt> | ~ = ID; <IVar>
+
+let expr_label := COLON; ~ = INT; <> | { incr _label; !_label }
 
 let ref_cont :=
   | ~ = ID; <RVar>

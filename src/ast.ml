@@ -1,4 +1,5 @@
 open Format
+open Sexplib.Std
 
 type ref_init =
   | RNone
@@ -7,16 +8,21 @@ type ref_init =
 
 type fn_call = {
   callee: string;
-  arg_names: string list
+  arg_names: string list;
+  label: int;
 }
 
+
+type imm_op =
+    IVar of string
+  | IInt of int [@@deriving sexp]
 
 type lhs =
   | Var of string
   | Const of int
   | Mkref of ref_init
   | Deref of string
-  | Plus of string * string
+  | Plus of imm_op * imm_op
   | Call of fn_call
   | Nondet
 
@@ -24,18 +30,24 @@ type cond =
   | Leq
   | Eq
   | Neq
-  | Lt
+  | Lt [@@deriving sexp]
+
+type relation = {
+  rop1: imm_op;
+  cond: cond;
+  rop2: imm_op
+}
 
 type exp =
   | Unit
   | EVar of string
   | EInt of int
-  | Cond of string * exp * exp
+  | Cond of int * string * exp * exp
   | Seq of exp * exp
-  | Assign of string * string
-  | Let of string * lhs * exp
-  | Alias of string * string
-  | Assert of cond * string * string
+  | Assign of string * imm_op
+  | Let of int * string * lhs * exp
+  | Alias of int * string * string
+  | Assert of relation
   | ECall of fn_call
 
 
@@ -47,20 +59,28 @@ let pprint_var ff = fprintf ff "%s"
 
 let pprint_int ff = fprintf ff "%d"
 
-let pprint_fn_call ff { callee; arg_names } =
-  fprintf ff "%s(%s)" callee @@ String.concat ", " arg_names
+let pprint_fn_call ff { callee; arg_names; label } =
+  fprintf ff "%s:%d(%s)" callee label @@ String.concat ", " arg_names
 
 let pprint_rinit ff = function
   | RNone -> pp_print_string ff "_"
   | RVar v -> pprint_var ff v
   | RInt i -> pprint_int ff i
 
+let pprint_imm_op ff = function
+  | IInt i -> pprint_int ff i
+  | IVar v -> pprint_var ff v
+
 let pprint_lhs ff = function
   | Var x -> pprint_var ff x
   | Const i -> pprint_int ff i
   | Mkref v -> pp_print_string ff "mkref "; pprint_rinit ff v
   | Deref v -> fprintf ff "*%s" v
-  | Plus (v1,v2) -> fprintf ff "%s + %s" v1 v2
+  | Plus (v1,v2) -> begin
+      pprint_imm_op ff v1;
+      pp_print_string ff " + ";
+      pprint_imm_op ff v2
+    end
   | Call c -> pprint_fn_call ff c
   | Nondet -> pp_print_string ff "*"
 
@@ -93,26 +113,29 @@ let rec pprint_expr ~force_brace ff e =
     if local_force_brace then begin
       pp_print_string ff "}"; pp_close_box ff ()
     end else ()
-  | Let (var, lhs, body) ->
+  | Let (id,var, lhs, body) ->
     pp_open_hovbox ff 1;
-    fprintf ff "let %s = " var;
+    fprintf ff "let:%d %s = " id var;
     pprint_lhs ff lhs;
     fprintf ff " in@;";
     pprint_expr ~force_brace:true ff body;
     pp_close_box ff ()
   | Assign (x, y) ->
-    fprintf ff "%s := %s" x y
-  | Cond (x,tr,fl) ->
-    fprintf ff "if %s then " x;
+    fprintf ff "%s := " x;
+    pprint_imm_op ff y
+  | Cond (id,x,tr,fl) ->
+    fprintf ff "if:%d %s then " id x;
     pprint_expr ~force_brace:true ff tr;
     fprintf ff "@;else ";
     pprint_expr ~force_brace:true ff fl
-  | Alias(x,y) ->
-    fprintf ff "alias(%s = %s)" x y
-  | Assert(cond,x,y) ->
-    fprintf ff "assert(%s " x;
+  | Alias(id,x,y) ->
+    fprintf ff "alias:%d(%s = %s)" id x y
+  | Assert { rop1; cond; rop2 } ->
+    fprintf ff "assert(";
+    pprint_imm_op ff rop1;
     pprint_cond ff cond;
-    fprintf ff " %s)" y
+    pprint_imm_op ff rop2;
+    fprintf ff " )"
   | EVar v -> pprint_var ff v
   | EInt i -> pprint_int ff i
   | ECall c -> pprint_fn_call ff c

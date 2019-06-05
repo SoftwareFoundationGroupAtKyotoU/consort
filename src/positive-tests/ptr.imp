@@ -1,0 +1,11 @@
+{
+  let x = mkref 4 in {
+    let y = x in {
+      let t = *y in assert(t = 4);
+      let t = *x in assert(t = 4);
+      alias(x = y)
+    };
+    x := 3;
+    let t = *x in assert(t = 3)
+  }
+}

@@ -1,0 +1,14 @@
+f(d,a,b) {
+  assert(8 < d);
+  let v = a + b in v
+}
+
+{
+ let x = 4 in
+ let y = 5 in
+ let z = x + y in
+ let r = f(z,x,y) in {
+  assert(r = 9);
+  assert(r = z)
+ }
+}
