@@ -7,12 +7,14 @@ let run_test expect file =
     ()
 
 let () =
-  let args = Sys.argv in
-  if (Array.length args) < 3 then
-    exit 1
-  else
-    let expect = Sys.argv.(1) = "--pos" in
-    let dir = Sys.argv.(2) in
+  let expect = ref true in
+  let args = [
+    ("-neg", Arg.Clear expect, "Expect typing failures");
+    ("-pos", Arg.Set expect, "Expect typing success (default)")
+  ] in
+  let dir_list = ref [] in
+  Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
+  List.iter (fun dir -> 
     let test_files = Sys.readdir dir in
     Array.iter (fun f_name ->
       if String.length f_name < 4 then
@@ -22,6 +24,7 @@ let () =
         last4 <> ".imp" then
         ()
       else
-        run_test expect (dir ^ "/" ^ f_name)
+        run_test !expect (dir ^ "/" ^ f_name)
     ) test_files;
-    print_endline "PASSED"
+  ) !dir_list;
+  print_endline "PASSED"
