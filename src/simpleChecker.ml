@@ -1,6 +1,13 @@
 open Ast
+open SimpleTypes
 
-module UnionFind = struct
+module UnionFind : sig
+  type t
+  val find: t -> int -> int
+  val union: t -> int -> int -> unit
+  val mk: (parent:int -> child:int -> unit) -> t
+  val new_node: t -> int
+end = struct
   type node = {
     id: int;
     mutable parent: node;
@@ -34,13 +41,16 @@ module UnionFind = struct
       node.parent <- found;
       found
 
-  let find uf id1 =
+  let find_internal uf id1 =
     let node = Hashtbl.find uf.table id1 in
-    compress node
+    (compress node)
+
+  let find uf id1 =
+    (find_internal uf id1).id
 
   let union uf id1 id2 =
-    let n1 = find uf id1 in
-    let n2 = find uf id2 in
+    let n1 = find_internal uf id1 in
+    let n2 = find_internal uf id2 in
     if n1 == n2 then
       ()
     else begin
@@ -63,12 +73,6 @@ end
 
 module StringMap = Map.Make(String)
 
-type r_typ = [
-  | `Int
-  | `Unit
-  | `IntRef
-]
-
 type typ = [
   | `Var of int
   | r_typ
@@ -77,11 +81,6 @@ type typ = [
 type funtyp_v = {
   arg_types_v: int list;
   ret_type_v: int
-}
-
-type funtyp = {
-  arg_types: r_typ list;
-  ret_type: r_typ
 }
 
 type funenv = funtyp_v StringMap.t
@@ -110,7 +109,7 @@ let resolve_type uf resolv r =
   match r with
   | #r_typ -> r
   | `Var v ->
-    let id = (UnionFind.find uf v).UnionFind.id in
+    let id = UnionFind.find uf v in
     if Hashtbl.mem resolv id then
       (Hashtbl.find resolv id :> typ)
     else r
@@ -131,7 +130,7 @@ let unify ctxt t1 t2 =
   | ((#r_typ as t1), (#r_typ as t2)) when t1 = t2 -> ()
   | _ -> failwith "Ill-typed"
 
-let process_call lkp ctxt { callee; arg_names } =
+let process_call lkp ctxt { callee; arg_names; _ } =
     let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
     List.iter2 (fun a_var t_var ->
       unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
@@ -141,11 +140,15 @@ let rec process_expr ctxt e =
   let res t = resolve ctxt t in
   let lkp n = StringMap.find n ctxt.tyenv |> res in
   let unify_var n typ = unify ctxt (lkp n) typ in
+  let unify_imm c = match c with
+    | IInt _ -> ();
+    | IVar v -> unify_var v `Int
+  in
   match e with
   | EVar v -> lkp v
   | EInt _ -> `Int
   | Unit -> `Unit
-  | Cond (v,e1,e2) ->
+  | Cond (_,v,e1,e2) ->
     unify_var v `Int;
     let t1 = process_expr ctxt e1 in
     let t2 = process_expr ctxt e2 in
@@ -153,20 +156,22 @@ let rec process_expr ctxt e =
   | Seq (e1,e2) ->
     process_expr ctxt e1 |> ignore;
     process_expr ctxt e2
-  | Assign (v1,v2) ->
+  | Assign (v1,IVar v2) ->
     unify_var v1 `IntRef;
     unify_var v2 `Int;
     `Unit
-  | Alias (v1, v2) ->
+  | Assign (v1,IInt _) ->
+    unify_var v1 `IntRef; `Unit
+  | Alias (_,v1, v2) ->
     unify_var v1 `IntRef;
     unify_var v2 `IntRef;
     `Unit
-  | Assert (_,v1,v2) ->
-    unify_var v1 `Int;
-    unify_var v2 `Int;
+  | Assert { rop1; rop2; _ } ->
+    unify_imm rop1;
+    unify_imm rop2;
     `Unit
   | ECall c -> process_call lkp ctxt c
-  | Let (x,lhs,expr) ->
+  | Let (_id,x,lhs,expr) ->
     let v_type =
       match lhs with
       | Var v -> lkp v
@@ -176,13 +181,13 @@ let rec process_expr ctxt e =
       | Deref v -> unify_var v `IntRef; `Int
       | Call c -> process_call lkp ctxt c
       | Plus (v1, v2) ->
-        unify_var v1 `Int;
-        unify_var v2 `Int;
+        unify_imm v1;
+        unify_imm v2;
         `Int
       | Nondet -> `Int
     in
     process_expr { ctxt with tyenv = StringMap.add x v_type ctxt.tyenv } expr
-        
+
 let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt =  { uf; fenv; tyenv; resolv } in
@@ -210,18 +215,3 @@ let typecheck_prog (fns,body) =
     let ret_type = get_soln @@ `Var ret_type_v in
     StringMap.add name { arg_types; ret_type } acc
   ) StringMap.empty fns
-
-let type_to_string = function
-  | `Int -> "int"
-  | `IntRef -> "int ref"
-  | `Unit -> "unit"
-
-let fntype_to_string { arg_types; ret_type} =
-  Printf.sprintf "(%s) -> %s" 
-    (String.concat ", " @@ List.map type_to_string arg_types) @@
-    type_to_string ret_type
-  
-
-(* names typecheck prog =
- *   let constr = gather_constraints prog in
- *   solve_constraints constr *)

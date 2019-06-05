@@ -1,3 +1,5 @@
+;(set-logic HORN)
+
 ;; (define-fun f-out-refinement ((out Int) (a1 Int) (a2 Int)) Bool
 ;;   (> out 1))
 
@@ -35,30 +37,30 @@
 				 (and
 				  (fx-in-refinement n a1 a2)
 				  (fb-in-refinement bFlag a1 a2)
-				  (= bFlag 1))
-				 (=>
-				  (= t (+ n 1))
-				  (fx-in-refinement t 3 a1)))))
+				  (= bFlag 1)
+				  (= t (+ n 1)))
+				  (fx-in-refinement t 3 a1))))
 
 (assert (forall ((inFlag Int) (argFlag Int) (a1 Int) (a2 Int))
 				(=>
 				 (and
 				  (fb-in-refinement inFlag a1 a2)
-				  (= inFlag 1))
-				 (=> (= argFlag 0)
-					(fb-in-refinement argFlag 3 a1)))))
+				  (= inFlag 1)
+				  (= argFlag 0))
+				 (fb-in-refinement argFlag 3 a1))))
 				  
 
 (assert (forall ((n Int) (inFlag Int) (a1 Int) (a2 Int))
 				(=>
 				 (and
 				  (fb-in-refinement inFlag a1 a2)
-				  (= inFlag 1))
-				 (=> (f-out-refinement n 3 a1) (f-out-refinement n a1 a2)))))
+				  (= inFlag 1)
+				  (f-out-refinement n 3 a1))
+				 (f-out-refinement n a1 a2))))
 
 (assert (forall ((n Int) (argVal Int) (bFlag Int) (a1 Int) (a2 Int))
-				(=> (and (fb-in-refinement bFlag a1 a2) (= bFlag 0) (fx-in-refinement argVal a1 a2))
-				   (=> (g-out-refinement n 4 a1) (f-out-refinement n a1 a2)))))
+				(=> (and (fb-in-refinement bFlag a1 a2) (= bFlag 0) (fx-in-refinement argVal a1 a2) (g-out-refinement n 4 a1))
+				   (f-out-refinement n a1 a2))))
 
 (assert (forall ((n Int) (bFlag Int) (a1 Int) (a2 Int))
 				(=> (and (fx-in-refinement n a1 a2) (fb-in-refinement bFlag a1 a2) (= bFlag 0))

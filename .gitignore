@@ -6,3 +6,4 @@ auto/
 *.fdb_latexmk
 *.fls
 *~
+src/.merlin
