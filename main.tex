@@ -65,7 +65,6 @@
   \decl &::=& f \mapsto (x_1,\dots,x_n)\expr \\
   % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
   \expr &::= &
-              \val \mid
               x \mid
               \LET x = y \IN \expr \mid
               \LET x = \val \IN \expr \mid
@@ -76,7 +75,7 @@
               x \WRITE y \SEQ \expr \mid
               \ALIAS(\expr_1 = \expr_2) \SEQ \expr_3 \mid
               \ASSERT(\varphi) \SEQ \expr \\
-    \val &::=& a \mid n\\
+    \val &::=& n\\
     \prog &::=& \tuple{\set{\decl_1, \dots, \decl_n}, \expr}\\
     \pp &\in& \textbf{Labels}\\
   \pps &\in& \textbf{Labels}^*
@@ -670,7 +669,7 @@ $\ell_3\alpha$ for $\alpha$ in the argument types of $f$ indicates that
 \]
 and \lstinline{false} (i.e., \lstinline{0}) must have type:
 \[
-  \{ n : bool | (\ell_3\alpha = ell_3? \produces n = 0) \wedge (\ell_3\alpha \neq \ell_3? \produces n = 1) \}
+  \{ n : bool | (\ell_3\alpha = \ell_3? \produces n = 0) \wedge (\ell_3\alpha \neq \ell_3? \produces n = 1) \}
 \]
 The latter type simplifies to $\{ n : bool \mid n = 0 \}$ which the constant \lstinline{0} has
 (tehnically an application of the subtyping rule is required, but it is straightforward).
@@ -787,11 +786,7 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   \leavevmode
   \infrule[]{
   }{
-   \langle H, R, E:\overrightarrow{E}, v \rangle \ra_D \langle H, R, \overrightarrow{E}, E[v]\rangle
-  }
-  \infrule[]{
-  }{
-    \langle H, R, \overrightarrow{E}, E[x] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[R(x)]\rangle
+   \langle H, R, E:\overrightarrow{E}, x \rangle \ra_D \langle H, R, \overrightarrow{E}, E[x]\rangle
   }
   \infrule[]{
     x' \notin \DOM(R)
