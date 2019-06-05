@@ -752,29 +752,29 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
 \begin{figure}
   \leavevmode
   \infrule[]{
-    \overrightarrow{\ell} = Trace(\overrightarrow{E}) \andalso n = |\overrightarrow{E}| = |\overrightarrow{\ell}| \andalso \funenv \p D \andalso \overrightarrow{\ell_i} = tail^{n-i+1}(\overrightarrow{\ell}) \\
-    Cons(H, R, \tenv) \andalso \forall i \in \{1 ... n\}.\funenv\mid\tenv,\HOLE:\typ_{i+1}\produces\tenv_{i+1}\mid \overrightarrow{\ell_i} \ctxtp E_i : \typ_i \produces \tenv_i  \\
-    \funenv \mid \tenv,\HOLE:\typ_e\produces\tenv_e \overrightarrow{\ell} \ctxtp E:\typ_{n+1}\produces\tenv_{n+1} \andalso \funenv \mid \tenv \mid \overrightarrow{\ell} \p e : \typ_e\produces\tenv_e
-  }{\Cp \tuple{H,R,\overrightarrow{E},E[e]}}
+    \overrightarrow{\ell} = Trace(\seq{E}) \andalso n = |\seq{E}| = |\seq{\ell}| \andalso \funenv \p D \andalso \seq{\ell_i} = tail^{n-i+1}(\seq{\ell}) \\
+    Cons(H, R, \tenv) \andalso \forall i \in \{1 ... n\}.\funenv\mid\tenv,\HOLE:\typ_{i+1}\produces\tenv_{i+1}\mid \seq{\ell_i} \ctxtp E_i : \typ_i \produces \tenv_i  \\
+    \funenv \mid \tenv,\HOLE:\typ_e\produces\tenv_e \mid \seq{\ell} \ctxtp E:\typ_{n+1}\produces\tenv_{n+1} \andalso \funenv \mid \tenv \mid \seq{\ell} \p e : \typ_e\produces\tenv_e
+  }{\Cp \tuple{H,R,\seq{E},E[e]}}
 
   \begin{align*}
-    Trace(\cdot) = \cdot && Trace(E[\LET x = \HOLE^{\ell} \IN x] : \overrightarrow{E}) = \ell : Trace(\overrightarrow{E})
+    Trace(\cdot) = \cdot && Trace(E[\LET x = \HOLE^{\ell} \IN x] : \seq{E}) = \ell : Trace(\seq{E})
   \end{align*}
 
   \begin{align*}
     Cons(H,R,\tenv) = & SAT(H,R,\tenv) \wedge \forall h \in \DOM(H).F(h) \leq 1 \\
-    SAT(H,R,\tenv) = & \forall x \in \DOM(\tenv). \\
+    SAT(H,R,\tenv) = & \forall x \in \DOM(\tenv).x \in \DOM(R) \wedge \\
     & \begin{cases}
-      R(x) \in \mathbb{Z} \wedge [R(x)/n]\denote{\phi} & \tenv(x) = \{ n : int \mid \phi(n) \} \\
-      (0 \leq r \leq 1) \wedge (r > 0 \produces & \tenv(x) =  \{ n : int \mid \phi(n) \} \TREF^r \\
-      \,\,\,R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi}) &
+      R(x) \in \mathbb{Z} \wedge [R(x)/n,R(\seq{v})/\seq{v}]\denote{\phi} & \tenv(x) = \{ \nu : int \mid \phi(\nu,\seq{v}) \} \\
+      (0 \leq r \leq 1) \wedge (r > 0 \produces & \tenv(x) =  \{ \nu : int \mid \phi(\nu,\seq{v}) \} \TREF^r \\
+      \,\,\,R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n,R(\seq{v})/\seq{v}]\denote{\phi}) &
     \end{cases} \\
 \iffalse                     \Big[\tenv(x) & = \{ n : int \mid \phi(n) \} \produces \Big] \wedge \\
     \Big[\tenv(x)  & =  \{ n : int \mid \phi(n) \} \TREF^r \produces \\
                     & (0 \leq r \leq 1) \wedge (r > 0 \produces R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi})\Big] \\\fi
-    F(h) = &  \Sigma_{x \in \DOM(\tenv)} \mathbf{own}(H,R(x),\tenv(x)) \\
+    F(h) = &  \Sigma_{x \in \DOM(\tenv)}\,\mathbf{own}(H,R(x),\tenv(x)) \\
     \mathbf{own}(H, v, \typ) &  = \begin{cases}
-      \{ h \mapsto r \} & v = h \in \DOM(H) \\
+      \{ h \mapsto r \} & v = h \in \DOM(H) \wedge \typ = \{ \nu: int \mid \phi \} \TREF^r \\
       \emptyset & o.w.
     \end{cases}
   \end{align*}
