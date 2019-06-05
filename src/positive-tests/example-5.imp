@@ -1,0 +1,10 @@
+{
+  let x = mkref 1 in
+  let y = x in
+  let z1 = *y in
+  let z2 = *x in
+  {
+    assert(0 < z1);
+	assert(0 < z2)
+  }
+}

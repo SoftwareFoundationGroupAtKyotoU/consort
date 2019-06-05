@@ -1,0 +1,6 @@
+{
+  let x = mkref 1 in
+  let y = x in
+  let z = *y in
+    assert(0 < z)
+}
