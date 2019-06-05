@@ -828,8 +828,9 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
     \langle H, R, \overrightarrow{E}, E[\LET x=f^l(\tilde{y}) \IN e] \rangle \ra_D \langle H, R, E[\LET x=[]^l \IN e]:\overrightarrow{E}, [\tilde{y}/\tilde{x}]e']\rangle
   }
   \infrule[]{
+    R(x) = a \andalso R(y) = b \andalso a \in \DOM(H)
   }{
-    \langle H, R, \overrightarrow{E}, E[x:=y; e] \rangle \ra_D \langle H, R(x'\ra y), \overrightarrow{E}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[x:=y; e] \rangle \ra_D \langle H \EXTEND{a \mapsto b}, R, \overrightarrow{E}, E[e]\rangle
   }
   \infrule[]{H, R\models (e_1=e_2)
   }{
