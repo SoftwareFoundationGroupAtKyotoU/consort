@@ -1,0 +1,10 @@
+f(x) ()
+
+{
+  let x = * in
+  let y = x + 1 in {
+    f(y);
+	let z = x + 1 in
+	assert(y = z)
+  }
+}

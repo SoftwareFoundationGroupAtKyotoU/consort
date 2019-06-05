@@ -319,8 +319,11 @@ let dump_env ?(msg) tev =
   | Some m -> print_endline m;
   | None -> ());
   sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline
-    
 
+let post_update_type t = match t with
+  | `Int _ -> false
+  | `Ref _ -> true
+    
 let rec process_expr ctxt e =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
@@ -511,9 +514,12 @@ and process_call ctxt c =
   let callee_type = SM.find c.callee ctxt.theta in
   let in_out_types = List.combine callee_type.arg_types callee_type.output_types in
   let updated_ctxt = List.fold_left2 (fun acc (k,arg_t) (in_t,out_t) ->
-      constrain_var ctxt.path_condition input_env acc k (inst ~target_var:k @@ get_refinement in_t)
-      |> constrain_owner arg_t in_t
-      |> update_type k @@ subst_type ~target_var:k out_t
+      let pre_t_ctxt = constrain_var ctxt.path_condition input_env acc k (inst ~target_var:k @@ get_refinement in_t)
+        |> constrain_owner arg_t in_t in
+      if (post_update_type arg_t) then
+        update_type k (subst_type ~target_var:k out_t) pre_t_ctxt
+      else
+        pre_t_ctxt
     ) ctxt arg_bindings in_out_types
   in
   let result = match callee_type.result_type with
