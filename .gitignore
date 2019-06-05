@@ -7,3 +7,4 @@ auto/
 *.fls
 *~
 src/.merlin
+_build/
