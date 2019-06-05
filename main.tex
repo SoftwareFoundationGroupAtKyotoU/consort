@@ -680,6 +680,38 @@ We must also verify that:
 \]
 It is easy to verify this relationship holds.
 
+\paragraph{\large{\bf{example to explain context stack in the type system}}}
+$\newline$
+
+Suppose $\langle H, R,\overrightarrow{E}, l_4 \rangle$ represent heap(memory), register(environment), a sequence of context, program respectively.
+Here, $\overrightarrow{E} = E_3:E_2:E_1$, which $E_3$ is the newest context and $E_1$ is the oldest one.
+The context flow will go as belows, and $l_3$ is the newest program to call and $l_1$ is obvious the oldest one.
+It needs to satisfy the condition $\cup_i \textit{dom}(\tenv_i)= \textit{dom}(R)$.
+
+$\newline\tenv_4, l_3 l_2 l_1 \vdash l_4:\tau_4 \Rightarrow \tenv_4'\newline$
+$\tenv_3, []:\tenv_4 \Rightarrow \tenv_4'\mid \tau_4, l_2 l_1 \vdash E_3:\tau_3 \Rightarrow \tenv_3'\newline$
+$\tenv_2, []:\tenv_3 \Rightarrow \tenv_3'\mid\tau_3, l_1 \vdash E_2:\tau_2 \Rightarrow \tenv_2'\newline$
+$\tenv_1, []:\tenv_2 \Rightarrow \tenv_2'\mid\tau_2, \varepsilon \vdash E_1:\tau_1 \Rightarrow \tenv_1'\newline$
+
+To have a better understanding, we can now assume a function $\funenv(f) = \langle x\COL\set{z\mid T}\TREF^1\rangle \ra \langle x\COL\set{z\mid z>0}\TREF^1\rangle$.
+We give a varible $a$ to this function, it will have $a\COL\set{z\mid T}\TREF^1 \Rightarrow a\COL\set{z\mid z>0}\TREF^1 \LET y=f(a) \IN\dots$.
+That is $\overrightarrow{E}\COL \LET y=[ ] \IN\dots, D(f)[a/x]$.
+
+
+\section{Proof of Type Soundness(Theorem 1)}
+To prove the safety of typing, we need to show that the total owership for each heap is always 1.
+A triple $(\Gamma, H, R)$ is consistent, written as $Cons(H,R,\tenv)$, and defined as $\bf{Fig.5}$.
+$\newline\bf{Theorem.}$
+$\forall D, e, \bf{C}$ $\newline \vdash \langle D, e\rangle$ and $\langle \varnothing, \varnothing, \cdot, e \rangle \ra^* \bf{C}$, which imply
+$\bf{C} \neq \bf{AssertFail}.\newline$
+The followings are key lemmas:
+$\newline\bf{Lemma 1.}$
+$\vdash\langle \varnothing, \varnothing, \cdot, e \rangle$.
+$\newline\bf{Lemma 2.}$
+$\vdash\langle H, R, \overrightarrow{E}, e \rangle$ and $\langle H, R, \overrightarrow{E}, e \rangle \ra \bf{C}$ imply $\vdash\bf{C}$.
+$\newline\bf{Lemma 3.}$
+$\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
+
 \section{TODO}
 
 \begin{itemize}
@@ -735,7 +767,7 @@ It is easy to verify this relationship holds.
     & \begin{cases}
       R(x) \in \mathbb{Z} \wedge [R(x)/n]\denote{\phi} & \tenv(x) = \{ n : int \mid \phi(n) \} \\
       (0 \leq r \leq 1) \wedge (r > 0 \produces & \tenv(x) =  \{ n : int \mid \phi(n) \} \TREF^r \\
-      \,\,\,R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi}) & 
+      \,\,\,R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi}) &
     \end{cases} \\
 \iffalse                     \Big[\tenv(x) & = \{ n : int \mid \phi(n) \} \produces \Big] \wedge \\
     \Big[\tenv(x)  & =  \{ n : int \mid \phi(n) \} \TREF^r \produces \\
