@@ -10,7 +10,8 @@ let () =
   let expect = ref true in
   let args = [
     ("-neg", Arg.Clear expect, "Expect typing failures");
-    ("-pos", Arg.Set expect, "Expect typing success (default)")
+    ("-pos", Arg.Set expect, "Expect typing success (default)");
+    ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference")
   ] in
   let dir_list = ref [] in
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";

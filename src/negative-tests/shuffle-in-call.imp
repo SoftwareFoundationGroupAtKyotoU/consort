@@ -1,0 +1,14 @@
+f(p,q) {
+  alias(p = q);
+  q := 4
+}
+
+{
+  let x = mkref 1 in 
+  let y = x in {
+    let t = *y in assert(1 = t);
+    let t = *x in assert(1 = t);
+    f(x,y);
+    let t = *x in assert(t = 4)
+  }
+}
