@@ -13,7 +13,8 @@ let int = '-'? ['0'-'9']+
 
 let white = [' ' '\t']+
 let newline = '\n'
-let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
+let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
 let non_comment = [^ '(' '*' ')' ]+
 let comment_delim = [ '(' '*' ')' ]
 
@@ -45,6 +46,8 @@ rule read =
   | ":=" { ASSIGN }
   | '<' { LT }
   | "<=" { LEQ }
+  | ">" { GT }
+  | ">=" { GE }
   | "!=" { NEQ }
   | '_' { UNDERSCORE }
   | id { ID (Lexing.lexeme lexbuf) }
