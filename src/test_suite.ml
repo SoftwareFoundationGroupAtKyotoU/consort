@@ -18,14 +18,9 @@ let () =
   List.iter (fun dir -> 
     let test_files = Sys.readdir dir in
     Array.iter (fun f_name ->
-      if String.length f_name < 4 then
-        ()
-      else if 
-        let last4 = String.sub f_name ((String.length f_name) - 4) 4 in
-        last4 <> ".imp" then
-        ()
-      else
+      if Filename.check_suffix f_name ".imp" then
         run_test !expect (dir ^ "/" ^ f_name)
+      else ()
     ) test_files;
   ) !dir_list;
   print_endline "PASSED"
