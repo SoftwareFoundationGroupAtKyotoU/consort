@@ -65,7 +65,7 @@
   \decl &::=& f \mapsto (x_1,\dots,x_n)\expr \\
   % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
   \expr &::= &
-              x 
+              x \mid
               \LET x = y \IN \expr \mid
               \LET x = \val \IN \expr \mid
               \IFZERO x \THEN \expr_1 \ELSE \expr_2  \\ &\mid&
@@ -260,6 +260,12 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     \funenv \mid \tenv, x : \typ'_1 \TREF^{r'_1}, y : \typ'_2 \TREF^{r'_2} \mid \beta \vdash \expr_3 \COL \tau \produces \tenv'
   }{
     \funenv \mid \tenv, x : \typ_1 \TREF^{r_1}, y : \typ_2 \TREF^{r_2} \mid \beta \vdash \ALIAS(x = y) \SEQ \expr_3 \COL \tau \produces \tenv'
+  }
+  \infrule[T-Seq]{
+    \funenv \mid \tenv \mid \beta \vdash \expr_1 \COL \typ' \produces \tenv' \andalso
+    \funenv \mid \tenv' \mid \beta \vdash \expr_2 \COL \typ'' \produces \tenv''
+  }{
+    \funenv \mid \tenv \mid \beta \vdash \expr_1; \expr_2 \COL \typ'' \produces \tenv''
   }
   \infrule[T-Assert]{
     \tenv \models \varphi \andalso
