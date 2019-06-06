@@ -1,0 +1,16 @@
+language: c
+addons:
+  apt:
+    sources:
+      - avsm
+    packages:
+      - opam
+      - ocaml
+      - libstdc++6
+      - libgomp1
+      - libgmp-dev
+sudo: false
+cache:
+  directories:
+    - $HOME/.opam
+script: bash -ex .travis-ci.sh
