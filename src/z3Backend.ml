@@ -62,10 +62,15 @@ let refine_args o l = match o with
   | Some v -> List.filter ((<>) v) l
   | None -> l
 
+let ctxt_var i = "CTXT" ^ (string_of_int i)
+
 let rec pp_refine r binding ff = match r with
   | Pred (i,args,o) ->
-    print_string_list ([ pred_name i; "CTXT"; binding ] @ (refine_args o args)) ff
-  | CtxtPred (ctxt,i,args,o) -> print_string_list ([ pred_name i; string_of_int ctxt; binding ] @ (refine_args o args)) ff
+    let ctxt = init !KCFA.cfa ctxt_var in
+    print_string_list (pred_name i::ctxt @ [ binding ] @ (refine_args o args)) ff
+  | CtxtPred (ctxt,i,args,o) ->
+    let c_string = (string_of_int ctxt)::(init (!KCFA.cfa-1) (fun i -> ctxt_var @@ i + 1)) in
+    print_string_list (pred_name i::c_string @ [ binding ] @ (refine_args o args)) ff
   | Top -> pp_print_string ff "true"
   | ConstEq n -> print_string_list [ "="; binding; string_of_int n ] ff
   | Linear { op1; op2 } ->
@@ -106,10 +111,11 @@ let pp_owner_ante (o,c,f) =
 
 let pp_constraint ff { env; ante; conseq; owner_ante; pc } =
   let gamma = SM.bindings env in
-  let free_vars = ["(CTXT Int)"; "(NU Int)"] @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
-  let denote_gamma = List.map (fun (k,t) ->
+  let context_vars = init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
+  let free_vars = "(NU Int)":: context_vars @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
+  let denote_gamma = List.map (fun (v,t) ->
       match t with
-      | `Int r -> pp_refine r k
+      | `Int r -> pp_refine r v
       | _ -> (fun _ -> ())
     ) gamma in
   let denote_path = List.map (fun (v1,v2) ->
