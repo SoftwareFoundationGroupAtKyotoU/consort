@@ -294,9 +294,17 @@ let remove_var pc ~loc v t ctxt =
   let need_update = List.filter (fun (_,t) ->
       get_refinement t |> free_vars_contains v
     ) bindings in
-  List.fold_left (fun ctxt' (k,_) ->
+  let ctxt' = List.fold_left (fun ctxt' (k,_) ->
     subtype_fresh pc ~loc curr_te ctxt' k ~fv:in_scope
-  ) ctxt need_update
+    ) ctxt need_update in
+  match t with
+  | `UnitT -> (ctxt',t)
+  | (#typ as v_t) ->
+    if get_refinement v_t |> free_vars_contains v then
+      let (ctxt'',r') = make_fresh_pred ~loc ~fv:in_scope ctxt' in
+      (constrain_type pc curr_te v_t r' ctxt'' ,(update_refinement r' v_t :> etype))
+    else
+      (ctxt', t)
 
 let unsafe_get o =
   match o with
@@ -386,9 +394,8 @@ let rec process_expr ctxt e =
         |> add_type v (ref_of t2 @@ OConst 1.0)
     end in
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
-    remove_var ctxt'.path_condition ~loc:(LLet i) v ctxt'
-    |> update_pc ctxt.path_condition
-    |> with_type ret_t
+    let (ctxt'',ret_t') = remove_var ctxt'.path_condition ~loc:(LLet i) v ret_t ctxt' in
+    (update_pc ctxt.path_condition ctxt'', ret_t')
   | ECall c -> begin
     let (ctxt, ret) = process_call ctxt c in
     match ret with
