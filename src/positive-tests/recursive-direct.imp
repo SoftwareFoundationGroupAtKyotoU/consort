@@ -1,0 +1,18 @@
+f(x)
+  if x then
+    x
+  else
+    let t = x + -1 in
+	f(t)
+
+g(x) let r = f(x) in r
+
+{
+  let y = 10 in
+  let r = g(y) in
+  let d = 11 in
+  let q = g(d) in {
+    assert(r = 0);
+	assert(q = 0)
+  }
+}
