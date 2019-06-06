@@ -233,7 +233,7 @@ let alloc_pred ?target_var ~loc fv ctxt =
   let arity = (List.length fv) -
       (match target_var with
       | Some v when List.mem v fv -> 1
-      | _ -> 0) + 2 (* 1 for nu and 1 for context *)
+      | _ -> 0) + 1 + !KCFA.cfa (* 1 for nu and k for context *)
   in
   Hashtbl.add ctxt.pred_detail n { fv; loc; target_var };
   ({ ctxt with
@@ -286,7 +286,7 @@ let predicate_vars kv =
       | _ -> acc
   ) [] kv |> List.rev
 
-let remove_var pc ~loc v ctxt =
+let remove_var pc ~loc v t ctxt =
   let curr_te = ctxt.gamma in
   let ctxt = { ctxt with gamma = SM.remove v ctxt.gamma } in
   let bindings = SM.bindings ctxt.gamma in
