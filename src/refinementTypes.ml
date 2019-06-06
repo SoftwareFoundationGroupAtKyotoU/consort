@@ -81,15 +81,10 @@ type 'a _typ = [
 type typ = refinement _typ [@@deriving sexp]
 type ftyp = int  _typ
 
-type etype = [
-  | `UnitT
-  | typ
-]
-
 type funtype = {
   arg_types: ftyp list;
   output_types: ftyp list;
-  result_type: ftyp option
+  result_type: ftyp
 }
 
 type location = {
@@ -297,14 +292,11 @@ let remove_var pc ~loc v t ctxt =
   let ctxt' = List.fold_left (fun ctxt' (k,_) ->
     subtype_fresh pc ~loc curr_te ctxt' k ~fv:in_scope
     ) ctxt need_update in
-  match t with
-  | `UnitT -> (ctxt',t)
-  | (#typ as v_t) ->
-    if get_refinement v_t |> free_vars_contains v then
-      let (ctxt'',r') = make_fresh_pred ~loc ~fv:in_scope ctxt' in
-      (constrain_type pc curr_te v_t r' ctxt'' ,(update_refinement r' v_t :> etype))
-    else
-      (ctxt', t)
+  if get_refinement t |> free_vars_contains v then
+    let (ctxt'',r') = make_fresh_pred ~loc ~fv:in_scope ctxt' in
+    (constrain_type pc curr_te t r' ctxt'', update_refinement r' t)
+  else
+    (ctxt', t)
 
 let unsafe_get o =
   match o with
@@ -339,26 +331,26 @@ let rec process_expr ctxt e =
     | _ -> failwith "Not actually a ref"
   in
   match e with
-  | Unit -> (ctxt, `UnitT)
-  | EInt i -> (ctxt, `Int (ConstEq i))
   | EVar v ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp v in
-    (update_type v t1 ctxt', (t2 :> etype))
+    (update_type v t1 ctxt', t2)
   | Seq (e1, e2) ->
     let (ctxt', _) = process_expr ctxt e1 in
     process_expr ctxt' e2
-  | Assign (lhs,IVar rhs) ->
+  | Assign (lhs,IVar rhs,cont) ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp rhs in
     let (_,o)  = lkp_ref lhs in
-    add_owner_con [Write o] ctxt'
+    let nxt = add_owner_con [Write o] ctxt'
     |> update_type rhs t1
-    |> update_type lhs (ref_of t2 o)
-    |> with_type `UnitT
-  | Assign (lhs,IInt i) ->
+    |> update_type lhs (ref_of t2 o) in
+    process_expr nxt cont
+  | Assign (lhs,IInt i,cont) ->
     let (_,o) = lkp_ref lhs in
-    add_owner_con [Write o] ctxt
-    |> update_type lhs @@ ref_of (`Int (ConstEq i)) o
-    |> with_type `UnitT
+    let ctxt' =
+      add_owner_con [Write o] ctxt
+      |> update_type lhs @@ ref_of (`Int (ConstEq i)) o
+    in
+    process_expr ctxt' cont
   | Let (i,v,lhs,exp) ->
     let bound_ctxt = begin
     match lhs with
@@ -374,7 +366,7 @@ let rec process_expr ctxt e =
       add_type v (`Int Top) ctxt
     | Call c ->
       let (ctxt,ret) = process_call ctxt c in
-      add_type v (unsafe_get ret) ctxt
+      add_type v ret ctxt
     | Deref ptr ->
       let (r,o) = lkp_ref ptr in
       let target_type = (deref r :> typ) in
@@ -396,15 +388,10 @@ let rec process_expr ctxt e =
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
     let (ctxt'',ret_t') = remove_var ctxt'.path_condition ~loc:(LLet i) v ret_t ctxt' in
     (update_pc ctxt.path_condition ctxt'', ret_t')
-  | ECall c -> begin
-    let (ctxt, ret) = process_call ctxt c in
-    match ret with
-    | None -> (ctxt, `UnitT)
-    | Some t -> (ctxt, (t :> etype))
-    end
-  | Assert relation ->
-    (add_constraint ctxt.path_condition ctxt.gamma ctxt Top (lift_relation relation), `UnitT)
-  | Alias (id,v1,v2) ->
+  | Assert (relation,cont) ->
+    cont
+    |> process_expr @@ add_constraint ctxt.path_condition ctxt.gamma ctxt Top (lift_relation relation)
+  | Alias (id,v1,v2,cont) ->
     let loc = LAlias id in
     let (r1,o1) = lkp_ref v1 in
     let (r2,o2) = lkp_ref v2 in
@@ -451,7 +438,7 @@ let rec process_expr ctxt e =
       |> update_type v1 @@ t1'
       |> update_type v2 @@ t2'
     in
-    (res, `UnitT)
+    process_expr res cont
   | Cond(i,v,e1,e2) ->
     let add_pc_refinement ctxt cond =
       let curr_ref = lkp v in
@@ -492,10 +479,7 @@ let rec process_expr ctxt e =
         let (ctxt',t) = subsume_types ctxt ~target_var:k1 t1 t2 in
         add_type k1 t ctxt'
       ) u_ctxt b1 b2 in
-    match t1,t2 with
-    | `UnitT,`UnitT -> (c_sub,`UnitT)
-    | (#typ as t1),(#typ as t2) -> ((subsume_types c_sub t1 t2) :> (context * etype))
-    | _ -> assert false
+    subsume_types c_sub t1 t2
 and make_fresh_reftype ?target_var ~loc ~fv t ctxt =
   match t with
   | `Int _ ->
@@ -529,10 +513,7 @@ and process_call ctxt c =
         pre_t_ctxt
     ) ctxt arg_bindings in_out_types
   in
-  let result = match callee_type.result_type with
-    | None -> None
-    | Some t -> Some (subst_type t)
-  in
+  let result = subst_type callee_type.result_type in
   (updated_ctxt, result)
 
 let process_function_bind ctxt fdef =
@@ -556,12 +537,8 @@ let process_function_bind ctxt fdef =
       constrain_var [] acc.gamma acc v out_pred
       |> constrain_owner out_ty (SM.find v acc.gamma)
     ) ctxt' out_typ_template in
-  match f_typ.result_type,t' with
-  | None,`UnitT -> ctxt''
-  | Some ret_templ,(#typ as body_t) ->
-    let return_pred = Pred ((get_refinement ret_templ),fv,None) in
-    constrain_type [] ctxt''.gamma body_t return_pred ctxt''
-  | _ -> assert false
+  let return_pred = Pred ((get_refinement f_typ.result_type),fv,None) in
+  constrain_type [] ctxt''.gamma t' return_pred ctxt''
 
 let process_function ctxt fdef =
   let c = process_function_bind ctxt fdef in
@@ -585,7 +562,6 @@ let infer ~print_pred st (fns,main) =
       | `Int ->
         let (ctxt',p) = alloc_pred ?target_var ~loc free_vars ctxt in
         (ctxt',(`Int p))
-      | `Unit -> assert false
       | `IntRef ->
         let (ctxt',(p,o)) = ((alloc_pred ?target_var ~loc free_vars) >> alloc_ovar) ctxt in
         (ctxt',`Ref (`Int p,o))
@@ -601,10 +577,7 @@ let infer ~print_pred st (fns,main) =
     let (ctxt',arg_types) = gen_arg_preds ~loc:(LArg f_def.name) free_vars arg_templ ctxt in
     let (ctxt'',output_types) = gen_arg_preds ~loc:(LOutput f_def.name) free_vars arg_templ ctxt' in
     let (ctxt''', result_type) =
-      match simple_ftype.SimpleTypes.ret_type with
-      | `Unit -> (ctxt'',None)
-      | rt -> let (ctxt''',t) = (gen_refine_templ ~loc:(LReturn f_def.name) free_vars rt ctxt'') in
-        (ctxt''', Some t)
+      gen_refine_templ ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type ctxt''
     in
     { ctxt''' with
       theta = SM.add f_def.name {
