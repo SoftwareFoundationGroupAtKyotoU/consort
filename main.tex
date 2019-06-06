@@ -65,7 +65,7 @@
   \decl &::=& f \mapsto (x_1,\dots,x_n)\expr \\
   % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
   \expr &::= &
-              x \mid
+              x 
               \LET x = y \IN \expr \mid
               \LET x = \val \IN \expr \mid
               \IFZERO x \THEN \expr_1 \ELSE \expr_2  \\ &\mid&
@@ -73,9 +73,9 @@
               \LET x = *y \IN \expr \mid
               \LET x = f^\ell(x_1,\dots,x_n) \IN \expr \\ &\mid&
               x \WRITE y \SEQ \expr \mid
-              \ALIAS(\expr_1 = \expr_2) \SEQ \expr_3 \mid
-              \ASSERT(\varphi) \SEQ \expr \\
-    \val &::=& n\\
+              \ALIAS(x = y) \SEQ \expr \mid
+              \ASSERT(\varphi) \SEQ \expr \mid \expr_1 \SEQ \expr_2 \\
+    \val &::=& n \\
     \prog &::=& \tuple{\set{\decl_1, \dots, \decl_n}, \expr}\\
     \pp &\in& \textbf{Labels}\\
   \pps &\in& \textbf{Labels}^*
@@ -324,6 +324,16 @@ When handling with $\ALIAS$ and $\ASSERT$, we introduce $\bf{AliasFail}$ and $\b
 the environment can't hold for some states.
 The expression about function definition, we replace it by the function body itself and we also need to remember to bind $x$ to
 the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written by $\LET x=[] \IN e$.
+
+\begin{figure}
+\[
+  \begin{array}{rcl}
+    E & ::= & E \SEQ e \mid \LET x = \HOLE \IN e \mid \HOLE
+  \end{array}
+\]
+\label{fig:eval-context-grammar}
+\caption{Grammar of evaluation contexts}
+\end{figure}
 
 \subsection{Examples}
 For examples, consider the following programs, written in an ML-like language.
@@ -726,8 +736,6 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
 \newcommand\DOM{\textit{dom}}
 \newcommand\EXTEND[1]{\{{#1}\}}
 
-\newcommand\HOLE{[]}
-
 \begin{figure}
   \leavevmode
   \infrule[]{
@@ -787,6 +795,10 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   \infrule[]{
   }{
    \langle H, R, E:\overrightarrow{E}, x \rangle \ra_D \langle H, R, \overrightarrow{E}, E[x]\rangle
+   }
+   \infrule[]{
+   }{
+     \langle H, R, E:\overrightarrow{E}, E[x;e] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[e]\rangle
   }
   \infrule[]{
     x' \notin \DOM(R)
@@ -837,11 +849,11 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   }
   \infrule[]{H, R\models \phi
   }{
-    \langle H, R, \overrightarrow{E}, E[\ASSERT(\phi)] \rangle \ra_D \langle H, R, \overrightarrow{E}, E\rangle
+    \langle H, R, \overrightarrow{E}, E[\ASSERT(\phi); e] \rangle \ra_D \langle H, R, \overrightarrow{E}, E[e]\rangle
   }
   \infrule[]{H, R\not\models \phi
   }{
-    \langle H, R, \overrightarrow{E}, E[\ASSERT(\phi)] \rangle \ra_D \bf{AssertFail}
+    \langle H, R, \overrightarrow{E}, E[\ASSERT(\phi); e] \rangle \ra_D \bf{AssertFail}
   }
 \caption{Transition Rules.}
 \label{fig:transitionRules}
