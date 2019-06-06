@@ -1,4 +1,4 @@
-let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) in_name =
+let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) ?(get_model=false) in_name =
   let f = open_in in_name in
   let lexbuf = Lexing.from_channel f in
   let ast = try
@@ -16,4 +16,4 @@ let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) in_nam
     ) program_types
   end;
   let (o, ov, r, a) = RefinementTypes.infer ~print_pred program_types ast in
-  Z3Backend.solve ~print_cons o ov r a
+  Z3Backend.solve ~print_cons ~get_model o ov r a

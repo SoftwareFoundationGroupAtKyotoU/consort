@@ -184,15 +184,24 @@ let pp_oconstraint ff ocon =
   end;
   pp_print_cut ff ()
 
-let call_z3 cons =
+let call_z3 cons ~get_model =
   let (i,o) = Unix.open_process "z3 -in -T:30" in
   output_string o cons;
   output_string o "(check-sat)\n";
+  if get_model then
+    output_string o "(get-model)\n";
   close_out o;
   let res = input_line i in
-  res = "sat"
+  match res,get_model with
+  | "sat",true ->
+    let model = Files.string_of_channel i in
+    close_in i;
+    prerr_endline model;
+    flush stderr;
+    true
+  | _,_ -> close_in i; res = "sat"
 
-let solve ~print_cons owner_cons ovars refinements arity =
+let solve ~print_cons ~get_model owner_cons ovars refinements arity =
   let buf = Buffer.create 1024 in
   let ff = Format.formatter_of_buffer buf in
   pp_open_vbox ff 0;
@@ -217,4 +226,4 @@ let solve ~print_cons owner_cons ovars refinements arity =
   if print_cons then begin
     Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons; flush stderr
   end;
-  call_z3 cons
+  call_z3 ~get_model cons
