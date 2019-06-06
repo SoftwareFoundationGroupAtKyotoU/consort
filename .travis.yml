@@ -7,4 +7,7 @@ addons:
       - opam
       - ocaml
 sudo: false
+cache:
+  directories:
+    - $HOME/.opam
 script: bash -ex .travis-ci.sh
