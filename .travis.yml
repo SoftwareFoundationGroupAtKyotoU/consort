@@ -6,6 +6,8 @@ addons:
     packages:
       - opam
       - ocaml
+      - libstdc++6
+      - libgomp1
 sudo: false
 cache:
   directories:
