@@ -104,29 +104,37 @@ type target_cond = [
   | `Lt
 ]
 
-let rec simplify_expr count e =
+let rec simplify_expr ?next count e =
+  let get_continuation count = match next with
+    | None -> simplify_expr count @@ Int 0
+    | Some e' -> simplify_expr count e'
+  in
   match e with
-  | Unit -> A.Unit
+  | Unit -> simplify_expr count @@ Int 0
   | Var s -> A.EVar s
-  | Int i -> A.EInt i
+  | Int i ->
+    bind_in count (`OInt i) (fun _ var -> A.EVar var)
   | Cond (i,v,e1,e2) ->
     A.Cond (i,v,simplify_expr count e1,simplify_expr count e2)
+  | Seq (((Assign _ | Alias _ | Assert _) as ue),e1) ->
+    simplify_expr ~next:e1 count ue
   | Seq (e1,e2) ->
     A.Seq (simplify_expr count e1,simplify_expr count e2)
   | Assign (v,l) ->
-    lift_to_imm count l (fun _ i ->
-        A.Assign (v,i)
+    lift_to_imm count l (fun c i ->
+        A.Assign (v,i,get_continuation c)
       )
   | Let (i,v,lhs,body) ->
     lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->
         let body' = simplify_expr c body in
         A.Let (i,v,lhs',body')
       )
-  | Alias (i,v1,v2) -> A.Alias (i,v1,v2)
+  | Alias (i,v1,v2) -> 
+      A.Alias (i,v1,v2, get_continuation count)
   | Assert { op1; cond = `Gt; op2 } ->
-    simplify_expr count @@ Assert { op1 = op2; cond = `Lt; op2 = op1 }
+    simplify_expr ?next count @@ Assert { op1 = op2; cond = `Lt; op2 = op1 }
   | Assert { op1; cond = `Ge; op2 } ->
-    simplify_expr count @@ Assert { op1 = op2; cond = `Leq; op2 = op1 }
+    simplify_expr ?next count @@ Assert { op1 = op2; cond = `Leq; op2 = op1 }
   | Assert { op1; cond = (#target_cond as cond); op2 } ->
     let cond' = match cond with
       | `Leq -> A.Leq
@@ -135,13 +143,13 @@ let rec simplify_expr count e =
       | `Neq -> A.Neq
     in
     lift_to_imm count (op1 :> lhs) (fun c op1' ->
-      lift_to_imm c (op2 :> lhs) (fun _ op2' ->
-        A.Assert { A.rop1 = op1'; A.cond = cond'; A.rop2 = op2' }
+      lift_to_imm c (op2 :> lhs) (fun c' op2' ->
+        A.Assert ({ A.rop1 = op1'; A.cond = cond'; A.rop2 = op2' }, get_continuation c')
       )
     )
-  | Call c ->
-    lift_to_call count c (fun _ call_obj ->
-        A.ECall call_obj
+  | Call ((_,i,_) as c) ->
+    bind_in ~ctxt:i count (`Call c) (fun _ tvar ->
+        A.EVar tvar
       )
 
 let simplify (fns,body) =

@@ -155,8 +155,6 @@ let rec process_expr ctxt e =
   in
   match e with
   | EVar v -> lkp v
-  | EInt _ -> `Int
-  | Unit -> `Unit
   | Cond (_,v,e1,e2) ->
     unify_var v `Int;
     let t1 = process_expr ctxt e1 in
@@ -165,21 +163,21 @@ let rec process_expr ctxt e =
   | Seq (e1,e2) ->
     process_expr ctxt e1 |> ignore;
     process_expr ctxt e2
-  | Assign (v1,IVar v2) ->
+  | Assign (v1,IVar v2,e) ->
     unify_var v1 `IntRef;
     unify_var v2 `Int;
-    `Unit
-  | Assign (v1,IInt _) ->
-    unify_var v1 `IntRef; `Unit
-  | Alias (_,v1, v2) ->
+    process_expr ctxt e
+  | Assign (v1,IInt _,e) ->
+    unify_var v1 `IntRef;
+    process_expr ctxt e
+  | Alias (_,v1, v2,e) ->
     unify_var v1 `IntRef;
     unify_var v2 `IntRef;
-    `Unit
-  | Assert { rop1; rop2; _ } ->
+    process_expr ctxt e
+  | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1;
     unify_imm rop2;
-    `Unit
-  | ECall c -> process_call lkp ctxt c
+    process_expr ctxt e
   | Let (_id,x,lhs,expr) ->
     let v_type =
       match lhs with
