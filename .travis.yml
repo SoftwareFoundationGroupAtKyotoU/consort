@@ -8,6 +8,7 @@ addons:
       - ocaml
       - libstdc++6
       - libgomp1
+      - libgmp-dev
 sudo: false
 cache:
   directories:
