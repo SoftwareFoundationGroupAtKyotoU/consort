@@ -131,10 +131,19 @@ let unify ctxt t1 t2 =
   | _ -> failwith "Ill-typed"
 
 let process_call lkp ctxt { callee; arg_names; _ } =
-    let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
-    List.iter2 (fun a_var t_var ->
-      unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
-    `Var ret_type_v
+  let sorted_args = List.fast_sort Pervasives.compare arg_names in
+  let rec find_dup l = match l with
+    | [_]
+    | [] -> false
+    | h::h'::_ when h = h' -> true
+    | _::t -> find_dup t
+  in
+  if find_dup sorted_args then
+    failwith "Duplicate variable names detected"; 
+  let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
+  List.iter2 (fun a_var t_var ->
+    unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
+  `Var ret_type_v
 
 let rec process_expr ctxt e =
   let res t = resolve ctxt t in
