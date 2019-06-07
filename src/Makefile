@@ -9,6 +9,6 @@ all:
 test: all stdlib/lin.intr
 
 
-stdlib/lin.tr: ./genLin.ml
+stdlib/lin.intr: ./genLin.ml
 	dune exec ./genLin.exe > stdlib/lin.intr
 
