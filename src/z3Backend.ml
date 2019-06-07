@@ -1,5 +1,6 @@
 open Format
 open RefinementTypes
+open Inference
 
 let ovar_name ovar = Printf.sprintf "ovar-%d" ovar
 
@@ -36,8 +37,8 @@ let print_generic head l ff =
 
 let pg = print_generic
 
-module IntMap = RefinementTypes.IntMap
-module SM = RefinementTypes.SM
+module IntMap = Inference.IntMap
+module SM = StringMap
 
 let plift s ff = pp_print_string ff s
 let pl = plift
