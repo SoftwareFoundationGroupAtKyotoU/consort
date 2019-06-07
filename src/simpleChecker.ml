@@ -71,8 +71,6 @@ end = struct
   let new_node uf = make_and_add uf
 end
 
-module StringMap = Map.Make(String)
-
 type typ = [
   | `Var of int
   | r_typ
