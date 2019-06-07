@@ -44,11 +44,10 @@ type refinement =
   | CtxtPred of int * int * string list * string option
   | Top
   | ConstEq of int
-  (*  | Eq of string*)
   | Linear of lin_eq
   | Relation of refinement_rel
-  | And of refinement * refinement [@@deriving sexp]
-                                   (*  | NamedPred of string * string list*)
+  | And of refinement * refinement
+  | NamedPred of string * string list * string option [@@deriving sexp]
 
 type ownership =
     OVar of int
@@ -61,11 +60,36 @@ type 'a _typ = [
   | `Ref of 'a ref_contents * ownership
 ][@@deriving sexp]
 
+type arg_refinment =
+  | InfPred of int
+  | BuiltInPred of string
+  | True[@@deriving sexp]
+
 type typ = refinement _typ [@@deriving sexp]
-type ftyp = int  _typ
+type ftyp = arg_refinment  _typ[@@deriving sexp]
 
 type funtype = {
   arg_types: ftyp list;
   output_types: ftyp list;
   result_type: ftyp
-}
+}[@@deriving sexp]
+
+let update_content_ref r = function
+  | `Int _ -> `Int r
+
+let update_refinement r = function
+  | `Int _ as t -> (update_content_ref r t :> 'a _typ)
+  | `Ref (t,o) -> `Ref (update_content_ref r t,o)
+
+let rec get_refinement : 'a _typ -> 'a = function
+    `Int r -> r
+  | `Ref (t,_) -> get_refinement (t :'a ref_contents :> 'a _typ)
+
+let unsafe_get_ownership = function
+  | `Ref (_,o) -> o
+  | _ -> failwith "This is why its unsafe"
+
+let ref_of t1 o =
+  match t1 with
+  | `Ref _ -> failwith "Can't have reference to t"
+  | `Int _ as t -> `Ref (t,o)

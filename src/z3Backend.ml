@@ -66,6 +66,8 @@ let refine_args o l = match o with
 let ctxt_var i = "CTXT" ^ (string_of_int i)
 
 let rec pp_refine r binding ff = match r with
+  | NamedPred (n,args,o) ->
+    ff |> print_string_list @@ [ n; binding ] @ (refine_args o args)
   | Pred (i,args,o) ->
     let ctxt = init !KCFA.cfa ctxt_var in
     print_string_list (pred_name i::ctxt @ [ binding ] @ (refine_args o args)) ff

@@ -108,11 +108,6 @@ let split_type ctxt t =
 
 let with_type t ctxt = (ctxt, t)
 
-let ref_of t1 o =
-  match t1 with
-  | `UnitT | `Ref _ -> failwith "Can't have reference to t"
-  | `Int _ as t -> `Ref (t,o)
-
 let deref r = r
 
 let add_constraint pc gamma ctxt ?(o=[]) ante conseq =
@@ -131,21 +126,6 @@ let constrain_owner t1 t2 ctxt =
   | `Ref (_,o1),`Ref (_,o2) ->
     add_owner_con [Eq (o1,o2)] ctxt
   | _ -> ctxt
-
-let update_content_ref r = function
-  | `Int _ -> `Int r
-
-let update_refinement r = function
-  | `Int _ as t -> (update_content_ref r t :> 'a _typ)
-  | `Ref (t,o) -> `Ref (update_content_ref r t,o)
-
-let rec get_refinement : 'a _typ -> 'a = function
-    `Int r -> r
-  | `Ref (t,_) -> get_refinement (t :'a ref_contents :> 'a _typ)
-
-let unsafe_get_ownership = function
-  | `Ref (_,o) -> o
-  | _ -> failwith "This is why its unsafe"
 
 let constrain_type pc gamma t r ctxt =
   add_constraint pc gamma ctxt (get_refinement t) r
@@ -427,7 +407,13 @@ and process_call ctxt c =
       (k,SM.find k ctxt.gamma)) c.arg_names
   in
   let p_vars = predicate_vars arg_bindings in
-  let inst ?target_var p = CtxtPred (c.label,p,p_vars,target_var) in
+  let inst ?target_var f_refinement =
+    match f_refinement with
+    | InfPred p -> 
+      CtxtPred (c.label,p,p_vars,target_var)
+    | True -> Top
+    | BuiltInPred f -> NamedPred (f,p_vars,target_var)
+  in
   let subst_type ?target_var t =
     update_refinement (inst ?target_var @@ get_refinement t) t
   in
@@ -451,9 +437,15 @@ let process_function_bind ctxt fdef =
   let f_typ = SM.find fdef.name ctxt.theta in
   let typ_template = List.combine arg_names f_typ.arg_types in
   let fv = predicate_vars typ_template in
+  let subst_refinement ?target t =
+      let pred_var = match get_refinement t with
+        | InfPred i -> i
+        | _ -> assert false
+      in
+      Pred (pred_var,fv,target)
+  in
   let init_env = List.map (fun (n,t) ->
-      let pred_var = get_refinement t in
-      let t' = update_refinement (Pred (pred_var,fv,Some n)) t in
+      let t' = update_refinement (subst_refinement ~target:n t) t in
       (n,t')
     ) typ_template |>
       List.fold_left (fun acc (v,ty) ->
@@ -463,11 +455,11 @@ let process_function_bind ctxt fdef =
   let (ctxt',t') = process_expr { ctxt with gamma = init_env } fdef.body in
   let out_typ_template = List.combine arg_names f_typ.output_types in
   let ctxt'' = List.fold_left (fun acc (v,out_ty) ->
-      let out_pred = Pred ((get_refinement out_ty),fv,Some v) in
+      let out_pred = subst_refinement ~target:v out_ty in
       constrain_var [] acc.gamma acc v out_pred
       |> constrain_owner out_ty (SM.find v acc.gamma)
     ) ctxt' out_typ_template in
-  let return_pred = Pred ((get_refinement f_typ.result_type),fv,None) in
+  let return_pred = subst_refinement f_typ.result_type in
   constrain_type [] ctxt''.gamma t' return_pred ctxt''
 
 let process_function ctxt fdef =
@@ -491,10 +483,10 @@ let infer ~print_pred st (fns,main) =
       match t with
       | `Int ->
         let (ctxt',p) = alloc_pred ?target_var ~loc free_vars ctxt in
-        (ctxt',(`Int p))
+        (ctxt',(`Int (InfPred p)))
       | `IntRef ->
         let (ctxt',(p,o)) = ((alloc_pred ?target_var ~loc free_vars) >> alloc_ovar) ctxt in
-        (ctxt',`Ref (`Int p,o))
+        (ctxt',`Ref (`Int (InfPred p),o))
     in
     let gen_arg_preds ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
         let (ctxt',t') = gen_refine_templ ~target_var:k ~loc fv t acc_c in
