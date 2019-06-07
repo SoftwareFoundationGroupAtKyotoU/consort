@@ -185,10 +185,6 @@ let rec process_expr ctxt e =
       | Mkref (RVar v) -> unify_var v `Int; `IntRef
       | Deref v -> unify_var v `IntRef; `Int
       | Call c -> process_call lkp ctxt c
-      | Plus (v1, v2) ->
-        unify_imm v1;
-        unify_imm v2;
-        `Int
       | Nondet -> `Int
     in
     process_expr { ctxt with tyenv = StringMap.add x v_type ctxt.tyenv } expr
@@ -199,14 +195,27 @@ let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let out_type = process_expr ctxt body in
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
-let typecheck_prog (fns,body) =
+let typecheck_prog intr_types (fns,body) =
   let resolv = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
         Hashtbl.add resolv parent (Hashtbl.find resolv child)
       else ()
     ) in
-  let fenv : funenv = make_fenv uf fns in
+  let fenv_ : funenv = make_fenv uf fns in
+  let fenv =
+    let lift_type t =
+      let n_id = UnionFind.new_node uf in
+      Hashtbl.add resolv n_id t;
+      n_id
+    in
+    StringMap.fold (fun k { arg_types; ret_type } ->
+      StringMap.add k {
+        arg_types_v = List.map lift_type arg_types;
+        ret_type_v = lift_type ret_type;
+      }
+    ) intr_types fenv_
+  in
   List.iter (fun fn_def ->
     constrain_fn uf fenv resolv fn_def
   ) fns;

@@ -10,13 +10,13 @@ type call = string * int * (op list)
 type lhs = [
   | op
   | `Mkref of op
-  | `Plus of op * op
+  | `BinOp of op * string * op
   | `Call of call
 ]
 
 type relation = {
   op1: op;
-  cond: [ `Leq | `Eq | `Neq | `Lt | `Ge | `Gt ];
+  cond: string;
   op2: op
 }
 
@@ -24,7 +24,7 @@ type exp =
   | Unit
   | Var of string
   | Int of int
-  | Cond of int * string * exp * exp
+  | Cond of int * [`Var of string | `BinOp of op * string * op] * exp * exp
   | Assign of string * lhs
   | Let of int * string * lhs * exp
   | Alias of int * string * string
@@ -52,10 +52,10 @@ let rec lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `Nondet -> k @@ A.Nondet
   | `Call c ->
     lift_to_call count c (fun c' l -> rest c' @@ A.Call l)
-  | `Plus (o1,o2) ->
-    lift_to_imm ?ctxt count (o1 :> lhs) (fun c i1 ->
-        lift_to_imm c (o2 :> lhs) (fun c' i2 ->
-          rest c' (A.Plus (i1,i2))
+  | `BinOp (o1,op_name,o2) ->
+    lift_to_var ?ctxt count (o1 :> lhs) (fun c i1 ->
+        lift_to_var c (o2 :> lhs) (fun c' i2 ->
+          rest c' (A.Call { A.callee = op_name; arg_names = [i1;i2]; label = LabelManager.register ?ctxt () })
         )
       )
   | `Mkref `Nondet -> k @@ A.Mkref A.RNone
@@ -97,13 +97,6 @@ and bind_in ?ctxt count lhs k =
     A.Let (LabelManager.register ?ctxt (),tvar,lhs',to_inst)
   )
 
-type target_cond = [
-  | `Leq
-  | `Eq
-  | `Neq
-  | `Lt
-]
-
 let rec simplify_expr ?next count e =
   let get_continuation count = match next with
     | None -> simplify_expr count @@ Int 0
@@ -114,8 +107,12 @@ let rec simplify_expr ?next count e =
   | Var s -> A.EVar s
   | Int i ->
     bind_in count (`OInt i) (fun _ var -> A.EVar var)
-  | Cond (i,v,e1,e2) ->
+  | Cond (i,`Var v,e1,e2) ->
     A.Cond (i,v,simplify_expr count e1,simplify_expr count e2)
+  | Cond (i,(`BinOp _ as b),e1,e2) ->
+    bind_in ~ctxt:i count (b :> lhs) (fun c tvar ->
+        A.Cond (i,tvar,simplify_expr c e1,simplify_expr c e2)
+      )
   | Seq (((Assign _ | Alias _ | Assert _) as ue),e1) ->
     simplify_expr ~next:e1 count ue
   | Seq (e1,e2) ->
@@ -131,20 +128,10 @@ let rec simplify_expr ?next count e =
       )
   | Alias (i,v1,v2) -> 
       A.Alias (i,v1,v2, get_continuation count)
-  | Assert { op1; cond = `Gt; op2 } ->
-    simplify_expr ?next count @@ Assert { op1 = op2; cond = `Lt; op2 = op1 }
-  | Assert { op1; cond = `Ge; op2 } ->
-    simplify_expr ?next count @@ Assert { op1 = op2; cond = `Leq; op2 = op1 }
-  | Assert { op1; cond = (#target_cond as cond); op2 } ->
-    let cond' = match cond with
-      | `Leq -> A.Leq
-      | `Eq -> A.Eq
-      | `Lt -> A.Lt
-      | `Neq -> A.Neq
-    in
+  | Assert { op1; cond; op2 } ->
     lift_to_imm count (op1 :> lhs) (fun c op1' ->
       lift_to_imm c (op2 :> lhs) (fun c' op2' ->
-        A.Assert ({ A.rop1 = op1'; A.cond = cond'; A.rop2 = op2' }, get_continuation c')
+        A.Assert ({ A.rop1 = op1'; A.cond = cond; A.rop2 = op2' }, get_continuation c')
       )
     )
   | Call ((_,i,_) as c) ->

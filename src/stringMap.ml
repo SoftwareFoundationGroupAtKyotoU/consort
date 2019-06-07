@@ -11,3 +11,7 @@ let sexp_of_t (type v_type) ~(v: v_type -> Sexplib.Sexp.t) t =
   let sexp_of_v_type = v in
   bindings t
   |> [%sexp_of: (string * v_type) list]
+
+let of_bindings l = List.fold_left (fun acc (k,v) ->
+    add k v acc
+  ) empty l

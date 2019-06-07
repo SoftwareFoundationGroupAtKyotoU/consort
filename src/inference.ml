@@ -170,17 +170,13 @@ let add_pc (p: string * string) ctxt =
 
 let rec free_vars_contains v r =
   let imm_is_var i = match i with IInt _ -> false | IVar v' -> v = v' in
-  let lop_is_var = function
-    | LConst _ -> false
-    | LVar (_,v') -> v = v'
-  in
   match r with
   | Pred (_,l,_)
+  | NamedPred (_,l,_)
   | CtxtPred (_,_,l,_) -> List.mem v l
   | Relation { rel_op1 = op1; rel_op2 = op2; _ } ->
     imm_is_var op2 || (match op1 with
       RImm v -> imm_is_var v | Nu -> false)
-  | Linear { op1; op2 } -> (lop_is_var op1) || (lop_is_var op2)
   | And (r1, r2) -> free_vars_contains v r1 || free_vars_contains v r2       
   | _ -> false
 
@@ -270,8 +266,6 @@ let rec process_expr ctxt e =
       |> add_pc (v,left_v)
       |> add_type v t2
     | Const n -> add_type v (`Int (ConstEq n)) ctxt
-    | Plus (v1,v2) ->
-      add_type v (`Int (Linear { op1 = imm_to_lin v1; op2 = imm_to_lin v2 })) ctxt
     | Nondet ->
       add_type v (`Int Top) ctxt
     | Call c ->
@@ -282,7 +276,7 @@ let rec process_expr ctxt e =
       let target_type = (deref r :> typ) in
       let (ctxt',(t1,t2)) = split_type ctxt target_type in
       update_type ptr (add_relation_constr (ref_of t1 o) (Relation {
-            rel_op1 = Nu; rel_cond = Eq; rel_op2 = IVar v
+            rel_op1 = Nu; rel_cond = "="; rel_op2 = IVar v
           })) ctxt'
       |> add_type v t2
       |> add_owner_con [Live o]
@@ -360,7 +354,7 @@ let rec process_expr ctxt e =
       ctxt |>
       update_type v @@ add_relation_constr curr_ref @@ Relation branch_refinement 
     in
-    let (ctxt1,t1) = process_expr (add_pc_refinement ctxt Eq) e1 in
+    let (ctxt1,t1) = process_expr (add_pc_refinement ctxt "=") e1 in
     let (ctxt2,t2) = process_expr (add_pc_refinement {
         ctxt with
           refinements = ctxt1.refinements;
@@ -368,7 +362,7 @@ let rec process_expr ctxt e =
           ownership = ctxt1.ownership;
           pred_arity = ctxt1.pred_arity;
           ovars = ctxt1.ovars
-        } Neq) e2 in
+        } "!=") e2 in
     let loc = LCond i in
     let u_ctxt = { ctxt2 with gamma = SM.empty } in
     let b1 = SM.bindings ctxt1.gamma in
@@ -476,8 +470,7 @@ let print_pred_details t =
     Printf.fprintf stderr "  At: %s\n<<\n" @@ loc_to_string loc
   ) t
   
-
-let infer ~print_pred st (fns,main) =
+let infer ~print_pred ~intrinsics st (fns,main) =
   let init_fun_type ctxt f_def =
     let gen_refine_templ ?target_var ~loc free_vars t ctxt =
       match t with
@@ -508,7 +501,7 @@ let infer ~print_pred st (fns,main) =
     }
   in
   let initial_ctxt = {
-    theta = SM.empty;
+    theta = intrinsics;
     gamma = SM.empty;
     ownership = [];
     ovars = [];

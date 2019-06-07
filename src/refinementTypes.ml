@@ -26,7 +26,7 @@ type lin_eq = {
 
 type refinement_rel = {
   rel_op1: rel_op;
-  rel_cond: cond;
+  rel_cond: string;
   rel_op2: imm_op;
 } [@@deriving sexp]
 
@@ -37,14 +37,12 @@ CtxtPred c,n,l: A Preciate symbol with name n over variables l with explicit con
 Top: unconstrained
 Const: the constaint constraint
 Eq: equality with variable b
-Linear: a linear equation over variables
 *)
 type refinement =
   | Pred of int * string list * string option
   | CtxtPred of int * int * string list * string option
   | Top
   | ConstEq of int
-  | Linear of lin_eq
   | Relation of refinement_rel
   | And of refinement * refinement
   | NamedPred of string * string list * string option [@@deriving sexp]
@@ -93,3 +91,14 @@ let ref_of t1 o =
   match t1 with
   | `Ref _ -> failwith "Can't have reference to t"
   | `Int _ as t -> `Ref (t,o)
+
+let to_simple_type = function
+  | `Ref (`Int _,_) -> `IntRef
+  | `Int _ -> `Int
+
+let to_simple_funenv = StringMap.map (fun { arg_types; result_type; _ } ->
+    {
+      SimpleTypes.arg_types = List.map to_simple_type arg_types;
+      SimpleTypes.ret_type = to_simple_type result_type;
+    })
+  

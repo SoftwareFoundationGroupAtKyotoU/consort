@@ -5,7 +5,7 @@
  (name csr_core)
  (preprocess (pps ppx_sexp_conv))
  (wrapped false)
- (modules (:standard \ Test Test_suite)))
+ (modules (:standard \ Test Test_suite GenLin)))
 
 (executable
  (name test)
@@ -16,3 +16,10 @@
  (name test_suite)
  (libraries csr_core)
  (modules Test_suite))
+
+
+(executable
+ (name genLin)
+ (preprocess (pps ppx_sexp_conv))
+ (libraries csr_core)
+ (modules genLin))
