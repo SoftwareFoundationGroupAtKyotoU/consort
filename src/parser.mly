@@ -22,7 +22,8 @@
 // Update
 %token ASSIGN
 // operators
-%token PLUS STAR
+%token STAR
+%token <string> OPERATOR
 // connectives
 %token SEMI COMMA
 // structure
@@ -31,9 +32,6 @@
 %token COLON
 
 %token UNDERSCORE
-
-// relations
-%token LT LEQ NEQ GE GT
 
 %type <SurfaceAst.op> op
 %type <SurfaceAst.op list> arg_list 
@@ -61,11 +59,11 @@ let expr :=
 		list_to_seq e rest
 	  }
   | LET; lbl = expr_label; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
-  | IF; lbl = expr_label; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
+  | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
   | x = ID; ASSIGN; y = lhs; <Assign>
   | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
-  | ASSERT; LPAREN; op1 = op; cond = relation; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
+  | ASSERT; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
   | ~ = ID; <Var>
   | ~ = INT; <Int>
 
@@ -75,20 +73,25 @@ let op :=
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
 
+let cond_expr :=
+  | ~ = ID; <`Var>
+  | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string]) }
+
+let bin_op := o1 = op; op_name = OPERATOR; o2 = op; <`BinOp>
+
 let lhs :=
+  | b = bin_op; { (b :> lhs) }
   | o = op; { (o :> lhs) }
   | MKREF; ~ = op; <`Mkref>
-  | o1 = op; PLUS; o2 = op; <`Plus>
   | ~ = fn_call; <`Call>
 
-let relation :=
-  | LT; { `Lt }
-  | LEQ; { `Leq }
-  | NEQ; { `Neq }
-  | EQ; { `Eq }
-  | GT; { `Gt }
-  | GE; { `Ge }
+let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
+let callee :=
+  | ~ = ID; <>
+  | LPAREN; ~ = OPERATOR; RPAREN; <>
 
-let fn_call := callee = ID; lbl = expr_label; arg_names = arg_list; <>
+let rel_op :=
+  | ~ = OPERATOR; <>
+  | EQ; { "=" }
 
 let expr_label := COLON; ~ = INT; <> | { LabelManager.register () }

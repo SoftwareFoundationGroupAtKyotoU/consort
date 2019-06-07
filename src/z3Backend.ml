@@ -43,14 +43,6 @@ module SM = StringMap
 let plift s ff = pp_print_string ff s
 let pl = plift
 
-let pp_lin_op lo ff = match lo with
-  | LConst i -> pp_print_string ff @@ string_of_int i
-  | LVar (1,n) -> pp_print_string ff n
-  | LVar (0,_) -> pp_print_string ff "0"
-  | LVar (k,n) when k > 0 -> print_string_list [ "*"; (string_of_int k) ; n ] ff
-  | LVar (k,n) when k < 0 -> print_string_list [ "*"; Printf.sprintf "(- %d)" @@ abs k; n ] ff
-  | _ -> assert false
-
 let pp_imm o ff = match o with
   | Ast.IVar v -> pp_print_string ff v
   | Ast.IInt i -> pp_print_string ff @@ string_of_int i
@@ -65,7 +57,7 @@ let refine_args o l = match o with
 
 let ctxt_var i = "CTXT" ^ (string_of_int i)
 
-let rec pp_refine r binding ff = match r with
+let rec pp_refine ~interp r binding ff = match r with
   | NamedPred (n,args,o) ->
     ff |> print_string_list @@ [ n; binding ] @ (refine_args o args)
   | Pred (i,args,o) ->
@@ -76,25 +68,16 @@ let rec pp_refine r binding ff = match r with
     print_string_list (pred_name i::c_string @ [ binding ] @ (refine_args o args)) ff
   | Top -> pp_print_string ff "true"
   | ConstEq n -> print_string_list [ "="; binding; string_of_int n ] ff
-  | Linear { op1; op2 } ->
-    print_generic "=" [
-        plift binding;
-        print_generic "+" [
-          pp_lin_op op1;
-          pp_lin_op op2
-        ]
-      ] ff
-  | Relation { rel_op1; rel_cond = Neq; rel_op2 } ->
-    pg "not" [ pp_refine (Relation { rel_op1; rel_cond = Eq; rel_op2 }) binding ] ff
-  | Relation {rel_op1; rel_cond; rel_op2 } ->
-    pg (Ast.cond_to_string rel_cond) [
-          pp_relop binding rel_op1;
-          pp_imm rel_op2
-      ] ff
+  | Relation { rel_op1; rel_cond = cond_name; rel_op2 } ->
+    let intr = StringMap.find cond_name interp in
+    pg intr [
+      pp_relop binding rel_op1;
+      pp_imm rel_op2
+    ] ff
   | And (r1,r2) ->
     pg "and" [
-        pp_refine r1 binding;
-        pp_refine r2 binding
+        pp_refine ~interp r1 binding;
+        pp_refine ~interp r2 binding
       ] ff
 
 let po = function
@@ -112,13 +95,13 @@ let pp_owner_ante (o,c,f) =
     plift @@ string_of_float f
   ]
 
-let pp_constraint ff { env; ante; conseq; owner_ante; pc } =
+let pp_constraint ~interp ff { env; ante; conseq; owner_ante; pc } =
   let gamma = SM.bindings env in
   let context_vars = init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
   let free_vars = "(NU Int)":: context_vars @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
   let denote_gamma = List.map (fun (v,t) ->
       match t with
-      | `Int r -> pp_refine r v
+      | `Int r -> pp_refine ~interp r v
       | _ -> (fun _ -> ())
     ) gamma in
   let denote_path = List.map (fun (v1,v2) ->
@@ -132,8 +115,8 @@ let pp_constraint ff { env; ante; conseq; owner_ante; pc } =
     pg "forall" [
       print_string_list free_vars;
       pg "=>" [
-        pg "and" ((pp_refine ante "NU")::e_assum);
-        pp_refine conseq "NU"
+        pg "and" ((pp_refine ~interp ante "NU")::e_assum);
+        pp_refine ~interp conseq "NU"
       ]
     ]
   ] ff;
@@ -187,8 +170,17 @@ let pp_oconstraint ff ocon =
   end;
   pp_print_cut ff ()
 
-let call_z3 cons ~get_model =
+let call_z3 cons ~get_model ~defn_file =
   let (i,o) = Unix.open_process "z3 -in -T:30" in
+  begin
+    match defn_file with
+    | Some f -> 
+      let din = open_in f in
+      let x = Files.string_of_channel din in
+      close_in din;
+      output_string o x
+    | None -> ()
+  end;
   output_string o cons;
   output_string o "(check-sat)\n";
   if get_model then
@@ -204,7 +196,7 @@ let call_z3 cons ~get_model =
     true
   | _,_ -> close_in i; res = "sat"
 
-let solve ~print_cons ~get_model owner_cons ovars refinements arity =
+let solve ~print_cons ~get_model ~interp:(interp,defn_file) owner_cons ovars refinements arity =
   let buf = Buffer.create 1024 in
   let ff = Format.formatter_of_buffer buf in
   pp_open_vbox ff 0;
@@ -223,10 +215,10 @@ let solve ~print_cons ~get_model owner_cons ovars refinements arity =
     pp_print_cut ff ()
   ) ovars;
   List.iter (pp_oconstraint ff) owner_cons;
-  List.iter (pp_constraint ff) refinements;
+  List.iter (pp_constraint ~interp ff) refinements;
   pp_close_box ff ();
   let cons = Buffer.contents buf in
   if print_cons then begin
     Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons; flush stderr
   end;
-  call_z3 ~get_model cons
+  call_z3 ~get_model ~defn_file cons

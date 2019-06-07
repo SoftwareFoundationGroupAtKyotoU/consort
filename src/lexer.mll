@@ -17,6 +17,7 @@ let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
 let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
 let non_comment = [^ '(' '*' ')' ]+
 let comment_delim = [ '(' '*' ')' ]
+let operators = ['+' '-' '*' '/' '%' '<' '>' '=' '!']+
 
 rule read =
   parse
@@ -37,18 +38,13 @@ rule read =
   | "mkref" { MKREF }
   | "alias" { ALIAS }
   | "assert" { ASSERT }
-  | '+' { PLUS }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
   | '=' { EQ }
   | ":=" { ASSIGN }
-  | '<' { LT }
-  | "<=" { LEQ }
-  | ">" { GT }
-  | ">=" { GE }
-  | "!=" { NEQ }
+  | operators { OPERATOR (Lexing.lexeme lexbuf) }
   | '_' { UNDERSCORE }
   | id { ID (Lexing.lexeme lexbuf) }
   | eof { EOF }
