@@ -286,8 +286,12 @@ let rec process_expr ctxt e =
       | RInt n -> add_type v (`Ref (`Int (ConstEq n),OConst 1.0)) ctxt
       | RVar r_var ->
         let (ctxt',(t1,t2)) = split_type ctxt @@ lkp r_var in
+        let t2' =
+          let r2 = get_refinement t2 in
+          update_refinement (And (r2,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = IVar r_var })) t2
+        in
         update_type r_var t1 ctxt'
-        |> add_type v (ref_of t2 @@ OConst 1.0)
+        |> add_type v (ref_of t2' @@ OConst 1.0)
     end in
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
     let (ctxt'',ret_t') = remove_var ctxt'.path_condition ~loc:(LLet i) v ret_t ctxt' in

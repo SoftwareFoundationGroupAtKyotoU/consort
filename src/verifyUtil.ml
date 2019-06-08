@@ -4,8 +4,11 @@ let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) ?(get_
   let ast = try
     Parser.prog Lexer.read lexbuf |> SurfaceAst.simplify
   with
-      Parser.Error -> let open Lexing in
-        failwith @@ Printf.sprintf "Parse error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
+    | Parser.Error -> let open Lexing in
+    failwith @@ Printf.sprintf "Parse error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
+    | Failure _ ->
+      let open Lexing in
+      failwith @@ Printf.sprintf "Lexing error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
   in
   let intr = match intrinsic_defn with
     | Some i_name -> Intrinsics.load i_name
