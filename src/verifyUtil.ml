@@ -22,5 +22,6 @@ let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) ?(get_
       Printf.fprintf stderr "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
     ) program_types
   end;
-  let (o, ov, r, a) = Inference.infer ~print_pred ~intrinsics:intr.Intrinsics.op_interp program_types ast in
+  let open Inference.Result in
+  let { ownership = o; ovars = ov; refinements = r; arity =  a; _} = Inference.infer ~print_pred ~intrinsics:intr.Intrinsics.op_interp program_types ast in
   Z3Backend.solve ~print_cons ~get_model ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) o ov r a

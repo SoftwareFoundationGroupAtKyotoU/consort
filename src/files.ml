@@ -9,3 +9,8 @@ let string_of_channel in_c =
   in
   copy_loop ()
 
+let string_of_file f =
+  let in_c = open_in f in
+  let to_ret = string_of_channel in_c in
+  close_in in_c;
+  to_ret

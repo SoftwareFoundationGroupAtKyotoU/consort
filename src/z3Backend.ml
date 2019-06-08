@@ -175,9 +175,7 @@ let call_z3 cons ~get_model ~defn_file =
   begin
     match defn_file with
     | Some f -> 
-      let din = open_in f in
-      let x = Files.string_of_channel din in
-      close_in din;
+      let x = Files.string_of_file f in
       output_string o x
     | None -> ()
   end;
@@ -211,7 +209,7 @@ let solve ~print_cons ~get_model ~interp:(interp,defn_file) owner_cons ovars ref
     pp_print_cut ff ()
   ) arity;
   List.iter (fun ov ->
-    print_string_list [ "declare-fun"; ovar_name ov; "()"; "Real" ] ff;
+    print_string_list [ "declare-const"; ovar_name ov; "Real" ] ff;
     pp_print_cut ff ()
   ) ovars;
   List.iter (pp_oconstraint ff) owner_cons;
@@ -219,6 +217,11 @@ let solve ~print_cons ~get_model ~interp:(interp,defn_file) owner_cons ovars ref
   pp_close_box ff ();
   let cons = Buffer.contents buf in
   if print_cons then begin
-    Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons; flush stderr
+    let cons_actual =
+      match defn_file with
+      | Some f -> (Files.string_of_file f) ^ cons
+      | None -> cons
+    in
+    Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\n to z3\n" cons_actual; flush stderr
   end;
   call_z3 ~get_model ~defn_file cons
