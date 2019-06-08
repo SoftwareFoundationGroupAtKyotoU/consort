@@ -16,6 +16,7 @@ let () =
     ("-none", Unit (fun () ->
        List.iter (fun r -> r:= false) all_debug_flags
      ), "Suppress all debug output");
+    ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");
     ("-intrinsics", String (fun x -> intrinsic_file := Some x), "Load definitions of standard operations from <file>")
   ] in
   let target_name = ref None in
