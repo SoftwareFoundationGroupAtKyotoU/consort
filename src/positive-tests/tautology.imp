@@ -1,0 +1,8 @@
+{
+  let x = _ in
+  let y = _ in
+  if x < y then {
+    assert(x < y); 3
+  } else
+    3
+}
