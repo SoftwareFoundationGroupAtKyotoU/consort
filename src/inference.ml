@@ -229,7 +229,23 @@ let dump_env ?(msg) tev =
 let post_update_type t = match t with
   | `Int _ -> false
   | `Ref _ -> true
-    
+
+let apply_matrix ((o1,r1),(o2,r2)) (out_o,out_r) ctxt =
+  let mk_constraint oante ante =
+    {
+      env = ctxt.gamma;
+      ante = ante;
+      conseq = out_r;
+      owner_ante = (out_o,`Gt,0.0)::oante;
+      pc = ctxt.path_condition
+    }
+  in
+  let cons_s = [
+    mk_constraint [(o1,`Gt,0.0);(o2,`Gt,0.0)] @@ And (r1,r2);
+    mk_constraint [(o1,`Gt,0.0);(o2,`Eq,0.0)] r1;
+    mk_constraint [(o2,`Gt,0.0);(o1,`Eq,0.0)] r2;
+  ] in
+  { ctxt with refinements = cons_s @ ctxt.refinements }
 let rec process_expr ctxt e =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
@@ -308,40 +324,15 @@ let rec process_expr ctxt e =
     let (ctxt'',t2',p2') = make_fresh_type ~target_var:v2 ~loc ~fv:free_vars (lkp v2) ctxtf1 in
     let o1' = unsafe_get_ownership t1' in
     let o2' = unsafe_get_ownership t2' in
-    let constraints = [
-      {
-        env = ctxt''.gamma;
-        ante = get_refinement (r1 :> typ);
-        conseq = p1';
-        owner_ante = [(o1,`Gt,0.0); (o1',`Gt,0.0)];
-        pc = ctxt.path_condition
-      };
-      {
-        env = ctxt''.gamma;
-        ante = get_refinement (r1 :> typ);
-        conseq = p2';
-        owner_ante = [(o1,`Gt,0.0);(o2',`Gt,0.0)];
-        pc = ctxt.path_condition
-      };
-      {
-        env = ctxt''.gamma;
-        ante = get_refinement (r2 :> typ);
-        conseq = p1';
-        owner_ante = [(o2,`Gt,0.0);(o1',`Gt,0.0)];
-        pc = ctxt.path_condition
-      };
-      {
-        env = ctxt''.gamma;
-        ante = get_refinement (r2 :> typ);
-        conseq = p2';
-        owner_ante = [(o2,`Gt,0.0);(o2',`Gt,0.0)];
-        pc = ctxt.path_condition
-      }
-    ] in
+    let constraint_matrix = apply_matrix ((o1,get_refinement (r1 :> typ)),(o2,get_refinement (r2:> typ))) in
+    let ctxt_constrained =
+      ctxt''
+      |> constraint_matrix (o1',p1')
+      |> constraint_matrix (o2',p2')
+    in
     let own = Shuff ((o1,o2),(o1',o2')) in
-    let res = { ctxt'' with
-                ownership = own::ctxt''.ownership;
-                refinements = constraints@ctxt''.refinements
+    let res = { ctxt_constrained with
+                ownership = own::ctxt_constrained.ownership
               }
       |> update_type v1 @@ t1'
       |> update_type v2 @@ t2'
