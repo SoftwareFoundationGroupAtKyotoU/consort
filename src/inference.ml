@@ -71,6 +71,16 @@ type context = {
   path_condition: (string * string) list
 }
 
+module Result = struct
+  type t = {
+    theta: funenv;
+    ownership: ocon list;
+    ovars: int list;
+    refinements: tcon list;
+    arity: int IntMap.t
+  }
+end
+
 let alloc_ovar ctxt =
   ({ ctxt with v_counter = ctxt.v_counter + 1; ovars = ctxt.v_counter::ctxt.ovars }, OVar ctxt.v_counter)
 
@@ -508,7 +518,13 @@ let infer ~print_pred ~intrinsics st (fns,main) =
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
-  let (ctxt'',_) = process_expr ctxt' main in
-  if print_pred then print_pred_details ctxt''.pred_detail;
-  (ctxt''.ownership, ctxt''.ovars, ctxt''.refinements, ctxt''.pred_arity)
+  let ({ pred_detail; refinements; ownership; ovars; pred_arity; theta; _ },_) = process_expr ctxt' main in
+  if print_pred then print_pred_details pred_detail;
+  Result.{
+    ownership;
+    ovars;
+    refinements;
+    theta;
+    arity = pred_arity
+  }
   
