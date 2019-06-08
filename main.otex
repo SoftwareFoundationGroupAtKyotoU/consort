@@ -25,6 +25,9 @@
 }
 
 \input{local}
+% \input{../effgrad/def/ott/coe}
+\input{./lang}
+
 
 \newcommand{\AI}[1]{\textcolor{blue}{[AI: #1]\marginpar{$\longleftarrow$}}}
 
@@ -62,11 +65,10 @@
 
 \[
   \begin{array}{rcl}
-  \decl &::=& f \mapsto (x_1,\dots,x_n)\expr \\
-  % \expr &::=& x \mid \DEREF x \mid \intconst \mid \NULL\\
-  \expr &::= &
-              x \mid
-              \LET x = y \IN \expr \mid
+  [[d]] &::=& [[f |-> (x1,...,xn)e ]] \\
+  [[e]] &::= &
+              [[ x ]] \mid
+              [[ let x = y in e]] \mid
               \LET x = \val \IN \expr \mid
               \IFZERO x \THEN \expr_1 \ELSE \expr_2  \\ &\mid&
               \LET x = \MKREF y \IN \expr \mid
@@ -75,8 +77,8 @@
               x \WRITE y \SEQ \expr \mid
               \ALIAS(x = y) \SEQ \expr \mid
               \ASSERT(\varphi) \SEQ \expr \mid \expr_1 \SEQ \expr_2 \\
-    \val &::=& n \\
-    \prog &::=& \tuple{\set{\decl_1, \dots, \decl_n}, \expr}\\
+    [[v]] &::=& [[nn]] \\
+    [[P]] &::=& [[<{d1,...,dn}, e>]] \\
     \pp &\in& \textbf{Labels}\\
   \pps &\in& \textbf{Labels}^*
   \end{array}
@@ -89,9 +91,9 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 \[
 \begin{array}{rcl}
-  \typ &::=& \TUNIT \mid \set{x \COL \TINT \mid \varphi} \mid \set{x \COL \TINT \mid \varphi} \TREF^{\ownership}\\
-  \funtyp &::=& \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n}\ra\tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
-  \ownership &\in& [0,1] \subseteq \RAT
+  [[T]] &::=& [[unit]] \mid [[{x:int | ph}]] \mid [[{x:int|ph} ref r]] \\
+  [[FT]] &::=& [[ <x1 : T1,,xn: Tn> -> <x1:T1',,xn:Tn' | T> ]]\\
+  [[r]] &\in& [0,1] \subseteq \RAT
 \end{array}
 \]
 \begin{definition}
@@ -809,12 +811,12 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   \infrule[]{
     x' \notin \DOM(R)
   }{
-    \langle H, R, \overrightarrow{E}, E[\LET x=y \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto R(y)}, \overrightarrow{E}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=y \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto R(y)}, \overrightarrow{E}, E[ [x'/x]e]\rangle
   }
   \infrule[]{
     x' \notin \DOM(R)
   }{
-    \langle H, R, \overrightarrow{E}, E[\LET x=n \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto n}, \overrightarrow{E}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=n \IN e] \rangle \ra_D \langle H, R \EXTEND{x' \mapsto n}, \overrightarrow{E}, E[ [x'/x]e]\rangle
   }
   \infrule[]{
     R(x) = 0
@@ -829,12 +831,12 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   \infrule[]{
     a \notin \DOM(H) \andalso x' \notin \DOM(R)
   }{
-    \langle H, R, \overrightarrow{E}, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H \EXTEND{a \mapsto v}, R \EXTEND{x' \mapsto y}, \overrightarrow{E}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=\MKREF y \IN e] \rangle \ra_D \langle H \EXTEND{a \mapsto v}, R \EXTEND{x' \mapsto y}, \overrightarrow{E}, E[ [x'/x]e]\rangle
   }
   \infrule[]{
     R(y) = a \andalso H(a) = v \andalso x' \notin \DOM(R)
   }{
-    \langle H, R, \overrightarrow{E}, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R\EXTEND{x' \mapsto v}, \overrightarrow{E}, E[[x'/x]e]\rangle
+    \langle H, R, \overrightarrow{E}, E[\LET x=*y \IN e] \rangle \ra_D \langle H, R\EXTEND{x' \mapsto v}, \overrightarrow{E}, E[ [x'/x]e]\rangle
   }
   \infrule[]{f^l(\tilde{x})=e'\in P
   }{

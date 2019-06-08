@@ -1,0 +1,95 @@
+metavar termvar, x, y, z ::=
+  {{ tex \mathit{[[termvar]]} }} {{ com  term variable  }} 
+
+metavar funvar, f, g ::=
+  {{ tex \mathit{[[funvar]]} }} {{ com  function name }}
+
+metavar l ::=
+  {{ tex \ell }}  {{ com  label }}
+
+metavar ph ::=  {{ tex \varphi }}  {{ com  formula }}
+
+metavar r ::=  {{ com ownership }}
+
+metavar H ::=  {{ com heap }}
+metavar R ::=  {{ com env or register files }}
+
+indexvar index, i, n ::=   {{ com index }}
+
+grammar
+  e :: 'e_' ::=                                         {{ com exp }}
+    | x                   ::   :: Var                     {{ com variable }}
+    | let x = y in e      ::   :: Let {{ tex \LET [[x]] = [[y]] \IN [[e]] }}
+    | let x = v in e      ::   :: LetV {{ tex \LET [[x]] = [[v]] \IN [[e]] }}
+    | ifz x then e1 else e2 ::   :: Ifz {{ tex \IFZERO [[x]] \THEN [[e1]] \ELSE [[e2]] }}
+    | let x = mkref y in e :: :: MkRef {{ tex \LET [[x]] = \MKREF [[y]] \IN [[e]] }}
+    | let x = * y in e    ::   :: Deref {{ tex \LET [[x]] = * [[y]] \IN [[e]] }}
+    | let x = f l ( y1 ,, yn ) in e :: :: Call {{ tex \LET [[x]] = [[f]]^[[l]]([[y1]],\ldots,[[yn]]) \IN [[e]] }}
+    | x := y ; e          ::   :: Assign {{ tex [[x]] \WRITE [[y]] \SEQ [[e]] }}
+    | alias ( x = y ) ; e ::   :: Alias  {{ tex \ALIAS([[x]] = [[y]]) \SEQ [[e]] }}
+    | assert ( ph ) ; e  ::   :: Assert {{ tex \ASSERT([[ph]]) \SEQ [[e]] }}
+    | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
+    | ( e )               :: S :: paren   
+
+  v :: 'v_' ::=                                         {{ com  value }}
+    | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
+
+  d :: d_ ::=
+    | f |-> ( x1 , .. , xi ) e  ::  :: def
+ 
+  D :: D_ ::=
+    | { d1 , .. , di }     ::   :: set
+
+  P :: P_ ::=                              {{ com programs }}
+    | < D , e >            ::   :: prog    {{ tex \tuple{[[D]], [[e]]} }}
+
+  C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
+    | < H , R , Es , e >         ::   :: Quad
+    | AssertFail                ::   :: AFail {{ tex \textbf{AssertFail} }}
+
+  E :: E_ ::=    {{ com evaluation context }}
+    | []                 ::   :: hole
+
+  Es {{ tex \overrightarrow{E} }} :: Es_ ::=                  {{ com  stack }}
+    | .                  ::   :: empty {{ tex \cdot }}
+    | E : Es             ::   :: cons
+
+  T {{ tex \tau }} :: T_ ::=                              {{ com type }}
+    | unit                ::   :: unit                    {{ com variable }}
+                                                          {{ tex \TUNIT }}
+    | { x : int | ph }    ::   :: refint                  {{ com refined integer type }}
+                                        {{ tex \set{ [[x]] \COL \TINT \mid [[ph]]} }}
+    | T ref r             ::   :: reference               {{ com reference type }}
+                                        {{ tex [[T]] \TREF^[[r]] }}
+    | ( T )               :: S :: paren
+    | T1 + T2             :: M :: sum
+    | G ( x )             :: M :: lookup
+
+  FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
+    | < x1 : T1 ,, xn : Tn > -> < y1 : T1' ,, yi : Ti' | T >  :: :: sig
+          {{ tex \tuple{[[x1]]\COL[[T1]],\dots,[[xn]]\COL[[Tn]]}\ra\tuple{[[y1]]\COL\[[T1']],\dots,[[yi]]\COL[[Ti']] \mid [[T]]} }}
+
+  G {{ tex \Gamma }} :: G_ ::=  {{ com type environment }}
+    | empty               ::   :: em   {{ tex \bullet }}
+    | G , x : T           ::   :: vn 
+    | G , ph              ::   :: formula
+
+  terminals :: 'terminals_' ::=
+    | ;                   ::   :: seq        {{ tex \SEQ }}
+    | -->                 ::   :: red        {{ tex \longrightarrow }}
+    |  ->                 ::   :: arrow      {{ tex \rightarrow }}
+    | |-                  ::   :: turnstile  {{ tex \vdash }}
+    | |=                  ::   :: models     {{ tex \models }}
+    | in                  ::   :: in         {{ tex \in }}
+    | <:                  ::   :: sub        {{ tex \leq }}
+    | ==>                 ::   :: impl       {{ tex \implies }}
+    | =>                  ::   :: darrow     {{ tex \Rightarrow }}
+    | |->                 ::   :: mapsto     {{ tex \mapsto }}
+    | []                  ::   :: hole       {{ tex \HOLE }}
+
+  judgment :: 'j_' ::=
+    | G |- T1 <: T2       ::   :: sub
+    | G |= ph1 ==> ph2    ::   :: entail
+    | G1 <: G2            ::   :: subG
+    | G1 |- e : T => G2   ::   :: exp
+    | C1 --> D C2         ::   :: red        {{ tex [[C1]] [[-->]]_[[D]] [[C2]] }}
