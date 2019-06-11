@@ -18,6 +18,7 @@
 \usepackage{stmaryrd}
 \usepackage{parcolumns}
 \usepackage{cases}
+\usepackage{cleveref}
 \usepackage{listings}% http://ctan.org/pkg/listings
 \lstset{
   basicstyle=\ttfamily,
@@ -79,8 +80,7 @@
               \ASSERT(\varphi) \SEQ \expr \mid \expr_1 \SEQ \expr_2 \\
     [[v]] &::=& [[nn]] \\
     [[P]] &::=& [[<{d1,...,dn}, e>]] \\
-    \pp &\in& \textbf{Labels}\\
-  \pps &\in& \textbf{Labels}^*
+    [[l]] &\in& \textbf{Labels}\\
   \end{array}
 \]
 
@@ -88,65 +88,130 @@
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and a set of \emph{locations}, which is ranged over by $a,b,c,\dots$.
 
 \subsection{Type system}
-
-\[
-\begin{array}{rcl}
-  [[T]] &::=& [[unit]] \mid [[{x:int | ph}]] \mid [[{x:int|ph} ref r]] \\
-  [[FT]] &::=& [[ <x1 : T1,,xn: Tn> -> <x1:T1',,xn:Tn' | T> ]]\\
-  [[r]] &\in& [0,1] \subseteq \RAT
-\end{array}
-\]
 \begin{definition}
-  $\sem{\typ}_y$ is defined as follows:
+  Context strings $[[B]]$ are defined as follows:
   \[
     \begin{array}{rcl}
-      \sem{\TUNIT}_y &=& \TRUE\\
-      \sem{\set{x \COL \TINT \mid \varphi}}_y &=& [y/x]\varphi\\
-      \sem{\set{x \COL \TINT \mid \varphi} \TREF^{\ownership}}_y &=& \TRUE.
+      [[ B ]] & ::= & [[ . ]] \mid [[ l ]] : [[ B ]] \mid [[A]]
+    \end{array}
+  \]
+  Where $[[A]]$ is a context string variable.
+\end{definition}
+
+\begin{definition}
+  $\sem{[[T]]}_y$ is defined as follows:
+  \[
+    \begin{array}{rcl}
+      \sem{[[{x:int | ph}]]}_y &=& [[ [y/x]ph ]]\\
+      \sem{[[{x:int | ph} ref r]]} &=& [[ Top ]]
     \end{array}
   \]
 \end{definition}
 
 \begin{definition}
-  $\sem{\Gamma}$ is defined as follows:
+  The refinement predicates $[[ph]]$ are defined as follows:
   \[
     \begin{array}{rcl}
-      \sem{\emptyset} &=& \TRUE\\
-      \sem{\Gamma, x\COL\typ} &=& \sem{\Gamma} \land \sem{\typ}_x \\
-      \sem{\Gamma, \varphi} & = & \sem{\Gamma} \land \varphi.
+      [[ph]] & ::= & [[ph1 ==> ph2]] \mid
+                     [[ ph1 /\ ph2 ]] \mid
+                     [[ pfun(x1,..,xn) ]] \mid
+                     [[ V1 = V2 ]] \mid [[ V1 != V2 ]] \\
+             & \mid & [[ B1 = B2? ]] \\
+      [[ V ]] & ::= & [[ x ]] \mid [[ v ]]
+    \end{array}
+  \]
+  $[[pfun]]$ is a predicate symbol with an interpretation in the
+  theory used by the underlying solver. The predicate $[[ B1 = B2? ]]$ is a prefix
+  query which checks whether $[[B2]]$ is a prefix of $[[B1]]$. We write $FPV([[ph]])$ for
+  the free variables occuring in $[[ph]]$, and write $FPCV([[ph]])$ for the free context
+  variables that appear in $[[ph]]$. Through abuse of notation we will also write $FPV([[T]])$
+  and $FPCV([[T]])$ to indicate free variables that appear in the refinement of $[[T]]$.
+\end{definition}
+
+\begin{figure}[t]
+  \leavevmode
+  \infrule[WF-Env]{
+    \forall [[x]] \in dom([[G]]).[[ G | A |- G(x) ]]
+  }{
+    [[A |- G]]
+  }
+  \infrule[WF-Int]{
+    [[ST(G), x:int | A |- ph]]
+  }{
+    [[G | A |- { x:int|ph} ]]
+  }
+  \infrule[WF-Ref]{
+    [[G | A |- T]]
+  }{
+    [[G | A |- T ref r ]]
+  }
+  \infrule[WF-Phi]{
+    FPV([[ph]]) \subseteq \set{x \mid x \in dom([[Gst]]) \wedge [[Gst(x) = int]]} \\
+    FPCV([[ph]]) = \set{[[A]]}
+  }{
+    [[Gst | A |- ph]]
+  }
+  \caption{Well-formedness of types and environments}
+  \label{fig:type-wf}
+\end{figure}
+
+\begin{definition}[Well-formedness of types]
+  We define simple types $[[ST]]$ and environments $[[Gst]]$ by:
+  \[
+    \begin{array}{rcl}
+      [[ST]] & ::= & [[int]] \mid [[ int ref ]]  \\
+      [[Gst]] & ::= & [[empty]] \mid [[Gst,x:ST]]
+    \end{array}
+  \]
+  Let $ST([[G]])$ be the obvious transformation of $[[G]]$ into $[[Gst]]$.
+  The well-typedness of types and type environments are shown in \cref{fig:type-wf}.
+\end{definition}
+
+\begin{definition}
+  $\sem{[[G]]}$ is defined as follows:
+  \[
+    \begin{array}{rcl}
+      \sem{[[empty]]} &=& [[ Top ]]\\
+      [[G,x: T]] &=& \sem{[[G]]} \land \sem{[[T]]}_x \\
+      \sem{[[G, x = T y]]} & = & \sem{[[G]]} \land \begin{cases}
+          x = y & [[T]] = [[{ z:int | ph }]] \\
+          [[ Top ]] & o.w.
+          \end{cases}
     \end{array}
   \]
 \end{definition}
 
 \begin{definition}
-  We write $\Gamma \models \varphi$ if $\models \sem{\Gamma} \implies \varphi$ holds.
+  We write $\Gamma \models \varphi$ if $\models \sem{\Gamma} \implies \varphi$ is valid.
 \end{definition}
 
 \paragraph{Operations on types.}
 
 \begin{figure}[t]
   \leavevmode
-  \infax[Tadd-Unit]{
-    \TUNIT + \TUNIT = \TUNIT
-  }
   \infax[Tadd-Int]{
-    \set{x \COL \TINT \mid \varphi} + \set{x \COL \TINT \mid \varphi} = \set{x \COL \TINT \mid \varphi}
-    }
+    [[{x:int|ph} + {x:int|ph} = {x:int|ph}]]
+  }
   \infrule[Tadd-Ref1]{
-    \ownership_1 \ne 0 \andalso
-    \ownership_2 \ne 0
+    [[r1]] \ne 0 \andalso
+    [[r2]] \ne 0
   }{
-    \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_1} + \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_2} = \set{x \COL \TINT \mid \varphi} \TREF^{\ownership_1 + \ownership_2}
+    [[{x:int|ph1} ref r1 + {x:int|ph2} ref r2 = {x:int|ph1 /\ ph2} ref r1 + r2]]
   }
   \infrule[Tadd-Ref2]{
-    r > 0
-    }{
-    \typ_1 \TREF^0 + \typ_2 \TREF^{\ownership} = \typ_2 \TREF^{\ownership}
+    [[r1]] \ne 0 \andalso
+    [[r2]] \ne 0
+  }{
+    [[ { x:int | ph } ref r1 + {x:int | ph} ref r2 = { x:int | ph} ref r1 + r2]]
   }
-  \infax[Tadd-Ref3]{
-    \typ_1 \TREF^0 + \typ_2 \TREF^0 = \set{x \COL \TINT \mid \textbf{true}} \TREF^0
+  \infrule[Tadd-Ref3]{
+    [[r]] > 0
+  }{
+    [[ T1 ref 0 + T2 ref r = T2 ref r]]
   }
-
+  \infax[Tadd-Ref4]{
+    [[T1 ref 0 + T2 ref 0 = { x: int | Top } ref 0]]
+  }
   \caption{Rules for $\typ_1 \addt \typ_2$.}
   \label{fig:addition}
 \end{figure}

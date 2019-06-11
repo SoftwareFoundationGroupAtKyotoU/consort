@@ -13,7 +13,10 @@ metavar A ::= {{ com label sequence }} {{ tex \alpha }}
 
 metavar a ::= {{ com addresses }}
 
+metavar pfun ::= {{ com predicate symbol }} {{ tex \phi }}
+
 grammar
+
   e :: 'e_' ::=                                         {{ com exp }}
     | x                   ::   :: Var                     {{ com variable }}
     | let x = y in e      ::   :: Let {{ tex \LET [[x]] = [[y]] \IN [[e]] }}
@@ -26,17 +29,13 @@ grammar
     | alias ( x = y ) ; e ::   :: Alias  {{ tex \ALIAS([[x]] = [[y]]) \SEQ [[e]] }}
     | assert ( ph ) ; e  ::   :: Assert {{ tex \ASSERT([[ph]]) \SEQ [[e]] }}
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
-    | subst1 , ... , substn e :: M :: subst
+    | [ x1 / x1' ] ,, [ xn / xn' ] e :: :: subst {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] e }}
     | ( e )               :: S :: paren
 	| CE [ x ]  :: M:: ret
 	| E [ e ] :: M:: ctxt
 
-  subst :: 'S_' ::=
-    | [ x / x' ] :: :: VarRewrite {{ tex [ [[x]] / [[x']] ] }} 
-
   v :: 'v_' ::=                                         {{ com  value }}
     | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
-	| 0 :: X :: zero
 
   d :: d_ ::=
     | f |-> ( x1 , .. , xi ) e  ::  :: def
@@ -51,7 +50,6 @@ grammar
     | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }} 
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
-	| 1 :: :: excl_owner
 
   C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
     | < H , R , Es , e >         ::   :: Quad {{ tex \tuple{[[H]], [[R]], [[Es]], [[e]]} }}
@@ -71,7 +69,6 @@ grammar
 	| R ( x ) :: :: var
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
-	| 0 :: :: zero
 
   E :: E_ ::=    {{ com evaluation context }}
     | []                ::   :: hole {{ tex \HOLE }}
@@ -85,12 +82,18 @@ grammar
     | CE : Es             ::   :: cons
 
   ph {{ tex \varphi }} :: 'P_' ::= {{ com refinement predicates }}
-    | pfun :: :: pred_sym {{ tex \phi }} {{ com uninterpreted sentence in underlying logic }}
+    | pfun ( x1 , .. , xn ) :: :: pred_sym {{ com predicate in underlying logic }}
 	| ph1 /\ ph2 :: :: pred_conj {{ tex [[ph1]] \wedge [[ph2]] }} {{ com conjunction }}
-	| x = v :: :: pred_const {{ com constant equality }}
-	| x != v :: :: pred_ineq {{ com constant inequality }} {{ tex [[x]] \neq [[v]] }}
+	| V1 = V2 :: :: pred_const {{ com equality }}
+	| V1 != V2 :: :: pred_ineq {{ com inequality }} {{ tex [[V1]] \neq [[V2]] }}
 	| Top :: :: pred_top {{ tex \top }}
-	| x1 = T x2 :: :: v_eq {{ tex [[x1]] =_{[[T]]} [[x2]] }}
+	| ph1 ==> ph2 :: :: entail
+	| [ x / y ] ph :: :: subst_var
+	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
+
+  V :: 'V_' ::=
+    | x :: :: var
+	| v :: :: val
 
   T {{ tex \tau }} :: T_ ::=                              {{ com type }}
     | { x : int | ph }    ::   :: refint                  {{ com refined integer type }}
@@ -100,8 +103,19 @@ grammar
     | ( T )               :: S :: paren
     | T1 + T2             :: M :: sum
     | G ( x )             :: M :: lookup
-	| [ B / A ] T :: M :: context_sub
+	| [ B / A ] T :: M :: subst_ctxt
+	| [ x1 / x1' ] , ... , [ xn / xn' ] T :: M :: subst_var
 	| Post ( T1 , T2 ) :: :: post_call
+
+  ST {{ tex \tau_{ST} }} :: 'ST_' ::=
+    | int :: :: simple_int {{ tex \TINT }}
+	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
+	| Gst ( x ) :: :: st_lkp 
+
+  Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::=
+    | empty :: :: em {{ tex \bullet }}
+	| Gst , x : ST :: :: append
+	| ST ( G ) :: :: lift_G {{ tex \mathit{ST}([[G]]) }}
 
   B {{ tex \beta }} :: B_ ::=
     | . :: :: empty {{ tex \cdot }}
@@ -119,7 +133,7 @@ grammar
   G {{ tex \Gamma }} :: G_ ::=  {{ com type environment }}
     | empty               ::   :: em   {{ tex \bullet }}
     | G , x : T           ::   :: vn 
-    | G , ph              ::   :: formula
+    | G , x = T y              ::   :: formula {{ tex [[G]], x =_{[[T]]} y }}
 	| G \ x :: :: sub {{ tex [[G]] \setminus [[x]] }}
 	| G , x1 : T1 ,, xn : Tn :: :: append {{ tex [[G]],[[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
 
@@ -138,6 +152,7 @@ grammar
 	| '|'                 ::   :: bar {{ tex \mid }}
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
 	| !|= :: :: notModel {{ tex \not\models }}
+	| forall :: :: forall {{ tex \forall }}
 
   logical_frag :: '' ::=
     | ph :: :: phi
@@ -146,17 +161,22 @@ grammar
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
 	
   logic_judgment :: '' ::=
-	| |= logical_frag :: :: models
+	| |= forall x1 ,,, xn . logical_frag :: :: models
 	| G |= logical_frag :: :: tyenv_model
 	| R |= logical_frag :: :: env_model
 	| R !|= logical_frag :: :: env_not_model
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
-    | G |= ph1 ==> ph2    ::   :: entail
+    | G |= ph    ::   :: entail
     | G1 <: G2            ::   :: subG
     | G1 |- e : T => G2   ::   :: exp
     | C1 --> D C2         ::   :: red        {{ tex [[C1]] [[-->]]_[[D]] [[C2]] }}
+	| A |- G :: :: tyenvwf {{ tex [[A]] [[|-]]_{WF} [[ G ]] }}
+	| G | A |- T :: :: twf {{ tex [[G]] [[|]] [[A]] [[|-]]_{WF} [[T]] }}
+	| Gst | A |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[A]] [[|-]]_{WF} [[ph]] }}
+	| T1 = T2 :: :: teq
+	| ST1 = ST2 :: :: steq
 
   formula :: formula_ ::=
     | judgement :: :: judgement
@@ -174,148 +194,148 @@ grammar
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
 
-defns Jop :: '' ::=
-  defn T1 + T2 = T3 :: :: sum :: 'TAdd_' by
-  -----------------------------------------------------  :: int
-  { x : int | ph } + { x : int | ph } = { x: int | ph }
+% defns Jop :: '' ::=
+%   defn T1 + T2 = T3 :: :: sum :: 'TAdd_' by
+%   -----------------------------------------------------  :: int
+%   { x : int | ph } + { x : int | ph } = { x: int | ph }
 
-  r1 > 0
-  r2 > 0
-  --------------------- :: ref0
-  { x: int | ph1 } ref r1 + { x: int | ph2 } ref r2 = { x: int | ph1 /\ ph2 } ref r1+r2
+%   r1 > 0
+%   r2 > 0
+%   --------------------- :: ref0
+%   { x: int | ph1 } ref r1 + { x: int | ph2 } ref r2 = { x: int | ph1 /\ ph2 } ref r1+r2
 
-  r1 > 0
-  r2 > 0
-  --------------------- :: ref1
-  { x: int | ph } ref r1 + { x: int | ph } ref r2 = { x: int | ph } ref r1+r2
+%   r1 > 0
+%   r2 > 0
+%   --------------------- :: ref1
+%   { x: int | ph } ref r1 + { x: int | ph } ref r2 = { x: int | ph } ref r1+r2
 
 
-  r > 0
-  -------- :: ref2
-  T1 ref 0 + T2 ref r = T2 ref r
+%   r > 0
+%   -------- :: ref2
+%   T1 ref 0 + T2 ref r = T2 ref r
 
-  ---------- :: ref3
-  T1 ref 0 + T2 ref 0 = {x: int | Top } ref 0
+%   ---------- :: ref3
+%   T1 ref 0 + T2 ref 0 = {x: int | Top } ref 0
 
-  defn G |- T1 <: T2 :: :: subtyping :: 'Sub' by
-  G |= ph1 ==> ph2
-  ------ :: int
-  G |- { x: int | ph1  } <: { x: int | ph2 }
+%   defn G |- T1 <: T2 :: :: subtyping :: 'Sub' by
+%   G |= ph1 ==> ph2
+%   ------ :: int
+%   G |- { x: int | ph1  } <: { x: int | ph2 }
 
-  r > 0 ==> G |- T1 <: T2
-  ------ :: ref
-  G |- T1 ref r <: T2 ref r
+%   r > 0 ==> G |- T1 <: T2
+%   ------ :: ref
+%   G |- T1 ref r <: T2 ref r
 
-  defn G <: G' :: :: env_sub :: 'Sub' by
-  G' |- G(x) <: G'(x) (x in dom(G'))
-  |= [[ G ]] ==> [[ G' ]]
-  ----- :: tyenv
-  G <: G'
+%   defn G <: G' :: :: env_sub :: 'Sub' by
+%   G' |- G(x) <: G'(x) (x in dom(G'))
+%   |= [[ G ]] ==> [[ G' ]]
+%   ----- :: tyenv
+%   G <: G'
 
-  defn Th | G | B |- e : T => G' :: :: typing :: 'T' by
-  ---- :: var
-  Th | G,x:(T1+T2) | B |- x : T1 => G,x:T2
+%   defn Th | G | B |- e : T => G' :: :: typing :: 'T' by
+%   ---- :: var
+%   Th | G,x:(T1+T2) | B |- x : T1 => G,x:T2
 
-  Th | G,y:T1,x:T2,x = T1 y | B |- e : T' => G', x = T1 y
-  ----- :: let
-  Th | G,y:(T1 + T2) | B |- e : T' => G' \ x
+%   Th | G,y:T1,x:T2,x = T1 y | B |- e : T' => G', x = T1 y
+%   ----- :: let
+%   Th | G,y:(T1 + T2) | B |- e : T' => G' \ x
 
-  Th | G,x:{ x: int | x = nn } | B |- e : T' => G'
-  ----- :: letint
-  Th | G | B |- let x = nn in e : T' => G' \ x
+%   Th | G,x:{ x: int | x = nn } | B |- e : T' => G'
+%   ----- :: letint
+%   Th | G | B |- let x = nn in e : T' => G' \ x
 
-  Th | G,x:{ y: int | ph /\ y = 0 } | B |- e1 : T => G'
-  Th | G,x:{ y: int | ph /\ y != 0 } | B |- e2 : T => G'
-  ---- :: if
-  Th | G,x:{y:int | ph } | B |- ifz x then e1 else e2 : T => G'
+%   Th | G,x:{ y: int | ph /\ y = 0 } | B |- e1 : T => G'
+%   Th | G,x:{ y: int | ph /\ y != 0 } | B |- e2 : T => G'
+%   ---- :: if
+%   Th | G,x:{y:int | ph } | B |- ifz x then e1 else e2 : T => G'
 
-  Th | G,x:T1 ref 1,y:T2 | B |- e : T => G'
-  ----- :: mkref
-  Th | G,y:(T1 + T2) | B |- let x  = mkref y in e : T => G' \ x
+%   Th | G,x:T1 ref 1,y:T2 | B |- e : T => G'
+%   ----- :: mkref
+%   Th | G,y:(T1 + T2) | B |- let x  = mkref y in e : T => G' \ x
 
-  r > 0
-  Th | G,y: T2 ref r,y : T1 | B |- e : T => G'
-  ----- :: deref
-  Th | G,y:(T1 + T2) ref r | B |- let x = *y in e : T => G' \ x
+%   r > 0
+%   Th | G,y: T2 ref r,y : T1 | B |- e : T => G'
+%   ----- :: deref
+%   Th | G,y:(T1 + T2) ref r | B |- let x = *y in e : T => G' \ x
 
-  T1 ref r1 + T2 ref r2 = (T1' ref r1') + (T2' ref r2')
-  Th | G,x:T1' ref r1',y:T2' ref r2' | B |- e : T => G'
-  ----- :: alias
-  Th | G,x:T1 ref r1,y:T2 ref r2 | B |- alias(x = y); e : T => G'
+%   T1 ref r1 + T2 ref r2 = (T1' ref r1') + (T2' ref r2')
+%   Th | G,x:T1' ref r1',y:T2' ref r2' | B |- e : T => G'
+%   ----- :: alias
+%   Th | G,x:T1 ref r1,y:T2 ref r2 | B |- alias(x = y); e : T => G'
 
-  Th(f) = A < x1 : T1' ,, xn: Tn' > -> < x1 : T1'' ,, xn: Tn'' | T >
-  </ G |- Ti <: [l:B/A]Ti' // i IN 1..n />
-  Th | G, x1 : Post(T1, [l:B/A]T1'') ,, xn : Post(Tn, [l:B/A]Tn''),y:T | B |- e : T' => G'
-  ---- :: call
-  Th | G, x1 : T1 ,, xn : Tn | B |- e : T => G' \ y
+%   Th(f) = A < x1 : T1' ,, xn: Tn' > -> < x1 : T1'' ,, xn: Tn'' | T >
+%   </ G |- Ti <: [l:B/A]Ti' // i IN 1..n />
+%   Th | G, x1 : Post(T1, [l:B/A]T1'') ,, xn : Post(Tn, [l:B/A]Tn''),y:T | B |- e : T' => G'
+%   ---- :: call
+%   Th | G, x1 : T1 ,, xn : Tn | B |- e : T => G' \ y
 
-  Th | G, y: T1, x: T2 ref 1 | B |- e : T => G'
-  ---- :: assign
-  Th | G, y:(T1 + T2), x: T' ref 1 | B |- x := y; e : T => G'
+%   Th | G, y: T1, x: T2 ref 1 | B |- e : T => G'
+%   ---- :: assign
+%   Th | G, y:(T1 + T2), x: T' ref 1 | B |- x := y; e : T => G'
 
-  G |= ph
-  Th | G | B |- e : T => G'
-  ----- :: assert
-  Th | G | B |- assert( ph ) ; e : T => G'
+%   G |= ph
+%   Th | G | B |- e : T => G'
+%   ----- :: assert
+%   Th | G | B |- assert( ph ) ; e : T => G'
 
-  defn Th |- d :: :: fun_typing :: 'T' by
-  Th(f) = A < x1 : T1 ,, xn: Tn > -> < x1 : T1' ,, xn: Tn' | T >
-  Th | empty, x1 : T1 ,, xn : Tn | A |- e : T => empty, x1 : T1' ,, xn : Tn'
-  ---- :: fundef
-  Th |- f |-> (x1 , .. , xi) e
+%   defn Th |- d :: :: fun_typing :: 'T' by
+%   Th(f) = A < x1 : T1 ,, xn: Tn > -> < x1 : T1' ,, xn: Tn' | T >
+%   Th | empty, x1 : T1 ,, xn : Tn | A |- e : T => empty, x1 : T1' ,, xn : Tn'
+%   ---- :: fundef
+%   Th |- f |-> (x1 , .. , xi) e
 
-  defn C1 --> D C2 :: :: reduce :: 'R' {{ tex [[C1]] [[-->]]_[[D]] [[C2 ]] }} by
-  ---- :: return
-  < H, R, CE : Es, x > --> D < H, R, Es, CE[x]>
+%   defn C1 --> D C2 :: :: reduce :: 'R' {{ tex [[C1]] [[-->]]_[[D]] [[C2 ]] }} by
+%   ---- :: return
+%   < H, R, CE : Es, x > --> D < H, R, Es, CE[x]>
 
-  x' fresh in R
-  ---- :: LetVar
-  < H, R, Es, E[let x = y in e]> --> D < H, R{x'|->  R(y)}, Es, E[[x'/x]e]>
+%   x' fresh in R
+%   ---- :: LetVar
+%   < H, R, Es, E[let x = y in e]> --> D < H, R{x'|->  R(y)}, Es, E[[x'/x]e]>
 
-  x' fresh in R
-  ---- :: LetConst
-  < H, R, Es, E[let x = nn in e]> --> D < H, R{x' |-> nn}, Es, E[[x'/x]e]>
+%   x' fresh in R
+%   ---- :: LetConst
+%   < H, R, Es, E[let x = nn in e]> --> D < H, R{x' |-> nn}, Es, E[[x'/x]e]>
 
-  R(x) = 0
-  ---- :: IfTrue
-  < H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]>
+%   R(x) = 0
+%   ---- :: IfTrue
+%   < H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]>
 
-  R(x) != 0
-  ---- :: IfFalse
-  < H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e2]>
+%   R(x) != 0
+%   ---- :: IfFalse
+%   < H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e2]>
 
-  a fresh in H
-  x' fresh in R
-  ---- :: MkRef
-  < H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y)}, R { x' |-> a }, Es, E[[x'/x]e]>
+%   a fresh in H
+%   x' fresh in R
+%   ---- :: MkRef
+%   < H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y)}, R { x' |-> a }, Es, E[[x'/x]e]>
 
-  R(y) = a
-  H(a) = v
-  x' fresh in R
-  ---- :: Deref
-  <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[[x'/x]e]>
+%   R(y) = a
+%   H(a) = v
+%   x' fresh in R
+%   ---- :: Deref
+%   <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[[x'/x]e]>
 
-  f |-> (x1,...,xn) e' in D
-  ---- :: Call
-  <H, R, Es, E[let x = f l (y1,,yn) in e]> --> D <H, R, E[let x = [] in e] : Es, [y1/x1],...,[yn/xn]e>
+%   f |-> (x1,...,xn) e' in D
+%   ---- :: Call
+%   <H, R, Es, E[let x = f l (y1,,yn) in e]> --> D <H, R, E[let x = [] in e] : Es, [y1/x1],...,[yn/xn]e>
 
-  R(x) = a
-  a in H
-  ---- :: Assign
-  <H, R, Es, E[x := y; e]> --> D <H { a <- R(y) }, R, Es, E[e]>
+%   R(x) = a
+%   a in H
+%   ---- :: Assign
+%   <H, R, Es, E[x := y; e]> --> D <H { a <- R(y) }, R, Es, E[e]>
 
-  R(x) = R(y)
-  ---- :: AliasSucc
-  <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]>
+%   R(x) = R(y)
+%   ---- :: AliasSucc
+%   <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]>
 
-  R(x) != R(y)
-  ---- :: AliasFail
-  <H, R, Es, E[alias(x = y); e]> --> D AliasFail
+%   R(x) != R(y)
+%   ---- :: AliasFail
+%   <H, R, Es, E[alias(x = y); e]> --> D AliasFail
 
-  R |= ph
-  ---- :: AssertSucc
-  <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]>
+%   R |= ph
+%   ---- :: AssertSucc
+%   <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]>
 
-  R !|= ph
-  ---- :: AssertFail
-  <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]>
+%   R !|= ph
+%   ---- :: AssertFail
+%   <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]>
