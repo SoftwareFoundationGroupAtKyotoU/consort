@@ -29,7 +29,8 @@ grammar
     | alias ( x = y ) ; e ::   :: Alias  {{ tex \ALIAS([[x]] = [[y]]) \SEQ [[e]] }}
     | assert ( ph ) ; e  ::   :: Assert {{ tex \ASSERT([[ph]]) \SEQ [[e]] }}
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
-    | [ x1 / x1' ] ,, [ xn / xn' ] e :: :: subst {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] e }}
+    | [ x1 / x1' ] ,, [ xn / xn' ] e :: :: subst_mult {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] e }}
+    | [ x1 / x2 ] e :: :: subst {{ tex [ [[x1]] / [[x2]] ]  e }}
     | ( e )               :: S :: paren
 	| CE [ x ]  :: M:: ret
 	| E [ e ] :: M:: ctxt
@@ -70,13 +71,14 @@ grammar
 	| R ( x ) :: :: var
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
+	| 0 :: :: z
 
   E :: E_ ::=    {{ com evaluation context }}
     | []                ::   :: hole {{ tex \HOLE }}
 	| E ; e :: :: seq {{ tex [[E]]\SEQ[[e]] }}
 
   CE {{ tex E_c }} :: E_ ::=
-    | E [ let x = [] in e ] :: :: stack {{ tex [[E]][\LET [[x]] = \HOLE \IN [[ e ]] ]}}
+    | E [ let x = [] l in e ] :: :: stack {{ tex [[E]][\LET [[x]] = \HOLE^[[l]] \IN [[ e ]] ]}}
 
   Es {{ tex \overrightarrow{E} }} :: Es_ ::=                  {{ com  stack }}
     | .                  ::   :: empty {{ tex \cdot }}
