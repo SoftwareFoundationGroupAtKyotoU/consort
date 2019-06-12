@@ -7,7 +7,10 @@ metavar funvar, f, g ::=
 metavar l::=
   {{ tex \ell }}  {{ com  label }}
 
-indexvar index, i, n ::=   {{ com index }}
+metavar ll ::=
+  {{ tex \overrightarrow{\ell} }}
+
+indexvar index, i, n, p ::=   {{ com index }}
 
 metavar A ::= {{ com label sequence }} {{ tex \alpha }}
 
@@ -74,7 +77,7 @@ grammar
 	| 0 :: :: z
 
   E :: E_ ::=    {{ com evaluation context }}
-    | []                ::   :: hole {{ tex \HOLE }}
+    | []                ::   :: hole
 	| E ; e :: :: seq {{ tex [[E]]\SEQ[[e]] }}
 
   CE {{ tex E_c }} :: E_ ::=
@@ -87,18 +90,22 @@ grammar
   ph {{ tex \varphi }} :: 'P_' ::= {{ com refinement predicates }}
     | pfun ( x1 , .. , xn ) :: :: pred_sym {{ com predicate in underlying logic }}
 	| ph1 /\ ph2 :: :: pred_conj {{ tex [[ph1]] \wedge [[ph2]] }} {{ com conjunction }}
-	| V1 = V2 :: :: pred_const {{ com equality }}
-	| V1 != V2 :: :: pred_ineq {{ com inequality }} {{ tex [[V1]] \neq [[V2]] }}
+	| lvar = V2 :: :: pred_const {{ com equality }}
+	| lvar != V2 :: :: pred_ineq {{ com inequality }} {{ tex [[lvar]] \neq [[V2]] }}
 	| Top :: :: pred_top {{ tex \top }}
 	| ph1 ==> ph2 :: :: entail
-	| [ x / V ] ph :: :: subst_var
+	| [ V1 / lvar ] ph :: :: subst_var
+	| [ R ; V1 / lvar ] ph :: :: subst_env
 	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
+
+  lvar {{ tex V }} :: 'LV_' ::=
+  	| nu :: :: nu {{ tex \nu }}
+    | x :: :: var
 
   V :: 'V_' ::=
     | x :: :: var
 	| v :: :: val
-	| 0 :: :: z
-	| nu :: :: nu {{ tex \nu }}
+	| Rv :: :: rv
 
   csub {{ tex \sigma }} :: C_ ::=
   	| [ B / A ] :: M :: subst_ctxt
@@ -114,7 +121,7 @@ grammar
 	| csub T :: :: subst_context
 	| [ x1 / x1' ] T :: M :: subst_var
 	| Post ( T1 , T2 ) :: :: post_call
-	| T1 /\ ph :: :: strength {{ tex [[T1]] \wedge [[ph]] }}
+	| T1 /\ x ph :: :: strength {{ tex [[T1]] \wedge_{[[x]]} [[ph]] }}
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
@@ -131,6 +138,8 @@ grammar
 	| l : B :: :: l_cons
 	| l1 : ,..., : ln : B :: :: multi_cons {{ tex [[l1]] : \cdots : [[ln]] : [[B]] }}
 	| A :: :: svar
+	| ll :: :: list_var
+	| Trace ( Es ) :: :: trace_fun
 
   FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
     | A < x1 : T1 ,, xn : Tn > -> < y1 : T1' ,, yi : Ti' | T >  :: :: sig
@@ -156,6 +165,7 @@ grammar
     | -->                 ::   :: red        {{ tex \longrightarrow }}
     |  ->                 ::   :: arrow      {{ tex \rightarrow }}
     | |-                  ::   :: turnstile  {{ tex \vdash }}
+    | |-e                  ::   :: e_turnstile  {{ tex \vdash_{E} }}
     | |=                  ::   :: models     {{ tex \models }}
     | in                  ::   :: in         {{ tex \in }}
     | <:                  ::   :: sub        {{ tex \leq }}
@@ -167,6 +177,7 @@ grammar
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
+	| /\ :: :: and {{ tex \wedge }}
 
   logical_frag :: '' ::=
     | ph :: :: phi
@@ -180,6 +191,23 @@ grammar
 	| R |= logical_frag :: :: env_model
 	| R !|= logical_frag :: :: env_not_model
 
+  FV :: 'FV_' ::=
+  	| FPV ( T ) :: :: fpv_t
+	| FPV ( ph ) :: :: fpv_p
+	| FPCV ( ph ) :: :: fpcv_p
+	| FPCV ( T ) :: :: fpcv_tx
+
+  functions :: 'F_' ::=
+    | FV :: :: fv
+	| CV ( B ) :: :: cv
+	| Cons ( H , R , G ) :: :: Cons
+	| SAT ( H , R , G ) :: :: SAT
+	| own ( H , Rv , T ) :: :: own
+	| F ( a ) :: :: total_own_app
+
+   omap :: 'OM_' ::=
+    | { a |-> r } :: :: omap
+	
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{WF} [[T]] [[=>]] [[G]] }}
@@ -191,16 +219,27 @@ grammar
 	| Gst | B |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[B]] [[|-]]_{WF} [[ph]] }}
 	| T1 = T2 :: :: teq
 	| ST1 = ST2 :: :: steq
-	| CV ( B ) :: :: cv
-	| FPV ( T ) :: :: fpv_t
-	| FPV ( ph ) :: :: fpv_p
-	| FPCV ( ph ) :: :: fpcv_p
-	| FPCV ( T ) :: :: fpcv_t
 	| Th |- d :: :: fun_typ
 	| |- P :: :: prog_typ
+	| Th |- D :: :: f_typing
+	| |- D C :: :: ctxt_type {{ tex \vdash_C^D [[ C ]] }}
+	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing 
+	| Th | [] : T => G | B |-e CE : T' => G' :: :: ectxt_typing
+
+  bind :: 'Bin_' ::=
+    | x :: :: pvar
+	| A :: :: cvar
+	| a  :: :: addr
+
+  MF :: 'MF_' ::=
+    | G :: :: tyenv
+	| R :: :: env
+	| Gst :: :: stTenv
+	| H :: :: heap
 
   formula :: formula_ ::=
     | judgment :: :: judge
+	| functions :: :: func
 	| logic_judgment :: :: lj
     | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
@@ -208,157 +247,16 @@ grammar
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
-	| x fresh in R :: :: notinEnv {{ tex [[x]] \not\in dom(R) }}
-	| a fresh in H :: :: notInHeap {{ tex [[a]] \not\in dom(H) }}
-	| a in H :: :: inHeap {{ tex [[a]] \in dom(H) }}
+	| bind fresh in MF :: :: notinEnv {{ tex [[bind]] \not\in dom([[MF]]) }}
+	| bind in MF :: :: inMap {{ tex [[bind]] \in dom([[MF]]) }}
+	| bind not in MF :: :: notInMap {{ tex [[bind]] \not\in dom([[MF]]) }}
+	| bind in FV :: :: inFv {{ tex [[bind]] \in [[FV]] }}
+	| bind not in FV :: :: notInFv {{ tex [[bind]] \not\in [[FV]] }}
 	| Rv1 = Rv2 :: :: rvEq
 	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
 	| csub1 = csub2 :: :: sigdef
-
-% defns Jop :: '' ::=
-%   defn T1 + T2 = T3 :: :: sum :: 'TAdd_' by
-%   -----------------------------------------------------  :: int
-%   { x : int | ph } + { x : int | ph } = { x: int | ph }
-
-%   r1 > 0
-%   r2 > 0
-%   --------------------- :: ref0
-%   { x: int | ph1 } ref r1 + { x: int | ph2 } ref r2 = { x: int | ph1 /\ ph2 } ref r1+r2
-
-%   r1 > 0
-%   r2 > 0
-%   --------------------- :: ref1
-%   { x: int | ph } ref r1 + { x: int | ph } ref r2 = { x: int | ph } ref r1+r2
-
-
-%   r > 0
-%   -------- :: ref2
-%   T1 ref 0 + T2 ref r = T2 ref r
-
-%   ---------- :: ref3
-%   T1 ref 0 + T2 ref 0 = {x: int | Top } ref 0
-
-%   defn G |- T1 <: T2 :: :: subtyping :: 'Sub' by
-%   G |= ph1 ==> ph2
-%   ------ :: int
-%   G |- { x: int | ph1  } <: { x: int | ph2 }
-
-%   r > 0 ==> G |- T1 <: T2
-%   ------ :: ref
-%   G |- T1 ref r <: T2 ref r
-
-%   defn G <: G' :: :: env_sub :: 'Sub' by
-%   G' |- G(x) <: G'(x) (x in dom(G'))
-%   |= [[ G ]] ==> [[ G' ]]
-%   ----- :: tyenv
-%   G <: G'
-
-%   defn Th | G | B |- e : T => G' :: :: typing :: 'T' by
-%   ---- :: var
-%   Th | G,x:(T1+T2) | B |- x : T1 => G,x:T2
-
-%   Th | G,y:T1,x:T2,x = T1 y | B |- e : T' => G', x = T1 y
-%   ----- :: let
-%   Th | G,y:(T1 + T2) | B |- e : T' => G' \ x
-
-%   Th | G,x:{ x: int | x = nn } | B |- e : T' => G'
-%   ----- :: letint
-%   Th | G | B |- let x = nn in e : T' => G' \ x
-
-%   Th | G,x:{ y: int | ph /\ y = 0 } | B |- e1 : T => G'
-%   Th | G,x:{ y: int | ph /\ y != 0 } | B |- e2 : T => G'
-%   ---- :: if
-%   Th | G,x:{y:int | ph } | B |- ifz x then e1 else e2 : T => G'
-
-%   Th | G,x:T1 ref 1,y:T2 | B |- e : T => G'
-%   ----- :: mkref
-%   Th | G,y:(T1 + T2) | B |- let x  = mkref y in e : T => G' \ x
-
-%   r > 0
-%   Th | G,y: T2 ref r,y : T1 | B |- e : T => G'
-%   ----- :: deref
-%   Th | G,y:(T1 + T2) ref r | B |- let x = *y in e : T => G' \ x
-
-%   T1 ref r1 + T2 ref r2 = (T1' ref r1') + (T2' ref r2')
-%   Th | G,x:T1' ref r1',y:T2' ref r2' | B |- e : T => G'
-%   ----- :: alias
-%   Th | G,x:T1 ref r1,y:T2 ref r2 | B |- alias(x = y); e : T => G'
-
-%   Th(f) = A < x1 : T1' ,, xn: Tn' > -> < x1 : T1'' ,, xn: Tn'' | T >
-%   </ G |- Ti <: [l:B/A]Ti' // i IN 1..n />
-%   Th | G, x1 : Post(T1, [l:B/A]T1'') ,, xn : Post(Tn, [l:B/A]Tn''),y:T | B |- e : T' => G'
-%   ---- :: call
-%   Th | G, x1 : T1 ,, xn : Tn | B |- e : T => G' \ y
-
-%   Th | G, y: T1, x: T2 ref 1 | B |- e : T => G'
-%   ---- :: assign
-%   Th | G, y:(T1 + T2), x: T' ref 1 | B |- x := y; e : T => G'
-
-%   G |= ph
-%   Th | G | B |- e : T => G'
-%   ----- :: assert
-%   Th | G | B |- assert( ph ) ; e : T => G'
-
-%   defn Th |- d :: :: fun_typing :: 'T' by
-%   Th(f) = A < x1 : T1 ,, xn: Tn > -> < x1 : T1' ,, xn: Tn' | T >
-%   Th | empty, x1 : T1 ,, xn : Tn | A |- e : T => empty, x1 : T1' ,, xn : Tn'
-%   ---- :: fundef
-%   Th |- f |-> (x1 , .. , xi) e
-
-%   defn C1 --> D C2 :: :: reduce :: 'R' {{ tex [[C1]] [[-->]]_[[D]] [[C2 ]] }} by
-%   ---- :: return
-%   < H, R, CE : Es, x > --> D < H, R, Es, CE[x]>
-
-%   x' fresh in R
-%   ---- :: LetVar
-%   < H, R, Es, E[let x = y in e]> --> D < H, R{x'|->  R(y)}, Es, E[[x'/x]e]>
-
-%   x' fresh in R
-%   ---- :: LetConst
-%   < H, R, Es, E[let x = nn in e]> --> D < H, R{x' |-> nn}, Es, E[[x'/x]e]>
-
-%   R(x) = 0
-%   ---- :: IfTrue
-%   < H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]>
-
-%   R(x) != 0
-%   ---- :: IfFalse
-%   < H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e2]>
-
-%   a fresh in H
-%   x' fresh in R
-%   ---- :: MkRef
-%   < H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y)}, R { x' |-> a }, Es, E[[x'/x]e]>
-
-%   R(y) = a
-%   H(a) = v
-%   x' fresh in R
-%   ---- :: Deref
-%   <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[[x'/x]e]>
-
-%   f |-> (x1,...,xn) e' in D
-%   ---- :: Call
-%   <H, R, Es, E[let x = f l (y1,,yn) in e]> --> D <H, R, E[let x = [] in e] : Es, [y1/x1],...,[yn/xn]e>
-
-%   R(x) = a
-%   a in H
-%   ---- :: Assign
-%   <H, R, Es, E[x := y; e]> --> D <H { a <- R(y) }, R, Es, E[e]>
-
-%   R(x) = R(y)
-%   ---- :: AliasSucc
-%   <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]>
-
-%   R(x) != R(y)
-%   ---- :: AliasFail
-%   <H, R, Es, E[alias(x = y); e]> --> D AliasFail
-
-%   R |= ph
-%   ---- :: AssertSucc
-%   <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]>
-
-%   R !|= ph
-%   ---- :: AssertFail
-%   <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]>
+	| B1 = B2 :: :: equiv_ctxt
+	| formula1 /\ formula2 :: :: meta_conj
+	| forall formula1 . formula2 :: :: uq

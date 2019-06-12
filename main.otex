@@ -116,7 +116,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
       [[ph]] & ::= & [[ph1 ==> ph2]] \mid
                      [[ ph1 /\ ph2 ]] \mid
                      [[ pfun(x1,..,xn) ]] \mid
-                     [[ V1 = V2 ]] \mid [[ V1 != V2 ]] \\
+                     [[ lvar = V' ]] \mid [[ lvar != V' ]] \\
              & \mid & [[ B1 = B2? ]] \\
       [[ V ]] & ::= & [[ x ]] \mid [[ v ]]
     \end{array}
@@ -132,7 +132,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \begin{figure}[t]
   \leavevmode
   \infrule[WF-Env]{
-    \forall [[x]] \in dom([[G]]).[[ G | A |- G(x) ]]
+    [[ forall x in G. G | B |- G(x) ]]
   }{
     [[B |- G]]
   }
@@ -147,7 +147,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[G | B |- T ref r ]]
   }
   \infrule[WF-Phi]{
-    [[FPV(ph)]] \subseteq \set{x \mid x \in dom([[Gst]]) \wedge [[Gst(x) = int]]} \andalso
+    [[FPV(ph)]] \subseteq \set{x \mid [[x in Gst /\ Gst(x) = int]]} \andalso
     [[FPCV(ph)]] \subseteq [[CV(B)]]
   }{
     [[Gst | B |- ph]]
@@ -229,9 +229,10 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \end{definition}
 
 \begin{definition}
-  $[[T /\ ph]]$ is the strengthening operation defined as:
-    $[[ { x: int | ph1 } /\ ph2 = { x: int | ph1 /\ [x/nu]ph2 }]]$ and
-    $[[ T ref r /\ ph = T ref r]]$
+  $[[T /\ y ph]]$ is the strengthening operation defined as:
+    $[[ { x: int | ph1 } /\ y ph2 = { z: int | [z/x]ph1 /\ [z/y]ph2 }]]$ and
+    $[[ T ref r /\ y ph = T ref r]]$,
+    where $[[z not in FPV(ph1) /\ z not in FPV(ph2)]]$
 \end{definition}
 
 \paragraph{Subtyping.}
@@ -251,7 +252,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ G |- T1 ref r1 <: T2 ref r2 ]]
   }
   \infrule[Sub-TyEnv]{
-    \forall x \in dom([[G']]).[[G |- G(x) <: G'(x)]] \\
+    [[ forall x in G'.G|- G(x) <: G'(x) ]] \\
     [[ |=  [ G ] ==> [ G' ] ]]
   }{
     [[ G <: G' ]]
@@ -289,14 +290,14 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
   }
   \infrule[T-MkRef]{
-    [[ Th | G[y <- T1],x : (T2 /\ nu = y) ref 1 | B |- e : T => G']] \andalso
+    [[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \andalso
     [[ B |- T => G' \ x ]]
   }{
     [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
   }
   \infrule[T-Deref]{
     [[r > 0]] \andalso
-    [[ Th | G[y <- (T1 /\ nu = x) ref r], x : T2 | B |- e : T => G']] \andalso
+    [[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G']] \andalso
     [[ B |- T => G' \ x ]]
   }{
     [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
@@ -337,11 +338,15 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   \infrule[T-Sub]{
     [[ G <: G' ]] \andalso
     [[ Th | G' | B |- e : T => G'' ]] \andalso
-    [[x]] \not\in dom([[G]]) \andalso
+    [[ x not in G ]] \andalso
     [[ G'', x:T <: G''',x:T' ]]
   }{
     [[ Th | G | B |- e : T' => G''' ]]
   }
+  \caption{Expression typing rules.}
+  \label{fig:typingRules}
+\end{figure}
+\begin{figure}
   \infrule[T-FunDef]{
     [[ Th (f) = A <x1 : T1 ,, xn : Tn > -> < x1: T1' ,, xn : Tn' | T> ]] \\
     [[ Th | x1:T1 ,, xn:Tn | A |- e : T => x1: T1' ,, xn : Tn' ]] \\
@@ -349,13 +354,18 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   }{
     [[ Th |- f |-> (x1,..,xn) e ]]
   }
+  \infrule[T-Funs]{
+    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]]
+  }{
+    [[ Th |-  D ]]
+  }
   \infrule[T-Prog]{
-    [[ Th |- d1 .. Th |- dn ]] \andalso
+    [[ Th |- D ]] \andalso
     [[ Th | empty | . |- e : T => G ]]
   }{
-    [[ |- < { d1, ... , dn }, e > ]]
+    [[ |- < D, e > ]]
   }
-\caption{Typing rules.}
+\caption{Program typing rules}
 \label{fig:typingRules}
 \end{figure}
 
@@ -802,51 +812,55 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
 \begin{figure}
   \leavevmode
   \infrule[]{
-    \funenv \mid \tenv, \HOLE:\typ\produces\tenv' \mid \beta \ctxtp E : \typ'\produces\tenv'' \andalso \funenv \mid \tenv'' \mid \beta \p e : \typ'' \produces \tenv'''
+    [[ Th | [] : T => G | B |-e E : T' => G' ]] \andalso
+    [[ Th | G' | B |- e : T'' => G'' ]]
   }{
-    \funenv \mid \tenv,\HOLE:\typ\produces\tenv' \mid \beta \ctxtp E;e : \typ''\produces\tenv'''
+    [[ Th | [] : T => G | B |-e E; e : T'' => G'' ]]
+  }
+  \infrule[]{}{
+    [[ Th | [] : T => G | B |-e [] : T => G ]]
   }
   \infrule[]{
+    [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
+    [[ Th | G, x : T | B |- e : T' => G' ]]
   }{
-    \funenv \mid \tenv,\HOLE:\typ\produces\tenv' \mid \beta \ctxtp \HOLE : \typ\produces\tenv'
+    [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
   }
-  \infrule[]{
-    \funenv \mid \tenv', x: \typ \mid \beta \p e : \typ' \produces \tenv''
-  }{
-    \funenv \mid \tenv,\HOLE:\typ\produces\tenv' \mid \beta \ctxtp \LET x = \HOLE \IN e : \typ' \produces \tenv''
-  }
-\caption{Context typing}
+\caption{Context typing and substitution}
 \label{fig:context-typing}
 \end{figure}
 
 \begin{figure}
   \leavevmode
   \infrule[]{
-    \overrightarrow{\ell} = Trace(\seq{E}) \andalso n = |\seq{E}| = |\seq{\ell}| \andalso \funenv \p D \andalso \seq{\ell_i} = tail^{n-i+1}(\seq{\ell}) \\
-    Cons(H, R, \tenv) \andalso \forall i \in \{1 ... n\}.\funenv\mid\tenv,\HOLE:\typ_{i+1}\produces\tenv_{i+1}\mid \seq{\ell_i} \ctxtp E_i : \typ_i \produces \tenv_i  \\
-    \funenv \mid \tenv,\HOLE:\typ_e\produces\tenv_e \mid \seq{\ell} \ctxtp E:\typ_{n+1}\produces\tenv_{n+1} \andalso \funenv \mid \tenv \mid \seq{\ell} \p e : \typ_e\produces\tenv_e
-  }{\Cp \tuple{H,R,\seq{E},E[e]}}
+    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{0..n-1}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
+    [[ Cons(H, R, G) ]] \andalso
+    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\
+    [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]] \\
+    [[ Th | G | ll |- e : T => G' ]]
+  }{
+    [[ |- D <H,R,Es,En[e]> ]]
+  }
 
   \begin{align*}
-    Trace(\cdot) = \cdot && Trace(E[\LET x = \HOLE^{\ell} \IN x] : \seq{E}) = \ell : Trace(\seq{E})
+    [[Trace(.) = .]] && [[Trace(E[let x = [] l in e] : Es) = l : Trace(Es)]])
   \end{align*}
 
   \begin{align*}
-    Cons(H,R,\tenv) = & SAT(H,R,\tenv) \wedge \forall h \in \DOM(H).F(h) \leq 1 \\
-    SAT(H,R,\tenv) = & \forall x \in \DOM(\tenv).x \in \DOM(R) \wedge \\
+    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[a in H]].[[F(a)]] \leq 1 \\
+    [[SAT(H,R,G)]] = & [[ forall x in G.x in R]]\wedge \\
     & \begin{cases}
-      R(x) \in \mathbb{Z} \wedge [R(x)/n,R(\seq{v})/\seq{v}]\denote{\phi} & \tenv(x) = \{ \nu : int \mid \phi(\nu,\seq{v}) \} \\
-      (0 \leq r \leq 1) \wedge (r > 0 \produces & \tenv(x) =  \{ \nu : int \mid \phi(\nu,\seq{v}) \} \TREF^r \\
-      \,\,\,R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n,R(\seq{v})/\seq{v}]\denote{\phi}) &
+      [[R(x)]] \in \mathbb{Z} \wedge [[ [R;R(x)/y]ph ]] & [[ G(x) = {y:int | ph} ]] \\
+      [[r > 0]] \produces & [[ G(x) =  { x:int | ph } ref r ]] \\
+      \,\,\, [[H(R(x))]] \in \mathbb{Z} \wedge [[ [R; H(R(y))/x]ph]] &
     \end{cases} \\
-\iffalse                     \Big[\tenv(x) & = \{ n : int \mid \phi(n) \} \produces \Big] \wedge \\
-    \Big[\tenv(x)  & =  \{ n : int \mid \phi(n) \} \TREF^r \produces \\
-                    & (0 \leq r \leq 1) \wedge (r > 0 \produces R(x) \in \DOM(H) \wedge H(R(x)) \in \mathbb{Z} \wedge [H(R(x))/n]\denote{\phi})\Big] \\\fi
-    F(h) = &  \Sigma_{x \in \DOM(\tenv)}\,\mathbf{own}(H,R(x),\tenv(x)) \\
-    \mathbf{own}(H, v, \typ) &  = \begin{cases}
-      \{ h \mapsto r \} & v = h \in \DOM(H) \wedge \typ = \{ \nu: int \mid \phi \} \TREF^r \\
+    [[ [empty; v / x]ph ]] & = [v/x]ph \\
+    [[ [R { y |-> v' }; v / x]ph ]] & =  [[ [v'/y] [R ; v / x]ph ]] \\
+    F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
+    [[own(H,v,T)]] &  = \begin{cases}
+      [[ { a |-> r } ]] & v = a \in \DOM([[H]]) \wedge [[ T = T' ref r ]] \\
       \emptyset & o.w.
-    \end{cases}
+    \end{cases} \\
   \end{align*}
 \caption{Machine state typing}
 \label{fig:state-typing}
