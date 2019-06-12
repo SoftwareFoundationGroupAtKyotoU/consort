@@ -95,7 +95,8 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
       [[ B ]] & ::= & [[ . ]] \mid [[ l ]] : [[ B ]] \mid [[A]]
     \end{array}
   \]
-  Where $[[A]]$ is a context string variable.
+  $[[A]]$ is a context string variable. Let $[[CV(B)]]$ be $\set{[[A]]}$ for
+  context strings whose final element is $[[A]]$ and $\emptyset$ otherwise.
 \end{definition}
 
 \begin{definition}
@@ -122,10 +123,10 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   \]
   $[[pfun]]$ is a predicate symbol with an interpretation in the
   theory used by the underlying solver. The predicate $[[ B1 = B2? ]]$ is a prefix
-  query which checks whether $[[B2]]$ is a prefix of $[[B1]]$. We write $FPV([[ph]])$ for
-  the free variables occuring in $[[ph]]$, and write $FPCV([[ph]])$ for the free context
-  variables that appear in $[[ph]]$. Through abuse of notation we will also write $FPV([[T]])$
-  and $FPCV([[T]])$ to indicate free variables that appear in the refinement of $[[T]]$.
+  query which checks whether $[[B2]]$ is a prefix of $[[B1]]$. We write $[[FPV(ph)]]$ for
+  the free variables occuring in $[[ph]]$, and write $[[FPCV(ph)]]$ for the free context
+  variables that appear in $[[ph]]$. Through abuse of notation we will also write $[[FPV(T)]]$
+  and $[[FPCV(T)]]$ to indicate free variables that appear in the refinement of $[[T]]$.
 \end{definition}
 
 \begin{figure}[t]
@@ -133,23 +134,29 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   \infrule[WF-Env]{
     \forall [[x]] \in dom([[G]]).[[ G | A |- G(x) ]]
   }{
-    [[A |- G]]
+    [[B |- G]]
   }
   \infrule[WF-Int]{
-    [[ST(G), x:int | A |- ph]]
+    [[ST(G), x:int | B |- ph]]
   }{
-    [[G | A |- { x:int|ph} ]]
+    [[G | B |- { x:int|ph} ]]
   }
   \infrule[WF-Ref]{
-    [[G | A |- T]]
+    [[G | B |- T]]
   }{
-    [[G | A |- T ref r ]]
+    [[G | B |- T ref r ]]
   }
   \infrule[WF-Phi]{
-    FPV([[ph]]) \subseteq \set{x \mid x \in dom([[Gst]]) \wedge [[Gst(x) = int]]} \\
-    FPCV([[ph]]) = \set{[[A]]}
+    [[FPV(ph)]] \subseteq \set{x \mid x \in dom([[Gst]]) \wedge [[Gst(x) = int]]} \andalso
+    [[FPCV(ph)]] \subseteq [[CV(B)]]
   }{
-    [[Gst | A |- ph]]
+    [[Gst | B |- ph]]
+  }
+  \infrule[WF-Result]{
+    [[G | B |- T]] \andalso
+    [[B |- G]]
+  }{
+    [[ B |- T => G ]]
   }
   \caption{Well-formedness of types and environments}
   \label{fig:type-wf}
@@ -163,7 +170,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
       [[Gst]] & ::= & [[empty]] \mid [[Gst,x:ST]]
     \end{array}
   \]
-  Let $ST([[G]])$ be the obvious transformation of $[[G]]$ into $[[Gst]]$.
+  Let $[[ST(G)]]$ be the obvious transformation of $[[G]]$ into $[[Gst]]$.
   The well-typedness of types and type environments are shown in \cref{fig:type-wf}.
 \end{definition}
 
@@ -217,41 +224,37 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \end{figure}
 
 \begin{definition}
-  $\typ_1 + \typ_2$ is the least commutative partial operation that satisfies the rules in Figure~\ref{fig:addition}.
+  $[[ T1 + T2 ]]$ is the least commutative partial operation that satisfies the rules in Figure~\ref{fig:addition}.
   \AI{Rules for unit and int types.}
+\end{definition}
+
+\begin{definition}
+  $[[T /\ ph]]$ is the strengthening operation defined as:
+    $[[ { x: int | ph1 } /\ ph2 = { x: int | ph1 /\ [x/nu]ph2 }]]$ and
+    $[[ T ref r /\ ph = T ref r]]$
 \end{definition}
 
 \paragraph{Subtyping.}
 
 \begin{figure}[t]
 \leavevmode
-  % \infrule[Sub-Int1]{
-  %   \tenv \models \varphi_1 \iff \varphi_2
-  % }{
-  %   \tenv \vdash \set{x \COL \TINT \mid \varphi_1} \TREF^1 \subt \set{x \COL \TINT \mid \varphi_2} \TREF^1
-  % }
-  \infax[Sub-Unit]{
-    \tenv \vdash \TUNIT \subt \TUNIT
-  }
-  \infrule[Sub-Int]{
-    \tenv \models \varphi_1 \implies \varphi_2
+\infrule[Sub-Int]{
+  [[G |= ph1 ==> ph2]]
   }{
-    \tenv \vdash \set{x \COL \TINT \mid \varphi_1} \subt \set{x \COL \TINT \mid \varphi_2}
+   [[G |- {x:int|ph1} <: {y:int|ph2}]]
   }
   \infrule[Sub-Ref]{
-    \ownership_1 \ge \ownership_2
+    [[r1 >= r2]]
     \andalso
-    \ownership_2 \ge 1 \implies \tenv \vdash \typ_2 \subt \typ_1
-    \andalso
-    \ownership_2 > 0 \implies \tenv \vdash \typ_1 \subt \typ_2
+    [[r2 > 0 ==> G |- T1 <: T2 ]]
   }{
-    \tenv \vdash \typ_1 \TREF^{\ownership_1} \subt \typ_2 \TREF^{\ownership_2}
+    [[ G |- T1 ref r1 <: T2 ref r2 ]]
   }
   \infrule[Sub-TyEnv]{
-    \tenv \vdash \tenv(x) \subt \tenv'(x) \quad (x \in dom(\tenv')) \\
-    \models \sem{\tenv} \implies \sem{\tenv'}
+    \forall x \in dom([[G']]).[[G |- G(x) <: G'(x)]] \\
+    [[ |=  [ G ] ==> [ G' ] ]]
   }{
-    \tenv \subt \tenv'
+    [[ G <: G' ]]
   }
   \caption{Rules for subtyping.}
   \label{fig:subtyping}
@@ -263,103 +266,94 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 \begin{figure}[t]
   \leavevmode
-  \infrule[T-Int]{
-  }{
-    \funenv \mid \tenv
-            \mid \beta \vdash n \COL \set{x \COL \TINT \mid x = \intconst} \COL \tenv
-  }
   \infrule[T-Var]{
   }{
-    \funenv \mid \tenv_1, x\COL(\typ_1+\typ_2),\tenv_2 \mid \beta \vdash x \COL  \typ_1 \produces \tenv_1, x\COL \typ_2, \tenv_2
+    [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
   }
   \infrule[T-Let]{
-    \funenv \mid \tenv_1, y \COL \typ_2, \tenv_2, x \COL \typ_1, x =_{\typ_1} y \mid \beta \p \expr \COL \typ' \produces \tenv'
-    \andalso
-    x \notin \fv(\typ')
+    [[ Th | G [ y <- T1 ], x : T2, x = T1 y | B |- e : T => G']] \andalso
+    [[B |- T => G' \ x]]
   }{
-    \funenv \mid \tenv_1, y\COL(\typ_1+\typ_2), \tenv_2 \mid \beta \p \LET x = y \IN \expr \COL \typ' \produces \tenv' \diff x
+    [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
   }
   \infrule[T-LetInt]{
-    \funenv \mid \tenv, x\COL\set{x \COL \TINT \mid x = \intconst} \mid \beta \p \expr \COL \typ' \produces \tenv'
-    \andalso
-    x \notin \fv(\typ')
+    [[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso
+    [[B |- T => G' \ x]]
   }{
-    \funenv \mid \tenv \mid \beta \p \LET x = \intconst \IN \expr \COL \typ' \produces \tenv' \diff x
+    [[ Th | G | B |- e : T => G' \ x]]
   }
   \infrule[T-If]{
-    \tenv = \tenv_1, x : \set{y:\TINT \mid \varphi}, \tenv_2 \\
-    \funenv \mid \tenv_1, x : \set{y:\TINT \mid \varphi \land y = 0}, \tenv_2 \mid \beta \vdash \expr_1 \COL \typ \produces \tenv' \\
-    \funenv \mid \tenv_1, x : \set{y:\TINT \mid \varphi \land y \neq 0}, \tenv_2 \mid \beta \vdash \expr_2 \COL \typ \produces \tenv'
+    [[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]] \\
+    [[ Th | G[x <- {y:int | ph /\ y != 0}] | B |- e2 : T => G' ]]
   }{
-    \funenv \mid \tenv_1, x : \set{y:\TINT \mid \varphi}, \tenv_2 \mid \beta \vdash \IFZERO x \THEN \expr_1 \ELSE \expr_2 \COL \typ \produces \tenv'
+    [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
   }
   \infrule[T-MkRef]{
-    \funenv \mid \tenv_1, y \COL \typ_2, \tenv_2, x \COL \typ_1 \TREF^1 \mid \beta \vdash \expr \COL \typ' \produces \tenv'
-    \andalso
-    x \notin \fv(\typ')
+    [[ Th | G[y <- T1],x : (T2 /\ nu = y) ref 1 | B |- e : T => G']] \andalso
+    [[ B |- T => G' \ x ]]
   }{
-    \funenv \mid \tenv_1, y \COL (\typ_1 + \typ_2), \tenv_2 \mid \beta \p \LET x = \MKREF y \IN \expr \COL \typ' \produces \tenv' \diff x
+    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
   }
   \infrule[T-Deref]{
-    r > 0 \andalso
-    \funenv \mid \tenv_1, y \COL \typ_1 \TREF^r, \tenv_2, x \COL \typ_2 \mid \beta \vdash \expr \COL \typ' \produces \tenv' \andalso
-    x \not \in \fv(\typ')
+    [[r > 0]] \andalso
+    [[ Th | G[y <- (T1 /\ nu = x) ref r], x : T2 | B |- e : T => G']] \andalso
+    [[ B |- T => G' \ x ]]
   }{
-    \funenv \mid \tenv_1, y \COL (\typ_1 + \typ_2) \TREF^r, \tenv_2 \mid \beta \vdash \LET x = *y \IN \expr \COL \typ' \produces \tenv' \diff x
+    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
   }
   \infrule[T-Call]{
-    \funenv(f) = \forall \pps_1. \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n} \ra \tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
-    \funenv \mid \tenv,[\pp\pps_2/\pps_1](x_1\COL\typ_1',\dots,x_n\COL\typ_n',y\COL\typ) \mid \pps_2 \vdash \expr \COL \typ' \produces \tenv'
-    \andalso
-    y \notin \fv(\typ)
+    [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
+    [[csub = [l:B/A] ]] \\
+    [[ Th | G[x1 <- Post(T1,csub T1')],,[xn<-Post(Tn,csub Tn')], y : csub T | B |- e : T' => G' ]] \\
+    \forall i \in 1..n.[[ G |- G(yi) <: csub Ti]] \\
+    [[ B |- T' => G' \ y]]
   }{
-    \funenv \mid \tenv,[\pp\pps_2/\pps_1](x_1\COL\typ_1,\dots,x_n\COL\typ_n) \mid \pps_2 \p \LET y = f^\pp(x_1,\dots,x_n) \IN \expr \COL \typ' \produces \tenv' \diff y
+    [[ Th | G | B |- let y = f l (y1,,yn) in e : T' => G' ]]
   }
   \infrule[T-Assign]{
-    (\text{The shapes of $\typ'$ and $\typ_2$ are similar}) \\
-    \funenv \mid \tenv_1,  y : \typ_2, \tenv_2, x : \typ_1 \TREF^1 \mid \beta \vdash  \expr \COL \typ \produces \tenv'
+    (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
+    [[ Th | G[x <- T1][y <- T2 ref r] | B |- e : T => G']] \\
   }{
-    \funenv \mid \tenv_1, y : (\typ_1+\typ_2), \tenv_2, x : \typ' \TREF^1 \mid \beta \vdash  x \WRITE y \SEQ \expr \COL \typ \produces \tenv'
+    [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
   \infrule[T-Alias]{
-    \typ_1 \TREF^{r_1} + \typ_2 \TREF^{r_2} = \typ'_1 \TREF^{r'_1} + \typ'_2 \TREF^{r'_2}
-    \\
-    \funenv \mid \tenv, x : \typ'_1 \TREF^{r'_1}, y : \typ'_2 \TREF^{r'_2} \mid \beta \vdash \expr_3 \COL \tau \produces \tenv'
+    [[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]] \\
+    [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
   }{
-    \funenv \mid \tenv, x : \typ_1 \TREF^{r_1}, y : \typ_2 \TREF^{r_2} \mid \beta \vdash \ALIAS(x = y) \SEQ \expr_3 \COL \tau \produces \tenv'
+    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
   }
   \infrule[T-Seq]{
-    \funenv \mid \tenv \mid \beta \vdash \expr_1 \COL \typ' \produces \tenv' \andalso
-    \funenv \mid \tenv' \mid \beta \vdash \expr_2 \COL \typ'' \produces \tenv''
+    [[ Th | G | B |- e1 : T' => G' ]] \andalso
+    [[ Th | G' | B |- e2 : T'' => G'' ]]
   }{
-    \funenv \mid \tenv \mid \beta \vdash \expr_1; \expr_2 \COL \typ'' \produces \tenv''
+    [[ Th | G | B |- e1 ; e2 : T'' => G'' ]]
   }
   \infrule[T-Assert]{
-    \tenv \models \varphi \andalso
-    \funenv \mid \tenv \mid \beta \vdash \expr \COL \tau \produces \tenv'
+    [[ G |= ph ]] \andalso
+    [[ Th | G | B |- e : T => G' ]]
   }{
-    \funenv \mid \tenv \mid \beta \vdash \ASSERT(\varphi)\SEQ \expr \COL \tau \produces \tenv'
+    [[ Th | G | B |- assert(ph); e : T => G']]
   }
   \infrule[T-Sub]{
-    \tenv \subt \tenv' \andalso
-    \funenv \mid \tenv' \mid \beta \vdash \expr \COL \tau \produces \tenv'' \andalso
-    \tenv'', x:\typ \subt \tenv''', x:\typ'
+    [[ G <: G' ]] \andalso
+    [[ Th | G' | B |- e : T => G'' ]] \andalso
+    [[x]] \not\in dom([[G]]) \andalso
+    [[ G'', x:T <: G''',x:T' ]]
   }{
-    \funenv \mid \tenv \mid \beta \vdash \expr \COL \typ' \produces \tenv'''
+    [[ Th | G | B |- e : T' => G''' ]]
   }
   \infrule[T-FunDef]{
-    \funenv(f) = \forall \alpha. \tuple{x_1\COL\typ_1,\dots,x_n\COL\typ_n}\ra\tuple{x_1\COL\typ_1',\dots,x_n\COL\typ_n' \mid \typ}\\
-    \funenv \mid x_1\COL\typ_1,\dots,x_n\COL\typ_n \mid \alpha \vdash \expr \COL \typ \produces x_1\COL\typ_1',\dots,x_n\COL\typ_n'\\
-    \alpha \notin \fcv(\funenv)
+    [[ Th (f) = A <x1 : T1 ,, xn : Tn > -> < x1: T1' ,, xn : Tn' | T> ]] \\
+    [[ Th | x1:T1 ,, xn:Tn | A |- e : T => x1: T1' ,, xn : Tn' ]] \\
+    [[A]] \notin \fcv([[A]])
   }{
-    \funenv \vdash f \mapsto (x_1,\dots,x_n)\expr
+    [[ Th |- f |-> (x1,..,xn) e ]]
   }
   \infrule[T-Prog]{
-    \funenv \vdash d_1 \quad \cdots \quad
-    \funenv \vdash d_n \andalso
-    \funenv \mid \emptyset \mid \varepsilon \vdash e : \TUNIT \produces \tenv'
+    [[ Th |- d1 .. Th |- dn ]] \andalso
+    [[ Th | empty | . |- e : T => G ]]
   }{
-    \vdash \tuple{\set{\decl_1, \dots, \decl_n}, \expr}
+    [[ |- < { d1, ... , dn }, e > ]]
   }
 \caption{Typing rules.}
 \label{fig:typingRules}

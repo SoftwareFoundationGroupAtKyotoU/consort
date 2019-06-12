@@ -4,7 +4,7 @@ metavar termvar, x, y, z ::=
 metavar funvar, f, g ::=
   {{ tex \mathit{[[funvar]]} }} {{ com  function name }}
 
-metavar l ::=
+metavar l::=
   {{ tex \ell }}  {{ com  label }}
 
 indexvar index, i, n ::=   {{ com index }}
@@ -50,6 +50,7 @@ grammar
     | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }} 
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
+	| 1 :: :: excl_owner
 
   C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
     | < H , R , Es , e >         ::   :: Quad {{ tex \tuple{[[H]], [[R]], [[Es]], [[e]]} }}
@@ -88,12 +89,17 @@ grammar
 	| V1 != V2 :: :: pred_ineq {{ com inequality }} {{ tex [[V1]] \neq [[V2]] }}
 	| Top :: :: pred_top {{ tex \top }}
 	| ph1 ==> ph2 :: :: entail
-	| [ x / y ] ph :: :: subst_var
+	| [ x / V ] ph :: :: subst_var
 	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
 
   V :: 'V_' ::=
     | x :: :: var
 	| v :: :: val
+	| 0 :: :: z
+	| nu :: :: nu {{ tex \nu }}
+
+  csub {{ tex \sigma }} :: C_ ::=
+  	| [ B / A ] :: M :: subst_ctxt
 
   T {{ tex \tau }} :: T_ ::=                              {{ com type }}
     | { x : int | ph }    ::   :: refint                  {{ com refined integer type }}
@@ -103,9 +109,10 @@ grammar
     | ( T )               :: S :: paren
     | T1 + T2             :: M :: sum
     | G ( x )             :: M :: lookup
-	| [ B / A ] T :: M :: subst_ctxt
-	| [ x1 / x1' ] , ... , [ xn / xn' ] T :: M :: subst_var
+	| csub T :: :: subst_context
+	| [ x1 / x1' ] T :: M :: subst_var
 	| Post ( T1 , T2 ) :: :: post_call
+	| T1 /\ ph :: :: strength {{ tex [[T1]] \wedge [[ph]] }}
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
@@ -118,8 +125,9 @@ grammar
 	| ST ( G ) :: :: lift_G {{ tex \mathit{ST}([[G]]) }}
 
   B {{ tex \beta }} :: B_ ::=
-    | . :: :: empty {{ tex \cdot }}
+    | . :: :: empty {{ tex \epsilon }}
 	| l : B :: :: l_cons
+	| l1 : ,..., : ln : B :: :: multi_cons {{ tex [[l1]] : \cdots : [[ln]] : [[B]] }}
 	| A :: :: svar
 
   FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
@@ -136,6 +144,10 @@ grammar
     | G , x = T y              ::   :: formula {{ tex [[G]], x =_{[[T]]} y }}
 	| G \ x :: :: sub {{ tex [[G]] \setminus [[x]] }}
 	| G , x1 : T1 ,, xn : Tn :: :: append {{ tex [[G]],[[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
+	| x1 : T1 ,, xn : Tn :: :: mk {{ tex [[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
+	| G [ x : T ] :: :: type_in
+	| G [ x1 <- T1 ] :: :: type_update
+	| G [ x1 <- T1 ] ,, [ x2 <- T2 ] :: :: ty_update_2 {{ tex [[G]] \left[ [[x1]][[<-]][[T1]] \right]\cdots[ [[x2]][[<-]][[T2]]] }}
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -156,33 +168,41 @@ grammar
 
   logical_frag :: '' ::=
     | ph :: :: phi
-    | [[ T ]] x :: :: denote_type {{ tex \sem{[[T]]}_{[[x]]} }}
-	| [[ G ]] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
+    | [ T ] x :: :: denote_type {{ tex \sem{[[T]]}_{[[x]]} }}
+	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
 	
   logic_judgment :: '' ::=
-	| |= forall x1 ,,, xn . logical_frag :: :: models
+	| |= logical_frag :: :: models
 	| G |= logical_frag :: :: tyenv_model
 	| R |= logical_frag :: :: env_model
 	| R !|= logical_frag :: :: env_not_model
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
-    | G |= ph    ::   :: entail
+	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{WF} [[T]] [[=>]] [[G]] }}
     | G1 <: G2            ::   :: subG
-    | G1 |- e : T => G2   ::   :: exp
+    | Th | G1 | B |- e : T => G2   ::   :: exp
     | C1 --> D C2         ::   :: red        {{ tex [[C1]] [[-->]]_[[D]] [[C2]] }}
-	| A |- G :: :: tyenvwf {{ tex [[A]] [[|-]]_{WF} [[ G ]] }}
-	| G | A |- T :: :: twf {{ tex [[G]] [[|]] [[A]] [[|-]]_{WF} [[T]] }}
-	| Gst | A |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[A]] [[|-]]_{WF} [[ph]] }}
+	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{WF} [[ G ]] }}
+	| G | B |- T :: :: twf {{ tex [[G]] [[|]] [[B]] [[|-]]_{WF} [[T]] }}
+	| Gst | B |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[B]] [[|-]]_{WF} [[ph]] }}
 	| T1 = T2 :: :: teq
 	| ST1 = ST2 :: :: steq
+	| CV ( B ) :: :: cv
+	| FPV ( T ) :: :: fpv_t
+	| FPV ( ph ) :: :: fpv_p
+	| FPCV ( ph ) :: :: fpcv_p
+	| FPCV ( T ) :: :: fpcv_t
+	| Th |- d :: :: fun_typ
+	| |- P :: :: prog_typ
 
   formula :: formula_ ::=
-    | judgement :: :: judgement
+    | judgment :: :: judge
 	| logic_judgment :: :: lj
-    | r > 0 :: :: live_own
-	| r = 0 :: :: dead_own
+    | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
+    | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
+	| r1 = r2 :: :: own_eq
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
@@ -193,6 +213,7 @@ grammar
 	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
+	| csub1 = csub2 :: :: sigdef
 
 % defns Jop :: '' ::=
 %   defn T1 + T2 = T3 :: :: sum :: 'TAdd_' by
