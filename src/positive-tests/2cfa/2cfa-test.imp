@@ -1,0 +1,18 @@
+f(x,b)
+  if b then
+    let t = x + 1 in
+	let flag = 1 in
+    f(t, flag)
+  else
+    g(x)
+
+g(x) let o = x + 1 in o
+
+{
+  let z = 0 in
+  let zz = 0 in
+  let r1 = f(z, zz) in
+  let r2 = g(z) in
+  let sum = r1 + r2 in
+  assert(3 = sum)
+}

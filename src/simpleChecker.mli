@@ -1,3 +1,1 @@
-module StringMap : Map.S with type key = string
-
-val typecheck_prog: Ast.prog -> SimpleTypes.funtyp StringMap.t
+val typecheck_prog: SimpleTypes.funtyp StringMap.t -> Ast.prog -> SimpleTypes.funtyp StringMap.t

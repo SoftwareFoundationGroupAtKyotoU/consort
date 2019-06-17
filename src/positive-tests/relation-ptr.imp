@@ -1,0 +1,13 @@
+f(p) assert(0 < *p)
+
+{
+  let x = _ in
+  if 0 < x then {
+    let y = mkref x in
+	let q = y in {
+      f(q);
+(*	  alias(q = y);*)
+      assert(x = *y)
+	}
+  } else { assert(0 = 0) }
+}

@@ -22,34 +22,23 @@ type lhs =
   | Const of int
   | Mkref of ref_init
   | Deref of string
-  | Plus of imm_op * imm_op
   | Call of fn_call
   | Nondet
 
-type cond =
-  | Leq
-  | Eq
-  | Neq
-  | Lt [@@deriving sexp]
-
 type relation = {
   rop1: imm_op;
-  cond: cond;
+  cond: string;
   rop2: imm_op
 }
 
 type exp =
-  | Unit
   | EVar of string
-  | EInt of int
   | Cond of int * string * exp * exp
   | Seq of exp * exp
-  | Assign of string * imm_op
+  | Assign of string * imm_op * exp
   | Let of int * string * lhs * exp
-  | Alias of int * string * string
-  | Assert of relation
-  | ECall of fn_call
-
+  | Alias of int * string * string * exp
+  | Assert of relation * exp
 
 type fn = { name: string; args: (string list); body: exp }
 
@@ -76,26 +65,12 @@ let pprint_lhs ff = function
   | Const i -> pprint_int ff i
   | Mkref v -> pp_print_string ff "mkref "; pprint_rinit ff v
   | Deref v -> fprintf ff "*%s" v
-  | Plus (v1,v2) -> begin
-      pprint_imm_op ff v1;
-      pp_print_string ff " + ";
-      pprint_imm_op ff v2
-    end
   | Call c -> pprint_fn_call ff c
   | Nondet -> pp_print_string ff "*"
-
-let cond_to_string = function
-  | Leq -> "<="
-  | Eq -> "="
-  | Neq -> "!="
-  | Lt -> "<"
-
-let pprint_cond ff c = pp_print_string ff @@ cond_to_string c
 
 let rec pprint_expr ~force_brace ff e =
   let local_force_brace = force_brace in
   match e with
-  | Unit -> pp_print_string ff "()"
   | Seq (e1, e2) ->
     let () =
       if local_force_brace then begin
@@ -120,25 +95,29 @@ let rec pprint_expr ~force_brace ff e =
     fprintf ff " in@;";
     pprint_expr ~force_brace:true ff body;
     pp_close_box ff ()
-  | Assign (x, y) ->
+  | Assign (x, y, e) ->
     fprintf ff "%s := " x;
-    pprint_imm_op ff y
+    pprint_imm_op ff y;
+    fprintf ff ";@;";
+    pprint_expr ~force_brace ff e
   | Cond (id,x,tr,fl) ->
     fprintf ff "if:%d %s then " id x;
     pprint_expr ~force_brace:true ff tr;
     fprintf ff "@;else ";
     pprint_expr ~force_brace:true ff fl
-  | Alias(id,x,y) ->
-    fprintf ff "alias:%d(%s = %s)" id x y
-  | Assert { rop1; cond; rop2 } ->
+  | Alias(id,x,y,e) ->
+    fprintf ff "alias:%d(%s = %s)" id x y;
+    fprintf ff ";@;";
+    pprint_expr ~force_brace ff e
+  | Assert ({ rop1; cond; rop2 },e) ->
     fprintf ff "assert(";
     pprint_imm_op ff rop1;
-    pprint_cond ff cond;
+    fprintf ff " %s " cond;
     pprint_imm_op ff rop2;
-    fprintf ff " )"
+    fprintf ff " )";
+    fprintf ff ";@;";
+    pprint_expr ~force_brace ff e
   | EVar v -> pprint_var ff v
-  | EInt i -> pprint_int ff i
-  | ECall c -> pprint_fn_call ff c
 
 let pprint_fn ff {name; args; body} =
   let open Format in begin

@@ -71,8 +71,6 @@ end = struct
   let new_node uf = make_and_add uf
 end
 
-module StringMap = Map.Make(String)
-
 type typ = [
   | `Var of int
   | r_typ
@@ -131,10 +129,19 @@ let unify ctxt t1 t2 =
   | _ -> failwith "Ill-typed"
 
 let process_call lkp ctxt { callee; arg_names; _ } =
-    let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
-    List.iter2 (fun a_var t_var ->
-      unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
-    `Var ret_type_v
+  let sorted_args = List.fast_sort Pervasives.compare arg_names in
+  let rec find_dup l = match l with
+    | [_]
+    | [] -> false
+    | h::h'::_ when h = h' -> true
+    | _::t -> find_dup t
+  in
+  if find_dup sorted_args then
+    failwith "Duplicate variable names detected"; 
+  let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
+  List.iter2 (fun a_var t_var ->
+    unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
+  `Var ret_type_v
 
 let rec process_expr ctxt e =
   let res t = resolve ctxt t in
@@ -146,8 +153,6 @@ let rec process_expr ctxt e =
   in
   match e with
   | EVar v -> lkp v
-  | EInt _ -> `Int
-  | Unit -> `Unit
   | Cond (_,v,e1,e2) ->
     unify_var v `Int;
     let t1 = process_expr ctxt e1 in
@@ -156,21 +161,21 @@ let rec process_expr ctxt e =
   | Seq (e1,e2) ->
     process_expr ctxt e1 |> ignore;
     process_expr ctxt e2
-  | Assign (v1,IVar v2) ->
+  | Assign (v1,IVar v2,e) ->
     unify_var v1 `IntRef;
     unify_var v2 `Int;
-    `Unit
-  | Assign (v1,IInt _) ->
-    unify_var v1 `IntRef; `Unit
-  | Alias (_,v1, v2) ->
+    process_expr ctxt e
+  | Assign (v1,IInt _,e) ->
+    unify_var v1 `IntRef;
+    process_expr ctxt e
+  | Alias (_,v1, v2,e) ->
     unify_var v1 `IntRef;
     unify_var v2 `IntRef;
-    `Unit
-  | Assert { rop1; rop2; _ } ->
+    process_expr ctxt e
+  | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1;
     unify_imm rop2;
-    `Unit
-  | ECall c -> process_call lkp ctxt c
+    process_expr ctxt e
   | Let (_id,x,lhs,expr) ->
     let v_type =
       match lhs with
@@ -180,10 +185,6 @@ let rec process_expr ctxt e =
       | Mkref (RVar v) -> unify_var v `Int; `IntRef
       | Deref v -> unify_var v `IntRef; `Int
       | Call c -> process_call lkp ctxt c
-      | Plus (v1, v2) ->
-        unify_imm v1;
-        unify_imm v2;
-        `Int
       | Nondet -> `Int
     in
     process_expr { ctxt with tyenv = StringMap.add x v_type ctxt.tyenv } expr
@@ -194,14 +195,27 @@ let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let out_type = process_expr ctxt body in
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
-let typecheck_prog (fns,body) =
+let typecheck_prog intr_types (fns,body) =
   let resolv = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
         Hashtbl.add resolv parent (Hashtbl.find resolv child)
       else ()
     ) in
-  let fenv : funenv = make_fenv uf fns in
+  let fenv_ : funenv = make_fenv uf fns in
+  let fenv =
+    let lift_type t =
+      let n_id = UnionFind.new_node uf in
+      Hashtbl.add resolv n_id t;
+      n_id
+    in
+    StringMap.fold (fun k { arg_types; ret_type } ->
+      StringMap.add k {
+        arg_types_v = List.map lift_type arg_types;
+        ret_type_v = lift_type ret_type;
+      }
+    ) intr_types fenv_
+  in
   List.iter (fun fn_def ->
     constrain_fn uf fenv resolv fn_def
   ) fns;
