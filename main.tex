@@ -197,11 +197,6 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 \begin{figure}[t]
   \leavevmode
-  \infrule[T-Int]{
-  }{
-    \funenv \mid \tenv
-            \mid \beta \vdash n \COL \set{x \COL \TINT \mid x = \intconst} \COL \tenv
-  }
   \infrule[T-Var]{
   }{
     \funenv \mid \tenv_1, x\COL(\typ_1+\typ_2),\tenv_2 \mid \beta \vdash x \COL  \typ_1 \produces \tenv_1, x\COL \typ_2, \tenv_2
@@ -472,10 +467,9 @@ of assertion is true, because $z_1 \COL \set{r \COL \TINT \mid r = 1},z_2 \COL \
   $\emptyset$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{r_1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{1-r_1} \mbox{where $1 > r_1 > 0$}$ \newline
-  $\dots$ \newline
-  $r_1 = 1 \mbox{ which contradicts to $1 > r_1 > 0$}$ \newline
+  $z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $z_2 \COL \set{r \COL \TINT \mid r = 1}, r_1 = 1 \mbox{ which contradicts to $1 > r_1 > 0$}$ \newline
   safe but cannot be typed
-  \newline
 }
 \colplacechunks
 \end{parcolumns}
@@ -508,8 +502,8 @@ statement will give true result, since $z_3 \COL \set{r \COL \TINT \mid r = 0}\m
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
   $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0},\dots$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1},\dots$ \newline
-  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1},z_3 \COL \set{r \COL \TINT \mid r = 0},\dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}\TREF^{0},\dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}\TREF^{0},z_3 \COL \set{r \COL \TINT \mid r = 0}$ \newline
 }
 \colplacechunks
 \end{parcolumns}
@@ -711,6 +705,145 @@ $\newline\bf{Lemma 2.}$
 $\vdash\langle H, R, \overrightarrow{E}, e \rangle$ and $\langle H, R, \overrightarrow{E}, e \rangle \ra \bf{C}$ imply $\vdash\bf{C}$.
 $\newline\bf{Lemma 3.}$
 $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
+
+
+\paragraph{Proof of Lemma 2.}$\vdash\langle H, R, \overrightarrow{E}, E[e] \rangle$ and $\langle H, R, \overrightarrow{E}, E[e] \rangle \ra \bf{C}$ imply $\vdash\bf{C}$.
+The proof organized by cases on the last rule used in the typing derivation of $e$.
+To prove this, we need another lemmas for substitution and context:
+$\newline\bf{Lemma (substitution).}$
+$\funenv \mid \tenv, x \COL \tau' \mid \beta \vdash e \COL \tau \land \vdash v \COL \tau' \produces \funenv \mid \tenv \mid \beta \vdash e\{v/x\} \COL \tau$.
+$\bf{Lemma (context).}$
+$\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \produces \vdash E[e'] \COL \tau$.
+\begin{itemize}
+    \item[$-$] Case \rn{T-Var}: In this case, we have:
+
+    $e = x \COL \tau_1 \andalso e' = x \COL \tau_2 \andalso H'=H \andalso R'=R\newline$
+    $\tenv = \tenv_1,x \COL (\tau_1+\tau_2), \tenv_2 \andalso \tenv' = \tenv_1,x \COL \tau_2, \tenv_2$
+
+    Let $\tenv'' = \tenv_1, \tenv_2$, we will have $\tenv' \vdash e' \produces \tenv''$.
+    Then it remains to show $Cons(H',R',\tenv')$. The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)=\textit{dom}(R)=\textit{dom}(R')$.
+    Secondly, we focus on prove that $F_0=F_1$, which defines as below:
+
+    $F_0=F'_0 + \mathbf{own}(H, R(x), \tau_1+\tau_2)\newline$
+    $F_1=F'_1 + \mathbf{own}(H', R'(x'), \tau_2)\newline$
+    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(x)\}}\mathbf{own}(H,R(z),\tenv(z))\newline$
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(x)\}}\mathbf{own}(H',R'(z),\tenv'(z))$
+
+    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(x), \tenv(x))=\mathbf{own}(H', R'(x), \tenv'(x))$, which is obtained as follow:
+
+    $\mathbf{own}(H, R(x), \tau_1+\tau_2)=\mathbf{own}(H', R'(x), \tau_1) + \mathbf{own}(H', R'(x), \tau_2)$.
+
+    \item[$-$] Case \rn{T-Deref}:
+    In this case, we have:
+
+    $\vdash_c\langle H,R,\overrightarrow{E},E[\LET x=*y \IN e]\rangle\ra\langle H,R\{x'\mapsto H(R(y))\},\overrightarrow{E},E[[x'/x]e]\rangle\newline$
+    $\funenv\mid\tenv\mid\beta\vdash \LET x=*y \IN e\COL\tau\produces \tenv_0\andalso Cons(H,R,\tenv)\newline$
+    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r\andalso \tenv'=\tenv,x'\COL\phi$
+
+    We want to show that $\funenv\mid\tenv'\mid\beta\vdash [x'/x]e\COL\tau\produces\tenv_0$ and $Cons(H,R\{x'\mapsto H(R(y))\}, \tenv')$ hold.
+    The first one is easy to obtain using the $\bf{Lemma (substitution).}$
+
+    It remains to show $Cons(H,R\{x'\mapsto H(R(y))\}, \tenv')$, we know that $Cons(H,R,\tenv) = SAT(H,R,\tenv)\land\forall h\in \textit{dom}(H).F(h)\leq 1$.
+    From $Cons(H,R,\tenv)\produces SAT(H,R,\tenv)\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land x'=H(R(y))$, (because that
+    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r\land x'=n\produces \phi(n)$, when $n=H(R(y))$, we can obtain that $\phi(H(R(y)))$), which gives that $\phi(x')$ holds.
+
+
+    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. First,it's obvious that $\textit{dom}(\tenv')=\textit{dom}(H).F(h)\leq 1(.\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
+    Secondly, we focus on prove that $F_0=F_1$, which defines as below:
+
+    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))\newline$
+    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))\newline$
+    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(y)\}}\mathbf{own}(H,R(z),\tenv(z))\newline$
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x')\}}\mathbf{own}(H',R'(z),\tenv'(z))$
+
+    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))=\mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))$,
+    we can finally prove $F_0=F_1$.
+
+    \item[$-$] Case where last rule is \rn{T-Let}: Similar to the case for \rn{T-Deref}.
+
+    \item[$-$] Case \rn{T-LetInt}: In this case, we have:
+
+    $e = \LET x=n \IN e1 \andalso e' = [x'/x]e_1 \andalso \tau=\{x\COL \TINT \mid x=n\}\newline$
+    $H' = H \andalso R'=R\{x'\mapsto n\} \andalso \funenv\mid\tenv,\tau\mid\beta\vdash e_1\COL\tau'\produces\tenv'',x\COL\tau'\newline$
+    $x\notin\fv(\tau')$
+
+    Let $\tenv'=\tenv,x'\COL\tau$ and $\tenv_0=x'\COL \tau'$. Then we have $\tenv'\vdash e'\produces \tenv'',\tenv_0$ and $x\notin \fv(\tau')$.
+    It remains to show that $Cons(H',R',\tenv')$. The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
+    The second condition follows from:
+
+    $\sum_{z\in\textit{dom}(\tenv')}\mathbf{own}(H',R'(z),\tenv'(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,n,\tau)$.
+
+    \item[$-$] Case \rn{T-If}: In this case, we only show the case for $R(x) = 0$; the case for $R(x) \neq 0$ is similar. If $R(x) = 0$, we have:
+
+    $e = \IFZERO x \THEN e_1 \ELSE e_2 \andalso e' = e_1 \andalso H'=H\andalso R'=R\newline$
+    $\funenv \mid \tenv_1,x\COL\{y\COL \TINT\mid \phi\land y=0\},\tenv_2\mid\beta\vdash e_1\COL\tau\produces \tenv'$
+
+    Let $\tenv'=\tenv_1,x\COL\{y\COL \TINT\mid \phi\land y=0\}$. Then $\funenv\mid\tenv'\mid\beta\vdash e'\produces \tenv''$.
+    It remains to show $Cons(H',R',\tenv')$. The first condition follows immediately. The second condition follows from:
+
+    $\mathbf{own}(H,0,\tenv'(x)) = \mathbf{own}(H,0,\tenv(x))$.
+
+    \item[$-$] Case \rn{T-MkRef}: In this case, we have:
+
+    $e=\LET x= \MKREF y \IN e_1\andalso e'=[x'/x]e_1\andalso H'=H\{a\mapsto v\}\newline$
+    $R'=R\{x'\mapsto y\}\andalso a\notin\textit{dom}(H)\andalso x'\notin\textit{dom}(R)\newline$
+    $\funenv\mid\tenv_1,y\COL \tau_2,\tenv_2,x\COL \tau_1,TREF^1\mid\beta\vdash e_1\COL\tau''\produces \tenv''\andalso x\notin\fv(\tau')$
+
+    Let $\tenv' = \tenv_1,y\COL\tau_2,\tenv_2,x'\COL\tau_1\TREF^1$, we have $\funenv\mid\tenv'\mid\beta\vdash e'\produces \tenv''$.
+    It remains to show that $Cons(H',R',\tenv')$. The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
+    The second condition follows from:
+
+    $\sum_{z\in\textit{dom}(\tenv')}\mathbf{own}(H',R'(z),\tenv'(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto v\}$.
+
+    \item[$-$] Case \rn{T-Assign}: In this case, we have:
+
+    $e=(x:=y);e_1\andalso e'=e_1\andalso H'=H\{R(x)\mapsto R(y)\}\andalso R'=R\newline$
+    $\funenv\mid\tenv_1,y\COL\tau_2,\tenv_2,x\COL\tau_1 TREF^1\vdash e_1\produces \tenv'',x\COL\tau_1'$
+
+    Let $\tenv'=\tenv_1,y\COL\tau_2,\tenv_2,x'\COL\tau_1 \TREF^1$, $\tenv_0=x'\COL\tau_1'$, we have $\funenv\mid\tenv'\mid\beta\vdash e'\produces\tenv'',\tenv_0$ and $x\notin\fv(\tau')$.
+    It remains to show that $Cons(H',R',\tenv')$. The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)=\textit{dom}(R)=\textit{dom}(R')$.
+    Secondly, we focus on prove that $F_0=F_1$, which defines as below:
+
+    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))\newline$
+    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))\newline$
+    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(y),R(x)\}}\mathbf{own}(H,R(z),\tenv(z))\newline$
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x)\}}\mathbf{own}(H',R'(z),\tenv'(z))$
+
+    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{R(x)\mapsto 1\}+\mathbf{own}(H, R(y), \tau) = \{R(x)\mapsto 1\}+\mathbf{own}(H, R(y), \tau_1) + \mathbf{own}(H, R(y), \tau_2) = \mathbf{own}(H', R'(y), \tenv'(y))+ \mathbf{own}(H', R'(x), \tenv'(x))$.
+    we can finally prove $F_0=F_1$.
+
+    \item[$-$] Case \rn{T-Alias}: In this case, we have:
+
+    $e=\ALIAS(x=y),e_1\andalso e'=[x'/x]e_1\andalso H'=H\newline$
+    $R'=R \andalso R(x)=y\andalso \tenv''=\tenv_1,x\COL\tau'_1\TREF^{r'_1},y\COL\tau'_2\TREF^{r'_2}\newline$
+    $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$
+
+    Let $\tenv' = \tenv_1,x'\COL\tau'_1\TREF^{r'_1},y'\COL\tau'_2\TREF^{r'_2}$, we have $\funenv\mid\tenv'\mid\beta\vdash e'\produces \tenv''$.
+    It remains to show $Cons(H',R',\tenv')$. The first condition follows immediately. The second condition follows from:
+
+    $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
+
+    which follows immediately from the conditions $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$ and $R(x) = y$.
+    \item[$-$] Case \rn{T-Call}: In this case, we need the following three lemmas to help:
+    $\bf{Lemma (1).}$
+    $\tenv_1\vdash E[e] \COL \tau \produces \tenv_2 \iff \tenv_1\vdash e \COL \tau_0 \produces \tenv'_1\land \tenv_1,[]\COL\tau_0\produces \tenv'_1\vdash E\COL\tau \produces \tenv_2.\newline$
+    $\bf{Lemma (2).}$
+    $\funenv\mid\tenv\mid\beta\vdash e\COL\tau\produces \tenv' \land \beta\notin\fv(\funenv)\implies \funenv\mid[\overrightarrow{l}/\beta]\tenv\mid\overrightarrow{l}\vdash e\COL[\overrightarrow{l}/\beta]\tau\produces [\overrightarrow{l}/\beta]\tenv'.\newline$
+    $\bf{Lemma (3).}$
+    $\funenv\mid\tenv,[]\COL[l\COL\overrightarrow{l}/\beta]\tau_f\produces \tenv_e \mid \overrightarrow{l}\vdash E[\LET x=[]^l \IN e]\COL\tau_{n+1}\produces\tenv_{n+1}$.
+        \subitem Case \rn{TE-Seq}:
+
+        $\funenv\mid\tenv\COL []\COL\tau_e\produces\tenv_e\mid l\vdash E\COL \tau_1\produces \tenv_1\newline$
+        $\funenv\mid\tenv_1\mid l\vdash e\COL\tau_{n+1}\produces \tenv_{n+1}\newline$
+        $E;e[\LET x=[]^l \IN e]\produces E[\LET x=[]^l \IN e];e\COL\tau_{n+1}\produces\tenv_{n+1}$.
+
+    We want to show that $\vdash\langle H,R,\overrightarrow{E},E[\LET x=f^l(\tilde{y})\IN e]\rangle\ra \langle H,R,E[\LET x=[]^l\IN e]\COL E,e_f[\tilde{y}/\tilde{x}]\rangle$.
+
+    $\funenv(f)=\forall\beta\langle\tilde{x}\COL\tilde{\tau}\rangle\ra\langle\tilde{x}\COL\tilde{\tau'}\mid\tau\langle\andalso \forall x\in \tilde{y}\andalso \tenv(y_i)=\tilde{\tau_i} [l_i\overrightarrow{l}/\beta]\newline$
+    Then, we can obtain $\funenv\mid\tenv\{x\mapsto [l\COL\overrightarrow{l}/\beta]\tau,y_i\mapsto [l\COL\overrightarrow{l}/\beta]\overrightarrow{\tau'_i}\}\mid\overrightarrow{l}\vdash e\COL [l\COL\overrightarrow{l}/\beta]\tau\produces \tenv_e\newline$
+    After that, $\funenv\mid \tilde{x}\COL\tilde{\tau}\mid\beta\vdash e_f\COL\tau\produces\tilde{x}\COL\tilde{\tau'}$ implies that $\funenv\mid \tilde{y}\COL [l\COL\overrightarrow{l}/\beta]\tilde{\tau}\mid[l\COL\overrightarrow{l}/\beta]\beta\vdash [\overrightarrow{y}/\overrightarrow{x}]e_f\COL[l\COL\overrightarrow{l}/\beta]\tau\produces\tilde{y}\COL[l\COL\overrightarrow{l}/\beta]\tilde{\tau'}$ using $\bf{Lemma (2).}$
+\end{itemize}
+
 
 \section{TODO}
 
