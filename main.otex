@@ -212,10 +212,6 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     \begin{array}{rcl}
       \sem{[[empty]]} &=& [[ Top ]]\\
       [[G,x: T]] &=& \sem{[[G]]} \land \sem{[[T]]}_x \\
-      \sem{[[G, x = T y]]} & = & \sem{[[G]]} \land \begin{cases}
-          x = y & [[T]] = [[{ z:int | ph }]] \\
-          [[ Top ]] & o.w.
-          \end{cases}
     \end{array}
   \]
 \end{definition}
@@ -303,7 +299,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
   }
   \infrule[T-Let]{
-    [[ Th | G [ y <- T1 /\ y y = x  ], x : (T2 /\ x x = y), x = T1 y | B |- e : T => G']] \andalso
+    [[ Th | G [ y <- T1 /\ y y = x  ], x : (T2 /\ x x = y) | B |- e : T => G']] \andalso
     [[B |- T => G' \ x]]
   }{
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
