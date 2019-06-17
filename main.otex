@@ -258,9 +258,26 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 \begin{definition}
   $[[T /\ y ph]]$ is the strengthening operation defined as:
-    $[[ { x: int | ph1 } /\ y ph2 = { z: int | [z/x]ph1 /\ [z/y]ph2 }]]$ and
-    $[[ T ref r /\ y ph = T ref r]]$,
-    where $[[z not in FPV(ph1) /\ z not in FPV(ph2)]]$
+  $[[ { x: int | ph1 } /\ y ph2 = { z: int | [z/x]ph1 /\ [z/y]ph2 }]]$ and
+  $[[ T ref r /\ y ph = T ref r]]$,
+  where $[[z not in FPV(ph1) /\ z not in FPV(ph2)]]$
+\end{definition}
+
+\begin{definition}{Context Substitution}
+  Define context substitution operation $[[ [B/A] ]]$ over predicates $[[ph]]$, types $[[T]]$, and type environments $[[G]]$, as:
+
+  \begin{align*}
+    [[ [B/A](ph1 /\ ph2) ]] & = [[ [B/A]ph1 /\ [B/A]ph2 ]] \\
+    [[ [B/A](ph1 ==> ph2) ]] & = [[ [B/A]ph1 ==> [B/A]ph2 ]] \\
+    [[ [B/A]pfun(x1,..,xn) ]] & = [[ pfun(x1,..,xn) ]] \\
+    [[ [B/A](lvar = V') ]] & = [[ lvar = V' ]] \\
+    [[ [B/A](lvar != V') ]] & = [[ lvar != V' ]] \\
+    [[ [B/A](B' = B''?) ]] & = [[ [B/A]B' = [B/A]B''? ]] \\
+    [[ [B/A](T ref r) ]] & = [[([B/A] T) ref r]] \\
+    [[ [B/A]{x:int|ph} ]] & = [[{x:int|[B/A]ph}]] \\
+    [[ [B/A](G,x: T) ]] & = [[ ([B/A]G), x : [B/A]T ]] \\
+    [[ [B/A]empty ]] & = [[ empty ]] \\
+  \end{align*}
 \end{definition}
 
 \paragraph{Subtyping.}
@@ -924,9 +941,16 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
       & [[ Th | G1 | A |- e' : T => G'' ]] & [[ G1 = G[y <- (T1 /\ y y = x)], x:(T2 /\ x x = y)]] \\
       & [[ G = G0[y: T1 + T2]  ]]
     }
-    The result holds
-    by reasoning similar to that in the \rn{T-LetInt} case and application of
-    \cref{lem:ctxt-sub-distribute}.
+    By \cref{lem:ctxt-sub-distribute},
+    $[[ ([ll/A]G)(y) = [ll/A](T1 + T2) = ([ll/A]T1 + [ll/A]T2) ]]$. We must then
+    show that $[[ Th | G1' | ll |- e : [ll/A]T => [ll/A]G'' ]]$
+    where
+    \[
+      [[ G1' = ([ll/A]G)[y <- [ll/A]T1 /\ y y = x ],x:([ll/A]T2 /\ x x = y) ]]
+    \]
+    As $[[G1' = [ll/A]G1]]$ the induction hypothesis gives the required typing judgment.
+    That $[[ll |- [ll/A]T => [ll/A]G'' ]]$ follows from \cref{lem:ctxt-sub-wf} as in the \rn{T-LetInt}
+    case. 
   \end{rneqncase}
 
   \begin{rncase}{T-If,T-Seq}

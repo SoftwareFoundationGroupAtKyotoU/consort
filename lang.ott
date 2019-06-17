@@ -98,6 +98,7 @@ grammar
 	| [ R ; V1 / lvar ] ph :: :: subst_env
 	| csub ph :: :: subst_ctxt
 	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
+	| ( ph ) :: :: paren
 
   lvar {{ tex V }} :: 'LV_' ::=
   	| nu :: :: nu {{ tex \nu }}
@@ -147,6 +148,7 @@ grammar
 	| A :: :: svar
 	| ll :: :: list_var
 	| Trace ( Es ) :: :: trace_fun
+	| csub B :: :: string_sub
 
   FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
     | A < x1 : T1 ,, xn : Tn > -> < y1 : T1' ,, yi : Ti' | T >  :: :: sig
