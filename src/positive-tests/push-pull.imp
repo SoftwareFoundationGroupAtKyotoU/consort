@@ -9,7 +9,7 @@ pull(p)
   let x = mkref _ in
   {
   let z = 0 in push(y,z);
-  let b = * in
+  let b = _ in
   if b then {
     let t = pull(y) in x := t;
 	let t = *x in

@@ -1,6 +1,5 @@
 type r_typ = [
   | `Int
-  | `Unit
   | `IntRef
 ]
 

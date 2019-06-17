@@ -1,0 +1,8 @@
+{
+  let x = 3 in
+  let y = 4 in
+  if x < y then
+    assert(0 = 0)
+  else
+    assert(0 = 1)
+}

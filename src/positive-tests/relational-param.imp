@@ -1,7 +1,7 @@
 f(x) ()
 
 {
-  let x = * in
+  let x = _ in
   let y = x + 1 in {
     f(y);
 	let z = x + 1 in

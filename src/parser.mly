@@ -1,5 +1,5 @@
 %{
-	open Ast
+	open SurfaceAst
 
 	let list_to_seq x rest =
 	  let comp = x::rest in
@@ -8,7 +8,6 @@
 	  List.fold_left (fun curr next  ->
 					   Seq (next, curr)) accum (List.tl rev)
 
-	let _label = ref 0;;
 %}
 // values
 %token UNIT
@@ -23,7 +22,8 @@
 // Update
 %token ASSIGN
 // operators
-%token PLUS STAR
+%token STAR
+%token <string> OPERATOR
 // connectives
 %token SEMI COMMA
 // structure
@@ -33,21 +33,23 @@
 
 %token UNDERSCORE
 
-// relations
-%token LT LEQ NEQ
+%type <SurfaceAst.op> op
+%type <SurfaceAst.op list> arg_list 
 
-%start <Ast.prog> prog
+%start <SurfaceAst.prog> prog
 
 %%
 
 let prog := ~ = fdef* ; ~ = delimited(LBRACE, expr, RBRACE); EOF; <>
 
-let fdef := name = ID ; args = arg_list; body = expr; {
-		{name; args; body}
-	  }
+let fdef := name = ID ; args = param_list; body = expr; <>
+
+let param_list :=
+  | ~ = delimited(LPAREN, separated_nonempty_list(COMMA, ID), RPAREN); <>
+  | UNIT; { [] }
 
 let arg_list :=
-  | ~ = delimited(LPAREN, separated_nonempty_list(COMMA, ID), RPAREN); <>
+  | ~ = delimited(LPAREN, separated_nonempty_list(COMMA, op), RPAREN); <>
   | UNIT; { [] }
 
 let expr :=
@@ -57,36 +59,39 @@ let expr :=
 		list_to_seq e rest
 	  }
   | LET; lbl = expr_label; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
-  | IF; lbl = expr_label; x = ID; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
-  | x = ID; ASSIGN; y = imm_op; <Assign>
-  | call = fn_call; <ECall>
+  | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
+  | x = ID; ASSIGN; y = lhs; <Assign>
+  | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
-  | ASSERT; LPAREN; rop1 = imm_op; cond = relation; rop2 = imm_op; RPAREN; { Assert { rop1; cond; rop2 } }
-  | ~ = ID; <EVar>
-  | ~ = INT; <EInt>
+  | ASSERT; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
+  | ~ = ID; <Var>
+  | ~ = INT; <Int>
 
-let relation :=
-  | LT; { Lt }
-  | LEQ; { Leq }
-  | NEQ; { Neq }
-  | EQ; { Eq }
+let op :=
+  | ~ = INT; <`OInt>
+  | ~ = ID; <`OVar>
+  | STAR; ~ = ID; <`ODeref>
+  | UNDERSCORE; { `Nondet }
+
+let cond_expr :=
+  | ~ = ID; <`Var>
+  | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string]) }
+
+let bin_op := o1 = op; op_name = OPERATOR; o2 = op; <`BinOp>
 
 let lhs :=
-  | ~ = ID; <Var>
-  | c = fn_call; <Call>
-  | ~ = INT; <Const>
-  | MKREF; ~ = ref_cont; <Mkref>
-  | STAR; ~ = ID; <Deref>
-  | STAR; { Nondet }
-  | v1 = imm_op; PLUS; v2 = imm_op; <Plus>
+  | b = bin_op; { (b :> lhs) }
+  | o = op; { (o :> lhs) }
+  | MKREF; ~ = op; <`Mkref>
+  | ~ = fn_call; <`Call>
 
-let fn_call := callee = ID; lbl = expr_label; arg_names = arg_list; { {callee; arg_names; label = lbl} }
+let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
+let callee :=
+  | ~ = ID; <>
+  | LPAREN; ~ = OPERATOR; RPAREN; <>
 
-let imm_op := ~ = INT; <IInt> | ~ = ID; <IVar>
+let rel_op :=
+  | ~ = OPERATOR; <>
+  | EQ; { "=" }
 
-let expr_label := COLON; ~ = INT; <> | { incr _label; !_label }
-
-let ref_cont :=
-  | ~ = ID; <RVar>
-  | ~ = INT; <RInt>
-  | UNDERSCORE; { RNone } 
+let expr_label := COLON; ~ = INT; <> | { LabelManager.register () }
