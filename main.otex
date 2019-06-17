@@ -5,6 +5,7 @@
 \documentclass[runningheads]{llncs}
 %
 \usepackage{bcprules}\typicallabel{T-Hoge}
+\usepackage{bcpproof}
 \usepackage{graphicx,color}
 % Used for displaying a sample figure. If possible, figure files should
 % be included in EPS format.
@@ -18,7 +19,7 @@
 \usepackage{stmaryrd}
 \usepackage{parcolumns}
 \usepackage{cases}
-\usepackage{cleveref}
+\usepackage[capitalize,nameinlink,noabbrev]{cleveref}
 \usepackage{listings}% http://ctan.org/pkg/listings
 \lstset{
   basicstyle=\ttfamily,
@@ -125,7 +126,28 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   theory used by the underlying solver. The predicate $[[ B1 = B2? ]]$ is a prefix
   query which checks whether $[[B2]]$ is a prefix of $[[B1]]$. We write $[[FPV(ph)]]$ for
   the free variables occuring in $[[ph]]$, and write $[[FPCV(ph)]]$ for the free context
-  variables that appear in $[[ph]]$. Through abuse of notation we will also write $[[FPV(T)]]$
+  variables that appear in $[[ph]]$.
+  Formally, $\mathbf{FPV}$ is defined as
+  \begin{align*}
+    [[FPV(ph1 /\ ph2)]] & = [[FPV(ph1)]] \cup [[FPV(ph2)]] \\
+    [[FPV(ph1 ==> ph2)]] & = [[FPV(ph1)]] \cup [[FPV(ph2)]] \\
+    [[FPV(pfun(x1,..,xn))]] & = \set{[[x1]],\ldots,[[xn]]} \\
+    [[FPV(B1 = B2?)]] & = \emptyset \\\
+    [[FPV(lvar = V')]] & = \begin{cases}
+      \emptyset & [[lvar]] \equiv  [[v]] \\
+      \set{x} & [[lvar]] \equiv [[x]]
+    \end{cases} \cup \begin{cases}
+      \emptyset & [[V']] \equiv  [[v]] \\
+      \set{x} & [[V']] \equiv [[x]]
+    \end{cases} \\\
+    [[FPV(lvar != V')]] & = [[FPV(lvar = V')]]
+  \end{align*}
+  Through abuse of notation we will also write $[[FPV(T)]]$ to indicate the free variables
+  in the refinement of $[[T]]$, i.e.:
+  \begin{align*}
+    [[FPV(T' ref r)]] & = [[FPV(T')]] \\
+    [[FPV({x:int|ph})]] & = [[FPV(ph)]] \setminus \set{[[x]]}
+  \end{align*}
   and $[[FPCV(T)]]$ to indicate free variables that appear in the refinement of $[[T]]$.
 \end{definition}
 
@@ -157,6 +179,16 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[B |- G]]
   }{
     [[ B |- T => G ]]
+  }
+  \infrule[WF-FunType]{
+    [[ A |- x1:T1,,xn:Tn ]] \\ [[ A |- T => x1:T1',,xn:Tn' ]]
+  }{
+    [[ |- A <x1:T1,,xn:Tn> -> <x1:T1',,xn:Tn'|T> ]]
+  }
+  \infrule[WF-FunEnv]{
+    [[ forall f in Th.|- Th(f)]]
+  }{
+    [[ |- Th ]]
   }
   \caption{Well-formedness of types and environments}
   \label{fig:type-wf}
@@ -252,8 +284,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ G |- T1 ref r1 <: T2 ref r2 ]]
   }
   \infrule[Sub-TyEnv]{
-    [[ forall x in G'.G|- G(x) <: G'(x) ]] \\
-    [[ |=  [ G ] ==> [ G' ] ]]
+    [[ forall x in G'.G|- G(x) <: G'(x) ]]
   }{
     [[ G <: G' ]]
   }
@@ -272,7 +303,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
   }
   \infrule[T-Let]{
-    [[ Th | G [ y <- T1 ], x : T2, x = T1 y | B |- e : T => G']] \andalso
+    [[ Th | G [ y <- T1 /\ y y = x  ], x : (T2 /\ x x = y), x = T1 y | B |- e : T => G']] \andalso
     [[B |- T => G' \ x]]
   }{
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
@@ -304,12 +335,12 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   }
   \infrule[T-Call]{
     [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
-    [[csub = [l:B/A] ]] \\
-    [[ Th | G[x1 <- Post(T1,csub T1')],,[xn<-Post(Tn,csub Tn')], y : csub T | B |- e : T' => G' ]] \\
-    \forall i \in 1..n.[[ G |- G(yi) <: csub Ti]] \\
-    [[ B |- T' => G' \ y]]
+    [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
+    [[ Th | G[yi <- Post(G(yi),csub vsub Ti')], x : csub vsub T | B |- e : T' => G' ]] \\
+    \forall i \in 1..n.[[ G |- G(yi) <: csub vsub Ti]] \\
+    [[ B |- T' => G' \ x]]
   }{
-    [[ Th | G | B |- let y = f l (y1,,yn) in e : T' => G' ]]
+    [[ Th | G | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
   }
   \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
@@ -349,8 +380,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \begin{figure}
   \infrule[T-FunDef]{
     [[ Th (f) = A <x1 : T1 ,, xn : Tn > -> < x1: T1' ,, xn : Tn' | T> ]] \\
-    [[ Th | x1:T1 ,, xn:Tn | A |- e : T => x1: T1' ,, xn : Tn' ]] \\
-    [[A]] \notin \fcv([[A]])
+    [[ Th | x1:T1 ,, xn:Tn | A |- e : T => x1: T1' ,, xn : Tn' ]]
   }{
     [[ Th |- f |-> (x1,..,xn) e ]]
   }
@@ -366,7 +396,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ |- < D, e > ]]
   }
 \caption{Program typing rules}
-\label{fig:typingRules}
+\label{fig:progTyping}
 \end{figure}
 
 \AI{\rn{T-Let} discards all the refinement on \(x\).  Probably we should propagate it to $\tenv'$.}
@@ -376,6 +406,16 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \AI{\rn{T-Call} requires actual arguments to be variables introduced at the end of the type environment.  This is not a restriction because one can introduce let-expressions before a function call and alias-expressions after the call.}
 
 \AI{$\varepsilon$ in \rn{T-Prog} stands for the empty string.}
+
+In \cref{fig:typingRules} $[[ G[x: T] ]]$ denotes an environment
+$[[G]]$ such that $[[G(x) = T]]$. $[[ G[x <- T] ]]$ denotes the functional update of the type
+of $[[x]]$ to $[[T]]$ in $[[G]]$.
+
+The post-call type operation $[[Post(T1,T2)]]$ is defined as:
+\begin{align*}
+  [[Post({x:int | ph }, T)]] & = [[{x:int|ph} ]]\\
+  [[Post(T ref r, T')]] & = [[T']]
+\end{align*}
 
 %edit by shiki
 \subsection{Transition rules}
@@ -793,6 +833,158 @@ $\newline\bf{Lemma 2.}$
 $\vdash\langle H, R, \overrightarrow{E}, e \rangle$ and $\langle H, R, \overrightarrow{E}, e \rangle \ra \bf{C}$ imply $\vdash\bf{C}$.
 $\newline\bf{Lemma 3.}$
 $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
+
+\begin{lemma}\label{lem:ctxt-sub-distribute}
+  $[[ T3 = T1 + T2  ==> [B/A]T3 = [B/A]T1 + [B/A]T2 ]]$
+\end{lemma}
+\begin{proof}
+  By straightforward cases analysis on the definition of $[[ T1 + T2 ]]$.
+\end{proof}
+
+\begin{lemma}\label{lem:ctxt-sub-wf}
+  For any $[[ B ]]$:
+  \begin{enumerate}
+  \item $[[ A |- G ==> B |- [B / A]G]]$
+  \item $[[ G | A |- T ==> [B/A]G | B |- [B/A]T]]$
+  \item $[[ A |- T => G ==> B |- [B/A] T => [B/A]G ]]$
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  Observe that for any substitution $[[ [B/A] ]]$, $[[ST([B/A]G) = ST(G)]]$, whence it suffices
+  to show that $[[ FPCV ( [B/A]ph ) ]] \subseteq [[CV(B)]]$ for any refinement $[[ph]]$
+  appearing in of $[[T]]$ or a type in $[[G]]$.
+
+  By the assumed well-formedness of $[[T]]$ with respect to context
+  variable $[[A]]$ (resp. $[[G]]$), after substitution all free
+  context variables in $[[T]]$ (resp. the types in $[[G]]$) will be
+  replaced with $[[B]]$. Thus, post-substitution any free context
+  variables in the refinement of $[[ [B/A] T]]$ (resp. refinements of
+  types in $[[ [B/A] G]]$) will be the context variables that appear
+  in $[[B]]$, trivially satisfying our requirement.
+\end{proof}
+
+\begin{lemma}
+  \label{lem:ctxt-sub-subtype}
+  For any $[[G]]$, $[[T1]]$, $[[T2]]$, $[[A]]$ and $[[B]]$, $[[ G |- T1 <: T2 ==> [B/A]G |- [B/A]T1 <: [B/A]T2 ]]$.
+\end{lemma}
+\begin{proof}
+  If $[[A]]$ does not appear free in $[[T1]]$, $[[T2]]$ or $[[G]]$, then the result trivially holds. Let us then assume
+  $[[A]]$ appear free. We prove the result by induction on the subtyping derivation.
+
+  \begin{rneqncase}{Sub-Ref}{
+      [[ T1 = T1' ref r1 ]] & [[ T2 = T2' ref r2 ]] \\
+      [[ [B/A] T1 = ([B/A]T1') ref r2 ]] & [[ [B/A]T2 = ([B/A]T2') ref r2 ]] \\
+      [[  r2 > 0 ==> G |- T1' <: T2' ]]
+    }
+    If $[[ r2 = 0 ]]$ then the result trivially holds. If not, we must show that $[[ [B/A]G |- [B/A]T1' <: [B/A]T2' ]]$
+    which holds immediately from the induction hypothesis.
+  \end{rneqncase}
+
+  \begin{rneqncase}{Sub-Int}{
+      [[ T1 = {x:int|ph1} ]] & [[ T2 = {y:int|ph2} ]] \\
+      [[ [B/A]T1 = {x:int|[B/A]ph1 } ]] & [[ [B/A]T2 = {y:int|[B/A]ph2 } ]] \\
+      [[ G |= ph1 ==> ph2 ]]
+    }
+    We must show that $[[ [B/A]G |= [B/A]ph1 ==> [B/A]ph2 ]]$, i.e. $[[ |= [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$.
+    From our assumption that $[[ G |= ph1 ==> ph2 ]]$ we have that $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ is valid,
+    whence the formula $[[ [ G ] /\ ph1 ==> ph2 ]]$ is true for any possible valuation of the free context
+    variable $[[A]]$. Thus the formula $[[ [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$ must also be valid.
+    \end{rneqncase}
+\end{proof}
+
+\begin{lemma}
+  Define $[[ [ B / A ]G ]]$ as the type environment yielded by applying
+  context substitution operation $[[ [ B / A ] ]]$ to all types in $[[G]]$.
+
+  \begin{align*}
+    & [[ Th | G | A |- e : T => G' ]] \Longrightarrow\\
+    & [[ Th | [ ll / A ] G | ll |- e : [ ll / A ] T => [ ll / A ] G' ]]
+  \end{align*}
+\end{lemma}
+\begin{proof}
+  By induction on the typing derivation $[[ Th | G | A |- e : T => G' ]]$. In the following
+  analysis, we will freely use the identity $[[([B/A]G) \ x = [B/A](G \ x)]]$.
+  \begin{rneqncase}{T-Var}{
+      [[e = x]] & [[T = T2]] \\
+      [[G = G0[x : T1 + T2] ]] & [[ G' = G0[x <- T2] ]]
+    }
+    By application of \cref{lem:ctxt-sub-distribute}.
+  \end{rneqncase}
+  \begin{rneqncase}{T-LetInt}{
+      [[e = let x = nn in e']] & [[ Th | G, x:{x:int|x = nn} | A |- e' : T => G'' ]] \\
+      [[ G' = G'' \ x ]] & 
+    }
+    The induction hypothesis gives
+    \[
+      [[ Th | [ll/A]G, x:{x:int|x=nn} | ll |- e : [ll/A]T => [ll/A]G'' ]]
+    \]
+    \cref{lem:ctxt-sub-wf} gives $[[ ll |- [ll/A]T => [ll/A](G'' \ x) ]]$, from which we
+    conclude $[[ Th | [ll/A]G | ll |- let x = nn in e : [ll/A]T => [ll/A](G'' \ x) ]]$
+    as required.
+  \end{rneqncase}
+
+  \begin{rneqncase}{T-Let}{
+      & [[e = let x = y in e']] & [[ G' = G'' \ x ]] \\
+      & [[ Th | G1 | A |- e' : T => G'' ]] & [[ G1 = G[y <- (T1 /\ y y = x)], x:(T2 /\ x x = y)]] \\
+      & [[ G = G0[y: T1 + T2]  ]]
+    }
+    The result holds
+    by reasoning similar to that in the \rn{T-LetInt} case and application of
+    \cref{lem:ctxt-sub-distribute}.
+  \end{rneqncase}
+
+  \begin{rncase}{T-If,T-Seq}
+    By trivial application of the inductive hypothesis.
+  \end{rncase}
+
+  \begin{rncase}{T-MkRef,T-Deref}
+    By reasoning similar to \rn{T-Let}.
+  \end{rncase}
+
+  \begin{rneqncase}{T-Call}{
+      [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
+      [[ csub = [l:A/A'] ]] \\
+      [[ Th | G1 | A |- e : T => G2 ]] \\ [[ G' = G2 \ y ]] \\
+      [[ A |- T => G2 \ y  ]] \\  \forall i \in 1..n.[[ G |- G(yi) <: csub vsub Ti]] \\
+      [[ Th(f) = A' < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T' > ]]  \\
+      [[ G1 = G[yi <- Post(G(yi),csub vsub Ti')], x : csub vsub T' ]]
+    }
+    We must first show that for $[[ csub' = [l:ll/A'] ]]$:
+    \[
+      [[  Th | G3 | ll |- e : [ll/A]T => [ll/A]G2 ]]
+    \]
+    where $[[ G3 = ([ll/A]G)[yi <- Post([ll/A]G(yi), csub' vsub Ti')], x: csub' vsub T']]$.
+    
+    We first observe that $[[ G3 = [ll/A]G1 ]]$ (this follows from the
+    equivalence of $[[ [ll/A][l:A/A'] ]]$ and
+    $[[ [l:ll / A'] ]]$) whence the induction hypothesis
+    gives the required typing derivation.
+
+    To show $[[ [ll/A]G |- [ll/A]G(yi) <: csub' vsub Ti ]]$,
+    we observe that $[[ csub' vsub Ti = [ll/A] csub vsub Ti ]]$
+    whence the result holds from application of \cref{lem:ctxt-sub-subtype}.
+
+    Finally, that $[[ ll |- [ll/A]T => [ll/A](G2 \ y) ]]$ holds from application of
+    \cref{lem:ctxt-sub-wf}.
+  \end{rneqncase}
+
+  \begin{rncase}{T-Assign,T-Alias}
+    By the inductive hypothesis and application of \cref{lem:ctxt-sub-distribute}.
+  \end{rncase}
+
+  \begin{rneqncase}{T-Sub}{
+      [[ Th | G1 | A |- e : T1 => G2 ]] & [[ G <: G1 ]] \\
+      [[ G2, x : T1 <: G',x : T ]] & [[ Th | G | A |- e : T => G' ]]
+    }
+    By the induction hypothesis we have that: $[[ Th | [ll/A]G1 | ll |- e : [ll/A]T1 => [ll/A]G2 ]]$.
+    If we show that $[[ [ll/A]G <: [ll/A]G1 ]]$ and $[[ [ll/A]G2, x : [ll/A]T1 <: [ll/A]G', x : [ll/A]T ]]$
+    ($[[ x not in G ]]$) 
+    we will have the required result. To show the first requirement, for any $[[ x in G ]]$ we have that
+    $[[ [ll/A]G |- [ll/A]G(x) <: [ll/A]G1(x) ]]$ from \cref{lem:ctxt-sub-subtype} whence we have $[[ [ll/A]G <: [ll/A]G1 ]]$.
+    To show the latter requirement, we observe that $[[ [ll/A]G2, x : [ll/A]T1 ]]$ is equivalent to $[[ [ll/A](G2, x : T1) ]]$ and
+    similarly for $[[G']]$ and $[[T]]$ whence we have the required subtyping relationship from the application of \cref{lem:ctxt-sub-subtype}.
+  \end{rneqncase}
+\end{proof}
 
 \section{TODO}
 
