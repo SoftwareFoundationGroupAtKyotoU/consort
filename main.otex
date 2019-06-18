@@ -823,7 +823,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
     \item[$-$] Case \rn{T-Deref}:
     In this case, we have:
 
-    $\vdash_c\langle H,R,\overrightarrow{E},E[\LET x=*y \IN e]\rangle\ra\langle H,R\{x'\mapsto H(R(y))\},\overrightarrow{E},E[[x'/x]e]\rangle\newline$
+    $\vdash_c\langle H,R,\overrightarrow{E},E[\LET x=*y \IN e]\rangle\ra\langle H,R\{x'\mapsto H(R(y))\},\overrightarrow{E},E[ [x'/x]e]\rangle\newline$
     $\funenv\mid\tenv\mid\beta\vdash \LET x=*y \IN e\COL\tau\produces \tenv_0\andalso Cons(H,R,\tenv)\newline$
     $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r\andalso \tenv'=\tenv,x'\COL\phi$
 
@@ -1009,7 +1009,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
   \leavevmode
   \infrule[]{
   }{
-    [[ <H, R, CE : Es, E[x]> --> D <H, R, Es, CE[x]> ]] 
+    [[ <H, R, CE : Es, E[x]> --> D <H, R, Es, CE[x]> ]]
    }
    \infrule[]{
    }{
