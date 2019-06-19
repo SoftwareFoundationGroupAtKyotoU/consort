@@ -12,8 +12,6 @@ metavar ll ::=
 
 indexvar index, i, n, p ::=   {{ com index }}
 
-metavar A ::= {{ com label sequence }} {{ tex \alpha }}
-
 metavar a ::= {{ com addresses }}
 
 metavar pfun ::= {{ com predicate symbol }} {{ tex \phi }}
@@ -37,6 +35,8 @@ grammar
 	| CE [ x ]  :: M:: ret
 	| E [ e ] :: M:: ctxt
 	| e1 = e2 :: :: eq
+
+  A {{ tex \alpha }} :: 'A_' ::=
 
   v :: 'v_' ::=                                         {{ com  value }}
     | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
@@ -130,7 +130,6 @@ grammar
     | G ( x )             :: M :: lookup
 	| csub T :: :: subst_context
 	| vsub T :: M :: subst_var
-	| Post ( T1 , T2 ) :: :: post_call
 	| T1 /\ x ph :: :: strength {{ tex [[T1]] \wedge_{[[x]]} [[ph]] }}
 	| T1 = T2 :: :: eq
 
@@ -165,7 +164,6 @@ grammar
   G {{ tex \Gamma }} :: G_ ::=  {{ com type environment }}
     | empty               ::   :: em   {{ tex \bullet }}
     | G , x : T           ::   :: vn 
-    | G , x = T y              ::   :: formula {{ tex [[G]], x =_{[[T]]} y }}
 	| G \ x :: :: sub {{ tex [[G]] \setminus [[x]] }}
 	| G , x1 : T1 ,, xn : Tn :: :: append {{ tex [[G]],[[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
 	| x1 : T1 ,, xn : Tn :: :: mk {{ tex [[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
@@ -263,6 +261,7 @@ grammar
 	| { bind } :: :: singleton {{ tex \set{[[bind]]} }}
 	| { bind1 ,, bindn } :: :: count {{ tex \set{[[bind1]],\ldots,[[bindn]]} }}
 	| FVF :: :: free_var_fun
+	| dom MF :: :: dom_mf {{ tex dom([[MF]]) }}
 
   formula :: formula_ ::=
     | judgment :: :: judge
@@ -279,6 +278,7 @@ grammar
 	| bind not in MF :: :: notInMap {{ tex [[bind]] \not\in dom([[MF]]) }}
 	| bind in VS :: :: inFv {{ tex [[bind]] \in [[VS]] }}
 	| bind not in VS :: :: notInFv {{ tex [[bind]] \not\in [[VS]] }}
+	| VS1 sub VS2 :: :: subset {{ tex [[VS1]] \subseteq [[VS2]] }}
 	| Rv1 = Rv2 :: :: rvEq
 	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}

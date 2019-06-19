@@ -349,11 +349,10 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   \infrule[T-Call]{
     [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
     [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
-    [[ Th | G[yi <- Post(G(yi),csub vsub Ti')], x : csub vsub T | B |- e : T' => G' ]] \\
-    \forall i \in 1..n.[[ G |- G(yi) <: csub vsub Ti]] \\
+    [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \\
     [[ B |- T' => G' \ x]]
   }{
-    [[ Th | G | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
+    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
   }
   \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
@@ -423,12 +422,6 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 In \cref{fig:typingRules} $[[ G[x: T] ]]$ denotes an environment
 $[[G]]$ such that $[[G(x) = T]]$. $[[ G[x <- T] ]]$ denotes the functional update of the type
 of $[[x]]$ to $[[T]]$ in $[[G]]$.
-
-The post-call type operation $[[Post(T1,T2)]]$ is defined as:
-\begin{align*}
-  [[Post({x:int | ph }, T)]] & = [[{x:int|ph} ]]\\
-  [[Post(T ref r, T')]] & = [[T']]
-\end{align*}
 
 %edit by shiki
 \subsection{Transition rules}
@@ -906,9 +899,7 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
 \end{proof}
 
 \begin{lemma}
-  Define $[[ [ B / A ]G ]]$ as the type environment yielded by applying
-  context substitution operation $[[ [ B / A ] ]]$ to all types in $[[G]]$.
-
+  \label{lem:ctxt-subst-well-typed}
   \begin{align*}
     & [[ Th | G | A |- e : T => G' ]] \Longrightarrow\\
     & [[ Th | [ ll / A ] G | ll |- e : [ ll / A ] T => [ ll / A ] G' ]]
@@ -965,26 +956,30 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
       [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
       [[ csub = [l:A/A'] ]] \\
       [[ Th | G1 | A |- e : T => G2 ]] \\ [[ G' = G2 \ y ]] \\
-      [[ A |- T => G2 \ y  ]] \\  \forall i \in 1..n.[[ G |- G(yi) <: csub vsub Ti]] \\
+      [[ A |- T => G2 \ y  ]] \\
       [[ Th(f) = A' < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T' > ]]  \\
-      [[ G1 = G[yi <- Post(G(yi),csub vsub Ti')], x : csub vsub T' ]]
+      [[ G1 = G[yi <- csub vsub Ti'], x : csub vsub T' ]]
     }
     We must first show that for $[[ csub' = [l:ll/A'] ]]$:
     \[
       [[  Th | G3 | ll |- e : [ll/A]T => [ll/A]G2 ]]
     \]
-    where $[[ G3 = ([ll/A]G)[yi <- Post([ll/A]G(yi), csub' vsub Ti')], x: csub' vsub T']]$.
+    where $[[ G3 = ([ll/A]G)[yi <- csub' vsub Ti'], x: csub' vsub T']]$.
     
     We first observe that $[[ G3 = [ll/A]G1 ]]$ (this follows from the
     equivalence of $[[ [ll/A][l:A/A'] ]]$ and
     $[[ [l:ll / A'] ]]$) whence the induction hypothesis
     gives the required typing derivation.
 
-    To show $[[ [ll/A]G |- [ll/A]G(yi) <: csub' vsub Ti ]]$,
-    we observe that $[[ csub' vsub Ti = [ll/A] csub vsub Ti ]]$
-    whence the result holds from application of \cref{lem:ctxt-sub-subtype}.
+    We must also show that
+    $\forall i \in \set{1..n}.[[([l:ll/A]G)(yi) = csub' vsub Ti]]$.
+    From the assumed well-typing of the term under $[[A]]$ we have
+    that $\forall i \in\set{1..n}.[[csub G(yi) = csub vsub Ti]]$. Recall
+    that $[[csub']]$ is equivalent to $[[ [ll/A] csub ]]$, whence we have
+    $[[ [ll/A] csub G(yi) = [ll/A] csub vsub Ti]]$ for any $[[i]]$ as
+    equality is preserved by consistent substitution.
 
-    Finally, that $[[ ll |- [ll/A]T => [ll/A](G2 \ y) ]]$ holds from application of
+    That $[[ ll |- [ll/A]T => [ll/A](G2 \ y) ]]$ holds from application of
     \cref{lem:ctxt-sub-wf}.
   \end{rneqncase}
 
@@ -1080,6 +1075,73 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   \end{rncase}
 \end{proof}
 
+\begin{lemma}[Environment Weakening]
+  \label{lem:tyenv-weaken}
+  For any $[[G]]$ and $[[ G'' ]]$ such that $[[dom G sub dom G'']]$ and $[[ forall x in dom G.G(x) = G''(x)]]$.
+  \begin{enumerate}
+  \item $[[ G |- T1 <: T2 ==> G'' |- T1 <: T2 ]]$
+  \item $[[G <: G' ==> G'' <: G''']]$ where $[[forall x in dom G'.G'''(x) = G'(x) /\ forall x not in dom G'.G'''(x) = G''(x)]]$.
+  \item Let $[[ Th | G | B |- e : T => G' ]]$. Then $[[ Th | G'' | B |- e : T => G''']]$ where
+    $[[G''' = G''[xi <- G'(xi)] ]]$ ($[[xi in G']]$).
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  \begin{enumerate}
+  \item As in the proof of \cref{lem:ctxt-sub-subtype}, at the root of
+    the subtyping derivation is a logical judgment of the form
+    $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ which can be shown to be valid. We
+    must then show that $[[ |= [ G'' ] /\ ph1 ==> ph2 ]]$ is valid. As
+    $[[ [ G'' ] /\ ph1 ]]$ only strengthens the pre-condition
+    $[[ [ G ] /\ ph1 ]]$, the $[[ |= [ G'' ] /\ ph1 ==> ph2 ]]$ must
+    also be valid.
+  \item It suffices to show that $[[G'' |- G''(x) <: G'''(x)]]$ for
+    any arbitrary $[[x]]$. If $[[x in G']]$ then by we must have
+    $[[ G |- G(x) = G''(x) <: G'''(x) = G'(x) ]]$, whence $[[ G'' |- G''(x) <: G'''(x) ]]$ from
+    part 1.
+
+    If $[[ x not in G' ]]$, then $[[empty |- G''(x) <: G'''(x)]]$ and the result holds
+    again from part 1.
+  \item By straightforward induction on the typing derivation of
+    $[[ Th | G | B |- e : T => G' ]]$. The only interesting cases are
+    \rn{T-Sub} and \rn{T-Assert}. \rn{T-Sub} follows from using parts
+    1 and 2.  \rn{T-Assert} requires showing that
+    $[[ |= [G''] ==> ph ]]$. As the source term was well typed,
+    $[[ |= [G] ==> ph ]]$ is valid, and as $[[ [G''] ]]$ only
+    strengthens the hypothesis $[[ [G] ]]$, $[[ |= [G''] ==> ph]]$ must
+    also be valid.
+  \end{enumerate}
+\end{proof}
+
+\begin{lemma}
+  Let $[[ E[let x = f l (y1,,yn) in e] ]]$ be a term in a program
+  $[[ <D, e> ]]$ such that:
+  
+  \begin{bcpcasearray}
+    [[ Th | G0 | ll |- let x = f l (y1,,yn) in e : T1 => G1 ]] &  [[ csub = [l:ll/A] ]] \\
+    [[ Th | [] : T1 => G1 | ll |-e E : T2 => G2 ]] & [[ vsub = [y1/x1],,[yn/xn] ]] \\
+    [[ f |-> ( x1, .. ,xn) e' in D]] & [[ Th |- f |-> (x1,..,xn) e ]] \\
+  \end{bcpcasearray}
+  
+  where $[[Th(f) = A < x1 : T1 ,, xn: Tn> -> <x1: T1',,xn:Tn' | Tp >]]$.
+  
+  Then: \begin{align*}
+    & [[ Th | G0 | l:ll |- vsub e : csub vsub Tp => G0[yi <- csub vsub Ti'] ]] \\
+    & [[ Th | [] : csub vsub Tp => G0[yi <- csub vsub Ti] | ll |-e E[let x = [] l in e] : T2 => G2 ]]
+  \end{align*}
+\end{lemma}
+\begin{proof}
+  To prove the first part, from the well-typing of the function body, we have
+  $[[ Th | x1:T1,,xn:Tn | A |- e : Tp => x1:T1',,xn:Tn' ]]$.
+  By $n$ applications of the substitution lemma we have:
+  $[[ Th | y1:vsub T1,,yn:vsub Tn | A |- vsub e : vsub Tp => y1:vsub T1',,yn:vsub Tn']]$.
+  By \cref{lem:ctxt-subst-well-typed} we then have
+  $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tp => y1:csub vsub T1',,yn:csub vsub Tn']]$.
+  By \cref{lem:tyenv-weaken} and the well-typing of the function call we have
+  $[[ Th | G0 | l:ll |- vsub e : csub vsub Tp => G0[yi <- csub vsub Ti ] ]]$ as required.
+
+  The second part follows immeidately by inversion on the typing of
+  $[[E]]$ and $[[let x = f l (y1,,yn) in e ]]$.
+\end{proof}
 \section{TODO}
 
 \begin{itemize}
