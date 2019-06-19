@@ -34,8 +34,8 @@
 
 % Aliases
 %\newenvironment{proof}{\begin{pf}}{\end{pf}}
-%\newenvironment{proofof}{\begin{pfof}}{\end{pfof}}
-%\newenvironment{proofsketch}{\begin{pfsketch}}{\end{pfsketch}}
+\newenvironment{proofof}{\begin{pfof}}{\end{pfof}}
+\newenvironment{proofsketch}{\begin{pfsketch}}{\end{pfsketch}}
 
 % These are now deprecated:
 \newenvironment{pfnobox}{\begin{pf}}{\end{pf}}
@@ -102,10 +102,17 @@
         \noindent #1 \\[\smallskipamount] \ignorespaces}%
         {}
 
+<<<<<<< HEAD
 %\newenvironment{case}[1]{%
 %        \refstepcounter{casecounter}%
 %        \begin{namedcase}{\casefont{Case \thecasecounter: } #1}%
 %        }{\end{namedcase}}
+=======
+\newenvironment{bccase}[1]{%
+        \refstepcounter{casecounter}%
+        \begin{namedcase}{\casefont{Case \thecasecounter: } #1}%
+        }{\end{namedcase}}
+>>>>>>> 183f72f6acb983e5d8310d8cded507b52bf7a322
 
 \newenvironment{textcase}[1]{%
         \refstepcounter{casecounter}%
