@@ -1,5 +1,5 @@
 metavar termvar, x, y, z ::=
-  {{ tex \mathit{[[termvar]]} }} {{ com  term variable  }} 
+  {{ tex \mathit{[[termvar]]} }} {{ com  term variable  }}
 
 metavar funvar, f, g ::=
   {{ tex \mathit{[[funvar]]} }} {{ com  function name }}
@@ -32,8 +32,7 @@ grammar
     | alias ( x = y ) ; e ::   :: Alias  {{ tex \ALIAS([[x]] = [[y]]) \SEQ [[e]] }}
     | assert ( ph ) ; e  ::   :: Assert {{ tex \ASSERT([[ph]]) \SEQ [[e]] }}
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
-    | [ x1 / x1' ] ,, [ xn / xn' ] e :: :: subst_mult {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] e }}
-    | [ x1 / x2 ] e :: :: subst {{ tex [ [[x1]] / [[x2]] ]  e }}
+    | vsub e :: :: subst_mult {{ tex [[vsub]] [[e]] }}
     | ( e )               :: S :: paren
 	| CE [ x ]  :: M:: ret
 	| E [ e ] :: M:: ctxt
@@ -43,7 +42,7 @@ grammar
 
   d :: d_ ::=
     | f |-> ( x1 , .. , xi ) e  ::  :: def
- 
+
   D :: D_ ::=
     | { d1 , ... , di }     ::   :: set
 
@@ -51,7 +50,7 @@ grammar
     | < D , e >            ::   :: prog    {{ tex \tuple{[[D]], [[e]]} }}
 
   r {{ tex r }} :: 'O_' ::=
-    | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }} 
+    | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }}
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
@@ -68,7 +67,7 @@ grammar
     | empty :: :: em {{ tex \emptyset }}
 	| H { a |-> Rv } :: :: update
 	| H { a <- Rv } :: :: destrUpdate
-	
+
   Rv :: Rv_ ::= {{ com runtime value forms }}
     | a :: :: addr
 	| R ( x ) :: :: var
@@ -95,8 +94,11 @@ grammar
 	| Top :: :: pred_top {{ tex \top }}
 	| ph1 ==> ph2 :: :: entail
 	| [ V1 / lvar ] ph :: :: subst_var
+	| vsub ph :: :: sub_v
 	| [ R ; V1 / lvar ] ph :: :: subst_env
+	| csub ph :: :: subst_ctxt
 	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
+	| ( ph ) :: :: paren
 
   lvar {{ tex V }} :: 'LV_' ::=
   	| nu :: :: nu {{ tex \nu }}
@@ -107,8 +109,13 @@ grammar
 	| v :: :: val
 	| Rv :: :: rv
 
-  csub {{ tex \sigma }} :: C_ ::=
+  csub {{ tex \sigma_{\alpha} }} :: 'C_' ::=
   	| [ B / A ] :: M :: subst_ctxt
+	| csub1 csub2 :: M :: subst_concat
+
+  vsub {{ tex \sigma_{x} }} :: 'VS_' ::=
+    | [ x1 / x1' ] ,, [ xn / xn' ] :: :: vsub_seq {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] }}
+	| [ x1 / x2 ] :: :: sub {{ tex [ [[x1]] / [[x2]] ] }}
 
   T {{ tex \tau }} :: T_ ::=                              {{ com type }}
     | { x : int | ph }    ::   :: refint                  {{ com refined integer type }}
@@ -119,14 +126,15 @@ grammar
     | T1 + T2             :: M :: sum
     | G ( x )             :: M :: lookup
 	| csub T :: :: subst_context
-	| [ x1 / x1' ] T :: M :: subst_var
+	| vsub T :: M :: subst_var
 	| Post ( T1 , T2 ) :: :: post_call
 	| T1 /\ x ph :: :: strength {{ tex [[T1]] \wedge_{[[x]]} [[ph]] }}
+	| T1 = T2 :: :: eq
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
 	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
-	| Gst ( x ) :: :: st_lkp 
+	| Gst ( x ) :: :: st_lkp
 
   Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::=
     | empty :: :: em {{ tex \bullet }}
@@ -140,10 +148,12 @@ grammar
 	| A :: :: svar
 	| ll :: :: list_var
 	| Trace ( Es ) :: :: trace_fun
+	| csub B :: :: string_sub
 
   FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
     | A < x1 : T1 ,, xn : Tn > -> < y1 : T1' ,, yi : Ti' | T >  :: :: sig
           {{ tex \forall [[A]].\tuple{[[x1]]\COL[[T1]],\dots,[[xn]]\COL[[Tn]]}\ra\tuple{[[y1]]\COL\[[T1']],\dots,[[yi]]\COL[[Ti']] \mid [[T]]} }}
+     | Th ( f ) :: :: fenvLkp
 
   Th {{ tex \Theta }} :: Th_ ::=
     | empty :: :: em {{ tex \bullet }}
@@ -151,7 +161,7 @@ grammar
 
   G {{ tex \Gamma }} :: G_ ::=  {{ com type environment }}
     | empty               ::   :: em   {{ tex \bullet }}
-    | G , x : T           ::   :: vn 
+    | G , x : T           ::   :: vn
     | G , x = T y              ::   :: formula {{ tex [[G]], x =_{[[T]]} y }}
 	| G \ x :: :: sub {{ tex [[G]] \setminus [[x]] }}
 	| G , x1 : T1 ,, xn : Tn :: :: append {{ tex [[G]],[[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
@@ -159,6 +169,8 @@ grammar
 	| G [ x : T ] :: :: type_in
 	| G [ x1 <- T1 ] :: :: type_update
 	| G [ x1 <- T1 ] ,, [ x2 <- T2 ] :: :: ty_update_2 {{ tex [[G]] \left[ [[x1]][[<-]][[T1]] \right]\cdots[ [[x2]][[<-]][[T2]]] }}
+	| [ B / A ] G :: :: cxtSubst
+	| ( G ) :: :: paren
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -183,8 +195,9 @@ grammar
     | ph :: :: phi
     | [ T ] x :: :: denote_type {{ tex \sem{[[T]]}_{[[x]]} }}
 	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
+	| logical_frag1 /\ logical_frag2 :: :: conj
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
-	
+
   logic_judgment :: '' ::=
 	| |= logical_frag :: :: models
 	| G |= logical_frag :: :: tyenv_model
@@ -207,7 +220,7 @@ grammar
 
    omap :: 'OM_' ::=
     | { a |-> r } :: :: omap
-	
+
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{WF} [[T]] [[=>]] [[G]] }}
@@ -223,19 +236,23 @@ grammar
 	| |- P :: :: prog_typ
 	| Th |- D :: :: f_typing
 	| |- D C :: :: ctxt_type {{ tex \vdash_C^D [[ C ]] }}
-	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing 
+	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing
 	| Th | [] : T => G | B |-e CE : T' => G' :: :: ectxt_typing
+	| |- Th :: :: funenvWf
+	| |- FT :: :: ftWf
 
   bind :: 'Bin_' ::=
     | x :: :: pvar
 	| A :: :: cvar
 	| a  :: :: addr
+	| f :: :: fname
 
   MF :: 'MF_' ::=
     | G :: :: tyenv
 	| R :: :: env
 	| Gst :: :: stTenv
 	| H :: :: heap
+	| Th :: :: funenv
 
   formula :: formula_ ::=
     | judgment :: :: judge
@@ -244,6 +261,7 @@ grammar
     | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
 	| r1 = r2 :: :: own_eq
+  | C1 != C2 :: :: conf_ineq
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
@@ -260,3 +278,9 @@ grammar
 	| B1 = B2 :: :: equiv_ctxt
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
+	| ( formula ) :: :: parenF
+	| e1 = e2 :: :: termDef
+	| G1 = G2 :: :: tyenvDef
+	| Gst1 = Gst2 :: :: stEnvEq
+	| csub1 = csub2 :: :: csubEq
+	| vsub1 = vsub2 :: :: vsubEq
