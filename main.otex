@@ -902,7 +902,7 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
     From our assumption that $[[ G |= ph1 ==> ph2 ]]$ we have that $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ is valid,
     whence the formula $[[ [ G ] /\ ph1 ==> ph2 ]]$ is true for any possible valuation of the free context
     variable $[[A]]$. Thus the formula $[[ [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$ must also be valid.
-    \end{rneqncase}
+  \end{rneqncase}
 \end{proof}
 
 \begin{lemma}
@@ -1006,6 +1006,80 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
   \end{rneqncase}
 \end{proof}
 
+\begin{lemma}
+  \label{lem:ectxt-sub-well-typed}
+  If, for some $[[G]]$,
+  $[[ Th | [] : T => G' | B |-e E : T'' => G'']]$ and $[[Th | G | B |- e : T => G' ]]$
+  then
+  $[[ Th | G | B |- E[e] : T'' => G'' ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the typing derivation of $[[E]]$.
+  \begin{rneqncase}{TE-Seq}{
+      [[ E ]] = [[ E'; e' ]] \\ [[ E[e] = E'[e]; e' ]] \\
+      [[ Th | [] : T => G' | B |-e E' : T0 => G0 ]] & [[ Th | G0 | B |- e' : T'' => G'' ]]
+    }
+    By the induction hypothesis we have $[[ Th | G | B |- E'[e] : T0 => G0 ]]$. Combined
+    with the assumption $[[ Th | G0 | B |- e' : T'' => G'' ]]$ the result holds
+    via application of the proof rule \rn{T-Seq}.
+  \end{rneqncase}
+  \begin{rncase}{TE-Hole}
+    Trivial.
+  \end{rncase}
+\end{proof}
+
+\begin{lemma}
+  For any $[[G0]]$ such that $[[Th | G0 | B |- x: T => G]]$ and $[[ Th | [] : T => G | B |-e E[let y = [] l in e] : T' => G' ]]$ then
+  $[[ Th | G0 | B |- E[let y = [] l in e][x] : T' => G' ]]$
+\end{lemma}
+\begin{proof}
+  It suffices to show that $[[ Th | G0 | B |- let y = x in e : T1 => G1]]$
+  and $[[ Th | [] : T1 => G1 | B |-e E : T' => G']]$
+  whence the result will hold from \cref{lem:ectxt-sub-well-typed}.
+  
+  By inversion on
+  $[[ Th | [] : T => G | B |-e E[let y = [] l in e] : T' => G' ]]$ and
+  $[[ Th | G0 | B |- x : T => G]]$ we have that:
+  \begin{align}
+    & [[ Th | G, y: T | B |- e : T2 => G2 ]] \\
+    & [[ Th | []: T2 => G2 \ y | B |-e E : T' => G' ]] \\
+    & [[ B |- T2 => G2 \ y ]] \\
+    & [[ G0(x) = T + T' ]] \\
+    & [[ G = G0[x <- T'] ]] 
+  \end{align}
+  We take $[[ G1 = G2 \ y ]]$, $[[ T2 = T1 ]]$. To show that
+  $[[ Th | G0[x : T + T'] | B |- let y = x in e : T1 => G1 ]]$ it
+  remains to show that
+  $[[Th | G0[x <- T' /\ x x = y],y : T /\ y y = x | B |- e : T2 =>
+  G2]]$ and that $[[ B |- T2 => G2 \ y]]$. 
+  The former follows from first weakening the types of $[[x]]$ and $[[y]]$ with \rn{T-Sub}
+  and from assumption (1), and the latter follows from (3).
+\end{proof}
+
+\begin{lemma}
+  For any $[[E]]$ and $[[e']]$ such that $[[E[e'] = e]]$ where
+  $[[Th | G | B |- e : T => G']]$ there exists some $[[T0]]$, $[[G0]]$ such that
+  $[[Th | []: T0 => G0 | B |-e E : T => G' ]]$ and
+  $[[Th | G | B |- e' : T0 => G0]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the structure of $[[E]]$.
+  \begin{rncase}{E-Hole}
+    Trivial, by taking $[[T1 = T]]$ and $[[G' = G1]]$.
+  \end{rncase}
+  \begin{rncase}{E-Seq}
+    Then $[[E = E'; e'']]$ and $[[E[e'] = E'[e']; e'' = e]]$, whence
+    $[[e = e1; e2]]$ where $[[E'[e'] = e1]]$ and $[[e'' = e2]]$. By
+    inversion on the typing derivation of $[[e]]$ we have
+    $[[ Th | G | B |- e1 : T1 => G1]]$,
+    $[[Th | G1 | B |- e2: T => G']]$. By the induction hypothesis
+    we then have $[[ Th | G | B |- e' : T0 => G0 ]]$ and
+    $[[ Th | []: T0 => G0 | B |-e E' : T1 => G1 ]]$. Exploiting the equality
+    between $[[e2 = e'']]$, we use the proof rule \rn{TE-Seq}
+    to conclude $[[ Th | []: T0 => G0 | B |-e E'; e'' : T => G']]$.
+  \end{rncase}
+\end{proof}
+
 \section{TODO}
 
 \begin{itemize}
@@ -1023,21 +1097,28 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
 
 \begin{figure}
   \leavevmode
-  \infrule[]{
+  \infrule[TE-Seq]{
     [[ Th | [] : T => G | B |-e E : T' => G' ]] \andalso
     [[ Th | G' | B |- e : T'' => G'' ]]
   }{
     [[ Th | [] : T => G | B |-e E; e : T'' => G'' ]]
   }
-  \infrule[]{}{
+  \infrule[TE-Hole]{}{
     [[ Th | [] : T => G | B |-e [] : T => G ]]
   }
-  \infrule[]{
+  \infrule[TE-Stack]{
     [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
-    [[ Th | G, x : T | B |- e : T' => G' ]]
+    [[ Th | G, x : T | B |- e : T' => G0 ]] \\
+    [[ G' = G0 \ x ]] \andalso [[ B |- T' => G0 \ x ]]
   }{
     [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
   }
+
+  \begin{align*}
+    [[ (E; e)[e'] ]] & = [[ E[e']; e ]] \\
+    [[ [][e'] ]] & = e' \\
+    [[ E[let y = [] l in e][x] ]] & = [[ E[let y = x in e] ]]
+  \end{align*}
 \caption{Context typing and substitution}
 \label{fig:context-typing}
 \end{figure}

@@ -36,6 +36,7 @@ grammar
     | ( e )               :: S :: paren
 	| CE [ x ]  :: M:: ret
 	| E [ e ] :: M:: ctxt
+	| e1 = e2 :: :: eq
 
   v :: 'v_' ::=                                         {{ com  value }}
     | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
@@ -78,6 +79,8 @@ grammar
   E :: E_ ::=    {{ com evaluation context }}
     | []                ::   :: hole
 	| E ; e :: :: seq {{ tex [[E]]\SEQ[[e]] }}
+	| ( E ) :: :: paren
+	| E = E' :: :: eq
 
   CE {{ tex E_c }} :: E_ ::=
     | E [ let x = [] l in e ] :: :: stack {{ tex [[E]][\LET [[x]] = \HOLE^[[l]] \IN [[ e ]] ]}}
@@ -171,6 +174,7 @@ grammar
 	| G [ x1 <- T1 ] ,, [ x2 <- T2 ] :: :: ty_update_2 {{ tex [[G]] \left[ [[x1]][[<-]][[T1]] \right]\cdots[ [[x2]][[<-]][[T2]]] }}
 	| [ B / A ] G :: :: cxtSubst
 	| ( G ) :: :: paren
+	| G1 = G2 :: :: tyenvDef
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -204,14 +208,14 @@ grammar
 	| R |= logical_frag :: :: env_model
 	| R !|= logical_frag :: :: env_not_model
 
-  FV :: 'FV_' ::=
+  FVF :: 'FV_' ::=
   	| FPV ( T ) :: :: fpv_t
 	| FPV ( ph ) :: :: fpv_p
 	| FPCV ( ph ) :: :: fpcv_p
 	| FPCV ( T ) :: :: fpcv_tx
+    | FV ( e ) :: :: fv
 
   functions :: 'F_' ::=
-    | FV :: :: fv
 	| CV ( B ) :: :: cv
 	| Cons ( H , R , G ) :: :: Cons
 	| SAT ( H , R , G ) :: :: SAT
@@ -254,6 +258,12 @@ grammar
 	| H :: :: heap
 	| Th :: :: funenv
 
+  VS :: 'VS_' ::=
+    | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}
+	| { bind } :: :: singleton {{ tex \set{[[bind]]} }}
+	| { bind1 ,, bindn } :: :: count {{ tex \set{[[bind1]],\ldots,[[bindn]]} }}
+	| FVF :: :: free_var_fun
+
   formula :: formula_ ::=
     | judgment :: :: judge
 	| functions :: :: func
@@ -267,8 +277,8 @@ grammar
 	| bind fresh in MF :: :: notinEnv {{ tex [[bind]] \not\in dom([[MF]]) }}
 	| bind in MF :: :: inMap {{ tex [[bind]] \in dom([[MF]]) }}
 	| bind not in MF :: :: notInMap {{ tex [[bind]] \not\in dom([[MF]]) }}
-	| bind in FV :: :: inFv {{ tex [[bind]] \in [[FV]] }}
-	| bind not in FV :: :: notInFv {{ tex [[bind]] \not\in [[FV]] }}
+	| bind in VS :: :: inFv {{ tex [[bind]] \in [[VS]] }}
+	| bind not in VS :: :: notInFv {{ tex [[bind]] \not\in [[VS]] }}
 	| Rv1 = Rv2 :: :: rvEq
 	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
@@ -279,7 +289,6 @@ grammar
 	| forall formula1 . formula2 :: :: uq
 	| ( formula ) :: :: parenF
 	| e1 = e2 :: :: termDef
-	| G1 = G2 :: :: tyenvDef
 	| Gst1 = Gst2 :: :: stEnvEq
 	| csub1 = csub2 :: :: csubEq
 	| vsub1 = vsub2 :: :: vsubEq
