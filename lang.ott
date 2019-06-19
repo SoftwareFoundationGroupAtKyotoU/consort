@@ -32,9 +32,9 @@ grammar
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
     | vsub e :: :: subst_mult {{ tex [[vsub]] [[e]] }}
     | ( e )               :: S :: paren
-	| CE [ x ]  :: M:: ret
-	| E [ e ] :: M:: ctxt
-	| e1 = e2 :: :: eq
+	  | CE [ x ]  :: M:: ret
+	  | E [ e ] :: M:: ctxt
+	  | e1 = e2 :: :: eq
 
   A {{ tex \alpha }} :: 'A_' ::=
 

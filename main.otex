@@ -860,25 +860,18 @@ To prove this, we need another lemmas for substitution and context:
 \begin{itemize}
     \item[$-$] Case \rn{T-Var}: In this case, we have:
 
-    $\vdash [[ <H, R, CE : Es, E[x]> --> D <H, R, Es, CE[x]> ]] $\newline
+    $[[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] $\newline
     $[[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]$ \newline
-    $[[ G' = G [ x : T1 + T2] ]]$
+    $[[ G' = G [ x : T1 + T2] ]] \andalso [[En[e] = x]] \andalso [[En]] = [][[ /\]] e = x$\newline
+    $[[ Th | [] : T => G' | ll |-e En : Tn => Gn ]]$
 
+    From above, we can obtain that $[[ Th | [] : T => G' | ll |-e [] : T => G' ]]$.
 
-    We want to show that $[[Cons(H,R, G')]]$ hold.
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\$
+    Suppose there is $[[<H, R, CE : CE': Es, x> --> D <H, R, CE': Es, CE[x]> ]]$ \newline
+    We will obtain $[[ Th | [] : Tn => Gn | lln-1 |-e CE' : Tn-1 => Gn-1 ]]$
 
-
-    The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)=\textit{dom}(R)=\textit{dom}(R')$.
-    Secondly, we focus on prove that $F_0=F_1$, which defines as below:
-
-    $F_0=F'_0 + \mathbf{own}(H, R(x), \tau_1+\tau_2)\newline$
-    $F_1=F'_1 + \mathbf{own}(H', R'(x'), \tau_2)\newline$
-    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(x)\}}\mathbf{own}(H,R(z),\tenv(z))\newline$
-    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(x)\}}\mathbf{own}(H',R'(z),\tenv'(z))$
-
-    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(x), \tenv(x))=\mathbf{own}(H', R'(x), \tenv'(x))$, which is obtained as follow:
-
-    $\mathbf{own}(H, R(x), \tau_1+\tau_2)=\mathbf{own}(H', R'(x), \tau_1) + \mathbf{own}(H', R'(x), \tau_2)$.
+    Also using \textbf{lemma 6}, we will show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G' | B |- CE[x] : Tn => Gn]]$.
 
     \item[$-$] Case \rn{T-Deref}:
     In this case, we have:
@@ -886,18 +879,17 @@ To prove this, we need another lemmas for substitution and context:
     $\vdash [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$ \newline
     $[[r > 0]] \andalso [[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G']]$ \newline
     $[[ B |- T => G' \ x ]]\andalso [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]$ \newline
-    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r\andalso \tenv'=\tenv,x'\COL\phi$ \newline
-    $[[G'' = G[y <- (T1 /\ y y = x) ref r], x' : T2]]$
+    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r$ \newline
+    $[[G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]$
 
-    We want to show that $[[ Th | G'', x' : T2 | B |- [x'/x]e : T => G']]$ and $[[Cons(H,R { x' |-> v }, G')]]$ hold.
+    We want to show that $[[ Th | G'' | B |- [x'/x]e : T => G']]$ and $[[Cons(H,R { x' |-> v }, G')]]$ hold.
     The first one is easy to obtain using the $\bf{Lemma (substitution).}$
 
     It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$, we know that $[[Cons(H,R,G)]] = [[SAT(H,R,G)]]\land\forall h\in \textit{dom}(H).F(h)\leq 1$.
-    From $Cons(H,R,\tenv)\produces SAT(H,R,\tenv)\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land x'=H(R(y))$, (because that
-    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r\land x'=n\produces \phi(n)$, when $n=H(R(y))$, we can obtain that $\phi(H(R(y)))$), which gives that $\phi(x')$ holds.
 
+    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land R(x')=H(R(y))$, which gives that $\phi(R(x'))$ holds.
 
-    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. First,it's obvious that $\textit{dom}(\tenv')=\textit{dom}(H).F(h)\leq 1(.\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
+    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. First,it's obvious that $\textit{dom}(\tenv'')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
     Secondly, we focus on prove that $F_0=F_1$, which defines as below:
 
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))\newline$
@@ -906,24 +898,28 @@ To prove this, we need another lemmas for substitution and context:
     $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x')\}}\mathbf{own}(H',R'(z),\tenv'(z))$
 
     Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))=\mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))$,
+    we know that $x$ is an integer, so $\mathbf{own}(H', R'(x'), \tenv'(x'))$ should be $\emptyset$, and $\mathbf{own}(H, R(y), \tenv(y))=\mathbf{own}(H', R'(y), \tenv'(y))$.
     we can finally prove $F_0=F_1$.
 
     \item[$-$] Case where last rule is \rn{T-Let}: Similar to the case for \rn{T-Deref}.
 
     \item[$-$] Case \rn{T-LetInt}: In this case, we have:
 
-    $\vdash [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$ \newline
+    $\vdash [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> nn }, Es, E[ [x'/x]e]> ]]$ \newline
     $[[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso [[ Cons(H, R, G) ]]\newline$
-    $[[ G'']]  = [[ G{x' |-> {x' = nn} } ]]$
+    $[[ G''= G ]]\{x' \mapsto \{x' = n\}\}$
 
-    We want to show that $[[ Th | G'' | B |- [x'/x]e : T => G']]$ and $[[ Cons(H, R { x' |-> v }, G'') ]]$ hold.
+    We want to show that $[[ Th | G'' | B |- [x'/x]e : T => G']]$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$ hold.
     The first one is easy to obtain using the $\bf{Lemma (substitution).}$
-    Also, the $[[ Cons(H, R { x' |-> v }, G'') ]]$ is clear.
+    Also, the $[[ Cons(H, R { x' |-> nn }, G'') ]]$ is clear.
 
-    The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
-    The second condition follows from:
+    %From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land R(x')=H(R(y))$, which gives that $\phi(R(x'))$ holds.
 
-    $\sum_{z\in\textit{dom}(\tenv')}\mathbf{own}(H',R'(z),\tenv'(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,n,\tau)$.
+    %Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
+    %The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
+    %The second condition follows from:
+
+    %$\sum_{z\in\textit{dom}(\tenv')}\mathbf{own}(H',R'(z),\tenv'(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,n,\tau)$.
 
     \item[$-$] Case \rn{T-If}: In this case, we only show the case for $[[ R(x) = 0 ]]$; the case for $R(x) \neq 0$ is similar. If $R(x) = 0$, we have:
 
@@ -933,11 +929,11 @@ To prove this, we need another lemmas for substitution and context:
 
     We know $[[ G'' = G[x <- {y:int | ph /\ y = 0 }] ]]$,want to show that $[[ Cons(H, R, G'') ]]$ hold.
     $[[Cons(H,R,G'')]] = [[SAT(H,R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H,R,G'')]] \produces [[ SAT(H,R,G'') ]] \produces x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land \phi(R(x))\land y=R(x)$, which gives that $\phi(y)$ holds.
+    From $[[Cons(H,R,G)]] \produces [[ SAT(H,R,G) ]] \produces x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land \varphi(R(x))\land R(x)=0$, which gives that $\varphi(R(x))\cup\{0\}$ holds.
 
-    The first condition follows immediately. The second condition follows from:
+    %The first condition follows immediately. The second condition follows from:
 
-    $\mathbf{own}(H,0,\tenv'(x)) = \mathbf{own}(H,0,\tenv(x))$.
+    %$\mathbf{own}(H,0,\tenv'(x)) = \mathbf{own}(H,0,\tenv(x))$.
 
     \item[$-$] Case \rn{T-MkRef}: In this case, we have:
 
@@ -945,31 +941,32 @@ To prove this, we need another lemmas for substitution and context:
     $[[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \andalso
      [[ B |- T => G' \ x ]] \newline$
     $[[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]\newline$
-    $[[ G'' = G[y <- T1],x : (T2 /\ x x = y) ref 1 ]]$
+    $[[ G'' = G[y <- T1],x : (T2 /\ x x = y) ref 1 ]]\andalso \tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^1$
 
     We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x x' = y) ref 1 | B |- [x'/x]e : T => G']]$ and $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]]$ hold.
     The first one is easy to obtain using the $\bf{Lemma (substitution).}$\newline
-    $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]] = [[SAT(H { a |-> R(y) }, R { x' |-> a },G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]] \produces [[ SAT(H { a |-> R(y) }, R { x' |-> a },G'') ]] \produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land x'=H(R(y))$, (because that
-    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r\land x'=n\produces \phi(n)$, when $n=H(R(y))$, we can obtain that $\phi(H(R(y)))$), which gives that $\phi(x')$ holds.
+    $[[Cons(H { a |-> R(y) }, R { x' |-> a },G[y <- T1])]] = [[SAT(H { a |-> R(y) }, R { x' |-> a },G[y <- T1])]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
+    From $[[Cons(H, R ,G)]] \produces [[ SAT(H, R , G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land x=y \produces \phi(H(R(y)) \land x' = H(R(y))$, which gives that $\phi(x')$ holds.
 
-    The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
+    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
+    The first condition can be given as $\textit{dom}(\tenv'')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
     The second condition follows from:
 
-    $\sum_{z\in\textit{dom}(\tenv')}\mathbf{own}(H',R'(z),\tenv'(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto v\}$.
+    $\sum_{z\in\textit{dom}(\tenv'')}\mathbf{own}(H',R'(z),\tenv''(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto R(y)\}$.
 
     \item[$-$] Case \rn{T-Assign}: In this case, we have:
 
     $\vdash [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y)}, R, Es, E[e]> ]]\andalso a = R(x)$\newline
     $[[ Th | G[y <- T1][x <- T2 ref r] | B |- e : T => G']]$ \newline
     $[[ Th | G[y: T1 + T2][x : T' ref 1] | B |- x := y; e : T => G']]$ \newline
-    $[[ G'' = G[y <- T1][x <- T2 ref r] ]]$
+    $[[ G'' = G[y <- T1][x <- T2 ref r] ]] \andalso \tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^r$
 
     We want to show that $[[Cons(H { a |-> R(y) }, R ,G'')]]$ hold.
     $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]] = [[SAT(H { a |-> R(y) }, R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H { a |-> R(y) }, R,G'')]] \produces [[ SAT(H { a |-> R(y) }, R,G'') ]] \produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land a=H(R(y))$, which gives that $\phi(a)$ holds.
+    From $[[Cons(H , R,G)]] \produces [[ SAT(H, R,G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land R(x)=R(y) \produces \phi(H(R(y)) \land a = H(R(y))$, which gives that $\phi(a)$ holds.
 
-    The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)=\textit{dom}(R)=\textit{dom}(R')$.
+    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
+    The first condition can be given as $\textit{dom}(\tenv'')=\textit{dom}(\tenv)=\textit{dom}(R)=\textit{dom}(R')$.
     Secondly, we focus on prove that $F_0=F_1$, which defines as below:
 
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))\newline$
@@ -990,8 +987,9 @@ To prove this, we need another lemmas for substitution and context:
 
     It remains to show $[[Cons(H, R, G'')]]$.
     $[[Cons(H, R, G'')]] = [[SAT(H, R, G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H, R, G'')]] \produces [[ SAT(H, R, G'') ]]$, also $[[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]]$.
+    From $[[Cons(H , R,G)]] \produces [[ SAT(H, R,G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land \tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} \land  \tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$, which gives that $[[SAT(H, R, G'')]]$ holds.
 
+    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     The first condition follows immediately. The second condition follows from:
 
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
@@ -1005,15 +1003,10 @@ To prove this, we need another lemmas for substitution and context:
     $\funenv\mid\tenv\mid\beta\vdash e\COL\tau\produces \tenv' \land \beta\notin\fv(\funenv)\implies \funenv\mid[\overrightarrow{l}/\beta]\tenv\mid\overrightarrow{l}\vdash e\COL[\overrightarrow{l}/\beta]\tau\produces [\overrightarrow{l}/\beta]\tenv'.\newline$
     $\bf{Lemma (3).}$
     $\funenv\mid\tenv,[]\COL[l\COL\overrightarrow{l}/\beta]\tau_f\produces \tenv_e \mid \overrightarrow{l}\vdash E[\LET x=[]^l \IN e]\COL\tau_{n+1}\produces\tenv_{n+1}$.
-        \subitem Case \rn{TE-Seq}:
-
-        $\funenv\mid\tenv\COL []\COL\tau_e\produces\tenv_e\mid l\vdash E\COL \tau_1\produces \tenv_1\newline$
-        $\funenv\mid\tenv_1\mid l\vdash e\COL\tau_{n+1}\produces \tenv_{n+1}\newline$
-        $E;e[\LET x=[]^l \IN e]\produces E[\LET x=[]^l \IN e];e\COL\tau_{n+1}\produces\tenv_{n+1}$.
 
     We want to show that $\vdash\langle H,R,\overrightarrow{E},E[\LET x=f^l(\tilde{y})\IN e]\rangle\ra \langle H,R,E[\LET x=[]^l\IN e]\COL E,e_f[\tilde{y}/\tilde{x}]\rangle$.
 
-    $\funenv(f)=\forall\beta\langle\tilde{x}\COL\tilde{\tau}\rangle\ra\langle\tilde{x}\COL\tilde{\tau'}\mid\tau\langle\andalso \forall x\in \tilde{y}\andalso \tenv(y_i)=\tilde{\tau_i} [l_i\overrightarrow{l}/\beta]\newline$
+    $\funenv(f)=\forall\beta\langle\tilde{x}\COL\tilde{\tau}\rangle\ra\langle\tilde{x}\COL\tilde{\tau'}\mid\tau\rangle\andalso \forall x\in \tilde{y}\andalso \tenv(y_i)=\tilde{\tau_i} [l_i\overrightarrow{l}/\beta]\newline$
     Then, we can obtain $\funenv\mid\tenv\{x\mapsto [l\COL\overrightarrow{l}/\beta]\tau,y_i\mapsto [l\COL\overrightarrow{l}/\beta]\overrightarrow{\tau'_i}\}\mid\overrightarrow{l}\vdash e\COL [l\COL\overrightarrow{l}/\beta]\tau\produces \tenv_e\newline$
     After that, $\funenv\mid \tilde{x}\COL\tilde{\tau}\mid\beta\vdash e_f\COL\tau\produces\tilde{x}\COL\tilde{\tau'}$ implies that $\funenv\mid \tilde{y}\COL [l\COL\overrightarrow{l}/\beta]\tilde{\tau}\mid[l\COL\overrightarrow{l}/\beta]\beta\vdash [\overrightarrow{y}/\overrightarrow{x}]e_f\COL[l\COL\overrightarrow{l}/\beta]\tau\produces\tilde{y}\COL[l\COL\overrightarrow{l}/\beta]\tilde{\tau'}$ using $\bf{Lemma (2).}$
 \end{itemize}
@@ -1022,9 +1015,9 @@ To prove this, we need another lemmas for substitution and context:
 
 \begin{lemma}
   \label{lem:substitution}
-   [[ Th | G, x : T' | B |- e : T /\ |- v : T' => Th | G | B |- e[v/x] : T ]]
+   [[ Th | G, x : T' | B |- e : T |- v : T' => Th | G | B |- e[v/x] : T ]]
 \end{lemma}
-$\funenv \mid \tenv, x \COL \tau' \mid \beta \vdash e \COL \tau \land \vdash v \COL \tau' \produces \funenv \mid \tenv \mid \beta \vdash e\{v/x\} \COL \tau$.
+$\funenv \mid \tenv, x \COL \tau' \mid \beta \vdash e \COL \tau \land \vdash v \COL \tau' \produces \funenv \mid \tenv \mid \beta \vdash e\{v/x\} \COL \tau$. \newline
 $\bf{Lemma (context).}$
 $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \produces \vdash E[e'] \COL \tau$.
 
