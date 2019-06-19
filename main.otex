@@ -426,7 +426,7 @@ of $[[x]]$ to $[[T]]$ in $[[G]]$.
 %edit by shiki
 \subsection{Transition rules}
 For each language expression occurs, we accomplish writing the rules for transition. In order to deal with function, we introduce the stack in the system. Here, $\langle H, R,\overrightarrow{E}, E \rangle$ represent heap(memory),
-register(environment), a sequence of context, program respectively.
+register(environment), a sequence of return contexts, program respectively.
 It's obvious when $e$ is an integer $n$, when it's a variable $x$, in order to better handle with recursive types,
 we refresh every variable $x$ to $x'$ after executing expression.
 Define a named local expression $\LET x=y \IN e$, which $x$ can then be used later on in the function instead of $y$, so that the
@@ -447,11 +447,12 @@ the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written
 \begin{figure}
 \[
   \begin{array}{rcl}
-    E & ::= & E \SEQ e \mid \LET x = \HOLE \IN e \mid \HOLE
+    [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
+    [[ CE ]] & ::= & [[ E[let y = [] l in e] ]] 
   \end{array}
 \]
 \label{fig:eval-context-grammar}
-\caption{Grammar of evaluation contexts}
+\caption{Grammar of evaluation and return contexts}
 \end{figure}
 
 \subsection{Examples}
@@ -1206,14 +1207,14 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
     [[SAT(H,R,G)]] = & [[ forall x in G.x in R]]\wedge \\
     & \begin{cases}
       [[R(x)]] \in \mathbb{Z} \wedge [[ [R;R(x)/y]ph ]] & [[ G(x) = {y:int | ph} ]] \\
-      [[r > 0]] \produces & [[ G(x) =  { x:int | ph } ref r ]] \\
-      \,\,\, [[H(R(x))]] \in \mathbb{Z} \wedge [[ [R; H(R(y))/x]ph]] &
+      [[r > 0]] \produces & [[ G(x) =  { y:int | ph } ref r ]] \\
+      \,\,\, [[H(R(x))]] \in \mathbb{Z} \wedge [[ [R; H(R(x))/y]ph]] &
     \end{cases} \\
-    [[ [empty; v / x]ph ]] & = [v/x]ph \\
+    [[ [empty; v / x]ph ]] & = [[ [v/x]ph ]] \\
     [[ [R { y |-> v' }; v / x]ph ]] & =  [[ [v'/y] [R ; v / x]ph ]] \\
     F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
     [[own(H,v,T)]] &  = \begin{cases}
-      [[ { a |-> r } ]] & v = a \in \DOM([[H]]) \wedge [[ T = T' ref r ]] \\
+      [[ { a |-> r } ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
       \emptyset & o.w.
     \end{cases} \\
   \end{align*}
