@@ -240,6 +240,15 @@ let post_update_type t = match t with
   | `Int _ -> false
   | `Ref _ -> true
 
+(* eq_type must be the type of target *)
+let strengthen_eq ~strengthen_type ~eq_type ~target =
+  match eq_type with
+  | `Int _ ->
+    add_relation_constr strengthen_type @@ Relation {
+        rel_op1 = Nu; rel_cond = "="; rel_op2 = IVar target
+      }
+  | `Ref _ -> strengthen_type
+
 let apply_matrix ((o1,r1),(o2,r2)) (out_o,out_r) ctxt =
   let mk_constraint oante ante =
     {
@@ -274,7 +283,7 @@ let rec process_expr ctxt e =
     let (_,o)  = lkp_ref lhs in
     let nxt = add_owner_con [Write o] ctxt'
     |> update_type rhs t1
-    |> update_type lhs (ref_of t2 o) in
+    |> update_type lhs @@ strengthen_eq ~target:rhs ~eq_type:t2 ~strengthen_type:(ref_of t2 o) in
     process_expr nxt cont
   | Assign (lhs,IInt i,cont) ->
     let (_,o) = lkp_ref lhs in
@@ -301,9 +310,8 @@ let rec process_expr ctxt e =
       let (r,o) = lkp_ref ptr in
       let target_type = (deref r :> typ) in
       let (ctxt',(t1,t2)) = split_type ctxt target_type in
-      update_type ptr (add_relation_constr (ref_of t1 o) (Relation {
-            rel_op1 = Nu; rel_cond = "="; rel_op2 = IVar v
-          })) ctxt'
+      ctxt'
+      |> update_type ptr @@ strengthen_eq ~strengthen_type:(ref_of t1 o) ~eq_type:t1 ~target:v
       |> add_type v t2
       |> add_owner_con [Live o]
     | Mkref init ->
@@ -313,11 +321,10 @@ let rec process_expr ctxt e =
       | RVar r_var ->
         let (ctxt',(t1,t2)) = split_type ctxt @@ lkp r_var in
         let t2' =
-          let r2 = get_refinement t2 in
-          update_refinement (And (r2,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = IVar r_var })) t2
+          strengthen_eq ~strengthen_type:(ref_of t2 @@ OConst 1.0) ~eq_type:t2 ~target:r_var
         in
         update_type r_var t1 ctxt'
-        |> add_type v (ref_of t2' @@ OConst 1.0)
+        |> add_type v t2'
     end in
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
     let (ctxt'',ret_t') = remove_var ctxt'.path_condition ~loc:(LLet i) v ret_t ctxt' in

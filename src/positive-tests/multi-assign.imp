@@ -1,0 +1,10 @@
+{
+  let x = _ in
+  let y = mkref _ in
+  let z = mkref _ in
+  {
+    y := x;
+    z := x;
+	assert( *y = *z)
+  }
+}
