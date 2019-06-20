@@ -102,6 +102,7 @@ grammar
 	| csub ph :: :: subst_ctxt
 	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
 	| ( ph ) :: :: paren
+	| x = T y :: :: typed_eq {{ tex [[x]] =_{[[T]]} [[y]] }}
 
   lvar {{ tex V }} :: 'LV_' ::=
   	| nu :: :: nu {{ tex \nu }}

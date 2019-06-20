@@ -257,10 +257,23 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \end{definition}
 
 \begin{definition}
+  The typed equality proposition $[[ x = T y ]]$ is defined as
+  \[
+    [[ x = T y ]] \equiv \begin{cases}
+      [[ x = y ]] & [[ T = {z:int|ph} ]] \\
+      [[ Top ]] & o.w.
+      \end{cases}
+  \]
+\end{definition}
+\begin{definition}
   $[[T /\ y ph]]$ is the strengthening operation defined as:
-  $[[ { x: int | ph1 } /\ y ph2 = { z: int | [z/x]ph1 /\ [z/y]ph2 }]]$ and
-  $[[ T ref r /\ y ph = T ref r]]$,
-  where $[[z not in FPV(ph1) /\ z not in FPV(ph2)]]$
+  \[
+    [[ T /\ y ph' ]] = \begin{cases}
+      [[ { z: int | [z/x]ph /\ [z/y]ph' }]] & [[ T = { x: int | ph } /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
+      [[ { z: int | [z/x]ph /\ [z/y]ph' } ref r]] & [[ T = { x: int | ph } ref r /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
+      [[ T ]] & o.w.
+    \end{cases}
+  \]
 \end{definition}
 
 \begin{definition}{Context Substitution}
@@ -316,7 +329,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
   }
   \infrule[T-Let]{
-    [[ Th | G [ y <- T1 /\ y y = x  ], x : (T2 /\ x x = y) | B |- e : T => G']] \andalso
+    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \andalso
     [[B |- T => G' \ x]]
   }{
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
@@ -334,14 +347,14 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
   }
   \infrule[T-MkRef]{
-    [[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \andalso
+    [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \andalso
     [[ B |- T => G' \ x ]]
   }{
     [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
   }
   \infrule[T-Deref]{
     [[r > 0]] \andalso
-    [[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G']] \andalso
+    [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : T => G']] \andalso
     [[ B |- T => G' \ x ]]
   }{
     [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
@@ -356,7 +369,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   }
   \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- T2 ref r] | B |- e : T => G']] \\
+    [[ Th | G[x <- T1][y <- T2 ref r /\ y y = T1 x] | B |- e : T => G']] \\
   }{
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
@@ -930,7 +943,7 @@ $\vdash\bf{C}$ implies $\bf{C} \neq \bf{AssertFail}$.
 
   \begin{rneqncase}{T-Let}{
       & [[e = let x = y in e']] & [[ G' = G'' \ x ]] \\
-      & [[ Th | G1 | A |- e' : T => G'' ]] & [[ G1 = G[y <- (T1 /\ y y = x)], x:(T2 /\ x x = y)]] \\
+      & [[ Th | G1 | A |- e' : T => G'' ]] & [[ G1 = G[y <- (T1 /\ y y = T1 x)], x:(T2 /\ x x = T2 y)]] \\
       & [[ G = G0[y: T1 + T2]  ]]
     }
     By \cref{lem:ctxt-sub-distribute},
