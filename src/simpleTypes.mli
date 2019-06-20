@@ -1,7 +1,7 @@
 type r_typ = [
   | `Int
-  | `IntRef
-]
+  | `Ref of record_t
+] and record_t = r_typ list
 
 type funtyp = {
   arg_types: r_typ list;

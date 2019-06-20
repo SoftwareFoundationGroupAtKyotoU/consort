@@ -24,6 +24,7 @@
 // operators
 %token STAR
 %token <string> OPERATOR
+%token DOT
 // connectives
 %token SEMI COMMA
 // structure
@@ -61,6 +62,7 @@ let expr :=
   | LET; lbl = expr_label; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
   | x = ID; ASSIGN; y = lhs; <Assign>
+  | b = ID; DOT; f = ID; ASSIGN; y = lhs; <FAssign>
   | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
   | ASSERT; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
@@ -73,6 +75,10 @@ let op :=
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
 
+let ref_op :=
+  | o = op; { (o :> r_init) }
+  | RBRACE; ~ = separated_list(SEMI, separated_pair(ID, COLON, ref_op)); LBRACE; <`Record>
+
 let cond_expr :=
   | ~ = ID; <`Var>
   | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string]) }
@@ -82,8 +88,9 @@ let bin_op := o1 = op; op_name = OPERATOR; o2 = op; <`BinOp>
 let lhs :=
   | b = bin_op; { (b :> lhs) }
   | o = op; { (o :> lhs) }
-  | MKREF; ~ = op; <`Mkref>
+  | MKREF; ~ = ref_op; <`Mkref>
   | ~ = fn_call; <`Call>
+  | b = op; DOT; ~ = ID; <`Field>
 
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
 let callee :=
