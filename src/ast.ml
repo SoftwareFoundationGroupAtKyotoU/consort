@@ -44,85 +44,124 @@ type fn = { name: string; args: (string list); body: exp }
 
 type prog = fn list * exp
 
-let pprint_var ff = fprintf ff "%s"
+let ps s ff = pp_print_string ff s
 
-let pprint_int ff = fprintf ff "%d"
+let pprint_var = ps
 
-let pprint_fn_call ff { callee; arg_names; label } =
+let pf f v ff = fprintf ff f v
+let pl l ff = List.iter (fun f -> f ff) l
+let pv = pprint_var
+
+let pprint_int i ff = fprintf ff "%d" i
+let pi = pprint_int
+
+let indent_from_here ff = pp_open_vbox ff 2
+let dedent ff = pp_close_box ff ()
+let nl ff = pp_print_cut ff ()
+let newline = nl
+let semi ff = ps ";" ff; nl ff
+let null _ = ()
+
+let pprint_fn_call { callee; arg_names; label } ff =
   fprintf ff "%s:%d(%s)" callee label @@ String.concat ", " arg_names
 
-let pprint_rinit ff = function
-  | RNone -> pp_print_string ff "_"
-  | RVar v -> pprint_var ff v
-  | RInt i -> pprint_int ff i
+let pprint_rinit = function
+  | RNone -> ps "_"
+  | RVar v -> pv v
+  | RInt i -> pprint_int i
 
-let pprint_imm_op ff = function
-  | IInt i -> pprint_int ff i
-  | IVar v -> pprint_var ff v
+let pprint_imm_op = function
+  | IInt i -> pprint_int i
+  | IVar v -> pv v
 
-let pprint_lhs ff = function
-  | Var x -> pprint_var ff x
-  | Const i -> pprint_int ff i
-  | Mkref v -> pp_print_string ff "mkref "; pprint_rinit ff v
-  | Deref v -> fprintf ff "*%s" v
-  | Call c -> pprint_fn_call ff c
-  | Nondet -> pp_print_string ff "*"
+let pprint_lhs = function
+  | Var x -> pv x
+  | Const i -> pi i
+  | Mkref v -> pl [
+                   ps "mkref ";
+                   pprint_rinit v
+                 ]
+  | Deref v -> pf "*%s" v
+  | Call c -> pprint_fn_call c
+  | Nondet -> ps "_"
 
-let rec pprint_expr ~force_brace ff e =
-  let local_force_brace = force_brace in
+let rec pprint_expr e =
   match e with
   | Seq (e1, e2) ->
-    let () =
-      if local_force_brace then begin
-        pp_open_vbox ff 1;
-        fprintf ff "{@;"
-      end else ()
-    in
-    let () = begin
-      match e1 with
-      | Seq _ -> pprint_expr ~force_brace:true ff e1
-      | _ -> pprint_expr ~force_brace:false ff e1
-    end in
-    fprintf ff ";@;";
-    pprint_expr ~force_brace:false ff e2;
-    if local_force_brace then begin
-      pp_print_string ff "}"; pp_close_box ff ()
-    end else ()
+    pl [
+        maybe_brace e1;
+        semi;
+        pprint_expr e2
+      ]
   | Let (id,var, lhs, body) ->
-    pp_open_hovbox ff 1;
-    fprintf ff "let:%d %s = " id var;
-    pprint_lhs ff lhs;
-    fprintf ff " in@;";
-    pprint_expr ~force_brace:true ff body;
-    pp_close_box ff ()
+    maybe_brace ~all_seq:true ~pre:(pl [
+        (fun ff -> fprintf ff "let:%d %s = " id var);
+        pprint_lhs lhs; ps " in ";
+      ]) body
   | Assign (x, y, e) ->
-    fprintf ff "%s := " x;
-    pprint_imm_op ff y;
-    fprintf ff ";@;";
-    pprint_expr ~force_brace ff e
+    pl [
+        pf "%s := " x; pprint_imm_op y;
+        semi;
+        pprint_expr e
+      ]
   | Cond (id,x,tr,fl) ->
-    fprintf ff "if:%d %s then " id x;
-    pprint_expr ~force_brace:true ff tr;
-    fprintf ff "@;else ";
-    pprint_expr ~force_brace:true ff fl
+    pl [
+      indent_from_here;
+      (fun ff -> fprintf ff "if:%d %s then {" id x); newline;
+      pprint_expr tr; dedent; newline;
+      indent_from_here; ps "} else {"; newline;
+      pprint_expr fl; dedent; newline; ps "}"
+    ]
   | Alias(id,x,y,e) ->
-    fprintf ff "alias:%d(%s = %s)" id x y;
-    fprintf ff ";@;";
-    pprint_expr ~force_brace ff e
+    (fun ff ->
+      fprintf ff "alias:%d(%s = %s)" id x y;
+      semi ff;
+      pprint_expr e ff
+    )
   | Assert ({ rop1; cond; rop2 },e) ->
-    fprintf ff "assert(";
-    pprint_imm_op ff rop1;
-    fprintf ff " %s " cond;
-    pprint_imm_op ff rop2;
-    fprintf ff " )";
-    fprintf ff ";@;";
-    pprint_expr ~force_brace ff e
-  | EVar v -> pprint_var ff v
+    pl [
+        ps "assert(";
+        pprint_imm_op rop1;
+        pf " %s " cond;
+        pprint_imm_op rop2;
+        ps ")"; semi;
+        pprint_expr e
+      ]
+  | EVar v -> pv v
+and maybe_brace ?(all_seq=false) ?pre e : formatter -> unit =
+  let need_block = 
+      match e with
+      | Seq _ -> true
+      | Alias _ when all_seq -> true
+      | Assert _ when all_seq -> true
+      | Assign _ when all_seq -> true
+      | _ -> false
+  in
+  if need_block then
+    pl [
+      indent_from_here;
+      (match pre with Some f -> f | None -> null);
+      ps "{"; newline;
+      pprint_expr e; dedent; newline;
+      ps "}"
+    ]
+  else
+    pl [
+      (match pre with
+        Some f -> pl [ f; newline ]
+      | None -> null);
+      pprint_expr e
+    ]
 
 let pprint_fn ff {name; args; body} =
   let open Format in begin
-    fprintf ff "%s(%s) " name @@ String.concat ", " args;
-    pprint_expr ~force_brace:true ff body;
+    pl [
+      indent_from_here;
+      (fun ff -> fprintf ff "%s(%s) " name @@ String.concat ", " args);
+      ps "{"; newline;
+      pprint_expr body;
+      dedent; newline; ps "}"
+    ] ff;
     pp_force_newline ff ()
   end
 
@@ -130,7 +169,7 @@ let pprint_prog ff (fn,body) =
   List.iter (pprint_fn ff) fn;
   pp_open_vbox ff 1;
   fprintf ff "{@;";
-  pprint_expr ~force_brace:false ff body;
+  pprint_expr body ff;
   pp_close_box ff ();
   pp_force_newline ff (); pp_print_string ff "}"
 
@@ -142,5 +181,5 @@ let pretty_print_gen printer x =
   Buffer.contents buf
 
 let pretty_print_program = pretty_print_gen pprint_prog
-let pretty_print_expr = pretty_print_gen (pprint_expr ~force_brace:true)
+let pretty_print_expr = pretty_print_gen (fun ff e -> pprint_expr e ff)
 let pretty_print_fn = pretty_print_gen pprint_fn
