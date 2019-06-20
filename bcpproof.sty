@@ -16,19 +16,19 @@
 \newenvironment{pf}{%
    \startofpf \trivlist
      \item[\hskip \labelsep{\prooflabelface
-                     Proof: 
+                     Proof:
                    }]%
    }{\endofpf\endtrivlist}
 \newenvironment{pfof}[1]{%
    \startofpf \trivlist
-     \item[\hskip \labelsep{\prooflabelface 
-                     Proof of #1: 
+     \item[\hskip \labelsep{\prooflabelface
+                     Proof of #1:
                    }]%
    }{\endofpf\endtrivlist}
 \newenvironment{pfsketch}{%
    \startofpf \trivlist
-     \item[\hskip \labelsep{\prooflabelface 
-                     Proof sketch: 
+     \item[\hskip \labelsep{\prooflabelface
+                     Proof sketch:
                    }]%
    }{\endofpf\endtrivlist}
 
@@ -41,14 +41,14 @@
 \newenvironment{pfnobox}{\begin{pf}}{\end{pf}}
 \newenvironment{pfofnobox}[1]{%
    \trivlist  \startofpf
-     \item[\hskip \labelsep{\bf 
-                     Proof of #1: 
+     \item[\hskip \labelsep{\bf
+                     Proof of #1:
                    }]%
    }{\endofpf\endtrivlist}
 \newenvironment{pfsketchnobox}{%
    \trivlist  \startofpf
-     \item[\hskip \labelsep{\bf 
-                     Proof sketch: 
+     \item[\hskip \labelsep{\bf
+                     Proof sketch:
                    }]%
    }{\endofpf\endtrivlist}
 
@@ -75,13 +75,13 @@
      }}}
 
 \def\indentedtext{\list{}{
-   \listparindent 1.5em 
+   \listparindent 1.5em
  % \itemindent\listparindent
  % \advance\leftmargin -1em
-   \advance\leftmargin .5em 
+   \advance\leftmargin .5em
  \itemindent 0em
  \parsep 0pt plus 1pt
- \partopsep 0pt 
+ \partopsep 0pt
  \topsep 0pt plus 1pt minus 1pt}\item[]}
 \let\endindentedtext=\endlist
 
@@ -89,11 +89,11 @@
 
 % \newenvironment{namedcase}[1]{%
 %         \smallbreak \pagebreak[3]
-%         \noindent #1 \nobreak 
+%         \noindent #1 \nobreak
 %         \list{}{\topsep 0pt plus 1pt
 %                 \partopsep 0pt
 %                 \parskip 0pt
-%                 \leftmargin 1.5pc  
+%                 \leftmargin 1.5pc
 %                 \@beginparpenalty\@M
 %                 }\item[]\clubpenalty\@M}%
 %         {\endlist}
@@ -106,6 +106,7 @@
         \refstepcounter{casecounter}%
         \begin{namedcase}{\casefont{Case \thecasecounter: } #1}%
         }{\end{namedcase}}
+
 
 \newenvironment{textcase}[1]{%
         \refstepcounter{casecounter}%
@@ -146,7 +147,7 @@
         }{\end{namedcase}}
 
 \newenvironment{rneqnsubcase}[2]{%
-        \begin{namedcase}{\casefont{Subcase \rn{#1}: } 
+        \begin{namedcase}{\casefont{Subcase \rn{#1}: }
            $\begin{bcpcasearray} #2 \end{bcpcasearray}$ }%
         }{\end{namedcase}}
 
@@ -155,12 +156,12 @@
         }{\end{namedcase}}
 
 \newenvironment{eqncase}[1]{%
-        \begin{namedcase}{\casefont{Case: } 
+        \begin{namedcase}{\casefont{Case: }
            $\begin{bcpcasearray} #1 \end{bcpcasearray}$ }\ignorespaces
         }{\end{namedcase}}
 
 \newenvironment{eqnsubcase}[1]{%
-        \begin{namedcase}{\casefont{Subcase: } 
+        \begin{namedcase}{\casefont{Subcase: }
            $\begin{bcpcasearray} #1 \end{bcpcasearray}$ }\ignorespaces
         }{\end{namedcase}}
 
@@ -179,7 +180,7 @@
         }{\end{namedcase}}
 
 \newenvironment{infrulecase}[3]{%
-        \begin{namedcase}{\casefont{Case \rn{#1}: } 
+        \begin{namedcase}{\casefont{Case \rn{#1}: }
                           ${\strut\displaystyle #2}
                            \over
                            {\strut\displaystyle #3}$}
@@ -191,7 +192,7 @@
         }{\end{namedcase}}
 
 \newenvironment{infrulepluscase}[4]{%
-        \begin{namedcase}{\casefont{Case #1: } 
+        \begin{namedcase}{\casefont{Case #1: }
                           ${\strut\displaystyle #2}
                            \over
                            {\strut\displaystyle #3}$
@@ -206,5 +207,3 @@
 \newenvironment{inductioncase}[1]{%
         \begin{namedcase}{\casefont{Induction step: } #1}%
         }{\end{namedcase}}
-
-

@@ -1,5 +1,5 @@
 metavar termvar, x, y, z ::=
-  {{ tex \mathit{[[termvar]]} }} {{ com  term variable  }} 
+  {{ tex \mathit{[[termvar]]} }} {{ com  term variable  }}
 
 metavar funvar, f, g ::=
   {{ tex \mathit{[[funvar]]} }} {{ com  function name }}
@@ -32,9 +32,9 @@ grammar
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
     | vsub e :: :: subst_mult {{ tex [[vsub]] [[e]] }}
     | ( e )               :: S :: paren
-	| CE [ x ]  :: M:: ret
-	| E [ e ] :: M:: ctxt
-	| e1 = e2 :: :: eq
+	  | CE [ x ]  :: M:: ret
+	  | E [ e ] :: M:: ctxt
+	  | e1 = e2 :: :: eq
 
   A {{ tex \alpha }} :: 'A_' ::=
 
@@ -43,7 +43,7 @@ grammar
 
   d :: d_ ::=
     | f |-> ( x1 , .. , xi ) e  ::  :: def
- 
+
   D :: D_ ::=
     | { d1 , ... , di }     ::   :: set
 
@@ -51,7 +51,7 @@ grammar
     | < D , e >            ::   :: prog    {{ tex \tuple{[[D]], [[e]]} }}
 
   r {{ tex r }} :: 'O_' ::=
-    | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }} 
+    | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }}
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
@@ -68,7 +68,7 @@ grammar
     | empty :: :: em {{ tex \emptyset }}
 	| H { a |-> Rv } :: :: update
 	| H { a <- Rv } :: :: destrUpdate
-	
+
   Rv :: Rv_ ::= {{ com runtime value forms }}
     | a :: :: addr
 	| R ( x ) :: :: var
@@ -117,7 +117,7 @@ grammar
   	| [ B / A ] :: M :: subst_ctxt
 	| csub1 csub2 :: M :: subst_concat
 
-  vsub {{ tex \sigma_{x} }} :: 'VS_' ::= 
+  vsub {{ tex \sigma_{x} }} :: 'VS_' ::=
     | [ x1 / x1' ] ,, [ xn / xn' ] :: :: vsub_seq {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] }}
 	| [ x1 / x2 ] :: :: sub {{ tex [ [[x1]] / [[x2]] ] }}
 
@@ -137,7 +137,7 @@ grammar
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
 	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
-	| Gst ( x ) :: :: st_lkp 
+	| Gst ( x ) :: :: st_lkp
 
   Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::=
     | empty :: :: em {{ tex \bullet }}
@@ -164,7 +164,7 @@ grammar
 
   G {{ tex \Gamma }} :: G_ ::=  {{ com type environment }}
     | empty               ::   :: em   {{ tex \bullet }}
-    | G , x : T           ::   :: vn 
+    | G , x : T           ::   :: vn
 	| G \ x :: :: sub {{ tex [[G]] \setminus [[x]] }}
 	| G , x1 : T1 ,, xn : Tn :: :: append {{ tex [[G]],[[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
 	| x1 : T1 ,, xn : Tn :: :: mk {{ tex [[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
@@ -200,7 +200,7 @@ grammar
 	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
 	| logical_frag1 /\ logical_frag2 :: :: conj
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
-	
+
   logic_judgment :: '' ::=
 	| |= logical_frag :: :: models
 	| G |= logical_frag :: :: tyenv_model
@@ -223,7 +223,7 @@ grammar
 
    omap :: 'OM_' ::=
     | { a |-> r } :: :: omap
-	
+
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{WF} [[T]] [[=>]] [[G]] }}
@@ -239,7 +239,7 @@ grammar
 	| |- P :: :: prog_typ
 	| Th |- D :: :: f_typing
 	| |- D C :: :: ctxt_type {{ tex \vdash_C^D [[ C ]] }}
-	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing 
+	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing
 	| Th | [] : T => G | B |-e CE : T' => G' :: :: ectxt_typing
 	| |- Th :: :: funenvWf
 	| |- FT :: :: ftWf
@@ -271,6 +271,7 @@ grammar
     | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
 	| r1 = r2 :: :: own_eq
+  | C1 != C2 :: :: conf_ineq
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
