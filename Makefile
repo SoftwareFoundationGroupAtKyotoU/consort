@@ -1,4 +1,4 @@
-.PHONY: all src/all
+.PHONY: all src/all clean
 
 OTTNAME=lang
 
@@ -14,3 +14,8 @@ main.pdf: main.tex
 
 src/all:
 	make -C src all
+
+clean:
+	make -C src/ clean
+	latexmk -f -C main.tex
+	@rm -rf main.tex

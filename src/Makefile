@@ -1,4 +1,4 @@
-.PHONY: all test
+.PHONY: all test clean
 
 all:
 	dune build test.exe
@@ -12,3 +12,6 @@ test: all stdlib/lin.intr
 stdlib/lin.intr: ./genLin.ml
 	dune exec ./genLin.exe > stdlib/lin.intr
 
+clean:
+	dune clean
+	rm -f stdlib/lin.intr
