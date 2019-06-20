@@ -5,6 +5,11 @@
 auto/
 *.fdb_latexmk
 *.fls
+*.dvi
+*.bbl
+*.blg
+*.out
+*.synctex.gz
 *~
 src/.merlin
 _build/
