@@ -42,6 +42,7 @@ rule read =
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
+  | '.' { DOT }
   | '=' { EQ }
   | ":=" { ASSIGN }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }

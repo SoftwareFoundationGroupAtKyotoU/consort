@@ -1,11 +1,13 @@
 open Format
 open Sexplib.Std
 
-type ref_init =
+type ref_contents =
   | RNone
   | RInt of int
   | RVar of string
 
+type ref_init = ref_contents list
+  
 type fn_call = {
   callee: string;
   arg_names: string list;
@@ -23,6 +25,7 @@ type lhs =
   | Mkref of ref_init
   | Deref of string
   | Call of fn_call
+  | PtrArith of string * int
   | Nondet
 
 type relation = {
@@ -61,6 +64,10 @@ let nl ff = pp_print_cut ff ()
 let newline = nl
 let semi ff = ps ";" ff; nl ff
 let null _ = ()
+let rec psep sep l ff = match l with
+  | [] -> ()
+  | [h] -> h ff
+  | h::t -> h ff; ps sep ff; psep sep t ff
 
 let pprint_fn_call { callee; arg_names; label } ff =
   fprintf ff "%s:%d(%s)" callee label @@ String.concat ", " arg_names
@@ -77,10 +84,13 @@ let pprint_imm_op = function
 let pprint_lhs = function
   | Var x -> pv x
   | Const i -> pi i
-  | Mkref v -> pl [
-                   ps "mkref ";
-                   pprint_rinit v
-                 ]
+  | Mkref il -> pl [
+                    ps "mkref (";
+                    psep ", " @@ List.map pprint_rinit il;
+                    ps ")"
+                  ]
+  | PtrArith (x,i) ->
+    (fun ff -> fprintf ff "%s ++ %d" x i)
   | Deref v -> pf "*%s" v
   | Call c -> pprint_fn_call c
   | Nondet -> ps "_"
