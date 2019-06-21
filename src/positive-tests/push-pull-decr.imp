@@ -1,0 +1,35 @@
+push(p,x)
+  p := x
+
+pull(p)
+  let x = *p in x
+
+{
+  let y = mkref _ in
+  let x = mkref _ in
+  {
+    push(y,0);
+    let b = _ in {
+    if b then {
+      x := pull(y);
+      x := *x + 1;
+      push(y,*x)
+    } else {
+      x := pull(y);
+      x := *x + 2;
+      push(y,*x)
+    };
+    let t = pull(y) in assert(0 < t);
+    if b then {
+	  x := pull(y);
+	  x := *x - 1;
+	  push(y, *x)
+    } else {
+	  x := pull(y);
+	  x := *x - 2;
+	  push(y, *x)
+	};
+	let t = pull(y) in assert(0 = t)
+	}
+  }
+}

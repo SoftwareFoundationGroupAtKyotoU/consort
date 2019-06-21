@@ -1,0 +1,11 @@
+f(p) p := 1
+
+{
+  let p = mkref _ in
+  let q = p in {
+    f(q);
+	alias(q = p);
+	assert(1 = *p);
+    assert(1 = *q)
+  }
+}

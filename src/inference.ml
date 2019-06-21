@@ -14,6 +14,7 @@ let loc_to_string =
   | LOutput f -> fn_loc f "Out"
   | LAlias i -> labeled_expr "alias" i
   | LLet i -> labeled_expr "let" i
+  | LCall i -> labeled_expr "call" i
 
 
 type pred_context = {
@@ -187,6 +188,9 @@ let predicate_vars kv =
       | _ -> acc
   ) [] kv |> List.rev
 
+let gamma_predicate_vars gamma =
+  SM.bindings gamma |> predicate_vars
+
 let remove_var ~loc v t ctxt =
   let curr_te = ctxt.gamma in
   let ctxt = { ctxt with gamma = SM.remove v ctxt.gamma } in
@@ -238,6 +242,9 @@ let strengthen_eq ~strengthen_type ~eq_type ~target =
         rel_op1 = Nu; rel_cond = "="; rel_op2 = IVar target
       }
   | `Ref _ -> strengthen_type
+
+let decompose_ref r =
+  (unsafe_get_ownership r,get_refinement r)
 
 let apply_matrix ((o1,r1),(o2,r2)) (out_o,out_r) ctxt =
   let mk_constraint oante ante =
@@ -415,13 +422,32 @@ and process_call ctxt c =
   let input_env = ctxt.gamma in
   let callee_type = SM.find c.callee ctxt.theta in
   let in_out_types = List.combine callee_type.arg_types callee_type.output_types in
+  let post_type_vars = gamma_predicate_vars ctxt.gamma in
   let updated_ctxt = List.fold_left2 (fun acc (k,arg_t) (in_t,out_t) ->
-      let pre_t_ctxt = constrain_var input_env acc k (inst ~target_var:k @@ get_refinement in_t)
-        |> constrain_owner arg_t in_t in
+      let constrain_in c t =
+        constrain_var input_env c k (inst ~target_var:k @@ get_refinement in_t)
+        |> constrain_owner t in_t
+      in
       if (post_update_type arg_t) then
-        update_type k (subst_type ~target_var:k out_t) pre_t_ctxt
+        (* split the argument type *)
+        let (ctxt',(formal,resid)) = split_type acc arg_t in
+        (* the (substituted) argument type *)
+        let output_type = subst_type ~target_var:k out_t in
+        let (ctxt'',fresh,p') =
+          (* constrain one "half" to be a subtype of the formal *)
+          constrain_in ctxt' formal
+          (* then generate a new fresh type to describe the output type *)
+          |> make_fresh_type ~target_var:k ~loc:(LCall c.label) ~fv:post_type_vars output_type
+        in
+        let o' = unsafe_get_ownership fresh in
+        (* constrain the components o' p' of fresh such that fresh = output_type + resid *)
+        apply_matrix
+          (decompose_ref resid, decompose_ref output_type)
+          (o',p') ctxt''
+        |> add_owner_con [ Split (o',(unsafe_get_ownership output_type, unsafe_get_ownership resid)) ]
+        |> update_type k fresh
       else
-        pre_t_ctxt
+        constrain_in acc arg_t
     ) ctxt arg_bindings in_out_types
   in
   let result = subst_type callee_type.result_type in
