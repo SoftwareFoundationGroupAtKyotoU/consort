@@ -6,7 +6,7 @@ type ref_contents =
   | RInt of int
   | RVar of string
 
-type ref_init = ref_contents list
+type ref_init = (string * ref_contents) list
   
 type fn_call = {
   callee: string;
@@ -23,9 +23,8 @@ type lhs =
   | Var of string
   | Const of int
   | Mkref of ref_init
-  | Deref of string
   | Call of fn_call
-  | PtrArith of string * int
+  | Field of string * string
   | Nondet
 
 type relation = {
@@ -38,7 +37,7 @@ type exp =
   | EVar of string
   | Cond of int * string * exp * exp
   | Seq of exp * exp
-  | Assign of string * imm_op * exp
+  | Assign of string * string * imm_op * exp
   | Let of int * string * lhs * exp
   | Alias of int * string * string * exp
   | Assert of relation * exp
@@ -81,17 +80,22 @@ let pprint_imm_op = function
   | IInt i -> pprint_int i
   | IVar v -> pv v
 
+let pprint_kv (k,v) =
+  pl [
+    pf "%s: " k;
+    pprint_rinit v
+  ]
+
 let pprint_lhs = function
   | Var x -> pv x
   | Const i -> pi i
   | Mkref il -> pl [
-                    ps "mkref (";
-                    psep ", " @@ List.map pprint_rinit il;
-                    ps ")"
+                    ps "mkref {";
+                    psep ", " @@ List.map pprint_kv il;
+                    ps "}"
                   ]
-  | PtrArith (x,i) ->
-    (fun ff -> fprintf ff "%s ++ %d" x i)
-  | Deref v -> pf "*%s" v
+  | Field (x,f) ->
+    (fun ff -> fprintf ff "%s.%s" x f)
   | Call c -> pprint_fn_call c
   | Nondet -> ps "_"
 
@@ -108,9 +112,9 @@ let rec pprint_expr e =
         (fun ff -> fprintf ff "let:%d %s = " id var);
         pprint_lhs lhs; ps " in ";
       ]) body
-  | Assign (x, y, e) ->
+  | Assign (x, f, y, e) ->
     pl [
-        pf "%s := " x; pprint_imm_op y;
+        (fun ff -> fprintf ff "%s.%s := " x f); pprint_imm_op y;
         semi;
         pprint_expr e
       ]

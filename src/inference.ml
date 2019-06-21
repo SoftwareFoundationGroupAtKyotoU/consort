@@ -278,14 +278,14 @@ let rec process_expr ctxt e =
   | Seq (e1, e2) ->
     let (ctxt', _) = process_expr ctxt e1 in
     process_expr ctxt' e2
-  | Assign (lhs,IVar rhs,cont) ->
+  | Assign (lhs,_,IVar rhs,cont) ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp rhs in
     let (_,o)  = lkp_ref lhs in
     let nxt = add_owner_con [Write o] ctxt'
     |> update_type rhs t1
     |> update_type lhs @@ strengthen_eq ~target:rhs ~eq_type:t2 ~strengthen_type:(ref_of t2 o) in
     process_expr nxt cont
-  | Assign (lhs,IInt i,cont) ->
+  | Assign (lhs,_,IInt i,cont) ->
     let (_,o) = lkp_ref lhs in
     let ctxt' =
       add_owner_con [Write o] ctxt
@@ -306,7 +306,7 @@ let rec process_expr ctxt e =
     | Call c ->
       let (ctxt,ret) = process_call ctxt c in
       add_type v ret ctxt
-    | Deref ptr ->
+    | Field (ptr,_) ->
       let (r,o) = lkp_ref ptr in
       let target_type = (deref r :> typ) in
       let (ctxt',(t1,t2)) = split_type ctxt target_type in
@@ -314,7 +314,8 @@ let rec process_expr ctxt e =
       |> update_type ptr @@ strengthen_eq ~strengthen_type:(ref_of t1 o) ~eq_type:t1 ~target:v
       |> add_type v t2
       |> add_owner_con [Live o]
-    | Mkref init ->
+    | Mkref init' ->
+      let init = List.hd init' |> snd in
       match init with
       | RNone -> add_type v (`Ref (`Int Top,OConst 1.0)) ctxt
       | RInt n -> add_type v (`Ref (`Int (ConstEq n),OConst 1.0)) ctxt
