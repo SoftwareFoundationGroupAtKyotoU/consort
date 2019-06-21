@@ -93,7 +93,7 @@ let ref_of t1 o =
   | `Int _ as t -> `Ref (t,o)
 
 let to_simple_type = function
-  | `Ref (`Int _,_) -> `IntRef
+  | `Ref (`Int _,_) -> `Ref (StringMap.singleton "_contents" `Int)
   | `Int _ -> `Int
 
 let to_simple_funenv = StringMap.map (fun { arg_types; result_type; _ } ->
