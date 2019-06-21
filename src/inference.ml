@@ -41,7 +41,6 @@ type tcon = {
   ante: refinement;
   conseq: refinement;
   owner_ante: oante list;
-  pc: (string * string) list
 }[@@deriving sexp]
 
 type ocon =
@@ -68,7 +67,6 @@ type context = {
   pred_arity: int IntMap.t;
   v_counter: int;
   pred_detail: (int,pred_context) Hashtbl.t;
-  path_condition: (string * string) list
 }
 
 module Result = struct
@@ -120,14 +118,13 @@ let with_type t ctxt = (ctxt, t)
 
 let deref r = r
 
-let add_constraint pc gamma ctxt ?(o=[]) ante conseq =
+let add_constraint gamma ctxt ?(o=[]) ante conseq =
   { ctxt with
     refinements = {
       env = gamma;
       ante;
       conseq;
       owner_ante = o;
-      pc
     }::ctxt.refinements
   }
 
@@ -137,11 +134,11 @@ let constrain_owner t1 t2 ctxt =
     add_owner_con [Eq (o1,o2)] ctxt
   | _ -> ctxt
 
-let constrain_type pc gamma t r ctxt =
-  add_constraint pc gamma ctxt (get_refinement t) r
+let constrain_type gamma t r ctxt =
+  add_constraint gamma ctxt (get_refinement t) r
 
-let constrain_var pc gamma ctxt var r =
-  constrain_type pc gamma (SM.find var gamma) r ctxt
+let constrain_var gamma ctxt var r =
+  constrain_type gamma (SM.find var gamma) r ctxt
 
 let alloc_pred ?target_var ~loc fv ctxt =
   let n = ctxt.v_counter in
@@ -166,17 +163,10 @@ let update_var_refinement var r ctxt =
   in
   update_type var new_type ctxt
 
-let subtype_fresh ~loc pc gamma ctxt v ~fv =
+let subtype_fresh ~loc gamma ctxt v ~fv =
   let (ctxt',fresh_pred) = make_fresh_pred ~target_var:v ~loc ~fv ctxt in
-  constrain_var pc gamma ctxt' v fresh_pred
+  constrain_var gamma ctxt' v fresh_pred
   |> update_var_refinement v fresh_pred
-
-let update_pc (new_pc : (string * string) list) ctxt =
-  { ctxt with path_condition = new_pc }
-
-let add_pc (p: string * string) ctxt =
-  let l : (string * string) list = ctxt.path_condition in
-  update_pc (p::l) ctxt
 
 let rec free_vars_contains v r =
   let imm_is_var i = match i with IInt _ -> false | IVar v' -> v = v' in
@@ -197,7 +187,7 @@ let predicate_vars kv =
       | _ -> acc
   ) [] kv |> List.rev
 
-let remove_var pc ~loc v t ctxt =
+let remove_var ~loc v t ctxt =
   let curr_te = ctxt.gamma in
   let ctxt = { ctxt with gamma = SM.remove v ctxt.gamma } in
   let bindings = SM.bindings ctxt.gamma in
@@ -206,11 +196,11 @@ let remove_var pc ~loc v t ctxt =
       get_refinement t |> free_vars_contains v
     ) bindings in
   let ctxt' = List.fold_left (fun ctxt' (k,_) ->
-    subtype_fresh pc ~loc curr_te ctxt' k ~fv:in_scope
+    subtype_fresh ~loc curr_te ctxt' k ~fv:in_scope
     ) ctxt need_update in
   if get_refinement t |> free_vars_contains v then
     let (ctxt'',r') = make_fresh_pred ~loc ~fv:in_scope ctxt' in
-    (constrain_type pc curr_te t r' ctxt'', update_refinement r' t)
+    (constrain_type curr_te t r' ctxt'', update_refinement r' t)
   else
     (ctxt', t)
 
@@ -256,7 +246,6 @@ let apply_matrix ((o1,r1),(o2,r2)) (out_o,out_r) ctxt =
       ante = ante;
       conseq = out_r;
       owner_ante = (out_o,`Gt,0.0)::oante;
-      pc = ctxt.path_condition
     }
   in
   let cons_s = [
@@ -297,9 +286,9 @@ let rec process_expr ctxt e =
     match lhs with
     | Var left_v ->
       let (ctxt',(t1,t2)) = split_type ctxt @@ lkp left_v in
-      update_type left_v t1 ctxt'
-      |> add_pc (v,left_v)
-      |> add_type v t2
+      ctxt'
+      |> update_type left_v @@ strengthen_eq ~strengthen_type:t1 ~eq_type:t2 ~target:v
+      |> add_type v @@ strengthen_eq ~strengthen_type:t2 ~eq_type:t1 ~target:left_v
     | Const n -> add_type v (`Int (ConstEq n)) ctxt
     | Nondet ->
       add_type v (`Int Top) ctxt
@@ -327,11 +316,11 @@ let rec process_expr ctxt e =
         |> add_type v t2'
     end in
     let (ctxt',ret_t) = process_expr bound_ctxt exp in
-    let (ctxt'',ret_t') = remove_var ctxt'.path_condition ~loc:(LLet i) v ret_t ctxt' in
-    (update_pc ctxt.path_condition ctxt'', ret_t')
+    let (ctxt'',ret_t') = remove_var ~loc:(LLet i) v ret_t ctxt' in
+    (ctxt'', ret_t')
   | Assert (relation,cont) ->
     cont
-    |> process_expr @@ add_constraint ctxt.path_condition ctxt.gamma ctxt Top (lift_relation relation)
+    |> process_expr @@ add_constraint ctxt.gamma ctxt Top (lift_relation relation)
   | Alias (id,v1,v2,cont) ->
     let loc = LAlias id in
     let (r1,o1) = lkp_ref v1 in
@@ -383,8 +372,8 @@ let rec process_expr ctxt e =
     let subsume_types ctxt ?target_var t1 t2 =
       let (ctxt',t,r') = make_fresh_type ~loc ?target_var ~fv:predicate_vars t1 ctxt in
       let c_up =
-        constrain_type ctxt1.path_condition ctxt1.gamma t1 r' ctxt'
-        |> constrain_type ctxt2.path_condition ctxt2.gamma t2 r'
+        constrain_type ctxt1.gamma t1 r' ctxt'
+        |> constrain_type ctxt2.gamma t2 r'
         |> constrain_owner t1 t
         |> constrain_owner t2 t
       in
@@ -427,7 +416,7 @@ and process_call ctxt c =
   let callee_type = SM.find c.callee ctxt.theta in
   let in_out_types = List.combine callee_type.arg_types callee_type.output_types in
   let updated_ctxt = List.fold_left2 (fun acc (k,arg_t) (in_t,out_t) ->
-      let pre_t_ctxt = constrain_var ctxt.path_condition input_env acc k (inst ~target_var:k @@ get_refinement in_t)
+      let pre_t_ctxt = constrain_var input_env acc k (inst ~target_var:k @@ get_refinement in_t)
         |> constrain_owner arg_t in_t in
       if (post_update_type arg_t) then
         update_type k (subst_type ~target_var:k out_t) pre_t_ctxt
@@ -462,11 +451,11 @@ let process_function_bind ctxt fdef =
   let out_typ_template = List.combine arg_names f_typ.output_types in
   let ctxt'' = List.fold_left (fun acc (v,out_ty) ->
       let out_pred = subst_refinement ~target:v out_ty in
-      constrain_var [] acc.gamma acc v out_pred
+      constrain_var acc.gamma acc v out_pred
       |> constrain_owner out_ty (SM.find v acc.gamma)
     ) ctxt' out_typ_template in
   let return_pred = subst_refinement f_typ.result_type in
-  constrain_type [] ctxt''.gamma t' return_pred ctxt''
+  constrain_type ctxt''.gamma t' return_pred ctxt''
 
 let process_function ctxt fdef =
   let c = process_function_bind ctxt fdef in
@@ -521,7 +510,6 @@ let infer ~print_pred ~intrinsics st (fns,main) =
     pred_arity = IntMap.empty;
     v_counter = 0;
     pred_detail = Hashtbl.create 10;
-    path_condition = []
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
