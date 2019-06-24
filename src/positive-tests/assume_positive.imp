@@ -1,4 +1,4 @@
-f(p) assert(0 < *p)
+f(p) if 1 < *p then () else f(p)
 
 {
   let x = _ in
@@ -7,9 +7,11 @@ f(p) assert(0 < *p)
     let q = p in {
        f(q);
 	   alias(q = p);
+	   assert(1 < *p);
+	   assert(1 < *q);
 	   assert(x = *p);
 	   assert(x = *q)
 	}
   else
-    assert(0 = 0)
+    ()
 }
