@@ -866,173 +866,151 @@ The followings are key lemmas:
 
 \paragraph{Proof of Lemma 2.}
 \begin{proof}
-
-The proof organized by cases on the last rule used in the typing derivation of $e$.
-To prove this, we need another lemmas for substitution and context:
-
-\begin{itemize}
-    \item[$-$] Case \rn{T-Var}: In this case, we have:
-
-    $[[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] $\newline
-    $[[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]$ \newline
-    $[[ G' = G [ x : T1 + T2] ]] \andalso [[En[e] = x]] \andalso [[En]] = [][[ /\]] e = x$\newline
-    $[[ Th | [] : T => G' | ll |-e En : Tn => Gn ]]$
-
-    From above, we can obtain that $[[ Th | [] : T => G' | ll |-e [] : T => G' ]]$.
-
-    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\$
+  The proof organized by cases on the last rule used in the typing derivation of $e$.
+  \begin{rneqncase}{T-Var}{
+    [[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] \\
+    [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]] \\
+    [[ G' = G [ x : T1 + T2] ]] \\
+    [[En[e] = x]] \andalso [[En]] = [][[ /\]] e = x \\
+    [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]]
+    }
+    From above, we can obtain that $[[ Th | [] : T => G' | ll |-e [] : T => G' ]]$.\newline
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] $\newline
     Suppose there is $[[<H, R, CE : CE': Es, x> --> D <H, R, CE': Es, CE[x]> ]]$ \newline
-    We will obtain $[[ Th | [] : Tn => Gn | lln-1 |-e CE' : Tn-1 => Gn-1 ]]$
-
-    Also using \textbf{lemma 6}, we will show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G' | B |- CE[x] : Tn => Gn]]$.
-
-    \item[$-$] Case \rn{T-Deref}:
-    In this case, we have:
-
-    $\vdash [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$ \newline
-    $[[r > 0]] \andalso [[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G']]$ \newline
-    $[[ B |- T => G' \ x ]]\andalso [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]$ \newline
-    $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r$ \newline
-    $[[G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]$
-
+    We will obtain $[[ Th | [] : Tn => Gn | lln-1 |-e CE' : Tn-1 => Gn-1 ]]$ \newline
+    Also using $\bf{\cref{lem:stack-well-typed}}$, we will show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G' | B |- CE[x] : Tn => Gn]]$.
+  \end{rneqncase}
+  \begin{rneqncase}{T-Deref}{
+    [[ |- D <H, R, Es, E[let x = *y in e]>]]\\
+    [[<H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]] \\
+    [[r > 0]] \andalso [[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G']] \\
+    [[ B |- T => G' \ x ]]\andalso [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]] \\
+    \tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r \\
+    [[G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]
+    }
     We want to show that $[[ Th | G'' | B |- [x'/x]e : T => G']]$ and $[[Cons(H,R { x' |-> v }, G')]]$ hold.
-    The first one is easy to obtain using the $\bf{Lemma (substitution).}$
-
-    It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$, we know that $[[Cons(H,R,G)]] = [[SAT(H,R,G)]]\land\forall h\in \textit{dom}(H).F(h)\leq 1$.
-
-    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land R(x')=H(R(y))$, which gives that $\phi(R(x'))$ holds.
-
+    The first one is easy to obtain using the  $\bf{\cref{lem:substitution}}.$
+    It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$, we know that $[[Cons(H,R,G)]] = [[SAT(H,R,G)]]\land\forall h\in \textit{dom}(H).F(h)\leq 1$.\newline
+    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land R(x')=H(R(y))$, which gives that $\phi(R(x'))$ holds.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. First,it's obvious that $\textit{dom}(\tenv'')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
-    Secondly, we focus on prove that $F_0=F_1$, which defines as below:
-
-    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))\newline$
-    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))\newline$
-    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(y)\}}\mathbf{own}(H,R(z),\tenv(z))\newline$
-    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x')\}}\mathbf{own}(H',R'(z),\tenv'(z))$
-
+    Secondly, we focus on prove that $F_0=F_1$, which defines as below:\newline
+    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))$\newline
+    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))$\newline
+    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(y)\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x')\}}\mathbf{own}(H',R'(z),\tenv'(z))$\newline
     Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))=\mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))$,
     we know that $x$ is an integer, so $\mathbf{own}(H', R'(x'), \tenv'(x'))$ should be $\emptyset$, and $\mathbf{own}(H, R(y), \tenv(y))=\mathbf{own}(H', R'(y), \tenv'(y))$.
     we can finally prove $F_0=F_1$.
-
-    \item[$-$] Case where last rule is \rn{T-Let}: Similar to the case for \rn{T-Deref}.
-
-    \item[$-$] Case \rn{T-LetInt}: In this case, we have:
-
-    $\vdash [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> nn }, Es, E[ [x'/x]e]> ]]$ \newline
-    $[[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso [[ Cons(H, R, G) ]]\newline$
-    $[[ G''= G ]]\{x' \mapsto \{x' = n\}\}$
-
+  \end{rneqncase}
+  \begin{rneqncase}{T-Let} {\text{Similar to the case for \rn{T-Deref}.}}
+  \end{rneqncase}
+  \begin{rneqncase}{T-LetInt}{
+    [[ |- D <H, R, Es, E[let x = nn in e]>]]\\
+    [[ <H, R, Es, E[let x = nn in e]> --> D <H, R { x' |-> nn }, Es, E[ [x'/x]e]> ]] \\
+    [[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso [[ Cons(H, R, G) ]]\\
+    [[ G''= G ]]\{x' \mapsto \{x' = n\}\}
+    }
     We want to show that $[[ Th | G'' | B |- [x'/x]e : T => G']]$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$ hold.
-    The first one is easy to obtain using the $\bf{Lemma (substitution).}$
+    The first one is easy to obtain using the $\bf{\cref{lem:substitution}}.$
     Also, the $[[ Cons(H, R { x' |-> nn }, G'') ]]$ is clear.
-
-    %From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces R(y)\in \textit{dom}(H)\land H(R(y))\in \mathbb{Z}\land \phi(H(R(y))\land R(x')=H(R(y))$, which gives that $\phi(R(x'))$ holds.
-
-    %Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
-    %The first condition can be given as $\textit{dom}(\tenv')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
-    %The second condition follows from:
-
-    %$\sum_{z\in\textit{dom}(\tenv')}\mathbf{own}(H',R'(z),\tenv'(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,n,\tau)$.
-
-    \item[$-$] Case \rn{T-If}: In this case, we only show the case for $[[ R(x) = 0 ]]$; the case for $R(x) \neq 0$ is similar. If $R(x) = 0$, we have:
-
-    $\vdash [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]] $\newline
-    $[[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]$ \newline
-    $[[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]]$
-
+  \end{rneqncase}
+  \begin{rneqncase}{T-If}{
+    [[ |- D <H, R, Es, E[ifz x then e1 else e2]>]]\\
+    [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]\\
+    [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]\\
+    [[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]]
+    }
+    In this case, we only show the case for $[[ R(x) = 0 ]]$; the case for $R(x) \neq 0$ is similar.
     We know $[[ G'' = G[x <- {y:int | ph /\ y = 0 }] ]]$,want to show that $[[ Cons(H, R, G'') ]]$ hold.
     $[[Cons(H,R,G'')]] = [[SAT(H,R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
     From $[[Cons(H,R,G)]] \produces [[ SAT(H,R,G) ]] \produces x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land \varphi(R(x))\land R(x)=0$, which gives that $\varphi(R(x))\cup\{0\}$ holds.
-
-    %The first condition follows immediately. The second condition follows from:
-
-    %$\mathbf{own}(H,0,\tenv'(x)) = \mathbf{own}(H,0,\tenv(x))$.
-
-    \item[$-$] Case \rn{T-MkRef}: In this case, we have:
-
-    $\vdash [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]\newline$
-    $[[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \andalso
-     [[ B |- T => G' \ x ]] \newline$
-    $[[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]\newline$
-    $[[ G'' = G[y <- T1],x : (T2 /\ x x = y) ref 1 ]]\andalso \tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^1$
-
+  \end{rneqncase}
+  \begin{rneqncase}{T-MkRef}{
+    [[ |- D <H, R, Es, E[let x = mkref y in e]>]]\\
+    [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]\\
+    [[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \andalso
+     [[ B |- T => G' \ x ]] \\
+    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]\\
+    [[ G'' = G[y <- T1],x : (T2 /\ x x = y) ref 1 ]]\andalso \tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^1
+    }
     We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x x' = y) ref 1 | B |- [x'/x]e : T => G']]$ and $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]]$ hold.
-    The first one is easy to obtain using the $\bf{Lemma (substitution).}$\newline
+    The first one is easy to obtain using the $\bf{\cref{lem:substitution}}.$\newline
     $[[Cons(H { a |-> R(y) }, R { x' |-> a },G[y <- T1])]] = [[SAT(H { a |-> R(y) }, R { x' |-> a },G[y <- T1])]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H, R ,G)]] \produces [[ SAT(H, R , G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land x=y \produces \phi(H(R(y)) \land x' = H(R(y))$, which gives that $\phi(x')$ holds.
-
+    From $[[Cons(H, R ,G)]] \produces [[ SAT(H, R , G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land H(R(x))=R(y) \produces \phi(R(y))$, which gives that $\phi(R(y))$ holds.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     The first condition can be given as $\textit{dom}(\tenv'')=\textit{dom}(\tenv)\cup\{x'\}=\textit{dom}(R)\cup\{x\}=\textit{dom}(R')$.
-    The second condition follows from:
-
+    The second condition follows from:\newline
     $\sum_{z\in\textit{dom}(\tenv'')}\mathbf{own}(H',R'(z),\tenv''(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto R(y)\}$.
-
-    \item[$-$] Case \rn{T-Assign}: In this case, we have:
-
-    $\vdash [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y)}, R, Es, E[e]> ]]\andalso a = R(x)$\newline
-    $[[ Th | G[y <- T1][x <- T2 ref r] | B |- e : T => G']]$ \newline
-    $[[ Th | G[y: T1 + T2][x : T' ref 1] | B |- x := y; e : T => G']]$ \newline
-    $[[ G'' = G[y <- T1][x <- T2 ref r] ]] \andalso \tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^r$
-
-    We want to show that $[[Cons(H { a |-> R(y) }, R ,G'')]]$ hold.
-    $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]] = [[SAT(H { a |-> R(y) }, R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H , R,G)]] \produces [[ SAT(H, R,G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land R(x)=R(y) \produces \phi(H(R(y)) \land a = H(R(y))$, which gives that $\phi(a)$ holds.
-
+  \end{rneqncase}
+  \begin{rneqncase}{T-Assign}{
+    [[ |- D <H, R, Es, E[x:=y;e]>]]\\
+    [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y)}, R, Es, E[e]> ]]\andalso a = R(x)\\
+    [[ Th | G[y <- T1][x <- T2 ref r] | B |- e : T => G']]\\
+    [[ Th | G[y: T1 + T2][x : T' ref 1] | B |- x := y; e : T => G']]\\
+    [[ G'' = G[y <- T1][x <- T2 ref r] ]] \andalso \tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^r
+    }
+    We want to show that $[[Cons(H { a <- R(y) }, R ,G'')]]$ hold.
+    $[[Cons(H { a <- R(y) }, R,G'')]] = [[SAT(H { a <- R(y) }, R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
+    From $[[Cons(H , R,G)]] \produces [[ SAT(H, R,G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land H(R(x))=R(y) \produces \phi(R(y))$, which gives that $\phi(R(y))$ holds.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     The first condition can be given as $\textit{dom}(\tenv'')=\textit{dom}(\tenv)=\textit{dom}(R)=\textit{dom}(R')$.
-    Secondly, we focus on prove that $F_0=F_1$, which defines as below:
-
-    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))\newline$
-    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))\newline$
-    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(y),R(x)\}}\mathbf{own}(H,R(z),\tenv(z))\newline$
-    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x)\}}\mathbf{own}(H',R'(z),\tenv'(z))$
-
-    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{R(x)\mapsto 1\}+\mathbf{own}(H, R(y), \tau) = \{R(x)\mapsto 1\}+\mathbf{own}(H, R(y), \tau_1) + \mathbf{own}(H, R(y), \tau_2) = \mathbf{own}(H', R'(y), \tenv'(y))+ \mathbf{own}(H', R'(x), \tenv'(x))$.
+    Secondly, we focus on prove that $F_0=F_1$, which defines as below:\newline
+    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))$\newline
+    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv'(y)) + \mathbf{own}(H', R'(x'), \tenv'(x'))$\newline
+    $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{R(y),R(x)\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv')\setminus\{R(y),R(x)\}}\mathbf{own}(H',R'(z),\tenv'(z))$\newline
+    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{R(x)\mapsto R(y)\}+\mathbf{own}(H, R(y), \tau) = \{R(x)\mapsto R(y)\}+\mathbf{own}(H, R(y), \tau_1) + \mathbf{own}(H, R(y), \tau_2) = \mathbf{own}(H', R'(y), \tenv'(y))+ \mathbf{own}(H', R'(x), \tenv'(x))$.
     we can finally prove $F_0=F_1$.
-
-    \item[$-$] Case \rn{T-Alias}: In this case, we have:
-
-    $\vdash [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]$ \newline
-    $[[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]]$ \newline
-    $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]$ \newline
-    $[[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G']]$ \newline
-    $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$
-
+  \end{rneqncase}
+  \begin{rneqncase}{T-Alias}{
+    [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
+    [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]\\
+    [[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]]\\
+    [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]\\
+    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G']]\\
+    [[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]
+    }
     It remains to show $[[Cons(H, R, G'')]]$.
     $[[Cons(H, R, G'')]] = [[SAT(H, R, G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
-    From $[[Cons(H , R,G)]] \produces [[ SAT(H, R,G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land \tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} \land  \tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$, which gives that $[[SAT(H, R, G'')]]$ holds.
-
+    From $[[Cons(H , R,G)]] \produces [[ SAT(H, R,G) ]] \produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land \tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} \land  \tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$, which gives that $[[SAT(H, R, G'')]]$ holds.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
-    The first condition follows immediately. The second condition follows from:
-
+    The first condition follows immediately. The second condition follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
-
-    which follows immediately from the conditions $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$ and $R(x) = y$.
-
-    \item[$-$] Case \rn{T-Call}: In this case, we need the following three lemmas to help:
-    $\bf{Lemma (1).}$
-    $\tenv_1\vdash E[e] \COL \tau \produces \tenv_2 \iff \tenv_1\vdash e \COL \tau_0 \produces \tenv'_1\land \tenv_1,[]\COL\tau_0\produces \tenv'_1\vdash E\COL\tau \produces \tenv_2.\newline$
-    $\bf{Lemma (2).}$
-    $\funenv\mid\tenv\mid\beta\vdash e\COL\tau\produces \tenv' \land \beta\notin\fv(\funenv)\implies \funenv\mid[\overrightarrow{l}/\beta]\tenv\mid\overrightarrow{l}\vdash e\COL[\overrightarrow{l}/\beta]\tau\produces [\overrightarrow{l}/\beta]\tenv'.\newline$
-    $\bf{Lemma (3).}$
-    $\funenv\mid\tenv,[]\COL[l\COL\overrightarrow{l}/\beta]\tau_f\produces \tenv_e \mid \overrightarrow{l}\vdash E[\LET x=[]^l \IN e]\COL\tau_{n+1}\produces\tenv_{n+1}$.
-
-    We want to show that $\vdash\langle H,R,\overrightarrow{E},E[\LET x=f^l(\tilde{y})\IN e]\rangle\ra \langle H,R,E[\LET x=[]^l\IN e]\COL E,e_f[\tilde{y}/\tilde{x}]\rangle$.
-
-    $\funenv(f)=\forall\beta\langle\tilde{x}\COL\tilde{\tau}\rangle\ra\langle\tilde{x}\COL\tilde{\tau'}\mid\tau\rangle\andalso \forall x\in \tilde{y}\andalso \tenv(y_i)=\tilde{\tau_i} [l_i\overrightarrow{l}/\beta]\newline$
-    Then, we can obtain $\funenv\mid\tenv\{x\mapsto [l\COL\overrightarrow{l}/\beta]\tau,y_i\mapsto [l\COL\overrightarrow{l}/\beta]\overrightarrow{\tau'_i}\}\mid\overrightarrow{l}\vdash e\COL [l\COL\overrightarrow{l}/\beta]\tau\produces \tenv_e\newline$
-    After that, $\funenv\mid \tilde{x}\COL\tilde{\tau}\mid\beta\vdash e_f\COL\tau\produces\tilde{x}\COL\tilde{\tau'}$ implies that $\funenv\mid \tilde{y}\COL [l\COL\overrightarrow{l}/\beta]\tilde{\tau}\mid[l\COL\overrightarrow{l}/\beta]\beta\vdash [\overrightarrow{y}/\overrightarrow{x}]e_f\COL[l\COL\overrightarrow{l}/\beta]\tau\produces\tilde{y}\COL[l\COL\overrightarrow{l}/\beta]\tilde{\tau'}$ using $\bf{Lemma (2).}$
-\end{itemize}
+    which follows immediately from the conditions $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$ and $H(R(y)) = x$.
+  \end{rneqncase}
+  \begin{rneqncase}{T-Assert}{
+    [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ R |= ph ]]\\
+    [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]\\
+    [[ Th | G | B |- e : T => G' ]]\\
+    [[ Th | G | B |- assert(ph); e : T => G']]\\
+    }
+    $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv'=\tenv, H'=H, R'=R$.)
+  \end{rneqncase}
+  \begin{rneqncase}{T-Call}{
+    [[ f |-> (x1,..,xn) e in D ]]\\
+    [[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]\\
+    [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]\\
+    [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
+    [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
+    [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \\
+    [[ B |- T' => G' \ x]]
+    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]\\
+    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]\\
+    }
+    we need the following lemmas to help: $\bf{\cref{lem:ctxt-sub-subtype}}$, $\bf{\cref{lem:ctxt-subst-well-typed}}.$\newline
+    Then, we can obtain $\funenv\mid\tenv\{x\mapsto [l\COL\overrightarrow{l}/\beta]\tau,y_i\mapsto [l\COL\overrightarrow{l}/\beta]\overrightarrow{\tau'_i}\}\mid\overrightarrow{l}\vdash e\COL [l\COL\overrightarrow{l}/\beta]\tau\produces \tenv_e$\newline
+    After that, $\funenv\mid \tilde{x}\COL\tilde{\tau}\mid\beta\vdash e_f\COL\tau\produces\tilde{x}\COL\tilde{\tau'}$ implies that $\funenv\mid \tilde{y}\COL [l\COL\overrightarrow{l}/\beta]\tilde{\tau}\mid[l\COL\overrightarrow{l}/\beta]\beta\vdash [\overrightarrow{y}/\overrightarrow{x}]e_f\COL[l\COL\overrightarrow{l}/\beta]\tau\produces\tilde{y}\COL[l\COL\overrightarrow{l}/\beta]\tilde{\tau'}$ using $\bf{\cref{lem:ctxt-subst-well-typed}}.$\newline
+    $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv'=\tenv, H'=H, R'=R$).
+  \end{rneqncase}
 \end{proof}
 
 
 \begin{lemma}
   \label{lem:substitution}
-   [[ Th | G, x : T' | B |- e : T |- v : T' => Th | G | B |- e[v/x] : T ]]
+  $\funenv \mid \tenv, x \COL \tau' \mid \beta \vdash e \COL \tau \land \vdash v \COL \tau' \produces \funenv \mid \tenv \mid \beta \vdash e\{v/x\} \COL \tau$.
 \end{lemma}
-$\funenv \mid \tenv, x \COL \tau' \mid \beta \vdash e \COL \tau \land \vdash v \COL \tau' \produces \funenv \mid \tenv \mid \beta \vdash e\{v/x\} \COL \tau$. \newline
-$\bf{Lemma (context).}$
-$\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \produces \vdash E[e'] \COL \tau$.
+
+
 
 
 
@@ -1112,7 +1090,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
   \end{rneqncase}
   \begin{rneqncase}{T-LetInt}{
       [[e = let x = nn in e']] & [[ Th | G, x:{x:int|x = nn} | A |- e' : T => G'' ]] \\
-      [[ G' = G'' \ x ]] & 
+      [[ G' = G'' \ x ]] &
     }
     The induction hypothesis gives
     \[
@@ -1137,7 +1115,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
     \]
     As $[[G1' = [ll/A]G1]]$ the induction hypothesis gives the required typing judgment.
     That $[[ll |- [ll/A]T => [ll/A]G'' ]]$ follows from \cref{lem:ctxt-sub-wf} as in the \rn{T-LetInt}
-    case. 
+    case.
   \end{rneqncase}
 
   \begin{rncase}{T-If,T-Seq}
@@ -1161,7 +1139,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
       [[  Th | G3 | ll |- e : [ll/A]T => [ll/A]G2 ]]
     \]
     where $[[ G3 = ([ll/A]G)[yi <- csub' vsub Ti'], x: csub' vsub T']]$.
-    
+
     We first observe that $[[ G3 = [ll/A]G1 ]]$ (this follows from the
     equivalence of $[[ [ll/A][l:A/A'] ]]$ and
     $[[ [l:ll / A'] ]]$) whence the induction hypothesis
@@ -1189,7 +1167,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
     }
     By the induction hypothesis we have that: $[[ Th | [ll/A]G1 | ll |- e : [ll/A]T1 => [ll/A]G2 ]]$.
     If we show that $[[ [ll/A]G <: [ll/A]G1 ]]$ and $[[ [ll/A]G2, x : [ll/A]T1 <: [ll/A]G', x : [ll/A]T ]]$
-    ($[[ x not in G ]]$) 
+    ($[[ x not in G ]]$)
     we will have the required result. To show the first requirement, for any $[[ x in G ]]$ we have that
     $[[ [ll/A]G |- [ll/A]G(x) <: [ll/A]G1(x) ]]$ from \cref{lem:ctxt-sub-subtype} whence we have $[[ [ll/A]G <: [ll/A]G1 ]]$.
     To show the latter requirement, we observe that $[[ [ll/A]G2, x : [ll/A]T1 ]]$ is equivalent to $[[ [ll/A](G2, x : T1) ]]$ and
@@ -1220,6 +1198,7 @@ $\vdash E[e] \COL \tau \land \vdash e \COL \tau' \land \vdash e' \COL \tau' \pro
 \end{proof}
 
 \begin{lemma}
+  \label{lem:stack-well-typed}
   For any $[[G0]]$ such that $[[Th | G0 | B |- x: T => G]]$ and $[[ Th | [] : T => G | B |-e E[let y = [] l in e] : T' => G' ]]$ then
   $[[ Th | G0 | B |- E[let y = [] l in e][x] : T' => G' ]]$
 \end{lemma}
