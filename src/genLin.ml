@@ -14,7 +14,8 @@ let nrel id = (id,id)
 let package = (
   StringMap.of_bindings [
     binop "+" "plus-+-out";
-    binop "<" "rel-<-out"
+    binop "<" "rel-<-out";
+    binop "-" "minus---out"
   ],
   StringMap.of_bindings [
     nrel "<";

@@ -80,7 +80,7 @@ module Make(S: STRATEGY) = struct
       plift @@ string_of_float f
     ]
 
-  let pp_constraint ~interp ff { env; ante; conseq; owner_ante; pc } =
+  let pp_constraint ~interp ff { env; ante; conseq; owner_ante } =
     let gamma = SM.bindings env in
     let context_vars = init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
     let free_vars = "(NU Int)":: context_vars @ (gamma |> List.map (fun (v,_) -> Printf.sprintf "(%s Int)" v)) in
@@ -89,13 +89,8 @@ module Make(S: STRATEGY) = struct
         | `Int r -> pp_refine ~interp r v
         | _ -> (fun _ -> ())
       ) gamma in
-    let denote_path = List.map (fun (v1,v2) ->
-        match SM.find v1 env,SM.find v2 env with
-        | `Int _,`Int _ -> psl ["="; v1; v2]
-        | _ -> (fun _ -> ())
-      ) pc in
     let oante = List.map pp_owner_ante owner_ante in
-    let e_assum = denote_path @ oante @ denote_gamma in
+    let e_assum = oante @ denote_gamma in
     pg "assert" [
       pg "forall" [
         print_string_list free_vars;
