@@ -867,7 +867,7 @@ The followings are key lemmas:
 \paragraph{Proof of Lemma 2.}
 \begin{proof}
   The proof organized by cases on the last rule used in the typing derivation of $e$.
-  \begin{rneqncase}{T-Var}{
+  \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] \\
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]] \\
     [[ G' = G [ x : T1 + T2] ]] \\
@@ -880,7 +880,7 @@ The followings are key lemmas:
     We will obtain $[[ Th | [] : Tn => Gn | lln-1 |-e CE' : Tn-1 => Gn-1 ]]$ \newline
     Also using $\bf{\cref{lem:stack-well-typed}}$, we will show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G' | B |- CE[x] : Tn => Gn]]$.
   \end{rneqncase}
-  \begin{rneqncase}{T-Deref}{
+  \begin{rneqncase}{R-Deref}{
     [[ |- D <H, R, Es, E[let x = *y in e]>]]\\
     [[<H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]] \\
     [[r > 0]] \andalso [[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G']] \\
@@ -902,7 +902,7 @@ The followings are key lemmas:
     we know that $x$ is an integer, so $\mathbf{own}(H', R'(x'), \tenv'(x'))$ should be $\emptyset$, and $\mathbf{own}(H, R(y), \tenv(y))=\mathbf{own}(H', R'(y), \tenv'(y))$.
     we can finally prove $F_0=F_1$.
   \end{rneqncase}
-  \begin{rneqncase}{T-Let} {\text{Similar to the case for \rn{T-Deref}.}}
+  \begin{rneqncase}{R-Let} {\text{Similar to the case for \rn{R-Deref}.}}
   \end{rneqncase}
   \begin{rneqncase}{T-LetInt}{
     [[ |- D <H, R, Es, E[let x = nn in e]>]]\\
@@ -914,7 +914,7 @@ The followings are key lemmas:
     The first one is easy to obtain using the $\bf{\cref{lem:substitution}}.$
     Also, the $[[ Cons(H, R { x' |-> nn }, G'') ]]$ is clear.
   \end{rneqncase}
-  \begin{rneqncase}{T-If}{
+  \begin{rneqncase}{R-If}{
     [[ |- D <H, R, Es, E[ifz x then e1 else e2]>]]\\
     [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]\\
     [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]\\
@@ -925,7 +925,7 @@ The followings are key lemmas:
     $[[Cons(H,R,G'')]] = [[SAT(H,R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
     From $[[Cons(H,R,G)]] \produces [[ SAT(H,R,G) ]] \produces x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land \varphi(R(x))\land R(x)=0$, which gives that $\varphi(R(x))\cup\{0\}$ holds.
   \end{rneqncase}
-  \begin{rneqncase}{T-MkRef}{
+  \begin{rneqncase}{R-MkRef}{
     [[ |- D <H, R, Es, E[let x = mkref y in e]>]]\\
     [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]\\
     [[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \andalso
@@ -942,7 +942,7 @@ The followings are key lemmas:
     The second condition follows from:\newline
     $\sum_{z\in\textit{dom}(\tenv'')}\mathbf{own}(H',R'(z),\tenv''(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto R(y)\}$.
   \end{rneqncase}
-  \begin{rneqncase}{T-Assign}{
+  \begin{rneqncase}{R-Assign}{
     [[ |- D <H, R, Es, E[x:=y;e]>]]\\
     [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y)}, R, Es, E[e]> ]]\andalso a = R(x)\\
     [[ Th | G[y <- T1][x <- T2 ref r] | B |- e : T => G']]\\
@@ -962,7 +962,7 @@ The followings are key lemmas:
     Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{R(x)\mapsto R(y)\}+\mathbf{own}(H, R(y), \tau) = \{R(x)\mapsto R(y)\}+\mathbf{own}(H, R(y), \tau_1) + \mathbf{own}(H, R(y), \tau_2) = \mathbf{own}(H', R'(y), \tenv'(y))+ \mathbf{own}(H', R'(x), \tenv'(x))$.
     we can finally prove $F_0=F_1$.
   \end{rneqncase}
-  \begin{rneqncase}{T-Alias}{
+  \begin{rneqncase}{R-Alias}{
     [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
     [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]\\
     [[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]]\\
@@ -978,7 +978,7 @@ The followings are key lemmas:
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
     which follows immediately from the conditions $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$ and $H(R(y)) = x$.
   \end{rneqncase}
-  \begin{rneqncase}{T-Assert}{
+  \begin{rneqncase}{R-Assert}{
     [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ R |= ph ]]\\
     [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]\\
     [[ Th | G | B |- e : T => G' ]]\\
@@ -986,7 +986,7 @@ The followings are key lemmas:
     }
     $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv'=\tenv, H'=H, R'=R$.)
   \end{rneqncase}
-  \begin{rneqncase}{T-Call}{
+  \begin{rneqncase}{R-Call}{
     [[ f |-> (x1,..,xn) e in D ]]\\
     [[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]\\
     [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]\\
@@ -1399,70 +1399,70 @@ The followings are key lemmas:
 %edit by shiki
 \begin{figure}[t]
   \leavevmode
-  \infrule[]{
+  \infrule[R-Var]{
   }{
     [[ <H, R, CE : Es, E[x]> --> D <H, R, Es, CE[x]> ]]
    }
-   \infrule[]{
+   \infrule[R-Seq]{
    }{
      [[ <H, R, CE : Es, E[x; e]> --> D <H, R, Es, E[e]> ]]
   }
-  \infrule[]{
+  \infrule[R-Let]{
     [[ x' fresh in R ]]
   }{
     [[<H, R, Es, E[let x = y in e]> --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]
   }
-  \infrule[]{
+  \infrule[R-LetInt]{
     [[ x' fresh in R ]]
   }{
     [[ <H,R,Es,E[let x = nn in e]> --> D <H,R { x' |-> nn},Es, E[ [x'/x]e]>]]
   }
-  \infrule[]{
+  \infrule[R-If]{
     [[ R(x) = 0 ]]
   }{
     [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]
   }
-  \infrule[]{
+  \infrule[R-If]{
     [[ R(x) != 0 ]]
   }{
     [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e2]> ]]
   }
-  \infrule[]{
+  \infrule[R-MkRef]{
     [[ a fresh in H ]] \andalso [[ x' fresh in R ]]
   }{
     [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]
   }
-  \infrule[]{
+  \infrule[R-Deref]{
     [[ R(y) = a ]] \andalso [[ H(a) = v ]] \andalso [[ x' fresh in R ]]
   }{
     [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]
   }
-  \infrule[]{
+  \infrule[R-Call]{
     [[ f |-> (x1,..,xn) e in D ]]
   }{
     [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]
   }
-  \infrule[]{
+  \infrule[R-Assign]{
     [[ R(x) = a ]] \andalso [[ a in H ]]
   }{
     [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y) }, R, Es, E[e]> ]]
   }
-  \infrule[]{
+  \infrule[R-Alias]{
     R(x) = R(y)
   }{
     [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]
   }
-  \infrule[]{
+  \infrule[R-AliasFail]{
     [[R(x) != R(y)]]
   }{
     [[ <H, R, Es, E[alias(x = y); e]> --> D AliasFail ]]
   }
-  \infrule[]{
+  \infrule[R-Assert]{
     [[ R |= ph ]]
   }{
     [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]
   }
-  \infrule[]{
+  \infrule[R-AssertFail]{
     [[ R !|= ph ]]
   }{
     [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]
