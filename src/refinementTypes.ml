@@ -8,6 +8,7 @@ type pred_loc =
   | LOutput of string
   | LAlias of int
   | LLet of int
+  | LCall of int
 
 
 type rel_op =
