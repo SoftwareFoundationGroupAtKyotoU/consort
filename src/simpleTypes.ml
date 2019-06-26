@@ -1,7 +1,8 @@
 type r_typ = [
   | `Int
-  | `Ref of record_t
-] and record_t = (r_typ StringMap.t)
+  | `Tuple of r_typ list
+  | `Ref of r_typ
+]
 
 type funtyp = {
   arg_types: r_typ list;
@@ -11,7 +12,8 @@ type funtyp = {
 
 let rec type_to_string = function
   | `Int -> "int"
-  | `Ref t -> Printf.sprintf "{%s} ref" @@ String.concat ", " @@ List.map (fun (k,t) -> Printf.sprintf "%s: %s" k @@ type_to_string t) @@ StringMap.bindings t
+  | `Ref t -> Printf.sprintf "%s ref" @@ type_to_string t
+  | `Tuple tl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map type_to_string tl
 
 let fntype_to_string { arg_types; ret_type} =
   Printf.sprintf "(%s) -> %s" 
