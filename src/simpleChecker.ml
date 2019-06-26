@@ -93,17 +93,10 @@ module SS = Set.Make(String)
 
 type funenv = funtyp_v SM.t
 type tyenv = typ SM.t
-(*
-type record_types = {
-  rec_of_field: (string,int) Hashtbl.t;
-  fields_of_rec: (int,SS.t) Hashtbl.t;
-  type_of_field: (string,int) Hashtbl.t
-}
-*)
+    
 type fn_ctxt = {
   uf: UnionFind.t;
   resolv: (int,typ) Hashtbl.t;
-  (*  record_t: record_types;*)
   fenv: funenv;
   tyenv: tyenv
 }
@@ -272,34 +265,12 @@ let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
 let typecheck_prog _intr_types (fns,body) =
-  (*let rec_ctxt = List.fold_left (fun ctxt {body; _ } ->
-      compute_f body ctxt
-    ) SM.empty fns
-    |> compute_f body
-  in*)
   let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
         Hashtbl.add resolv parent (Hashtbl.find resolv child)
       else ()
     ) in
-(*  let record_t =
-    let rec_of_field = Hashtbl.create 10 in
-    let fields_of_rec = Hashtbl.create 10 in
-    let type_of_field = Hashtbl.create 10 in
-    let i = ref 0 in
-    SM.iter (fun _ ss ->
-      let r_type = !i in
-      incr i;
-      SS.iter (fun field ->
-        let v_type = UnionFind.new_node uf in
-        Hashtbl.add rec_of_field field r_type;
-        Hashtbl.add type_of_field field v_type;
-      ) ss;
-      Hashtbl.add fields_of_rec r_type ss
-    ) rec_ctxt;
-    { rec_of_field; fields_of_rec; type_of_field }
-   in*)
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
     let _lift_type t =

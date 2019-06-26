@@ -37,8 +37,6 @@
 %type <SurfaceAst.op> op
 %type <SurfaceAst.op list> arg_list
 
-%type <SurfaceAst.lhs SurfaceAst.r_init> ref_op
-
 %start <SurfaceAst.prog> prog
 
 %%
@@ -64,7 +62,6 @@ let expr :=
   | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
   | x = ID; ASSIGN; y = lhs; <Assign>
-(*  | b = ID; DOT; f = ID; ASSIGN; y = lhs; <FAssign>*)
   | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
   | ASSERT; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
@@ -89,8 +86,7 @@ let op :=
   | UNDERSCORE; { `Nondet }
 
 let ref_op :=
-  | o = lhs; { (o :> lhs r_init) }
-(*  | RBRACE; ~ = separated_list(SEMI, separated_pair(ID, COLON, ref_op)); LBRACE; <`Record>*)
+  | o = lhs; { (o :> lhs) }
 
 let cond_expr :=
   | ~ = ID; <`Var>
@@ -103,7 +99,6 @@ let lhs :=
   | o = op; { (o :> lhs) }
   | MKREF; ~ = ref_op; <`Mkref>
   | ~ = fn_call; <`Call>
-(*  | b = op; DOT; ~ = ID; <`Field>*)
   | LPAREN; l = separated_list(COMMA, lhs); RPAREN; <`Tuple>
 
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
