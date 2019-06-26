@@ -70,15 +70,18 @@ end = struct
 
   let new_node uf = make_and_add uf
 end
-type c_typ = [
+type 'a c_typ = [
   | `Int
-  | `Ref of int
+  | `Ref of 'a
+  | `Tuple of 'a list
 ]
 
 type typ = [
-  c_typ
-  | `Var of int
+  typ c_typ
+| `Var of int
 ]
+
+type c_inst = typ c_typ
 
 type funtyp_v = {
   arg_types_v: int list;
@@ -90,17 +93,17 @@ module SS = Set.Make(String)
 
 type funenv = funtyp_v SM.t
 type tyenv = typ SM.t
-
+(*
 type record_types = {
   rec_of_field: (string,int) Hashtbl.t;
   fields_of_rec: (int,SS.t) Hashtbl.t;
   type_of_field: (string,int) Hashtbl.t
 }
-
+*)
 type fn_ctxt = {
   uf: UnionFind.t;
   resolv: (int,typ) Hashtbl.t;
-  record_t: record_types;
+  (*  record_t: record_types;*)
   fenv: funenv;
   tyenv: tyenv
 }
@@ -117,6 +120,12 @@ let init_tyenv fenv { name; args; _ } =
   List.fold_left2 (fun acc name var ->
     StringMap.add name (`Var var) acc) StringMap.empty args arg_types_v
 
+let add_var v t ctxt =
+  if StringMap.mem v ctxt.tyenv then
+    failwith "variable shadowing"
+  else
+    { ctxt with tyenv = StringMap.add v t ctxt.tyenv }
+
 let resolve_type uf resolv r =
   match r with
   | `Var v ->
@@ -126,7 +135,7 @@ let resolve_type uf resolv r =
     else (`Var id)
   | _ -> r
 
-let force_resolve _t_record uf resolv t : r_typ =
+let force_resolve uf resolv t : r_typ =
   match resolve_type uf resolv t with
   | `Int -> `Int
   | _ -> failwith "Unconstrained value"
@@ -134,18 +143,17 @@ let force_resolve _t_record uf resolv t : r_typ =
 let resolve ctxt (r: typ) =
   resolve_type ctxt.uf ctxt.resolv r
 
-let unify ctxt t1 t2 =
+let rec unify ctxt t1 t2 =
   let ty_assign v ty = Hashtbl.add ctxt.resolv v ty in
   match (resolve ctxt t1, resolve ctxt t2) with
   | (`Var v1, `Var v2) -> UnionFind.union ctxt.uf v1 v2
-  | (`Var v1, (#c_typ as ct))
-  | (#c_typ as ct, `Var v1) ->
+  | (`Var v1, (#c_inst as ct))
+  | (#c_inst as ct, `Var v1) ->
     ty_assign v1 ct
-  | (`Ref r1,`Ref r2) ->
-    if r1 <> r2 then
-      failwith "ill-typed"
-    else
-      ()
+  | (`Ref t1',`Ref t2') ->
+    unify ctxt t1' t2'
+  | (`Tuple tl1, `Tuple tl2) ->
+    List.iter2 (unify ctxt) tl1 tl2
   | (t1,t2) when t1 = t2 -> ()
   | _ -> failwith "Ill-typed"
 
@@ -172,17 +180,12 @@ let rec process_expr ctxt e =
     | IInt _ -> ();
     | IVar v -> unify_var v `Int
   in
-  let rec_of_field f =
-    `Ref (Hashtbl.find ctxt.record_t.rec_of_field f)
+  let unify_ref v t =
+    unify ctxt (lkp v) @@ `Ref t
   in
-  let field_type f =
-    `Var (Hashtbl.find ctxt.record_t.type_of_field f)
-  in
-  let unify_record v f =
-    unify_var v @@ rec_of_field f
-  in
-  let unify_field f t =
-    unify ctxt t @@ field_type f
+  let fresh_var () =
+    let t = UnionFind.new_node ctxt.uf in
+    `Var t
   in
   match e with
   | EVar v -> lkp v
@@ -194,108 +197,93 @@ let rec process_expr ctxt e =
   | Seq (e1,e2) ->
     process_expr ctxt e1 |> ignore;
     process_expr ctxt e2
-  | Assign (v1,f,IInt _,e) ->
-    unify_record v1 f;
-    unify_field f `Int;
+  | Assign (v1,IInt _,e) ->
+    unify_ref v1 `Int;
     process_expr ctxt e
-  | Assign (v1,f,IVar v2,e) ->
-    unify_record v1 f;
-    unify_field f @@ lkp v2;
+  | Assign (v1,IVar v2,e) ->
+    unify_ref v1 @@ lkp v2;
     process_expr ctxt e
-  | Alias (_,v1, v2,e) ->
-    unify ctxt (lkp v1) (lkp v2);
+  | Alias (_,v, ap,e) ->
+    let rec find ap =
+      match ap with
+      | AVar v -> lkp v
+      | ADeref ap ->
+        let t = find ap in
+        let tv = UnionFind.new_node ctxt.uf in
+        unify ctxt t (`Ref (`Var tv));
+        (`Var tv)
+      | AProj (ap,ind) ->
+        let t = find ap |> resolve ctxt in
+        begin
+        match t with
+        | `Tuple tl when ind < List.length tl -> List.nth tl ind
+        | _ -> failwith "Could not deduce length of tuple in alias"
+        end
+    in
+    unify ctxt (lkp v) (find ap);
     process_expr ctxt e
   | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1;
     unify_imm rop2;
     process_expr ctxt e
-  | Let (_id,x,lhs,expr) ->
+  | Let (_id,p,lhs,expr) ->
     let v_type =
       match lhs with
       | Var v -> lkp v
       | Const _ -> `Int
-      | Mkref l ->
-        List.iter (fun (k,i) ->
-            match i with
-            | RNone
-            | RInt _ -> unify_field k `Int
-            | RVar v -> unify_field k @@ lkp v
-          ) l;
-        rec_of_field @@ fst @@ List.hd l
-      | Field (v,f) ->
-        unify_record v f;
-        field_type f
+      | Mkref i -> begin
+          match i with
+          | RNone
+          | RInt _ -> `Ref `Int
+          | RVar v -> `Ref (lkp v)
+        end
       | Call c -> process_call lkp ctxt c
       | Nondet -> `Int
+      | Deref p ->
+        let tv = fresh_var () in
+        unify ctxt (`Ref tv) @@ lkp p;
+        tv
+      | Tuple tl ->
+        `Tuple (List.map (function
+          | RInt _
+          | RNone -> `Int
+          | RVar v -> lkp v
+          ) tl)
     in
-    process_expr { ctxt with tyenv = StringMap.add x v_type ctxt.tyenv } expr
+    let rec unify_patt acc p t =
+      match p with
+      | PVar v -> add_var v t acc
+      | PNone -> acc
+      | PTuple pl ->
+        let (t_list,acc'') = List.fold_right (fun p (t_list,acc') ->
+            let t_var = fresh_var () in
+            (t_var::t_list,unify_patt acc' p t_var)
+          ) pl ([], acc) in
+        unify ctxt t (`Tuple t_list);
+        acc''
+    in
+    let ctxt' = unify_patt ctxt p v_type in
+    process_expr ctxt' expr
 
-let constrain_fn uf fenv resolv record_t ({ name; body; _ } as fn) =
+let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
-  let ctxt =  { uf; fenv; tyenv; resolv; record_t } in
+  let ctxt =  { uf; fenv; tyenv; resolv } in
   let out_type = process_expr ctxt body in
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
-let add_fields s ctxt =
-  let found = SS.fold (fun f stat ->
-    let new_cont =
-      match SM.mem f ctxt,stat with
-      | f,None -> Some f
-      | f,Some f' when f <> f' -> failwith "Inconsistent fields"
-      | f,Some f' when f = f' -> stat
-      | _ -> assert false
-    in
-    new_cont
-    ) s None in
-  match found with
-  | None -> failwith "empty record"
-  | Some true when not (SM.mem (SS.min_elt s) ctxt) ->
-    failwith "Inconsisent fields"
-  | Some true ->
-    let curr_set = ctxt |> SM.find @@ SS.min_elt s in
-    if SS.equal curr_set s then
-      ctxt
-    else
-      failwith "Inconsistent fields"
-  | Some false -> SM.add (SS.min_elt s) s ctxt
-
-let process_rec kv_list ctxt =
-  let (ss: SS.t) = List.map fst kv_list |> SS.of_list in
-  add_fields ss ctxt
-
-let rec compute_f e ctxt =
-  match e with
-  | EVar _ -> ctxt
-    
-  | Seq(e1,e2)
-  | Cond (_, _, e1, e2) ->
-    ctxt
-    |> compute_f e1
-    |> compute_f e2
-
-  | Let (_,_,Mkref r,e) ->
-    process_rec r ctxt
-    |> compute_f e
-  | Let (_,_,_,e) ->
-    compute_f e ctxt
-  | Alias (_,_,_,e)
-  | Assign (_,_,_,e)
-  | Assert (_,e) ->
-    compute_f e ctxt
-
 let typecheck_prog _intr_types (fns,body) =
-  let rec_ctxt = List.fold_left (fun ctxt {body; _ } ->
+  (*let rec_ctxt = List.fold_left (fun ctxt {body; _ } ->
       compute_f body ctxt
     ) SM.empty fns
     |> compute_f body
-  in
+  in*)
   let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
         Hashtbl.add resolv parent (Hashtbl.find resolv child)
       else ()
     ) in
-  let record_t =
+(*  let record_t =
     let rec_of_field = Hashtbl.create 10 in
     let fields_of_rec = Hashtbl.create 10 in
     let type_of_field = Hashtbl.create 10 in
@@ -311,7 +299,7 @@ let typecheck_prog _intr_types (fns,body) =
       Hashtbl.add fields_of_rec r_type ss
     ) rec_ctxt;
     { rec_of_field; fields_of_rec; type_of_field }
-  in
+   in*)
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
     let _lift_type t =
@@ -327,11 +315,11 @@ let typecheck_prog _intr_types (fns,body) =
        ) intr_types fenv_*)
     fenv_
   in
-  List.iter (constrain_fn uf fenv resolv record_t) fns;
+  List.iter (constrain_fn uf fenv resolv) fns;
   process_expr {
-    resolv; uf; fenv; tyenv = StringMap.empty; record_t
+    resolv; uf; fenv; tyenv = StringMap.empty;
   } body |> ignore;
-  let get_soln = force_resolve record_t uf resolv in
+  let get_soln = force_resolve uf resolv in
   List.fold_left (fun acc { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
     let arg_types = List.map get_soln @@ List.map (fun x -> `Var x) arg_types_v in

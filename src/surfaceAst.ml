@@ -1,23 +1,23 @@
+module A = Ast
+
+type 'a r_init = 'a
+
 type op = [
   | `OVar of string
   | `OInt of int
   | `ODeref of string
   | `Nondet
-  | `Field of op * string
-]
-
-type r_init = [
-  op
-| `Record of (string * r_init) list
-]
-
+(*  | `Field of op * string*)
+] 
 type call = string * int * (op list)
+
 
 type lhs = [
   | op
-  | `Mkref of r_init
+  | `Mkref of lhs r_init
   | `BinOp of op * string * op
   | `Call of call
+  | `Tuple of lhs list
 ]
 
 type relation = {
@@ -26,23 +26,23 @@ type relation = {
   op2: op
 }
 
+type patt = A.patt
+
 type exp =
   | Unit
   | Var of string
   | Int of int
   | Cond of int * [`Var of string | `BinOp of op * string * op] * exp * exp
   | Assign of string * lhs
-  | FAssign of string * string * lhs
-  | Let of int * string * lhs * exp
-  | Alias of int * string * string
+  (*  | FAssign of string * string * lhs*)
+  | Let of int * patt * lhs * exp
+  | Alias of int * string * A.ap
   | Assert of relation
   | Call of call
   | Seq of exp * exp
 
 type fn = string * string list * exp
 type prog = fn list * exp
-
-module A = Ast
 
 module SS = Set.Make(String)
 module SM = StringMap
@@ -54,6 +54,64 @@ let tvar = Printf.sprintf "__t%d"
 let alloc_temp count =
   let v = tvar count in
   (count + 1),v
+
+(* let add_fields s ctxt =
+ *   let found = SS.fold (fun f stat ->
+ *     let new_cont =
+ *       match SM.mem f ctxt,stat with
+ *       | f,None -> Some f
+ *       | f,Some f' when f <> f' -> failwith "Inconsistent fields"
+ *       | f,Some f' when f = f' -> stat
+ *       | _ -> assert false
+ *     in
+ *     new_cont
+ *     ) s None in
+ *   match found with
+ *   | None -> failwith "empty record"
+ *   | Some true when not (SM.mem (SS.min_elt s) ctxt) ->
+ *     failwith "Inconsisent fields"
+ *   | Some true ->
+ *     let curr_set = ctxt |> SM.find @@ SS.min_elt s in
+ *     if SS.equal curr_set s then
+ *       ctxt
+ *     else
+ *       failwith "Inconsistent fields"
+ *   | Some false -> SM.add (SS.min_elt s) s ctxt
+ * 
+ * let rec process_rec kv_list ctxt =
+ *   let (ss,ctxt') = List.fold_left (fun (ss,c) (k,v) ->
+ *     let ss' = SS.add k ss in
+ *     let c' = match v with
+ *       | `Record r -> process_rec r c
+ *       | _ -> c
+ *     in
+ *     (ss',c')
+ *     ) (SS.empty,ctxt) kv_list in
+ *   add_fields ss ctxt'
+ * 
+ * let rec compute_f e ctxt =
+ *   match e with
+ *   | Seq(e1,e2)
+ *   | Cond (_, _, e1, e2) ->
+ *     ctxt
+ *     |> compute_f e1
+ *     |> compute_f e2
+ * 
+ *   | Let (_,_,`Mkref (`Record r),e) ->
+ *     process_rec r ctxt
+ *     |> compute_f e
+ *   | Let (_,_,_,e) ->
+ *     compute_f e ctxt
+ *       
+ *   | Alias _
+ *   | Assign _
+ *   (\*  | FAssign _*\)
+ *   | Call _
+ *   | Var _
+ *   | Int _
+ *   | Unit
+ *   | Assert _ ->
+ *     ctxt *)
 
 let rec simplify_expr ?next count e =
   let get_continuation count = match next with
@@ -77,12 +135,12 @@ let rec simplify_expr ?next count e =
     A.Seq (simplify_expr count e1,simplify_expr count e2)
   | Assign (v,l) ->
     lift_to_imm count l (fun c i ->
-        A.Assign (v,"_contents",i,get_continuation c)
+        A.Assign (v,i,get_continuation c)
       )
-  | FAssign (b,f,lhs) ->
-    lift_to_imm count lhs (fun c i ->
-        A.Assign (b,f,i,get_continuation c)
-      )
+  (*    | FAssign (b,f,lhs) ->
+        lift_to_imm count lhs (fun c i ->
+            A.Assign (b,f,i,get_continuation c)
+          )*)
   | Let (i,v,lhs,body) ->
     lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->
         let body' = simplify_expr c body in
@@ -103,13 +161,13 @@ let rec simplify_expr ?next count e =
 and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
   match lhs with
-  | `Field (b,f_name) ->
+(*  | `Field (b,f_name) ->
     lift_to_var ?ctxt count (b :> lhs) (fun c b_var ->
         rest c @@ A.Field (b_var,f_name)
-      )
+      )*)
   | `OVar v -> k @@ A.Var v
   | `OInt i -> k @@ A.Const i
-  | `ODeref v -> k @@ (A.Field (v,"_contents"))
+  | `ODeref v -> k @@ A.Deref v
   | `Nondet -> k @@ A.Nondet
   | `Call c ->
     lift_to_call count c (fun c' l -> rest c' @@ A.Call l)
@@ -119,36 +177,35 @@ and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
           rest c' (A.Call { A.callee = op_name; arg_names = [i1;i2]; label = LabelManager.register ?ctxt () })
         )
       )
-  | `Mkref (`Record kv_list) ->
-    lift_to_tuple ?ctxt count kv_list (fun c' t_list ->
-        rest c' @@ A.Mkref t_list
+  | `Mkref lhs ->
+    lift_to_rinit ?ctxt count lhs (fun c' r ->
+        rest c' @@ A.Mkref r
       )
-  | `Mkref (#op as o) ->
-    lift_to_rinit ?ctxt count (o :> r_init) (fun c' r ->
-        rest c' @@ A.Mkref [ ("_contents", r) ]
-      )
-and lift_to_rinit ?ctxt count (r: r_init) rest =
+  | `Tuple tl -> lift_to_tuple ?ctxt count tl (fun c' tlist ->
+                     rest c' @@ A.Tuple tlist
+                   )
+and lift_to_rinit ?ctxt count (r: lhs) rest =
   let k = rest count in
   match r with
-  | `Record _ -> bind_in ?ctxt count (`Mkref r) (fun c' var ->
+(*  | `Record _ -> bind_in ?ctxt count (`Mkref r) (fun c' var ->
                      rest c' @@ A.RVar var
-                   )
+                   )*)
   | `Nondet -> k A.RNone
   | `OVar v -> k @@ A.RVar v
   | `OInt i -> k @@ A.RInt i
-  | #op as o ->
-    bind_in ?ctxt count (o :> lhs) (fun c' var ->
+  | #lhs as l ->
+    bind_in ?ctxt count l (fun c' var ->
         rest c' @@ A.RVar var
       )
-and lift_to_tuple ?ctxt count kv_list rest =
+and lift_to_tuple ?ctxt count l rest =
   let rec t_loop c acc kl =
     match kl with
-    | [] -> rest c acc
-    | (k,v)::l -> lift_to_rinit ?ctxt c v (fun c' lifted ->
-                      t_loop c' ((k,lifted)::acc) l
+    | [] -> rest c @@ List.rev acc
+    | v::l -> lift_to_rinit ?ctxt c v (fun c' lifted ->
+                      t_loop c' (lifted::acc) l
                     )
   in
-  t_loop count [] kv_list
+  t_loop count [] l
 and lift_to_var ?ctxt c (h: lhs) rest =
   match h with
   | `OVar v -> rest c v
@@ -178,7 +235,7 @@ and bind_in ?ctxt count lhs k =
   lift_to_lhs ?ctxt count lhs (fun c' lhs' ->
     let (c'',tvar) = alloc_temp c' in
     let to_inst = k c'' tvar in
-    A.Let (LabelManager.register ?ctxt (),tvar,lhs',to_inst)
+    A.Let (LabelManager.register ?ctxt (),A.PVar tvar,lhs',to_inst)
   )
 
 let simplify (fns,body) =

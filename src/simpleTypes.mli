@@ -1,7 +1,8 @@
 type r_typ = [
   | `Int
-  | `Ref of record_t
-] and record_t = (r_typ StringMap.t)
+  | `Tuple of r_typ list
+  | `Ref of r_typ
+]
 
 type funtyp = {
   arg_types: r_typ list;
