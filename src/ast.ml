@@ -38,10 +38,10 @@ type relation = {
   rop2: imm_op
 }
 
-type ap =
+type src_ap =
   | AVar of string
-  | ADeref of ap
-  | AProj of ap * int
+  | AProj of string * int
+  | ADeref of string
 
 type exp =
   | EVar of string
@@ -49,7 +49,7 @@ type exp =
   | Seq of exp * exp
   | Assign of string * imm_op * exp
   | Let of int * patt * lhs * exp
-  | Alias of int * string * ap * exp
+  | Alias of int * string * src_ap * exp
   | Assert of relation * exp
 
 type fn = { name: string; args: (string list); body: exp }
@@ -125,10 +125,10 @@ let rec pp_patt = function
                     ps ")"
                   ]
 
-let rec pp_ap = function
+let pp_ap = function
   | AVar v -> pv v
-  | ADeref ap -> pl [ ps "*"; pp_ap ap ]
-  | AProj (ap,ind) -> pl [ pp_ap ap; ps "."; pi ind ]
+  | ADeref v -> pl [ ps "*"; pv v ]
+  | AProj (v,ind) -> pl [ pv v; ps "."; pi ind ]
 
 let rec pp_expr e =
   match e with
