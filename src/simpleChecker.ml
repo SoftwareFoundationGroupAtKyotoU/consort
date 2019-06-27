@@ -128,9 +128,11 @@ let resolve_type uf resolv r =
     else (`Var id)
   | _ -> r
 
-let force_resolve uf resolv t : r_typ =
+let rec force_resolve uf resolv t : r_typ =
   match resolve_type uf resolv t with
   | `Int -> `Int
+  | `Ref t' -> `Ref (force_resolve uf resolv t')
+  | `Tuple tl -> `Tuple (List.map (force_resolve uf resolv) tl)
   | _ -> failwith "Unconstrained value"
 
 let resolve ctxt (r: typ) =
@@ -159,8 +161,13 @@ let process_call lkp ctxt { callee; arg_names; _ } =
     | _::t -> find_dup t
   in
   if find_dup sorted_args then
-    failwith "Duplicate variable names detected"; 
-  let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
+    failwith "Duplicate variable names detected";
+  let { arg_types_v; ret_type_v } =
+    try
+      StringMap.find callee ctxt.fenv
+    with
+      Not_found -> failwith @@ "No function definition for " ^ callee
+  in
   List.iter2 (fun a_var t_var ->
     unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
   `Var ret_type_v
@@ -197,16 +204,16 @@ let rec process_expr ctxt e =
     unify_ref v1 @@ lkp v2;
     process_expr ctxt e
   | Alias (_,v, ap,e) ->
-    let rec find ap =
+    let find ap =
       match ap with
       | AVar v -> lkp v
-      | ADeref ap ->
-        let t = find ap in
+      | ADeref v ->
+        let t = lkp v in
         let tv = UnionFind.new_node ctxt.uf in
         unify ctxt t (`Ref (`Var tv));
         (`Var tv)
-      | AProj (ap,ind) ->
-        let t = find ap |> resolve ctxt in
+      | AProj (v,ind) ->
+        let t = lkp v |> resolve ctxt in
         begin
         match t with
         | `Tuple tl when ind < List.length tl -> List.nth tl ind
@@ -264,7 +271,7 @@ let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let out_type = process_expr ctxt body in
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
-let typecheck_prog _intr_types (fns,body) =
+let typecheck_prog intr_types (fns,body) =
   let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
@@ -273,18 +280,17 @@ let typecheck_prog _intr_types (fns,body) =
     ) in
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
-    let _lift_type t =
-      let n_id = UnionFind.new_node uf in
-      Hashtbl.add resolv n_id t;
-      n_id
+    let lift_const t =
+      let t_id = UnionFind.new_node uf in
+      Hashtbl.add resolv t_id (t : r_typ  :> typ);
+      t_id
     in
-    (*StringMap.fold (fun k { arg_types; ret_type } ->
+    StringMap.fold (fun k { arg_types; ret_type } ->
       StringMap.add k {
-        arg_types_v = List.map lift_type arg_types;
-        ret_type_v = lift_type ret_type;
+        arg_types_v = List.map lift_const arg_types;
+        ret_type_v = lift_const ret_type;
       }
-       ) intr_types fenv_*)
-    fenv_
+    ) intr_types fenv_
   in
   List.iter (constrain_fn uf fenv resolv) fns;
   process_expr {

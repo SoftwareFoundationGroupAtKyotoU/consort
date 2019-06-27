@@ -70,12 +70,11 @@ let expr :=
 
 let ap :=
   | ~ = ID; <Ast.AVar>
-  | STAR; ~ = ap; <Ast.ADeref>
-  | v = ID; DOT; ind = INT; { Ast.AProj (Ast.AVar v, ind) }
-  | LPAREN; ~ = ap; RPAREN; DOT; ~ = INT; <Ast.AProj>
+  | STAR; ~ = ID; <Ast.ADeref>
+  | v = ID; DOT; ind = INT; { Ast.AProj (v, ind) }
 
 let patt :=
-  | RPAREN; plist = separated_list(COMMA, patt); LPAREN; <Ast.PTuple>
+  | LPAREN; plist = separated_list(COMMA, patt); RPAREN; <Ast.PTuple>
   | UNDERSCORE; { Ast.PNone }
   | ~ = ID; <Ast.PVar>
 
@@ -92,7 +91,13 @@ let cond_expr :=
   | ~ = ID; <`Var>
   | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string]) }
 
-let bin_op := o1 = op; op_name = OPERATOR; o2 = op; <`BinOp>
+let bin_op :=
+  | o1 = op; op_name = operator; o2 = op; <`BinOp>
+
+let operator :=
+  | ~ = OPERATOR; <>
+  | EQ; { "=" }
+  | STAR; { "*" }
 
 let lhs :=
   | b = bin_op; { (b :> lhs) }

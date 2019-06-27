@@ -32,7 +32,7 @@ type exp =
   | Cond of int * [`Var of string | `BinOp of op * string * op] * exp * exp
   | Assign of string * lhs
   | Let of int * patt * lhs * exp
-  | Alias of int * string * A.ap
+  | Alias of int * string * A.src_ap
   | Assert of relation
   | Call of call
   | Seq of exp * exp
