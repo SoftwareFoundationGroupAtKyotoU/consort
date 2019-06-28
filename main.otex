@@ -892,8 +892,8 @@ The followings are key lemmas:
     The first one is easy to obtain using the  $\bf{\cref{lem:substitution}}.$
     It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$, we know that $[[Cons(H,R,G)]] = [[SAT(H,R,G)]]\land\forall h\in \textit{dom}(H).F(h)\leq 1$.\newline
     From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]=\forall y\in \textit{dom}(\tenv). y\in \textit{dom}(R)\land H(R(y))\in \mathbb{Z}\land [R;H(R(y))/n]\phi$, here $\tenv(y)=\{n\COL\TINT\mid\phi\}\TREF^r, [[r > 0]]$, which means
-    that the refinement $\phi$ in the previous environment holds for $R$ and also $H(R(y))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
-    Since it's to dereference, we have $R(x')=H(R(y))$, we can say that the refinement $\phi$ in the previous environment also holds for $R(x')$.\newline
+    that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $H(R(y))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
+    Since it's to dereference, we have $R(x')=H(R(y))$, we can say that the refinement predicates $\phi$ in the previous environment also holds for $R(x')$.\newline
     $[y \hookleftarrow (\tau_1 \land_y y = x') \TREF^r]$ shows that $y$ should satisfy not only the refinement of $\tau_1$ but also the contents of $y$ equals to $x'$ in the post environment $\tenv''$,
     also we know that the refinement in $\tau_1$ will be the same as $\tau_1+\tau_2$, it's obvious correct.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. We focus on prove that $F_0=F_1$, which defines as below:\newline
@@ -928,8 +928,8 @@ The followings are key lemmas:
     We know $[[ G'' = G[x <- {y:int | ph /\ y = 0 }] ]]$,want to show that $[[ Cons(H, R, G'') ]]$ hold.
     $[[Cons(H,R,G'')]] = [[SAT(H,R,G'')]] \wedge [[a in H]].[[F(a)]] \leq 1.$\newline
     From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=\forall x\in \textit{dom}(\tenv). x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land [R;R(x)/n]\phi$, here $\tenv(x)=\{n\COL\TINT\mid\phi\}$, which means
-    that the refinement $\phi$ in the previous environment holds for $R$ and also $R(x)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
-    From precondition of $\rn{R-IfTrue}$, we have $R(x)=0$, we know that the refinement $\phi$ holds for $R(x)=0$.
+    that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $R(x)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
+    From precondition of $\rn{R-IfTrue}$, we have $R(x)=0$, we know that the refinement predicates $\phi$ holds for $R(x)=0$.
   \end{rneqncase}
   \begin{rneqncase}{R-IfFalse}\newline
     Similar to the case for $\rn{R-IfTrue}$.
@@ -944,8 +944,8 @@ The followings are key lemmas:
     We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 | B |- [x'/x]e : T => G']]$ and $[[Cons(H { a |-> R(y) }, R { x' |-> a },G'')]]$ hold, we write as $[[Cons(H', R',G'')]]$.
     The first one is easy to obtain using the $\bf{\cref{lem:substitution}}.$\newline
     From $[[Cons(H, R ,G)]] \produces [[SAT(H,R,G)]]=\forall y\in \textit{dom}(\tenv). y\in \textit{dom}(R)\land R(y)\in \mathbb{Z}\land [R;R(y)/n]\phi$, here $\tenv(y)=\{n\COL\TINT\mid\phi\}$, which means
-    that the refinement $\phi$ in the previous environment holds for $R$ and also $R(y)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
-    We know that $H'(R'(x'))=R(y)$, here $H', R'$ represent the post condition after transtion, we can obtain that the refinement $\phi$ holds for $H'(R'(x'))$.\newline
+    that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $R(y)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
+    We know that $H'(R'(x'))=R(y)$, here $H', R'$ represent the post condition after transtion, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(x'))$.\newline
     $[x' \hookleftarrow (\tau_2 \land_{x'} x' = y) \TREF^1]$ shows that $x'$ should satisfy not only $\tau_2$ but also the contents of $x'$ equals to $y$ in the post environment $\tenv''$,
     also we know that the refinement in $\tau_2$ will be the same as $\tau_1+\tau_2$, it's obvious correct.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
@@ -961,8 +961,8 @@ The followings are key lemmas:
     We give $[[ G'' = G[x <- T1][y <- T2 ref r /\ y y = T1 x] ]]$.\newline
     We want to show that $[[Cons(H { a <- R(y) }, R ,G'')]]$ hold, we write as $[[Cons(H', R',G'')]]$.
     From $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]=\forall x\in \textit{dom}(\tenv). x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land [R;R(x)/n]\phi$, here $\tenv(x)=\{n\COL\TINT\mid\phi\}$, which means
-    that the refinement $\phi$ in the previous environment holds for $R$ and also $R(x)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
-    From the definition of Assign, we have $R(x)=H'(R'(y))$, here $H', R'$ represent the post condition after transtion, we can obtain that the refinement $\phi$ holds for $H'(R'(y))$.\newline
+    that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $R(x)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
+    From the definition of Assign, we have $R(x)=H'(R'(y))$, here $H', R'$ represent the post condition after transtion, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(y))$.\newline
     $[y \hookleftarrow (\tau_2 \TREF^r\land_y y =_{\tau_1} x]$ shows that $y$ should satisfy not only $\tau_2\TREF^r$ but also the contents of $y$ equals to $x$ in the post environment $\tenv''$,
     also we know that the refinement in $\tau_1$ will be the same as $\tau_1+\tau_2$, it's obvious correct.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$, we focus on prove that $F_0=F_1$, which defines as below:\newline
@@ -982,19 +982,23 @@ The followings are key lemmas:
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$.\newline
     It remains to show $[[Cons(H, R, G'')]]$.\newline
     From $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]=\forall x\in \textit{dom}(\tenv). x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/n]\phi$, here $\tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^r, [[r > 0]]$, which means
-    that the refinement $\phi$ in the previous environment holds for $R$ and also $H(R(x))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
-    Aliasing means that two pointer share the same memory cell, so we will have $H(R(x))=H(R(y))$, we can obtain that the refinement $\phi$ holds for $H(R(y))$.\newline
+    that the refinement predicattes $\phi$ in the previous environment holds for $R$ and also $H(R(x))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
+    Aliasing means that two pointer share the same memory cell, so we will have $H(R(x))=H(R(y))$, we can obtain that the refinement predicates $\phi$ holds for $H(R(y))$.\newline
     Also because of aliasing, the sum of the refinement to the memory cell should not change.
     According to the rules for $\tau_1+\tau_2$, we will analyze 4 possible cases.\newline
     In case for \rn{[Tadd-Ref2]}, we suppose $\tau_1=\{x\COL\TINT\mid\phi\}\land \tau_2=\{x\COL\TINT\mid\phi\}\land r_1\neq 0\land r_2\neq 0$, that means
-    the refinements of the two references are the same, ``+" only deal with the ownerships which can be written as $\{x\COL\TINT\mid\phi\}\TREF^{r_1+r_2}$, after aliasing, the
-    refinement of the reference don't change, so that we can say the $[[Cons(H , R,G)]]$ still holds.\newline
-    In case for \rn{[Tadd-Ref3]}, we suppose $\tau_1\TREF^0\land \tau_2\TREF^r\land r>0$, after aliasing, the reference refinement will become $\tau_2\TREF^r$, the $[[Cons(H , R,G)]]$ still holds.\newline
-    In case for \rn{[Tadd-Ref4]}, we suppose $\tau_1\TREF^0\land \tau_2\TREF^0$, which means both references can't change the refinement of the memory cell, it's
-    clear that the $[[Cons(H , R,G)]]$ still holds.\newline
+    the refinement predicates of the two references are the same, which is shown as $\tenv[x \hookleftarrow \tau \TREF^{r_1}][y \hookleftarrow \tau \TREF^{r
+    _2}]$.``+" only deal with the ownerships which can be written as $\{x\COL\TINT\mid\phi\}\TREF^{r_1+r_2}$, after aliasing,
+    now we have $\tenv[x \hookleftarrow \tau \TREF^{r'_1}][y \hookleftarrow \tau \TREF^{r'_2}]$, the refinement predicates don't change, that is still $\tau$.
+    so that we can say that $[[SAT(H,R,G'')]]$ holds.\newline
+    In case for \rn{[Tadd-Ref3]}, we suppose $\tau_1\TREF^0\land \tau_2\TREF^r\land r>0$, after aliasing, the reference refinement will become $\tau_2\TREF^r$, we have$\tenv[x \hookleftarrow \tau_2 \TREF^{r'_1}][y \hookleftarrow \tau_2 \TREF^{r'_2}]$ and $r'_1+r'_2=r$,
+    the refinement in the previous environment still holds for $\tau_2$,
+    we know that the $[[SAT(H,R,G'')]]$ holds.\newline
+    In case for \rn{[Tadd-Ref4]}, we suppose $\tau_1\TREF^0\land \tau_2\TREF^0$, which means both references don't have right to change the refinement of the memory cell, it's
+    obvious that the $[[SAT(H,R,G'')]]$ still holds.\newline
     In case for \rn{[Tadd-Ref1]}, we suppose $\tau_1=\{x\COL\TINT\mid\phi_1\}\land \tau_2=\{x\COL\TINT\mid\phi_2\}\land r_1\neq 0\land r_2\neq 0$, that means
     the refinements of the two references are different, ``+" needs to do conjuction with the two refinements and also the ownerships which can be written as $\{x\COL\TINT\mid\phi_2\land \phi_1\}\TREF^{r_1+r_2}$, so after aliasing, the
-    refinement of the reference should satisfy not only $\tau_1$ but also $\tau_2$, which is shown as $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$, which gives that $[[SAT(H, R, G'')]]$ holds.\newline
+    refinement of the reference should satisfy not only $\tau_1$ but also $\tau_2$, which gives that $[[SAT(H, R, G'')]]$ holds.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     To prove that $F_0=F_1$ follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
@@ -1004,15 +1008,25 @@ The followings are key lemmas:
     Similar to the case for $\rn{R-Alias}$, but if $R(x) \neq R(y)$, it will throw $[[AliasFail]]$.
   \end{rneqncase}
   \begin{rneqncase}{R-Assert}{
-    [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ R |= ph ]]\\
+    [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ G |= ph ]]\\
     [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]\\
     [[ Th | G | B |- assert(ph); e : T => G']]
     }
-    Using the Inversion \cref{lem:inversion} of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$.\newline
-    Here $\varphi$ represents a restriction that the refinement should satisfy, $[[ R |= ph ]]$ means that every variable in the register must satisfy $\varphi$,
-    which shows the input state $\varphi$ is well typed in our system. So it won't throw $[[AssertFail]]$.
-    Otherwise, if $[[ R !|= ph ]]$, which is not typable, it will throw $[[AssertFail]]$.\newline
+    Using the Inversion \cref{lem:inversion} of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$ and $[[ G |= ph ]]$.\newline
+    Here $[[ G |= ph ]]$ shows the input state $\varphi$ is well typed in our system.
     $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv'=\tenv, H'=H, R'=R$.)\newline
+  \end{rneqncase}
+  \begin{rneqncase}{R-AssertFail}{
+    [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ R !|= ph ]]\\
+    [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]\\
+    [[ Th | G | B |- assert(ph); e : T => G']]
+    }
+    Using the Inversion \cref{lem:inversion} of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$ and $[[ G |= ph ]]$.\newline
+    Here $[[ G |= ph ]]$ can be written as $\models \sem{[[G]]}\produces \varphi$, which means all the refinement types occurs in then environment $\tenv$ should
+    satisfy the refinement predicates $\varphi$. Also if $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]$, which will give
+    that every concrete variable in the register should satisfy the the refinement predicates $\varphi$ in the type environment, that is $\models \sem{[[R]]}\produces \varphi$,
+    also can be written as $[[ R |= ph ]]$, but in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is obvious contradictory with what we have been
+    derived, which shows the case is not typable, it will throw $[[AssertFail]]$. We also know that this won't happen in our type system, if the expression is well typed.\newline
   \end{rneqncase}
   \begin{rneqncase}{R-Call}{
 
@@ -1073,15 +1087,18 @@ The followings are key lemmas:
   \end{rneqncase}
 \end{lemma}
 \begin{proof}
-  By definition of the typing relation.
+  By induction of the typing relation.
 \end{proof}
 
 
 \begin{lemma} \bf{Substitution}
   \label{lem:substitution}
-  $\funenv \mid \tenv, x \COL \tau' \mid \beta \vdash e \COL \tau \land \vdash v \COL \tau' \produces \funenv \mid \tenv \mid \beta \vdash e\{v/x\} \COL \tau$.
+  If $\funenv \mid \tenv\mid \beta\vdash e \COL \tau  \produces \tenv'$, we can obtain
+  $\funenv \mid [x'/x]\tenv \mid \beta \vdash [x'/x]e \COL [x'/x]\tau \produces [x'/x]\tenv'$.
 \end{lemma}
-
+\begin{proof}
+  By straightforward induction of typing rules.
+\end{proof}
 
 
 
