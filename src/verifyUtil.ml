@@ -1,4 +1,4 @@
-let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) ?(get_model=false) ?intrinsic_defn in_name =
+let check_file ?(print_pred=false) ?(print_cons=false) ?save_cons ?(print_ast=false) ?(get_model=false) ?intrinsic_defn in_name =
   let f = open_in in_name in
   let lexbuf = Lexing.from_channel f in
   let ast = try
@@ -23,4 +23,4 @@ let check_file ?(print_pred=false) ?(print_cons=false) ?(print_ast=false) ?(get_
     ) program_types
   end;
   let r = Inference.infer ~print_pred ~intrinsics:intr.Intrinsics.op_interp program_types ast in
-  HornBackend.solve ~debug_cons:print_cons ~get_model ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r
+  HornBackend.solve ~debug_cons:print_cons ?save_cons ~get_model ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r

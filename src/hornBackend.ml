@@ -17,18 +17,20 @@ module HornStrategy(I: Z3BasedBackend.OV) = struct
       ]
     ] o_buf;
     break o_buf
-      
+
+  let rec collect_ovars acc = function
+    | Ref (t,OVar o) -> (collect_ovars ((plift @@ I.ovar_name o)::acc) t)
+    | Ref (t,_) -> collect_ovars acc t
+    | Int _ -> acc
+    | Tuple (_,t) -> List.fold_left collect_ovars acc t
+
   let ownership theta ovars ocons ff =
     let o_buf = SexpPrinter.fresh () in
     M.ownership theta ovars ocons o_buf;
     atom o_buf pred;
     break o_buf;
     let i = StringMap.fold (fun _ { arg_types; _ } acc ->
-        List.fold_left (fun acc t ->
-          match t with
-          | `Ref (_,OVar o) -> (plift @@ I.ovar_name o)::acc
-          | _ -> acc
-        ) acc arg_types
+        List.fold_left collect_ovars acc arg_types
       ) theta []
     in
     if (List.length i > 0) then begin
