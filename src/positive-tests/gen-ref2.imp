@@ -1,0 +1,6 @@
+{
+  let x = _ in
+  let p = mkref (x, mkref x + 1) in
+  let (v,p2) = *p in
+  assert(v < *p2)
+}

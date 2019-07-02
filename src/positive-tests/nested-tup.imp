@@ -1,0 +1,12 @@
+f(x,y,p) {
+  let t = (x,(y,p)) in t
+}
+
+{
+  let g = _ in
+  let g1 = g+1 in
+  let g2 = g+2 in
+  let t = f(g,g1,g2) in
+  let (x,(_,y)) = t in
+  assert(x < y)
+}
