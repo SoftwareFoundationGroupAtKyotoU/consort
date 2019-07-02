@@ -71,6 +71,7 @@ let expr :=
 let ap :=
   | ~ = ID; <Ast.AVar>
   | STAR; ~ = ID; <Ast.ADeref>
+  | LPAREN; STAR; id = ID; RPAREN; DOT; ind = INT; { Ast.APtrProj(id, ind) }
   | v = ID; DOT; ind = INT; { Ast.AProj (v, ind) }
 
 let patt :=

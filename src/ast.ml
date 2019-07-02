@@ -42,6 +42,7 @@ type src_ap =
   | AVar of string
   | AProj of string * int
   | ADeref of string
+  | APtrProj of string * int
 
 type exp =
   | EVar of string
@@ -129,6 +130,7 @@ let pp_ap = function
   | AVar v -> pv v
   | ADeref v -> pl [ ps "*"; pv v ]
   | AProj (v,ind) -> pl [ pv v; ps "."; pi ind ]
+  | APtrProj (v,ind) -> pl [ pf "(*%s)." v; pi ind ]
 
 let rec pp_expr e =
   match e with
