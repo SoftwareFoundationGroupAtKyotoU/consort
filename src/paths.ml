@@ -23,3 +23,7 @@ let rec has_var v = function
   | `AProj (a, _)
   | `ADeref a -> has_var v a
 
+let rec is_const_ap = function
+  | `AVar _ -> true
+  | `AProj (ap,_) -> is_const_ap ap
+  | `ADeref _ -> false

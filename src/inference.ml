@@ -251,6 +251,7 @@ let lift_src_ap = function
   | AVar v -> `AVar v
   | ADeref v -> `ADeref (`AVar v)
   | AProj (v,i) -> `AProj (`AVar v,i)
+  | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
 
 let remove_var_from_pred ~loc ~curr_te ~to_remove path (sym_vars,sym_val) r context =
   let curr_comp = compile_refinement path sym_val r in
@@ -433,30 +434,42 @@ let rec push_subst bind = function
     let b_ext = List.map (fun (i,v) -> (i,SVar v)) bind in
     Tuple (b_ext @ b, tl)
 
-let rec assign_patt ctxt p t =
+let rec assign_patt ~let_id ?(count=0) ctxt p t =
   match p,t with
-  | `PVar v,_ -> add_type v t ctxt
-  | `PTuple t_patt,Tuple (b,tl) ->
+  | PNone, _ -> (count,ctxt,p)
+  | PVar v,_ -> (count,add_type v t ctxt,p)
+  | PTuple t_patt,Tuple (b,tl) ->
+    let (count',closed_patt) = List.fold_right2 (fun p t (c_acc,p_acc) ->
+        match p,t with
+        | PNone, Int _ ->
+          let t_name = Printf.sprintf "__t_%d_%d" let_id c_acc in
+          (succ c_acc,(PVar t_name)::p_acc)
+        | _ -> (c_acc,p::p_acc)
+      ) t_patt tl (count,[]) in
     let var_subst = List.map (fun (sym_var,b) ->
         match b with
         | SVar v -> (sym_var,v)
         | SProj i ->
           let bound_var =
-            match List.nth t_patt i with
-            | `PTuple _ -> failwith "impossible???"
-            | `PVar v -> v
+            match List.nth closed_patt i with
+            | PVar v -> v
+            | _ -> assert false
+
           in
           (sym_var,bound_var)
       ) b in
-    List.fold_left2 (fun c_acc sub_p sub_t ->
-      assign_patt c_acc sub_p @@ push_subst var_subst sub_t
-    ) ctxt t_patt tl
+    let (count',ctxt',t_patt') = List.fold_left2 (fun (count_acc,ctxt_acc,patt_acc) sub_p sub_t ->
+        let (id,ctxt,p) = assign_patt ~let_id ~count:count_acc ctxt_acc sub_p @@ push_subst var_subst sub_t in
+        (id,ctxt,p::patt_acc)
+      ) (count',ctxt,[]) closed_patt tl in
+    (count',ctxt',PTuple (List.rev t_patt'))
   | _ -> assert false
 
 let rec collect_bound_vars acc patt =
   match patt with
-  | `PVar v -> SS.add v acc
-  | `PTuple pl -> List.fold_left collect_bound_vars acc pl
+  | PVar v -> SS.add v acc
+  | PTuple pl -> List.fold_left collect_bound_vars acc pl
+  | PNone -> acc
 
 let o_map f o = match o with
   | Some d -> Some (f d)
@@ -474,18 +487,18 @@ let rec strengthen_type ?root t patt ctxt =
       |> update_type v @@ strengthen_eq ~strengthen_type:t' ~target:p
   in
   match t,patt with
-  | Int _,`PVar v ->
+  | Int _,PVar v ->
     maybe_strengthen_patt v ctxt
     |> with_type @@ strengthen_eq ~strengthen_type:t ~target:(`AVar v)
   | Ref _,_ ->
     (ctxt,t)
-  | Tuple (b,tl),`PVar v ->
+  | Tuple (b,tl),PVar v ->
     let tl' = List.mapi (fun i t ->
         strengthen_eq ~strengthen_type:t ~target:(`AProj ((`AVar v),i))
       ) tl in
     maybe_strengthen_patt v ctxt
     |> with_type @@ Tuple (b,tl')
-  | Tuple (b,tl),`PTuple pl ->
+  | Tuple (b,tl),PTuple pl ->
     let ind_tl = List.mapi (fun i t -> (i,t)) tl in
     let (ctxt',tl') = List.fold_right2 (fun (i,t) p (ctxt_acc,tl_acc) ->
         let sub_root = o_map (fun r -> Paths.t_ind r i) root in
@@ -501,6 +514,7 @@ let rec strengthen_let patt rhs ctxt =
     | _ -> failwith "not a ref"
   in
   match patt,rhs with
+  | PNone,_ -> ctxt
   | _,Const _
   | _,Mkref RNone
   | _,Mkref (RInt _)
@@ -514,18 +528,18 @@ let rec strengthen_let patt rhs ctxt =
     let (t,o) = lkp_ref v in
     let (ctxt',t') = strengthen_type t patt ctxt in
    update_type v (Ref (t',o)) ctxt'
-  | (`PVar v),Mkref (RVar v') ->
+  | (PVar v),Mkref (RVar v') ->
     let (t,o) = lkp_ref v in
     let t' = strengthen_eq ~strengthen_type:t ~target:(`AVar v') in
     update_type v (Ref (t',o)) ctxt
-  | (`PTuple pl),Tuple vl ->
+  | (PTuple pl),Tuple vl ->
     (* .... why would you do this? *)
     List.fold_left2 (fun acc p_sub i_lit ->
         match i_lit with
         | RInt _ | RNone -> acc
         | RVar v -> strengthen_let p_sub (Var v) acc
       ) ctxt pl vl
-  | (`PVar v),Tuple vl ->
+  | (PVar v),Tuple vl ->
     let pt = SM.find v ctxt.gamma in
     let rec collect ind c tl vl =
       match tl,vl with
@@ -548,7 +562,8 @@ let rec strengthen_let patt rhs ctxt =
         update_type v (Tuple (b,tl')) c'
       | _ -> failwith "not a tuple type?"
     end
-  | _ -> failwith "mismatched var and type"
+  | _ -> failwith "impossible"
+
 
 let rec shuffle_owners t1 t2 t1' t2' ctxt =
   match t1,t2,t1',t2' with
@@ -667,32 +682,10 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
           update_type r_var t1 ctxt'
           |> with_type @@ Ref (t2,OConst 1.0)
     end in
-    (* TODO: do NOT introduce bindings for PNone for reference types *)
-    (* it breaks things *)
-    let rec close_patt count p next =
-      match p with
-      | PNone ->
-        let t_name = Printf.sprintf "_t_%d_%d" i count in
-        next (count + 1) (`PVar t_name)
-      | PVar v -> next count (`PVar v)
-      | PTuple tl ->
-        close_tup tl count (fun c' tl' -> next c' (`PTuple tl'))
-    and close_tup l count cont =
-      match l with
-      | [] -> cont count []
-      | h::t -> close_patt count h (fun c' h' ->
-                    close_tup t c' (fun c'' l' ->
-                      cont c'' @@ h'::l'
-                    )
-                  )
-    in
-    let close_p = close_patt 0 patt (fun _ i -> i) in
-    let bound_ctxt =
-      assign_patt ctxt close_p assign_type
-      |> strengthen_let close_p rhs
-    in
+    let _,assign_ctxt,close_p = assign_patt ~let_id:i ctxt patt assign_type in
+    let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
-    process_expr ?output_type bound_ctxt exp
+    process_expr ?output_type (* ~remove_scope:(SS.union bound_vars remove_scope) *) str_ctxt exp
     |> remove_var ~loc:(LLet i) bound_vars
       
   | Assert (relation,cont) ->
@@ -711,22 +704,28 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
 
     (* now make a fresh type for the location referred to by ap *)
     (* return back the context, substitution, free vars, and new type *)
-    let ((ctxt',t2',ap_fv,(subst : (int * concr_ap) list )),t2_base) = map_ap_with_bindings ap free_vars (fun (fv,subst) t ->
+    let ((ctxt',t2',ap_fv,subst),t2_base) = map_ap_with_bindings ap free_vars (fun (fv,subst) t ->
         (* here fv may refer to the _symbolic_ variables for tuple elements contained in the value
            stored in the root of ap2. The fresh type for v1 must also refer to these variables *)
         let (c_fresh,t2') = make_fresh_type ~target_var:ap ~loc ~fv ~bind:subst t ctxt in
         ((c_fresh,t2',fv,subst),t2')
       ) lkp in
+    (* extract the original t2 type *)
     let (t2,_) = map_ap_with_bindings ap free_vars (fun (_,subst') t ->
         assert (subst' = subst);
         (t,t)
       ) lkp in
-    let (ctxt'',t1'sym) = make_fresh_type ~target_var:(`AVar v1) ~loc ~fv:ap_fv ~bind:subst t1 ctxt' in
+    let ap_fv_const = List.filter (function
+      | #Paths.concr_ap as cr -> Paths.is_const_ap cr
+      | `Sym i -> List.assoc i subst |> Paths.is_const_ap
+      ) ap_fv
+    in
+    let (ctxt'',t1'sym) = make_fresh_type ~target_var:(`AVar v1) ~loc ~fv:ap_fv_const ~bind:subst t1 ctxt' in
     (* now t1' is a fresh type with the same shape at t1, but with fresh predicates potentially 
        referring to (unbound!) symbolic variables. We now push the substitution for t2 into t1'sym *)
     let t1' = walk_with_bindings (fun _ _ r () ->
         ((), partial_subst subst r)
-      ) (`AVAr v1) ([],[]) t1'sym () |> snd in
+      ) (`AVar v1) ([],[]) t1'sym () |> snd in
     (* now t1' and t2' refer to the same sets of free variables: any symbolic variables
        appearing in t1' and t2' are bound by tuple types *)
     let app_matrix = apply_matrix ~t1 ~t2_bind:subst ~t2 in

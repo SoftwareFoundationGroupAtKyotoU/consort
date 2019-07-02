@@ -1,5 +1,6 @@
 open Ast
 open SimpleTypes
+open Sexplib.Std
 
 module UnionFind : sig
   type t
@@ -70,16 +71,17 @@ end = struct
 
   let new_node uf = make_and_add uf
 end
+
 type 'a c_typ = [
   | `Int
   | `Ref of 'a
   | `Tuple of 'a list
-]
+] [@@deriving sexp]
 
 type typ = [
   typ c_typ
 | `Var of int
-]
+] [@@deriving sexp]
 
 type c_inst = typ c_typ
 
@@ -92,11 +94,18 @@ module SM = StringMap
 module SS = Set.Make(String)
 
 type funenv = funtyp_v SM.t
+let _sexp_of_tyenv = SM.sexp_of_t ~v:sexp_of_typ
 type tyenv = typ SM.t
+
+type resolv_map = (int,typ) Hashtbl.t
+
+let _sexp_of_resolv_map r = Hashtbl.fold (fun k v acc ->
+    (k,v)::acc
+  ) r [] |> [%sexp_of: (int * typ) list]
     
 type fn_ctxt = {
   uf: UnionFind.t;
-  resolv: (int,typ) Hashtbl.t;
+  resolv: resolv_map;
   fenv: funenv;
   tyenv: tyenv
 }
@@ -119,13 +128,16 @@ let add_var v t ctxt =
   else
     { ctxt with tyenv = StringMap.add v t ctxt.tyenv }
 
-let resolve_type uf resolv r =
+let rec resolve_type uf resolv r =
   match r with
   | `Var v ->
     let id = UnionFind.find uf v in
     if Hashtbl.mem resolv id then
-      (Hashtbl.find resolv id :> typ)
+      (Hashtbl.find resolv id :> typ) |> resolve_type uf resolv
     else (`Var id)
+  | `Ref t -> `Ref (resolve_type uf resolv t)
+  | `Tuple tl ->
+    `Tuple (List.map (resolve_type uf resolv) tl)
   | _ -> r
 
 let rec force_resolve uf resolv t : r_typ =
@@ -172,6 +184,9 @@ let process_call lkp ctxt { callee; arg_names; _ } =
     unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
   `Var ret_type_v
 
+let _dump_sexp p t =
+  (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
+
 let rec process_expr ctxt e =
   let res t = resolve ctxt t in
   let lkp n = StringMap.find n ctxt.tyenv |> res in
@@ -212,6 +227,13 @@ let rec process_expr ctxt e =
         let tv = UnionFind.new_node ctxt.uf in
         unify ctxt t (`Ref (`Var tv));
         (`Var tv)
+      | APtrProj (v,ind) ->
+        let t = lkp v |> resolve ctxt in
+        begin
+          match t with
+          | `Ref (`Tuple tl) when ind < List.length tl -> List.nth tl ind
+          | _ -> failwith "could not deduce length of tuple in alias"
+        end
       | AProj (v,ind) ->
         let t = lkp v |> resolve ctxt in
         begin
@@ -242,7 +264,7 @@ let rec process_expr ctxt e =
       | Deref p ->
         let tv = fresh_var () in
         unify ctxt (`Ref tv) @@ lkp p;
-        tv
+        resolve ctxt tv
       | Tuple tl ->
         `Tuple (List.map (function
           | RInt _
