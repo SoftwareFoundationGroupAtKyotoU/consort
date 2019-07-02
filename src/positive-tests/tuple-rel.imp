@@ -1,0 +1,7 @@
+{
+  let x = (_, _) in
+  let y = x in
+  let (v1,_) = x in
+  let (v2,_) = y in
+  assert(v1 = v2)
+}

@@ -18,13 +18,10 @@ let bif_env_t_of_sexp = StringMap.t_of_sexp ~v:bif_t_of_sexp
 let sexp_of_bif_env_t = StringMap.sexp_of_t ~v:sexp_of_bif_t
         
 
-let lift_type t =
-  let r_orig = RefinementTypes.get_refinement t in
-  let r = match r_orig with
-    | `Unconstrained -> RefinementTypes.True
-    | `BifPred t -> RefinementTypes.BuiltInPred t
-  in
-  RefinementTypes.update_refinement r t
+let lift_type = RefinementTypes.map_refinement (function
+  | `Unconstrained -> RefinementTypes.True
+  | `BifPred t -> RefinementTypes.BuiltInPred t
+  )
 
 (* just a mapping of connectives onto Z3 functions *)
 type rel_interp_t = string StringMap.t

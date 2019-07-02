@@ -1,5 +1,6 @@
 open Ast
 open SimpleTypes
+open Sexplib.Std
 
 module UnionFind : sig
   type t
@@ -71,22 +72,40 @@ end = struct
   let new_node uf = make_and_add uf
 end
 
+type 'a c_typ = [
+  | `Int
+  | `Ref of 'a
+  | `Tuple of 'a list
+] [@@deriving sexp]
+
 type typ = [
-  | `Var of int
-  | r_typ
-]
+  typ c_typ
+| `Var of int
+] [@@deriving sexp]
+
+type c_inst = typ c_typ
 
 type funtyp_v = {
   arg_types_v: int list;
   ret_type_v: int
 }
 
-type funenv = funtyp_v StringMap.t
-type tyenv = typ StringMap.t
+module SM = StringMap
+module SS = Set.Make(String)
 
+type funenv = funtyp_v SM.t
+let _sexp_of_tyenv = SM.sexp_of_t ~v:sexp_of_typ
+type tyenv = typ SM.t
+
+type resolv_map = (int,typ) Hashtbl.t
+
+let _sexp_of_resolv_map r = Hashtbl.fold (fun k v acc ->
+    (k,v)::acc
+  ) r [] |> [%sexp_of: (int * typ) list]
+    
 type fn_ctxt = {
   uf: UnionFind.t;
-  resolv: (int,r_typ) Hashtbl.t;
+  resolv: resolv_map;
   fenv: funenv;
   tyenv: tyenv
 }
@@ -103,29 +122,46 @@ let init_tyenv fenv { name; args; _ } =
   List.fold_left2 (fun acc name var ->
     StringMap.add name (`Var var) acc) StringMap.empty args arg_types_v
 
-let resolve_type uf resolv r =
+let add_var v t ctxt =
+  if StringMap.mem v ctxt.tyenv then
+    failwith "variable shadowing"
+  else
+    { ctxt with tyenv = StringMap.add v t ctxt.tyenv }
+
+let rec resolve_type uf resolv r =
   match r with
-  | #r_typ -> r
   | `Var v ->
     let id = UnionFind.find uf v in
     if Hashtbl.mem resolv id then
-      (Hashtbl.find resolv id :> typ)
-    else r
+      (Hashtbl.find resolv id :> typ) |> resolve_type uf resolv
+    else (`Var id)
+  | `Ref t -> `Ref (resolve_type uf resolv t)
+  | `Tuple tl ->
+    `Tuple (List.map (resolve_type uf resolv) tl)
+  | _ -> r
 
-let force_resolve uf resolv t : r_typ =
+let rec force_resolve uf resolv t : r_typ =
   match resolve_type uf resolv t with
-  | #r_typ as out -> out
+  | `Int -> `Int
+  | `Ref t' -> `Ref (force_resolve uf resolv t')
+  | `Tuple tl -> `Tuple (List.map (force_resolve uf resolv) tl)
   | _ -> failwith "Unconstrained value"
 
 let resolve ctxt (r: typ) =
   resolve_type ctxt.uf ctxt.resolv r
 
-let unify ctxt t1 t2 =
+let rec unify ctxt t1 t2 =
   let ty_assign v ty = Hashtbl.add ctxt.resolv v ty in
   match (resolve ctxt t1, resolve ctxt t2) with
   | (`Var v1, `Var v2) -> UnionFind.union ctxt.uf v1 v2
-  | (`Var v1, (#r_typ as t)) | (#r_typ as t, `Var v1) -> ty_assign v1 t
-  | ((#r_typ as t1), (#r_typ as t2)) when t1 = t2 -> ()
+  | (`Var v1, (#c_inst as ct))
+  | (#c_inst as ct, `Var v1) ->
+    ty_assign v1 ct
+  | (`Ref t1',`Ref t2') ->
+    unify ctxt t1' t2'
+  | (`Tuple tl1, `Tuple tl2) ->
+    List.iter2 (unify ctxt) tl1 tl2
+  | (t1,t2) when t1 = t2 -> ()
   | _ -> failwith "Ill-typed"
 
 let process_call lkp ctxt { callee; arg_names; _ } =
@@ -137,11 +173,19 @@ let process_call lkp ctxt { callee; arg_names; _ } =
     | _::t -> find_dup t
   in
   if find_dup sorted_args then
-    failwith "Duplicate variable names detected"; 
-  let { arg_types_v; ret_type_v } = StringMap.find callee ctxt.fenv in
+    failwith "Duplicate variable names detected";
+  let { arg_types_v; ret_type_v } =
+    try
+      StringMap.find callee ctxt.fenv
+    with
+      Not_found -> failwith @@ "No function definition for " ^ callee
+  in
   List.iter2 (fun a_var t_var ->
     unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
   `Var ret_type_v
+
+let _dump_sexp p t =
+  (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
 
 let rec process_expr ctxt e =
   let res t = resolve ctxt t in
@@ -150,6 +194,13 @@ let rec process_expr ctxt e =
   let unify_imm c = match c with
     | IInt _ -> ();
     | IVar v -> unify_var v `Int
+  in
+  let unify_ref v t =
+    unify ctxt (lkp v) @@ `Ref t
+  in
+  let fresh_var () =
+    let t = UnionFind.new_node ctxt.uf in
+    `Var t
   in
   match e with
   | EVar v -> lkp v
@@ -161,33 +212,80 @@ let rec process_expr ctxt e =
   | Seq (e1,e2) ->
     process_expr ctxt e1 |> ignore;
     process_expr ctxt e2
-  | Assign (v1,IVar v2,e) ->
-    unify_var v1 `IntRef;
-    unify_var v2 `Int;
-    process_expr ctxt e
   | Assign (v1,IInt _,e) ->
-    unify_var v1 `IntRef;
+    unify_ref v1 `Int;
     process_expr ctxt e
-  | Alias (_,v1, v2,e) ->
-    unify_var v1 `IntRef;
-    unify_var v2 `IntRef;
+  | Assign (v1,IVar v2,e) ->
+    unify_ref v1 @@ lkp v2;
+    process_expr ctxt e
+  | Alias (_,v, ap,e) ->
+    let find ap =
+      match ap with
+      | AVar v -> lkp v
+      | ADeref v ->
+        let t = lkp v in
+        let tv = UnionFind.new_node ctxt.uf in
+        unify ctxt t (`Ref (`Var tv));
+        (`Var tv)
+      | APtrProj (v,ind) ->
+        let t = lkp v |> resolve ctxt in
+        begin
+          match t with
+          | `Ref (`Tuple tl) when ind < List.length tl -> List.nth tl ind
+          | _ -> failwith "could not deduce length of tuple in alias"
+        end
+      | AProj (v,ind) ->
+        let t = lkp v |> resolve ctxt in
+        begin
+        match t with
+        | `Tuple tl when ind < List.length tl -> List.nth tl ind
+        | _ -> failwith "Could not deduce length of tuple in alias"
+        end
+    in
+    unify ctxt (lkp v) (find ap);
     process_expr ctxt e
   | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1;
     unify_imm rop2;
     process_expr ctxt e
-  | Let (_id,x,lhs,expr) ->
+  | Let (_id,p,lhs,expr) ->
     let v_type =
       match lhs with
       | Var v -> lkp v
       | Const _ -> `Int
-      | Mkref (RNone | RInt _) -> `IntRef
-      | Mkref (RVar v) -> unify_var v `Int; `IntRef
-      | Deref v -> unify_var v `IntRef; `Int
+      | Mkref i -> begin
+          match i with
+          | RNone
+          | RInt _ -> `Ref `Int
+          | RVar v -> `Ref (lkp v)
+        end
       | Call c -> process_call lkp ctxt c
       | Nondet -> `Int
+      | Deref p ->
+        let tv = fresh_var () in
+        unify ctxt (`Ref tv) @@ lkp p;
+        resolve ctxt tv
+      | Tuple tl ->
+        `Tuple (List.map (function
+          | RInt _
+          | RNone -> `Int
+          | RVar v -> lkp v
+          ) tl)
     in
-    process_expr { ctxt with tyenv = StringMap.add x v_type ctxt.tyenv } expr
+    let rec unify_patt acc p t =
+      match p with
+      | PVar v -> add_var v t acc
+      | PNone -> acc
+      | PTuple pl ->
+        let (t_list,acc'') = List.fold_right (fun p (t_list,acc') ->
+            let t_var = fresh_var () in
+            (t_var::t_list,unify_patt acc' p t_var)
+          ) pl ([], acc) in
+        unify ctxt t (`Tuple t_list);
+        acc''
+    in
+    let ctxt' = unify_patt ctxt p v_type in
+    process_expr ctxt' expr
 
 let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
@@ -196,7 +294,7 @@ let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
 let typecheck_prog intr_types (fns,body) =
-  let resolv = Hashtbl.create 10 in
+  let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
         Hashtbl.add resolv parent (Hashtbl.find resolv child)
@@ -204,23 +302,21 @@ let typecheck_prog intr_types (fns,body) =
     ) in
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
-    let lift_type t =
-      let n_id = UnionFind.new_node uf in
-      Hashtbl.add resolv n_id t;
-      n_id
+    let lift_const t =
+      let t_id = UnionFind.new_node uf in
+      Hashtbl.add resolv t_id (t : r_typ  :> typ);
+      t_id
     in
     StringMap.fold (fun k { arg_types; ret_type } ->
       StringMap.add k {
-        arg_types_v = List.map lift_type arg_types;
-        ret_type_v = lift_type ret_type;
+        arg_types_v = List.map lift_const arg_types;
+        ret_type_v = lift_const ret_type;
       }
     ) intr_types fenv_
   in
-  List.iter (fun fn_def ->
-    constrain_fn uf fenv resolv fn_def
-  ) fns;
+  List.iter (constrain_fn uf fenv resolv) fns;
   process_expr {
-    resolv; uf; fenv; tyenv = StringMap.empty
+    resolv; uf; fenv; tyenv = StringMap.empty;
   } body |> ignore;
   let get_soln = force_resolve uf resolv in
   List.fold_left (fun acc { name; _ } ->
