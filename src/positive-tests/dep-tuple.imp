@@ -1,0 +1,10 @@
+{
+  let x = (_, mkref _) in {
+  let (t1,t2) = x in {
+    t2 := t1 + 1;
+    alias(t2 = x.1)
+  };
+  let (p1,p2) = x in
+  assert(p1 < *p2)
+  }
+}
