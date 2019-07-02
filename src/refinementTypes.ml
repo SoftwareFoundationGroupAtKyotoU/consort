@@ -25,7 +25,6 @@ type refinement_rel = {
 } [@@deriving sexp]
 
 type refine_ap = [
-  (* this is just const_ap, but without it sexp gets _very_ confused *)
   Paths.concr_ap
 | `Sym of int
 ] [@@deriving sexp]
