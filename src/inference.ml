@@ -7,7 +7,6 @@ module SS = Set.Make(String)
 module P = Paths
 
 type concr_ap = P.concr_ap
-type const_ap = P.const_ap
 
 let loc_to_string =
   let labeled_expr s i = Printf.sprintf "%s@%d" s i in
@@ -27,17 +26,12 @@ type pred_context = {
   target_var: concr_ap
 }
 
-type location = {
-  host_function: string;
-  term: Ast.exp
-}
-
 type funenv = funtype SM.t
 type tenv = typ SM.t
 
 type oante = ownership * [ `Ge | `Gt | `Eq ] * float [@@deriving sexp]
 
-let tenv_of_sexp = SM.t_of_sexp ~v:typ_of_sexp
+(*let tenv_of_sexp = SM.t_of_sexp ~v:typ_of_sexp*)
 
 let sexp_of_tenv = SM.sexp_of_t ~v:sexp_of_typ
 
@@ -282,11 +276,6 @@ let remove_var ~loc to_remove ctxt =
   in
   updated
 
-let unsafe_get o =
-  match o with
-  | Some l -> l
-  | None -> failwith "That's why it's called unsafe"
-
 let lift_imm_op_to_rel = function
   | IVar v -> RAp (`AVar v)
   | IInt n -> RConst n
@@ -294,15 +283,11 @@ let lift_imm_op_to_rel = function
 let lift_relation { rop1; cond; rop2 } =
   Relation { rel_op1 = RImm (lift_imm_op_to_rel rop1); rel_cond = cond; rel_op2 = lift_imm_op_to_rel rop2 }
 
-let dump_env ?(msg) tev =
+let _dump_env ?(msg) tev =
   (match msg with
   | Some m -> print_endline m;
   | None -> ());
   sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline
-
-let post_update_type t = match t with
-  | `Int _ -> false
-  | `Ref _ -> true
 
 let rec strengthen_eq ~strengthen_type ~target =
   match strengthen_type with
@@ -318,11 +303,6 @@ let rec strengthen_eq ~strengthen_type ~target =
         strengthen_eq ~strengthen_type:t ~target:(Paths.t_ind target i)
       ) tl in
     Tuple (b,tl')
-
-(*
-let decompose_ref r =
-  (unsafe_get_ownership r,get_refinement r)
-*)
 
 type walk_ctxt = {
   o_stack: ownership list;
