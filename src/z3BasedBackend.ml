@@ -24,7 +24,7 @@ module Make(S: STRATEGY) = struct
   open RefinementTypes
     
 
-  let ovar_name ovar = Printf.sprintf "ovar-%d" ovar
+  let ovar_name = OwnershipSolver.ovar_name
 
   let pred_name p = Printf.sprintf "pred-%d" p
     
@@ -67,9 +67,7 @@ module Make(S: STRATEGY) = struct
           pp_refine ~interp r2 binding_ap
         ] ff
 
-  let po = function
-    | OVar o -> pl @@ ovar_name o
-    | OConst f -> pl @@ string_of_float f
+  let po = OwnershipSolver.po
 
   let pp_owner_ante (o,c,f) =
     let rel = match c with
@@ -81,8 +79,6 @@ module Make(S: STRATEGY) = struct
       po o;
       plift @@ string_of_float f
     ]
-
-  module APSet = Set.Make(struct type t = Paths.concr_ap let compare = Pervasives.compare end)
 
   let close_env env _ _ =
     (* this is a cheap hack to get our current tests to pass *)
