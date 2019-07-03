@@ -31,8 +31,6 @@ type tenv = typ SM.t
 
 type oante = ownership * [ `Ge | `Gt | `Eq ] * float [@@deriving sexp]
 
-(*let tenv_of_sexp = SM.t_of_sexp ~v:typ_of_sexp*)
-
 let sexp_of_tenv = SM.sexp_of_t ~v:sexp_of_typ
 
 type tcon = {
@@ -66,6 +64,7 @@ type context = {
   pred_arity: int IntMap.t;
   v_counter: int;
   pred_detail: (int,pred_context) Hashtbl.t;
+  store_env: int -> tenv -> unit
 }
 
 module Result = struct
@@ -74,7 +73,8 @@ module Result = struct
     ownership: ocon list;
     ovars: int list;
     refinements: tcon list;
-    arity: int IntMap.t
+    arity: int IntMap.t;
+    ty_envs: (int,tenv) Hashtbl.t
   }
 end
 
@@ -572,12 +572,13 @@ let rec sum_ownership t1 t2 out ctxt =
         sum_ownership e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
   | _ -> assert false
 
-let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
+let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
     | Ref (r,o) -> (r,o)
     | _ -> failwith "Not actually a ref"
   in
+  ctxt.store_env e_id ctxt.gamma;
   match e with
   | EVar v ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp v in
@@ -613,7 +614,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
     in
     process_expr ?output_type ~remove_scope ctxt' cont
       
-  | Let (i,patt,rhs,exp) ->
+  | Let (patt,rhs,exp) ->
     let ctxt,assign_type = begin
       match rhs with
       | Var left_v ->
@@ -662,18 +663,18 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
           update_type r_var t1 ctxt'
           |> with_type @@ Ref (t2,OConst 1.0)
     end in
-    let _,assign_ctxt,close_p = assign_patt ~let_id:i ctxt patt assign_type in
+    let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
     process_expr ?output_type (* ~remove_scope:(SS.union bound_vars remove_scope) *) str_ctxt exp
-    |> remove_var ~loc:(LLet i) bound_vars
+    |> remove_var ~loc:(LLet e_id) bound_vars
       
   | Assert (relation,cont) ->
     cont
     |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation)
 
-  | Alias (id,v1,ap2,cont) ->
-    let loc = LAlias id in
+  | Alias (v1,ap2,cont) ->
+    let loc = LAlias e_id in
     (* get the variable type *)
     let t1 = lkp v1 in
     (* compute the free vars *)
@@ -724,7 +725,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
     in
     process_expr ?output_type ~remove_scope res cont
 
-  | Cond(i,v,e1,e2) ->
+  | Cond(v,e1,e2) ->
     let add_pc_refinement ctxt cond =
       let curr_ref = lkp v in
       let branch_refinement = {
@@ -744,7 +745,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt e =
           pred_arity = ctxt1.pred_arity;
           ovars = ctxt1.ovars
         } "!=") e2 in
-    let loc = LCond i in
+    let loc = LCond e_id in
     let u_ctxt = { ctxt2 with gamma = SM.empty } in
     let b1 = SM.bindings ctxt1.gamma in
     let b2 = SM.bindings ctxt2.gamma in
@@ -869,7 +870,7 @@ let print_pred_details t =
     Printf.fprintf stderr "  At: %s\n<<\n" @@ loc_to_string loc
   ) t
   
-let infer ~print_pred ~intrinsics st (fns,main) =
+let infer ~print_pred ~save_types ~intrinsics st (fns,main) =
   let init_fun_type ctxt f_def =
     let rec lift_simple_loop target_var ~loc (free_vars,sym) t ctxt =
       match t with
@@ -914,6 +915,13 @@ let infer ~print_pred ~intrinsics st (fns,main) =
         } ctxt'''.theta
     }
   in
+  let ty_envs = Hashtbl.create 10 in
+  let store_env =
+    if save_types then
+      Hashtbl.add ty_envs
+    else
+      (fun _ _ -> ())
+  in
   let initial_ctxt = {
     theta = intrinsics;
     gamma = SM.empty;
@@ -923,6 +931,7 @@ let infer ~print_pred ~intrinsics st (fns,main) =
     pred_arity = IntMap.empty;
     v_counter = 0;
     pred_detail = Hashtbl.create 10;
+    store_env
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
@@ -933,6 +942,7 @@ let infer ~print_pred ~intrinsics st (fns,main) =
     ovars;
     refinements;
     theta;
-    arity = pred_arity
+    arity = pred_arity;
+    ty_envs 
   }
   

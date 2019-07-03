@@ -169,7 +169,7 @@ module Make(S: STRATEGY) = struct
   let solve ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
-    let { ownership = owner_cons; ovars; refinements; arity; theta } = infer_res in
+    let { ownership = owner_cons; ovars; refinements; arity; theta; _ } = infer_res in
     IntMap.iter (fun k v ->
       pp_sexpr (fun spc ps ->
         ps "declare-fun"; spc ();

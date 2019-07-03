@@ -3,6 +3,7 @@ let () =
   let show_pred = ref true in
   let show_ast = ref true in
   let show_model = ref false in
+  let annot_infr = ref false in
   let save_cons = ref None in
   let intrinsic_file = ref None in
   let all_debug_flags = [ show_cons; show_pred; show_ast; show_model ] in
@@ -10,6 +11,7 @@ let () =
     ("-no-cons", Clear show_cons, "Do not print constraints sent to z3");
     ("-no-ast", Clear show_ast, "Do not print (low-level) AST");
     ("-no-pred", Clear show_pred, "Do not print predicate explanations");
+    ("-annot-infr", Set annot_infr, "Annotate the program with the inferred types");
     ("-show-model", Set show_model, "Print model produced from successful verification");
     ("-save-cons", String (fun r -> save_cons := Some r), "Save constraints in <file>");
     ("-show-all", Unit (fun () ->
@@ -26,5 +28,8 @@ let () =
   match !target_name with
   | None -> print_endline "No file provided"
   | Some in_name -> 
-    let res = VerifyUtil.check_file ~print_cons:!show_cons ?save_cons:!save_cons ~print_pred:!show_pred ~print_ast:!show_ast ~get_model:!show_model ?intrinsic_defn:!intrinsic_file in_name in
+    let res = VerifyUtil.check_file ~print_cons:!show_cons
+        ?save_cons:!save_cons ~print_pred:!show_pred ~print_ast:!show_ast
+        ~annot_infr:!annot_infr ~get_model:!show_model ?intrinsic_defn:!intrinsic_file in_name
+    in
     print_endline @@ if res then "VERIFIED" else "UNVERIFIED"
