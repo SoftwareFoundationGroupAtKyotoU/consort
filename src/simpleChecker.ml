@@ -187,7 +187,7 @@ let process_call lkp ctxt { callee; arg_names; _ } =
 let _dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
 
-let rec process_expr ctxt e =
+let rec process_expr ctxt (_,e) =
   let res t = resolve ctxt t in
   let lkp n = StringMap.find n ctxt.tyenv |> res in
   let unify_var n typ = unify ctxt (lkp n) typ in
@@ -204,7 +204,7 @@ let rec process_expr ctxt e =
   in
   match e with
   | EVar v -> lkp v
-  | Cond (_,v,e1,e2) ->
+  | Cond (v,e1,e2) ->
     unify_var v `Int;
     let t1 = process_expr ctxt e1 in
     let t2 = process_expr ctxt e2 in
@@ -218,7 +218,7 @@ let rec process_expr ctxt e =
   | Assign (v1,IVar v2,e) ->
     unify_ref v1 @@ lkp v2;
     process_expr ctxt e
-  | Alias (_,v, ap,e) ->
+  | Alias (v, ap,e) ->
     let find ap =
       match ap with
       | AVar v -> lkp v
@@ -248,7 +248,7 @@ let rec process_expr ctxt e =
     unify_imm rop1;
     unify_imm rop2;
     process_expr ctxt e
-  | Let (_id,p,lhs,expr) ->
+  | Let (p,lhs,expr) ->
     let v_type =
       match lhs with
       | Var v -> lkp v

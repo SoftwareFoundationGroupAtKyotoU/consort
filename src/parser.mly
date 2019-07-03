@@ -61,12 +61,15 @@ let expr :=
 	  }
   | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
-  | x = ID; ASSIGN; y = lhs; <Assign>
+  | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
   | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
-  | ASSERT; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
-  | ~ = ID; <Var>
+  | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
+  | ~ = var_ref; <>
   | ~ = INT; <Int>
+
+let var_ref :=
+  | ~ = ID; ~ = expr_label; <Var>
 
 let ap :=
   | ~ = ID; <Ast.AVar>
@@ -108,7 +111,7 @@ let lhs :=
   | LPAREN; l = separated_list(COMMA, lhs); RPAREN; <`Tuple>
 
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
-let callee :=
+let callee ==
   | ~ = ID; <>
   | LPAREN; ~ = OPERATOR; RPAREN; <>
 
@@ -116,4 +119,5 @@ let rel_op :=
   | ~ = OPERATOR; <>
   | EQ; { "=" }
 
-let expr_label := COLON; ~ = INT; <> | { LabelManager.register () }
+let expr_label == COLON; ~ = INT; <> | { LabelManager.register () }
+let pre_label == ~ = INT; COLON; <> | { LabelManager.register () }

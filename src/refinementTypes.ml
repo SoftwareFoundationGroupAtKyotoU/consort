@@ -235,3 +235,101 @@ let map_ap_with_bindings ap fvs f gen =
 let refine_ap_to_string = function
   | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
   | `Sym i -> Printf.sprintf "$%d" i
+
+
+let alpha = "\xCE\xB1"
+let nu = "\xCE\xBD"
+
+let pp_owner =
+  let open PrettyPrint in
+  function
+  | OVar o -> ps @@ Printf.sprintf "$o%d" o
+  | OConst f -> ps @@ Printf.sprintf "%f" f
+
+let rec pp_ref =
+  let open PrettyPrint in
+  let pred_name i = Printf.sprintf "P%d" i in
+  let pp_alist o = List.map (fun ap -> ps @@ refine_ap_to_string ap) o in
+  let print_pred i o ctxt = pb [
+      pf "%s(" @@ pred_name i;
+      psep_gen (pf ",@ ") @@ [
+        ctxt;
+        ps nu
+      ] @ (pp_alist o);
+      pf ")"
+    ]
+  in
+  let pp_rel_imm = function
+    | RAp p -> ps @@ refine_ap_to_string (p :> refine_ap)
+    | RConst n -> pi n
+  in
+  let pp_rel_op = function
+    | Nu -> ps nu;
+    | RImm i -> pp_rel_imm i
+  in
+  function
+  | Pred (i,o) -> print_pred i o @@ ps alpha
+  | CtxtPred (c,i,o) -> print_pred i o @@ pi c
+  | Top -> ps "T"
+  | ConstEq n -> pf "%s = %d" nu n
+  | Relation { rel_op1; rel_cond; rel_op2 } ->
+    pb [
+        pf "%a@ %s@ %a"
+          (ul pp_rel_op) rel_op1
+          rel_cond
+          (ul pp_rel_imm) rel_op2
+      ]
+  | NamedPred (s,o) ->
+    pb [
+        pf "%s(" s;
+        psep_gen (pf ",@ ") @@ (ps nu)::(pp_alist o);
+        ps ")"
+      ]
+  | And (r1,r2) ->
+    pb [
+        pp_ref r1;
+        pf "@ /\\@ ";
+        pp_ref r2
+      ]
+
+let rec pp_type : typ -> Format.formatter -> unit =
+  let open PrettyPrint in
+  let sym_var = pf "$%d" in
+  function
+  | Tuple (b,tl) ->
+    let bound_vars = List.filter (fun (_,p) ->
+        match p with
+        | SProj _ -> true
+        | _ -> false
+      ) b |> List.map (fun (i,p) ->
+          match p with
+          | SProj ind -> (ind,i)
+          | _ -> assert false
+        ) in
+    let pp_tl = List.mapi (fun ind t ->
+        let pp_t = pp_type t in
+        if List.mem_assoc ind bound_vars then
+          let bound_name = sym_var @@ List.assoc ind bound_vars in
+          pb [
+            bound_name; ps ":"; sbrk;
+            pp_t
+          ]
+        else
+          pp_t
+      ) tl in
+    pb [
+      ps "(";
+      psep_gen (pf ",@ ") pp_tl;
+      ps ")"
+    ]
+  | Int r -> pb [
+                 pf "{\xCE\xBD:int@ |@ ";
+                 pp_ref r;
+                 ps "}"
+               ]
+  | Ref (t,o) ->
+    pb [
+        pp_type t;
+        pf "@ ref@ ";
+        pp_owner o
+      ]
