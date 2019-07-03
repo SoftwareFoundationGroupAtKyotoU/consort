@@ -246,6 +246,28 @@ let pp_owner =
   | OVar o -> ps @@ Printf.sprintf "$o%d" o
   | OConst f -> ps @@ Printf.sprintf "%f" f
 
+let simplify_ref =
+  let rec loop ~ex ~k (r: refine_ap list refinement) =
+    match r with
+    | Relation _
+    | CtxtPred _
+    | NamedPred _
+    | ConstEq _
+    | Pred _ -> k r
+    | And (r1,r2) ->
+      loop
+        ~ex:(fun () ->
+          loop ~ex ~k r2)
+        ~k:(fun r1' ->
+          loop
+            ~ex:(fun () -> k r1')
+            ~k:(fun r2' -> k @@ And (r1',r2'))
+            r2)
+        r1
+    | Top -> ex ()
+  in
+  loop ~ex:(fun () -> Top) ~k:(fun r' -> r')
+
 let rec pp_ref =
   let open PrettyPrint in
   let pred_name i = Printf.sprintf "P%d" i in
@@ -324,7 +346,7 @@ let rec pp_type : typ -> Format.formatter -> unit =
     ]
   | Int r -> pb [
                  pf "{\xCE\xBD:int@ |@ ";
-                 pp_ref r;
+                 simplify_ref r |> pp_ref;
                  ps "}"
                ]
   | Ref (t,o) ->
