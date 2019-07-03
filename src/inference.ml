@@ -560,6 +560,10 @@ let rec shuffle_owners t1 t2 t1' t2' ctxt =
     ) ctxt orig_tl new_tl
   | _ -> assert false
 
+let rec post_update_type = function
+  | Int _ -> false
+  | Tuple (_,tl) -> List.exists post_update_type tl
+  | Ref _ -> true
 
 let rec sum_ownership t1 t2 out ctxt =
   match t1,t2,out with
@@ -812,19 +816,22 @@ and process_call ctxt c =
         add_type_implication input_env concr_arg_type in_t c
         |> constrain_owner t in_t
       in
-      (* split the argument type *)
-      let (ctxt',(formal,resid)) = split_type acc arg_t in
-      let ap = `AVar k in
-      (* the (to be) summed type *)
-      let (ctxt'',fresh_type) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars arg_t ctxt' in
-      (* now the magic *)
-      ctxt''
-      (* sum the constraints *)
-      |> apply_matrix ~t1:resid ~t2:out_t ~out_root:ap ~out_type:fresh_type
-      (* constrain the formal half of the arg type *) 
-      |> constrain_in formal
-      |> sum_ownership resid out_t fresh_type
-      |> update_type k fresh_type
+      if post_update_type arg_t then
+        (* split the argument type *)
+        let (ctxt',(formal,resid)) = split_type acc arg_t in
+        let ap = `AVar k in
+        (* the (to be) summed type *)
+        let (ctxt'',fresh_type) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars arg_t ctxt' in
+        (* now the magic *)
+        ctxt''
+        (* sum the constraints *)
+        |> apply_matrix ~t1:resid ~t2:out_t ~out_root:ap ~out_type:fresh_type
+        (* constrain the formal half of the arg type *) 
+        |> constrain_in formal
+        |> sum_ownership resid out_t fresh_type
+        |> update_type k fresh_type
+      else
+        constrain_in arg_t acc
     ) ctxt arg_bindings in_out_types
   in
   let result = walk_with_bindings inst_symb (`AVar "dummy") (p_vars,[]) callee_type.result_type () |> snd in
