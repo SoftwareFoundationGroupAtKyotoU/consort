@@ -46,7 +46,7 @@ let to_channel { buf; _ } c =
   Buffer.output_buffer c buf
 
 let finish { ff; _ } =
-  pp_close_box ff ()
+  pp_print_flush ff ()
 
 let fresh () =
   let buf = Buffer.create 1024 in
