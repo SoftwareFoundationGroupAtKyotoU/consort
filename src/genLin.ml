@@ -2,11 +2,11 @@ open Intrinsics
 open Sexplib.Std
 
 let binop =
-  let in_out_type = [ `Int `Unconstrained; `Int `Unconstrained ] in
+  let in_out_type = [ RefinementTypes.Int `Unconstrained; RefinementTypes.Int `Unconstrained ] in
   fun sym out_pred -> (sym,{
         arg_types = in_out_type;
         output_types = in_out_type;
-        result_type = `Int (`BifPred out_pred)
+        result_type = Int (`BifPred out_pred)
       })
 
 let nrel id = (id,id)
@@ -15,7 +15,9 @@ let package = (
   StringMap.of_bindings [
     binop "+" "plus-+-out";
     binop "<" "rel-<-out";
-    binop "-" "minus---out"
+    binop "-" "minus---out";
+    binop "*" "times-*-out";
+    binop "=" "rel-=-out"
   ],
   StringMap.of_bindings [
     nrel "<";
@@ -23,6 +25,7 @@ let package = (
     nrel "<=";
     nrel ">";
     nrel ">=";
+    nrel "=";
     ("!=", "not-eq")
   ],
   "lin-std.smt"

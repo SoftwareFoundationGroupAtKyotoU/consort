@@ -1,17 +1,20 @@
+module A = Ast
+
 type op = [
   | `OVar of string
   | `OInt of int
   | `ODeref of string
   | `Nondet
-]
-
+] 
 type call = string * int * (op list)
+
 
 type lhs = [
   | op
-  | `Mkref of op
+  | `Mkref of lhs
   | `BinOp of op * string * op
   | `Call of call
+  | `Tuple of lhs list
 ]
 
 type relation = {
@@ -20,22 +23,27 @@ type relation = {
   op2: op
 }
 
+type patt = A.patt
+
 type exp =
   | Unit
-  | Var of string
+  | Var of string * int
   | Int of int
   | Cond of int * [`Var of string | `BinOp of op * string * op] * exp * exp
-  | Assign of string * lhs
-  | Let of int * string * lhs * exp
-  | Alias of int * string * string
-  | Assert of relation
+  | Assign of int * string * lhs
+  | Let of int * patt * lhs * exp
+  | Alias of int * string * A.src_ap
+  | Assert of int * relation
   | Call of call
   | Seq of exp * exp
 
 type fn = string * string list * exp
 type prog = fn list * exp
 
-module A = Ast
+module SS = Set.Make(String)
+module SM = StringMap
+
+type field_ctxt = SS.t SM.t
 
 let tvar = Printf.sprintf "__t%d"
 
@@ -43,7 +51,60 @@ let alloc_temp count =
   let v = tvar count in
   (count + 1),v
 
-let rec lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
+let tag_fresh t =
+  (LabelManager.register (), t)
+
+let tag_with i t =
+  (i, t)  
+
+let rec simplify_expr ?next count e =
+  let get_continuation count = match next with
+    | None -> simplify_expr count @@ Int 0
+    | Some e' -> simplify_expr count e'
+  in
+  match e with
+  | Unit -> simplify_expr count @@ Int 0
+  | Var (s,i) -> (i,A.EVar s)
+  | Int i ->
+    bind_in count (`OInt i) (fun _ var -> A.EVar var |> tag_fresh)
+  | Cond (i,`Var v,e1,e2) ->
+    A.Cond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
+  | Cond (i,(`BinOp _ as b),e1,e2) ->
+    bind_in ~ctxt:i count (b :> lhs) (fun c tvar ->
+        A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
+        |> tag_with i
+      )
+  | Seq (((Assign _ | Alias _ | Assert _) as ue),e1) ->
+    simplify_expr ~next:e1 count ue
+  | Seq (e1,e2) ->
+    A.Seq (simplify_expr count e1,simplify_expr count e2)
+    |> tag_fresh
+  | Assign (id,v,l) ->
+    lift_to_imm count l (fun c i ->
+        A.Assign (v,i,get_continuation c)
+        |> tag_with id
+      )
+  | Let (i,v,lhs,body) ->
+    lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->
+        let body' = simplify_expr c body in
+        A.Let (v,lhs',body')
+        |> tag_with i
+      )
+  | Alias (i,v1,v2) -> 
+    A.Alias (v1,v2, get_continuation count)
+    |> tag_with i
+  | Assert (i,{ op1; cond; op2 }) ->
+    lift_to_imm count (op1 :> lhs) (fun c op1' ->
+        lift_to_imm c (op2 :> lhs) (fun c' op2' ->
+          A.Assert ({ A.rop1 = op1'; A.cond = cond; A.rop2 = op2' }, get_continuation c')
+          |> tag_with i
+        )
+      )
+  | Call ((_,i,_) as c) ->
+    bind_in ~ctxt:i count (`Call c) (fun _ tvar ->
+        A.EVar tvar |> tag_fresh
+      )
+and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
   match lhs with
   | `OVar v -> k @@ A.Var v
@@ -58,14 +119,33 @@ let rec lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
           rest c' (A.Call { A.callee = op_name; arg_names = [i1;i2]; label = LabelManager.register ?ctxt () })
         )
       )
-  | `Mkref `Nondet -> k @@ A.Mkref A.RNone
-  | `Mkref (`OInt i) -> k @@ A.Mkref (A.RInt i)
-  | `Mkref (`OVar s) -> k @@ A.Mkref (A.RVar s)
-  | `Mkref o ->
-    bind_in ?ctxt count (o :> lhs) (fun c tvar ->
-        rest c (A.Mkref (A.RVar tvar))
+  | `Mkref lhs ->
+    lift_to_rinit ?ctxt count lhs (fun c' r ->
+        rest c' @@ A.Mkref r
       )
-and lift_to_var ?ctxt c h rest =
+  | `Tuple tl -> lift_to_tuple ?ctxt count tl (fun c' tlist ->
+                     rest c' @@ A.Tuple tlist
+                   )
+and lift_to_rinit ?ctxt count (r: lhs) rest =
+  let k = rest count in
+  match r with
+  | `Nondet -> k A.RNone
+  | `OVar v -> k @@ A.RVar v
+  | `OInt i -> k @@ A.RInt i
+  | #lhs as l ->
+    bind_in ?ctxt count l (fun c' var ->
+        rest c' @@ A.RVar var
+      )
+and lift_to_tuple ?ctxt count l rest =
+  let rec t_loop c acc kl =
+    match kl with
+    | [] -> rest c @@ List.rev acc
+    | v::l -> lift_to_rinit ?ctxt c v (fun c' lifted ->
+                      t_loop c' (lifted::acc) l
+                    )
+  in
+  t_loop count [] l
+and lift_to_var ?ctxt c (h: lhs) rest =
   match h with
   | `OVar v -> rest c v
   | _ -> bind_in ?ctxt c h (fun c' tvar ->
@@ -94,50 +174,8 @@ and bind_in ?ctxt count lhs k =
   lift_to_lhs ?ctxt count lhs (fun c' lhs' ->
     let (c'',tvar) = alloc_temp c' in
     let to_inst = k c'' tvar in
-    A.Let (LabelManager.register ?ctxt (),tvar,lhs',to_inst)
+    A.Let (A.PVar tvar,lhs',to_inst) |> tag_with @@ LabelManager.register ?ctxt ()
   )
-
-let rec simplify_expr ?next count e =
-  let get_continuation count = match next with
-    | None -> simplify_expr count @@ Int 0
-    | Some e' -> simplify_expr count e'
-  in
-  match e with
-  | Unit -> simplify_expr count @@ Int 0
-  | Var s -> A.EVar s
-  | Int i ->
-    bind_in count (`OInt i) (fun _ var -> A.EVar var)
-  | Cond (i,`Var v,e1,e2) ->
-    A.Cond (i,v,simplify_expr count e1,simplify_expr count e2)
-  | Cond (i,(`BinOp _ as b),e1,e2) ->
-    bind_in ~ctxt:i count (b :> lhs) (fun c tvar ->
-        A.Cond (i,tvar,simplify_expr c e1,simplify_expr c e2)
-      )
-  | Seq (((Assign _ | Alias _ | Assert _) as ue),e1) ->
-    simplify_expr ~next:e1 count ue
-  | Seq (e1,e2) ->
-    A.Seq (simplify_expr count e1,simplify_expr count e2)
-  | Assign (v,l) ->
-    lift_to_imm count l (fun c i ->
-        A.Assign (v,i,get_continuation c)
-      )
-  | Let (i,v,lhs,body) ->
-    lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->
-        let body' = simplify_expr c body in
-        A.Let (i,v,lhs',body')
-      )
-  | Alias (i,v1,v2) -> 
-      A.Alias (i,v1,v2, get_continuation count)
-  | Assert { op1; cond; op2 } ->
-    lift_to_imm count (op1 :> lhs) (fun c op1' ->
-      lift_to_imm c (op2 :> lhs) (fun c' op2' ->
-        A.Assert ({ A.rop1 = op1'; A.cond = cond; A.rop2 = op2' }, get_continuation c')
-      )
-    )
-  | Call ((_,i,_) as c) ->
-    bind_in ~ctxt:i count (`Call c) (fun _ tvar ->
-        A.EVar tvar
-      )
 
 let simplify (fns,body) =
   let simpl_fn = List.map (fun (name,args,e) ->

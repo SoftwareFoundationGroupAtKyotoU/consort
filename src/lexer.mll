@@ -15,13 +15,13 @@ let white = [' ' '\t']+
 let newline = '\n'
 let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
 let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
-let non_comment = [^ '(' '*' ')' ]+
-let comment_delim = [ '(' '*' ')' ]
+let non_comment = [^ '/' '*' ]+
+let comment_delim = [ '/' '*' ]
 let operators = ['+' '-' '*' '/' '%' '<' '>' '=' '!']+
 
 rule read =
   parse
-  | "(*" { comment lexbuf; read lexbuf }
+  | "/*" { comment lexbuf; read lexbuf }
   | white    { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "()" { UNIT }
@@ -42,6 +42,7 @@ rule read =
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
+  | '.' { DOT }
   | '=' { EQ }
   | ":=" { ASSIGN }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }
@@ -52,6 +53,6 @@ rule read =
 and comment =
   parse
   | non_comment { comment lexbuf }
-  | "*)" { () }
-  | "(*" { comment lexbuf; comment lexbuf }
+  | "*/" { () }
+  | "/*" { comment lexbuf; comment lexbuf }
   | comment_delim { comment lexbuf }

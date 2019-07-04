@@ -24,6 +24,7 @@
 // operators
 %token STAR
 %token <string> OPERATOR
+%token DOT
 // connectives
 %token SEMI COMMA
 // structure
@@ -34,7 +35,7 @@
 %token UNDERSCORE
 
 %type <SurfaceAst.op> op
-%type <SurfaceAst.op list> arg_list 
+%type <SurfaceAst.op list> arg_list
 
 %start <SurfaceAst.prog> prog
 
@@ -58,14 +59,28 @@ let expr :=
   | LBRACE; e = expr; SEMI; rest = separated_nonempty_list(SEMI, expr); RBRACE; {
 		list_to_seq e rest
 	  }
-  | LET; lbl = expr_label; x = ID; EQ; ~ = lhs; IN; body = expr; <Let>
+  | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
-  | x = ID; ASSIGN; y = lhs; <Assign>
+  | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
   | call = fn_call; <Call>
-  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ID; RPAREN; <Alias>
-  | ASSERT; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert { op1; cond; op2 } }
-  | ~ = ID; <Var>
+  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
+  | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
+  | ~ = var_ref; <>
   | ~ = INT; <Int>
+
+let var_ref :=
+  | ~ = ID; ~ = expr_label; <Var>
+
+let ap :=
+  | ~ = ID; <Ast.AVar>
+  | STAR; ~ = ID; <Ast.ADeref>
+  | LPAREN; STAR; id = ID; RPAREN; DOT; ind = INT; { Ast.APtrProj(id, ind) }
+  | v = ID; DOT; ind = INT; { Ast.AProj (v, ind) }
+
+let patt :=
+  | LPAREN; plist = separated_list(COMMA, patt); RPAREN; <Ast.PTuple>
+  | UNDERSCORE; { Ast.PNone }
+  | ~ = ID; <Ast.PVar>
 
 let op :=
   | ~ = INT; <`OInt>
@@ -73,20 +88,30 @@ let op :=
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
 
+let ref_op :=
+  | o = lhs; { (o :> lhs) }
+
 let cond_expr :=
   | ~ = ID; <`Var>
   | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string]) }
 
-let bin_op := o1 = op; op_name = OPERATOR; o2 = op; <`BinOp>
+let bin_op :=
+  | o1 = op; op_name = operator; o2 = op; <`BinOp>
+
+let operator :=
+  | ~ = OPERATOR; <>
+  | EQ; { "=" }
+  | STAR; { "*" }
 
 let lhs :=
   | b = bin_op; { (b :> lhs) }
   | o = op; { (o :> lhs) }
-  | MKREF; ~ = op; <`Mkref>
+  | MKREF; ~ = ref_op; <`Mkref>
   | ~ = fn_call; <`Call>
+  | LPAREN; l = separated_list(COMMA, lhs); RPAREN; <`Tuple>
 
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
-let callee :=
+let callee ==
   | ~ = ID; <>
   | LPAREN; ~ = OPERATOR; RPAREN; <>
 
@@ -94,4 +119,5 @@ let rel_op :=
   | ~ = OPERATOR; <>
   | EQ; { "=" }
 
-let expr_label := COLON; ~ = INT; <> | { LabelManager.register () }
+let expr_label == COLON; ~ = INT; <> | { LabelManager.register () }
+let pre_label == ~ = INT; COLON; <> | { LabelManager.register () }
