@@ -29,7 +29,9 @@ type pred_context = {
 type funenv = funtype SM.t
 type tenv = typ SM.t
 
-type oante = ownership * [ `Ge | `Gt | `Eq ] * float [@@deriving sexp]
+type oante =
+  | ORel of RefinementTypes.ownership * [ `Eq | `Ge | `Gt ] * float
+  | OAny of oante list [@@deriving sexp]
 
 let sexp_of_tenv = SM.sexp_of_t ~v:sexp_of_typ
 
@@ -339,14 +341,14 @@ let fold_left3i f a l1 l2 l3 =
   inner_loop 0 a l1 l2 l3
 
 let constrain_heap_path (cmp: [< `Ge | `Gt | `Eq]) =
-  List.map (fun o -> (o,cmp,0.0))
+  List.map (fun o -> ORel (o,cmp,0.0))
 
 let ctxt_gt wc = constrain_heap_path `Gt wc.o_stack
-let ctxt_eq wc =
+let ctxt_any_eq wc =
   match wc.o_stack with
   (* just false *)
-  | [] -> [(OConst 1.0,`Eq,0.0)]
-  | l -> constrain_heap_path `Eq l
+  | [] -> [ORel (OConst 1.0,`Eq,0.0)]
+  | l -> [OAny (constrain_heap_path `Eq l)]
 
 (* apply_matrix walks t1, t2 and out_type in parallel. At each leaf
    node, it generates a constrain on out_type's refinements based
@@ -387,8 +389,8 @@ let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ~out_root ?(out_bind=[]) ~out_type ctxt =
       in
       let cons = [
         mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
-        mk_constraint ((ctxt_eq c1) @ (ctxt_gt c2)) @@ c_r2;
-        mk_constraint ((ctxt_gt c1) @ (ctxt_eq c2)) @@ c_r1
+        mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
+        mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1
       ] in
       { ctxt with
         refinements = cons @ ctxt.refinements }
@@ -436,7 +438,6 @@ let rec assign_patt ~let_id ?(count=0) ctxt p t =
             match List.nth closed_patt i with
             | PVar v -> v
             | _ -> assert false
-
           in
           (sym_var,bound_var)
       ) b in

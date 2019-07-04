@@ -1,7 +1,9 @@
 module IntMap : Map.S with type key = int
 
 type funenv = RefinementTypes.funtype StringMap.t
-type oante = RefinementTypes.ownership * [ `Eq | `Ge | `Gt ] * float
+type oante =
+  | ORel of RefinementTypes.ownership * [ `Eq | `Ge | `Gt ] * float
+  | OAny of oante list
 type tenv = RefinementTypes.typ StringMap.t
 
 type ocon =

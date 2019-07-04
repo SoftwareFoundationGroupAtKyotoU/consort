@@ -69,16 +69,20 @@ module Make(S: STRATEGY) = struct
 
   let po = OwnershipSolver.po
 
-  let pp_owner_ante (o,c,f) =
-    let rel = match c with
+  let rec pp_owner_ante =
+    let rel = function
       | `Ge -> ">="
       | `Gt -> ">"
       | `Eq -> "="
     in
-    pg rel [
-      po o;
-      plift @@ string_of_float f
-    ]
+    function
+    | ORel (o,c,f) ->
+      pg (rel c) [
+          po o;
+          plift @@ string_of_float f
+        ]
+    | OAny ol ->
+      pg "or" @@ List.map pp_owner_ante ol
 
   let close_env env _ _ =
     (* this is a cheap hack to get our current tests to pass *)
