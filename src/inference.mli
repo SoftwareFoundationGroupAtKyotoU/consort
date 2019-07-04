@@ -27,9 +27,8 @@ module Result :
       ownership : ocon list;
       ovars : int list;
       refinements : tcon list;
-      pred_def: (Paths.concr_ap list * RefinementTypes.concr_refinement) IntMap.t;
       arity : int IntMap.t;
-      ty_envs: (int,tenv) Hashtbl.t;
+      ty_envs: (int,tenv) Hashtbl.t
     }
   end
 val infer :
