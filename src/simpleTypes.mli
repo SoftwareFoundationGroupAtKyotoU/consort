@@ -1,6 +1,7 @@
 type r_typ = [
   | `Int
-  | `IntRef
+  | `Tuple of r_typ list
+  | `Ref of r_typ
 ]
 
 type funtyp = {

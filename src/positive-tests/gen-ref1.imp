@@ -1,0 +1,27 @@
+update_tuple(p) {
+  let t1 = *p in
+  let t2 = *t1 in
+  let (_,g) = *t2 in {
+    g := *g + 1;
+    alias(g = (*t2).1);
+    alias(t2 = *t1);
+    alias(t1 = *p)
+  }
+}
+
+read_tuple(p) {
+  let t1 = *p in
+  let t2 = *t1 in
+  let (v,g) = *t2 in
+  let v_plus_2 = v + 2 in
+  assert(v_plus_2 = *g)
+}
+
+{
+  let i = _ in
+  let t = (i,mkref i + 1) in
+  let y3 = mkref mkref mkref t in {
+    update_tuple(y3);
+    read_tuple(y3)
+  }
+}

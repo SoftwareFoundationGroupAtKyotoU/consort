@@ -1,0 +1,9 @@
+{
+  let x = (_, _) in
+  let y = x in
+  let (v1,v2) = x in
+  if v1 < v2 then
+    let (t1,t2) = y in
+    assert(t1 < t2)
+  else ()
+}
