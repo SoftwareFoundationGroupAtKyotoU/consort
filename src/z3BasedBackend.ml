@@ -88,10 +88,12 @@ module Make(S: STRATEGY) = struct
       | `ADeref _ -> false
       | _ -> true
     ) env
+
+  let get_ctxt_vars k = init k (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i)
       
   let pp_constraint ~interp ff { env; ante; conseq; owner_ante } =
     let gamma = close_env env ante conseq in
-    let context_vars = init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
+    let context_vars = get_ctxt_vars !KCFA.cfa in
     let env_vars = List.map (fun (ap,_) -> Printf.sprintf "(%s Int)" @@ Paths.to_z3_ident ap) gamma in
     let free_vars = "(NU Int)":: context_vars @ env_vars in
     let denote_gamma = List.fold_left (fun acc (ap,r) ->
@@ -165,15 +167,26 @@ module Make(S: STRATEGY) = struct
   let solve ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
-    let { ownership = owner_cons; ovars; refinements; arity; theta; _ } = infer_res in
+    let { ownership = owner_cons; ovars; refinements; arity; theta; pred_def; _ } = infer_res in
     IntMap.iter (fun k v ->
-      pp_sexpr (fun spc ps ->
-        ps "declare-fun"; spc ();
-        ps @@ pred_name k; spc();
-        psl (init v (fun _ -> "Int")) ff;
-        spc ();
-        ps "Bool"
-      ) ff;
+      begin
+      if IntMap.mem k pred_def then
+          let (fv,defn) = IntMap.find k pred_def in
+          let pred_vars = "(NU Int)" :: (get_ctxt_vars !KCFA.cfa) @ (List.map (fun v_name -> Printf.sprintf "(%s Int)" @@ Paths.to_z3_ident v_name) fv) in
+          assert (List.length pred_vars = v);
+          pg "define-fun" [
+            pl @@ pred_name k;
+            psl @@ pred_vars;
+            pl "Bool";
+            pp_refine ~interp defn (`AVar "NU")
+          ] ff
+      else
+        pg "declare-fun" [
+          pl @@ pred_name k;
+          psl @@ init v (fun _ -> "Int");
+          pl "Bool"
+        ] ff
+      end;
       break ff
     ) arity;
     try

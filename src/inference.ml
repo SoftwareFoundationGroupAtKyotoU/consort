@@ -64,7 +64,8 @@ type context = {
   pred_arity: int IntMap.t;
   v_counter: int;
   pred_detail: (int,pred_context) Hashtbl.t;
-  store_env: int -> tenv -> unit
+  store_env: int -> tenv -> unit;
+  pred_def: (concr_ap list * concr_refinement) IntMap.t;
 }
 
 module Result = struct
@@ -73,6 +74,7 @@ module Result = struct
     ownership: ocon list;
     ovars: int list;
     refinements: tcon list;
+    pred_def: (concr_ap list * concr_refinement) IntMap.t;
     arity: int IntMap.t;
     ty_envs: (int,tenv) Hashtbl.t
   }
@@ -938,11 +940,12 @@ let infer ~print_pred ~save_types ~intrinsics st (fns,main) =
     pred_arity = IntMap.empty;
     v_counter = 0;
     pred_detail = Hashtbl.create 10;
-    store_env
+    store_env;
+    pred_def = IntMap.empty
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in
-  let { pred_detail; refinements; ownership; ovars; pred_arity; theta; _ } = process_expr ctxt' main in
+  let { pred_detail; refinements; ownership; ovars; pred_arity; theta; pred_def; _ } = process_expr ctxt' main in
   if print_pred then print_pred_details pred_detail;
   Result.{
     ownership;
@@ -950,6 +953,7 @@ let infer ~print_pred ~save_types ~intrinsics st (fns,main) =
     refinements;
     theta;
     arity = pred_arity;
-    ty_envs 
+    ty_envs;
+    pred_def
   }
   
