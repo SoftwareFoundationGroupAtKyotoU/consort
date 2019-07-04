@@ -350,11 +350,78 @@ let ctxt_any_eq wc =
   | [] -> [ORel (OConst 1.0,`Eq,0.0)]
   | l -> [OAny (constrain_heap_path `Eq l)]
 
+let all_const_o ctxt =
+  List.for_all (function
+  | OConst _ -> true
+  | _ -> false) ctxt.o_stack
+
+let all_live_o ctxt =
+  List.for_all (function
+  | OConst o -> o > 0.0
+  | _ -> failwith "Called with symbolic ownership path") ctxt.o_stack
+
+let unsafe_extract_pred = function
+  | Pred (i,(fv,_)) -> (i,fv)
+  | _ -> failwith "You broke an invariant somewhere I guess :("
+
+let combine_concr_preds (c1,ct1) (c2,ct2) c_out =
+  let out_live = all_live_o c_out in
+  let t1_live = all_live_o c1 in
+  let t2_live = all_live_o c2 in
+  if (not out_live) || ((not t1_live) && (not t2_live)) then
+    Top
+  else if t1_live && t2_live then
+    And (ct1,ct2)
+  else if t1_live then
+    ct1
+  else
+    (assert t2_live; ct2)
+
+let generalize_pred root out_type combined_pred =
+  let rec gen_ap_loop ap ~exc ~k =
+    if ap = root then
+      k (root :> refine_ap) out_type
+    else
+      match ap with
+      | `AVar v -> exc (`AVar v)
+      | `ADeref ap' ->
+        gen_ap_loop ap'
+          ~exc:(fun _ -> failwith "Free deref rooted outside target")
+          ~k:(fun _ t ->
+            match t with
+            | Ref (t',_) -> k (ap :> refine_ap) t'
+            | _ -> assert false)
+      | `AProj (ap',i) -> 
+        gen_ap_loop ap'
+          ~exc:(fun _ -> (ap :> refine_ap))
+          ~k:(fun _ t ->
+            match t with
+            | Tuple (b,tl) ->
+              let (s,_) = List.find (fun (_,sym_ap) ->
+                  match sym_ap with
+                  | SProj i' when i' = i -> true
+                  | _ -> false) b in
+              k (`Sym s) (List.nth tl i)
+            | _ -> assert false
+          )
+  in
+  let gen_ap ap = gen_ap_loop ap ~exc:(fun t -> t) ~k:(fun ap _ -> ap) in
+  let rec gen_loop = function
+    | Top -> Top
+    | ConstEq n -> ConstEq n
+    | And (r1,r2) -> And (gen_loop r1,gen_loop r2)
+    | Relation r -> Relation r
+    | Pred (i,(fv,_)) -> Pred (i,List.map gen_ap fv)
+    | CtxtPred (i1,i2,(fv,_)) -> CtxtPred (i1,i2,List.map gen_ap fv)
+    | NamedPred (nm,(fv,_)) -> NamedPred (nm,List.map gen_ap fv)
+  in
+  gen_loop combined_pred
+
 (* apply_matrix walks t1, t2 and out_type in parallel. At each leaf
    node, it generates a constrain on out_type's refinements based
    on the ownerships along the paths from the roots of t1 and t2 to the leaf.
 *)
-let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ~out_root ?(out_bind=[]) ~out_type ctxt =
+let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[]) ~out_type ctxt =
   let g = denote_gamma ctxt.gamma in
   let rec inner_loop (c1,t1) (c2,t2) (c_out,out_t) ctxt =
     match t1,t2,out_t with
@@ -376,24 +443,36 @@ let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ~out_root ?(out_bind=[]) ~out_type ctxt =
         (step_ref c_out o_out t_out')
         ctxt
     | Int r1,Int r2,Int out_r ->
+      let gen_constraint =
+        (force_cons) ||
+        (not @@ List.for_all all_const_o [c1; c2; c_out])
+      in
       let c_out_r = ctxt_compile_ref c_out out_r in
       let c_r1 = ctxt_compile_ref c1 r1 in
       let c_r2 = ctxt_compile_ref c2 r2 in
-      let mk_constraint oante ante =
-        {
-          env = g;
-          ante = ante;
-          conseq = c_out_r;
-          owner_ante = (ctxt_gt c_out) @ oante
-        }
-      in
-      let cons = [
-        mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
-        mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
-        mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1
-      ] in
-      { ctxt with
-        refinements = cons @ ctxt.refinements }
+      if gen_constraint then
+        let mk_constraint oante ante =
+          {
+            env = g;
+            ante = ante;
+            conseq = c_out_r;
+            owner_ante = (ctxt_gt c_out) @ oante
+          }
+        in
+        let cons = [
+          mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
+          mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
+          mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1
+        ] in
+        let (ctxt',d_list) = ctxt in
+        ({ ctxt' with refinements =
+             cons @ ctxt'.refinements },d_list)
+      else
+        let (i,_) = unsafe_extract_pred c_out_r in
+        let comb_pred = combine_concr_preds (c1,c_r1) (c2,c_r2) c_out in
+        let gen_pred = generalize_pred out_root out_type comb_pred in
+        let (ctxt',d_list) = ctxt in
+        (ctxt',(i,gen_pred)::d_list)
     | _ -> raise @@ Invalid_argument "Mismatched types"
   in
   let mk_ctxt b t =
@@ -407,7 +486,7 @@ let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ~out_root ?(out_bind=[]) ~out_type ctxt =
     (mk_ctxt [] t1)
     (mk_ctxt t2_bind t2)
     (mk_ctxt out_bind out_type)
-    ctxt
+    (ctxt,[])
 
 let rec push_subst bind = function
   | Int r ->
@@ -417,6 +496,15 @@ let rec push_subst bind = function
   | Tuple (b,tl) ->
     let b_ext = List.map (fun (i,v) -> (i,SVar v)) bind in
     Tuple (b_ext @ b, tl)
+
+let sub_pdef =
+  function
+  | [] -> (fun t -> t)
+  | sub_assoc ->
+    map_refinement (function
+      | Pred (i,_) when List.mem_assoc i sub_assoc -> List.assoc i sub_assoc
+      | r -> r)
+                     
 
 let rec assign_patt ~let_id ?(count=0) ctxt p t =
   match p,t with
@@ -563,10 +651,14 @@ let rec shuffle_owners t1 t2 t1' t2' ctxt =
     ) ctxt orig_tl new_tl
   | _ -> assert false
 
-let rec post_update_type = function
-  | Int _ -> false
+(*let rec post_update_type = function
+  | _ -> false
   | Tuple (_,tl) -> List.exists post_update_type tl
-  | Ref _ -> true
+   | Ref _ -> true*)
+
+let post_update_type = function
+  | _ -> true
+
 
 let rec sum_ownership t1 t2 out ctxt =
   match t1,t2,out with
@@ -718,17 +810,20 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
        appearing in t1' and t2' are bound by tuple types *)
     let app_matrix = apply_matrix ~t1 ~t2_bind:subst ~t2 in
     (* function to update t2 *)
-    let rec up_ap ap ctxt = match ap with
-      | `AVar v -> update_type v t2_base ctxt
+    let rec up_ap ap t2_base' ctxt = match ap with
+      | `AVar v -> update_type v t2_base' ctxt
       | `ADeref ap
-      | `AProj (ap,_) -> up_ap ap ctxt
+      | `AProj (ap,_) -> up_ap ap t2_base' ctxt
     in
-    let res = ctxt''
-      |> app_matrix ~out_root:ap ~out_bind:subst ~out_type:t2'
-      |> app_matrix ~out_root:(`AVar v1) ~out_type:t1'
+    let (ctxt'app,(psub1,psub2)) =
+      ctxt''
+      |> (app_matrix ~out_root:ap ~out_bind:subst ~out_type:t2' >>
+        app_matrix ~out_root:(`AVar v1) ~out_type:t1')
+    in
+    let res = ctxt'app
       |> shuffle_owners t1 t2 t1' t2'
-      |> up_ap ap
-      |> update_type v1 t1'
+      |> up_ap ap @@ sub_pdef psub2 t2_base
+      |> update_type v1 @@ sub_pdef psub1 t1'
     in
     process_expr ?output_type ~remove_scope res cont
 
@@ -825,14 +920,13 @@ and process_call ctxt c =
         let ap = `AVar k in
         (* the (to be) summed type *)
         let (ctxt'',fresh_type) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars arg_t ctxt' in
+        let (ctxt''',psub) = apply_matrix ~t1:resid ~t2:out_t ~force_cons:false ~out_root:ap ~out_type:fresh_type ctxt'' in
         (* now the magic *)
-        ctxt''
-        (* sum the constraints *)
-        |> apply_matrix ~t1:resid ~t2:out_t ~out_root:ap ~out_type:fresh_type
+        ctxt'''
         (* constrain the formal half of the arg type *) 
         |> constrain_in formal
         |> sum_ownership resid out_t fresh_type
-        |> update_type k fresh_type
+        |> update_type k @@ sub_pdef psub fresh_type
       else
         constrain_in arg_t acc
     ) ctxt arg_bindings in_out_types
