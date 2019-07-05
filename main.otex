@@ -225,36 +225,54 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 \begin{figure}[t]
   \leavevmode
   \infax[Tadd-Int]{
-    [[{x:int|ph} + {x:int|ph} = {x:int|ph}]]
+    [[{x:int|ph1} + {x:int|ph2} = {x:int|ph1 /\ ph2}]]
   }
   \infrule[Tadd-Ref1]{
     [[r1]] \ne 0 \andalso
     [[r2]] \ne 0
   }{
-    [[{x:int|ph1} ref r1 + {x:int|ph2} ref r2 = {x:int|ph1 /\ ph2} ref r1 + r2]]
+    [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
   }
   \infrule[Tadd-Ref2]{
-    [[r1]] \ne 0 \andalso
-    [[r2]] \ne 0
-  }{
-    [[ { x:int | ph } ref r1 + {x:int | ph} ref r2 = { x:int | ph} ref r1 + r2]]
-  }
-  \infrule[Tadd-Ref3]{
     [[r]] > 0
   }{
     [[ T1 ref 0 + T2 ref r = T2 ref r]]
   }
-  \infax[Tadd-Ref4]{
+  \infax[Tadd-Ref3]{
     [[T1 ref 0 + T2 ref 0 = { x: int | Top } ref 0]]
   }
   \caption{Rules for $\typ_1 \addt \typ_2$.}
   \label{fig:addition}
 \end{figure}
 
+\begin{figure}
+  \leavevmode
+  \infrule[TEq-Ref]{
+    [[T1 ~ T2]] \andalso [[r1]] = [[r2]]
+  }{
+    [[T1 ref r1 ~ T2 ref r2]]
+  }
+
+  \infrule[TEq-Int]{
+    [[|= ph1 <=> ph2]]
+  }{
+    [[ {x:int | ph1} ~ {y:int | ph2} ]]
+  }
+  \caption{Rules for type equality}
+  \label{fig:equality}
+\end{figure}
+
 \begin{definition}
   $[[ T1 + T2 ]]$ is the least commutative partial operation that satisfies the rules in Figure~\ref{fig:addition}.
   \AI{Rules for unit and int types.}
 \end{definition}
+
+\begin{definition}
+  We define equalilty modulo logical
+  equivalence (or just ``equality'') between two types, written as $[[ T1 ~ T2 ]]$,
+  as the least binary relation closed under the rules shown \cref{fig:equality}.
+\end{definition}
+  
 
 \begin{definition}
   The typed equality proposition $[[ x = T y ]]$ is defined as
@@ -374,7 +392,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
   \infrule[T-Alias]{
-    [[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]] \\
+    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
     [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
   }{
     [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
