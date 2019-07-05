@@ -185,6 +185,7 @@ grammar
     | in                  ::   :: in         {{ tex \in }}
     | <:                  ::   :: sub        {{ tex \leq }}
     | ==>                 ::   :: impl       {{ tex \implies }}
+	| <=>                 ::   :: bimpl      {{ tex \Leftrightarrow }}
     | =>                  ::   :: darrow     {{ tex \Rightarrow }}
     | |->                 ::   :: mapsto     {{ tex \mapsto }}
     | []                  ::   :: hole       {{ tex \HOLE }}
@@ -200,6 +201,7 @@ grammar
 	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
 	| logical_frag1 /\ logical_frag2 :: :: conj
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
+	| logical_frag1 <=> logical_frag2 :: :: logical_equiv
 
   logic_judgment :: '' ::=
 	| |= logical_frag :: :: models
@@ -294,3 +296,4 @@ grammar
 	| Gst1 = Gst2 :: :: stEnvEq
 	| csub1 = csub2 :: :: csubEq
 	| vsub1 = vsub2 :: :: vsubEq
+	| T1 ~ T2 :: :: tEqual {{ tex [[T1]] \approx [[T2]] }}
