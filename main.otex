@@ -866,23 +866,23 @@ The followings are key lemmas:
 
 \paragraph{Proof of Lemma 2.}
 \begin{proof}
-  The proof organized by cases analysis on the transition rule of $e$.
+  The proof organized by cases analysis on showing that $\bf{Cons}$ $(H', R', \tenv'')$ holds and the transition rule of $e$. Notice $H',R', \tenv''$
+  represent heap, register and type environment respectively after the transition.
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] \\
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]] \\
-    [[ G' = G [ x <- T2 ] ]] \\
-    [[En[e] = x]] \andalso [[En]] = [][[ /\]] e = x \\
-    [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]]
+    [[ G' = G [ x <- T2 ] ]]
     }
+    Using the Inversion $\cref{lem:inversion}$ of the definition of configuration typing $[[ |- D <H, R, CE : Es, x>]]$, we can obtain\newline
+    $[[En[e] = x]] \andalso [[En]] = [][[ /\]] e = x$\newline
+    $[[ Th | [] : T => G' | ll |-e En : Tn => Gn ]]$\newline
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] $.\newline
     From above, we can obtain that $[[ Th | [] : T1 => G' | B |-e [] : T1 => G' ]]$.\newline
-    Using the Inversion $\cref{lem:inversion}$ of the definition of configuration typing $[[ |- D <H, R, CE : Es, x>]]$, we can obtain
-    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] $\newline
-    Suppose there is $[[<H, R, CE : CE': Es, x> --> D <H, R, CE': Es, CE[x]> ]]$ \newline
-    We will obtain $[[ Th | [] : Tn => Gn | lln-1 |-e CE' : Tn-1 => Gn-1 ]]$, which shows that $E'_c$ is well typed.
-    \newline
-    Also using $\bf{\cref{lem:stack-well-typed}}$, we can show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G | B |- CE[x] : Tn => Gn]]$.\newline
-    Using the Inversion $\cref{lem:inversion}$ of the definition of configuration typing $[[ |- D <H, R, CE : Es, x>]]$, we can obtain
-     that $[[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]$ and $\bf{Cons}$ $(H,R,\tenv''\mapsto \tenv [ x : \tau_1 + \tau_2])$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv$).
+    Also using $\bf{\cref{lem:stack-well-typed}}$, we can show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G' | B |- CE[x] : Tn => Gn]]$.\newline
+    For the next caller in the stack $\overrightarrow{E}$, what it needs to execute the expression as the precondition(type refinement and environment) is exactly
+    the same as the return type refinement $\tau_n$ and return environment $\tenv_n$, which shows that the stack is well typed after we execute our expression context $E_c$.
+    It remains to show that $\bf{Cons}$ $(H,R,\tenv''\mapsto \tenv [ x : \tau_1 + \tau_2])$,
+    which follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv$).
   \end{rneqncase}
   \begin{rneqncase}{R-Deref}{
     [[ |- D <H, R, Es, E[let x = *y in e]>]]\\
@@ -898,8 +898,10 @@ The followings are key lemmas:
     that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $H(R(y))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
     Since it's to dereference, we have $R(x')=H(R(y))$, we can say that the refinement predicates $\phi$ in the previous environment also holds for $R(x')$.\newline
     $[y \hookleftarrow (\tau_1 \land_y y = x') \TREF^r]$ requires that $y$ should satisfy not only the refinement of $\tau_1$ but also the contents of $y$ equals to $x'$ in the post environment $\tenv''$.
-    The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $x'$, and $\tau_1$, which remains in $y$,
-    also $\tau_1$ will be the same as $\tau_1+\tau_2$ , to dereference means to update the target of $x'$ with the memory address of the variable $y$, that is $y = x'$. It's obvious correct.\newline
+    The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $x'$, and $\tau_1$, which remains in $y$.
+    By the definition of type addition, we have that $\tau_1 = \tau_1 + \tau_2$, and so the refinement must also be the same. It follows that the contents
+    of $y$ must therefore satisfy the refinement of $\tau_1$ as well. Furthermore, by the definition of dereference, the value contained in $x'$ is taken
+    from the memory cell pointed to by $y$, and thus $y$ trivially satisfies that the refinement that $y = x'$.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. Define $F_0$ and $F_1$ by:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))$\newline
     $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv''(y)) + \mathbf{own}(H', R'(x'), \tenv''(x'))$\newline
@@ -953,8 +955,10 @@ The followings are key lemmas:
     that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $R(y)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
     We know that $H'(R'(x'))=R(y)$, here $H', R'$ represent heap and environment after transition, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(x'))$.\newline
     $[x' \hookleftarrow (\tau_2 \land_{x'} x' = y) \TREF^1]$ shows that $x'$ should satisfy not only $\tau_2$ but also the contents of $x'$ equals to $y$ in the post environment $\tenv''$.
-    The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $x'$, and $\tau_1$, which remains in $y$,
-    also $\tau_2$ will be the same as $\tau_1+\tau_2$ , to mkref means to make a reference cell $y$ and bind $x'$ to it, that is $x'=y$. It's obvious correct.\newline
+    The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $x'$, and $\tau_1$, which remains in $y$.
+    By the definition of type addition, we have that $\tau_2 = \tau_1 + \tau_2$, and so the refinement must also be the same. It follows that the contents
+    of $x'$ must therefore satisfy the refinement of $\tau_2$ as well. Furthermore, by the definition of mkref, make a reference cell $y$ and bind $x'$ to it
+    and thus $x'$ trivially satisfies that the refinement that $x' = y$.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     To prove $F_0=F_1$ follows from:\newline
     $\sum_{z\in\textit{dom}(\tenv'')}\mathbf{own}(H',R'(z),\tenv''(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto 1\}$,
@@ -972,15 +976,17 @@ The followings are key lemmas:
     that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $R(x)$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
     From the definition of Assign, we have $R(x)=H'(R'(y))$, here $H', R'$ represent the post condition after transtion, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(y))$.\newline
     $[y \hookleftarrow (\tau_2 \TREF^r\land_y y =_{\tau_1} x]$ shows that $y$ should satisfy not only $\tau_2\TREF^r$ but also the contents of $y$ equals to $x$ in the post environment $\tenv''$.
-    The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_1$, which will be transferred to $x$, and $\tau_2$, which remains in $y$,
-    also $\tau_2$ will be the same as $\tau_1+\tau_2$ , to assign means to update the target of $x'$ with the memory address of the variable $y$, that is $y = x$. It's obvious correct.\newline
+    The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_1$, which will be transferred to $x$, and $\tau_2$, which remains in $y$.
+    By the definition of type addition, we have that $\tau_2 = \tau_1 + \tau_2$, and so the refinement must also be the same. It follows that the contents
+    of $y$ must therefore satisfy the refinement of $\tau_2$ as well. Furthermore, by the definition of assign, the value contained in $x$ is taken
+    from the memory cell pointed to by $y$, and thus $y$ trivially satisfies that the refinement that $y = x$.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$, we focus on prove that $F_0=F_1$, which defines as below:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))$\newline
     $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv''(y)) + \mathbf{own}(H', R'(x), \tenv''(x))$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y,x\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R'(z),\tenv''(z))$\newline
-    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{a\mapsto 1\}+\mathbf{own}(H, R(x), \tau_1+\tau_2)$,
-    we know that $x'$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ should be $\emptyset$,
+    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x'), \tenv(x'))= \{a\mapsto 1\}+\mathbf{own}(H, R(x'), \tau_1+\tau_2)$,
+    we know that $x'$ is an integer, so $\mathbf{own}(H, R(x'), \tau_1+\tau_2)$ should be $\emptyset$,
     we can finally prove $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Alias}{
@@ -995,20 +1001,15 @@ The followings are key lemmas:
     that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $H(R(x))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
     Aliasing means that two pointer share the same memory cell, so we will have $H(R(x))=H(R(y))$, we can obtain that the refinement predicates $\phi$ holds for $H(R(y))$.\newline
     Also because of aliasing, the sum of the refinement to the memory cell should not change.
-    According to the rules for $\tau_1+\tau_2$, we will analyze 4 possible cases.\newline
-    In case for \rn{[Tadd-Ref2]}, we suppose $\tau_1=\{x\COL\TINT\mid\phi\}\land \tau_2=\{x\COL\TINT\mid\phi\}\land r_1\neq 0\land r_2\neq 0$, that means
-    the refinement predicates of the two references are the same, which is shown as $\tenv[x \hookleftarrow \tau \TREF^{r_1}][y \hookleftarrow \tau \TREF^{r
-    _2}]$.``+" only deal with the ownerships which can be written as $\{x\COL\TINT\mid\phi\}\TREF^{r_1+r_2}$, after aliasing,
-    now we have $\tenv[x \hookleftarrow \tau \TREF^{r'_1}][y \hookleftarrow \tau \TREF^{r'_2}]$, the refinement predicates don't change, that is still $\tau$.
-    so that we can say that $[[SAT(H,R,G'')]]$ holds.\newline
-    In case for \rn{[Tadd-Ref3]}, we suppose $\tau_1\TREF^0\land \tau_2\TREF^r\land r>0$, after aliasing, the reference refinement will become $\tau_2\TREF^r$, we have$\tenv[x \hookleftarrow \tau_2 \TREF^{r'_1}][y \hookleftarrow \tau_2 \TREF^{r'_2}]$ and $r'_1+r'_2=r$,
-    the refinement in the previous environment still holds for $\tau_2$,
-    we know that the $[[SAT(H,R,G'')]]$ holds.\newline
-    In case for \rn{[Tadd-Ref4]}, we suppose $\tau_1\TREF^0\land \tau_2\TREF^0$, which means both references don't have right to change the refinement of the memory cell, it's
-    obvious that the $[[SAT(H,R,G'')]]$ still holds.\newline
-    In case for \rn{[Tadd-Ref1]}, we suppose $\tau_1=\{x\COL\TINT\mid\phi_1\}\land \tau_2=\{x\COL\TINT\mid\phi_2\}\land r_1\neq 0\land r_2\neq 0$, that means
-    the refinements of the two references are different, ``+" needs to do conjuction with the two refinements and also the ownerships which can be written as $\{x\COL\TINT\mid\phi_2\land \phi_1\}\TREF^{r_1+r_2}$, so after aliasing, the
-    refinement of the reference should satisfy not only $\tau_1$ but also $\tau_2$, which gives that $[[SAT(H, R, G'')]]$ holds.\newline
+    According to the rules for $\tau_1+\tau_2$, we will analyze 2 cases.\newline
+    In case for \rn{[Tadd-Ref3]}, we suppose the refinement for $x$ is $\tau_1\TREF^0$, the refinement for $y$ is $\tau_2\TREF^r, r>0$,
+    that means only reference $y$ can update the memory cell, with aliasing, both $x$ and $y$ are pointing to the same memory cell, which contains the refinement
+    $\tau_2\TREF^r$ according to the definition of rules for $\tau_1+\tau_2$, now we have $\tenv[x \hookleftarrow \tau_2 \TREF^{r'_1}][y \hookleftarrow \tau_2 \TREF^{r'_2}]$ and $r'_1+r'_2=r$,
+    the refinement in the previous environment still holds for $\tau_2$.\newline
+    In case for \rn{[Tadd-Ref1]}, we suppose the refinement for $x$ is $\tau_1=\{x\COL\TINT\mid\phi_1\}$, the refinement for $y$ is $\tau_2=\{y\COL\TINT\mid\phi_2\}$ and $r_1\neq 0\land r_2\neq 0$, that means
+    the refinements of the two references are different, according to the definition of rules for $\tau_1+\tau_2$, we need to do conjunction with the two refinements which can be written as $\{n\COL\TINT\mid\phi_2\land \phi_1\}$ for both
+    $x$ and $y$. With aliasing, both $x$ and $y$ are pointing to the same memory cell, so the refinement of the reference satisfies not only $\tau_1$ but also $\tau_2$.\newline
+    Other cases are trivially proved from $\tau_1+\tau_2\approx\tau_1'+\tau_2'$
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     To prove that $F_0=F_1$ follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
@@ -1055,7 +1056,7 @@ The followings are key lemmas:
     & [[ Th | [] : csub vsub Tp => G[yi <- csub vsub Ti] | ll |-e E[let x = [] l in e] : T2 => G2 ]]
     \end{align*}
     To prove these, we can look at $\bf{\cref{lem:callfunc}}$.\newline
-    $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv'=\tenv, H'=H, R'=R$).
+    $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv, H'=H, R'=R$).
   \end{rneqncase}
 \end{proof}
 
