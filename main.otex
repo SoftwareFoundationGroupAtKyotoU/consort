@@ -272,7 +272,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   equivalence (or just ``equality'') between two types, written as $[[ T1 ~ T2 ]]$,
   as the least binary relation closed under the rules shown \cref{fig:equality}.
 \end{definition}
-  
+
 
 \begin{definition}
   The typed equality proposition $[[ x = T y ]]$ is defined as
@@ -917,7 +917,9 @@ The followings are key lemmas:
     Since it's to dereference, we have $R(x')=H(R(y))$, we can say that the refinement predicates $\phi$ in the previous environment also holds for $R(x')$.\newline
     $[y \hookleftarrow (\tau_1 \land_y y = x') \TREF^r]$ requires that $y$ should satisfy not only the refinement of $\tau_1$ but also the contents of $y$ equals to $x'$ in the post environment $\tenv''$.
     The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $x'$, and $\tau_1$, which remains in $y$.
-    By the definition of type addition, we have that $\tau_1 = \tau_1 + \tau_2$, and so the refinement must also be the same. It follows that the contents
+    Here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$,
+    by the definition of type addition, we have that $\tau_1 + \tau_2 = \{x\COL\TINT\mid\varphi_1\land \varphi_2\}$, that gives if a value satisfies the refinement of $y$ before transition,
+    then it must satisfy the refinement $\tau_1 = \{x \COL \TINT \mid \phi_1\}$ itself. It follows that the contents
     of $y$ must therefore satisfy the refinement of $\tau_1$ as well. Furthermore, by the definition of dereference, the value contained in $x'$ is taken
     from the memory cell pointed to by $y$, and thus $y$ trivially satisfies that the refinement that $y = x'$.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. Define $F_0$ and $F_1$ by:\newline
@@ -974,7 +976,9 @@ The followings are key lemmas:
     We know that $H'(R'(x'))=R(y)$, here $H', R'$ represent heap and environment after transition, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(x'))$.\newline
     $[x' \hookleftarrow (\tau_2 \land_{x'} x' = y) \TREF^1]$ shows that $x'$ should satisfy not only $\tau_2$ but also the contents of $x'$ equals to $y$ in the post environment $\tenv''$.
     The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $x'$, and $\tau_1$, which remains in $y$.
-    By the definition of type addition, we have that $\tau_2 = \tau_1 + \tau_2$, and so the refinement must also be the same. It follows that the contents
+    Here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$,
+    by the definition of type addition, we have that $\tau_1 + \tau_2 = \{x\COL\TINT\mid\varphi_1\land \varphi_2\}$, that gives if a value satisfies the refinement of $y$ before transition,
+    then it must satisfy the refinement $\tau_1 = \{x \COL \TINT \mid \phi_1\}$ itself. It follows that the contents
     of $x'$ must therefore satisfy the refinement of $\tau_2$ as well. Furthermore, by the definition of mkref, make a reference cell $y$ and bind $x'$ to it
     and thus $x'$ trivially satisfies that the refinement that $x' = y$.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
@@ -995,7 +999,9 @@ The followings are key lemmas:
     From the definition of Assign, we have $R(x)=H'(R'(y))$, here $H', R'$ represent the post condition after transtion, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(y))$.\newline
     $[y \hookleftarrow (\tau_2 \TREF^r\land_y y =_{\tau_1} x]$ shows that $y$ should satisfy not only $\tau_2\TREF^r$ but also the contents of $y$ equals to $x$ in the post environment $\tenv''$.
     The ownership of $y$ (described by $\tau_1+\tau_2$) is divided into $\tau_1$, which will be transferred to $x$, and $\tau_2$, which remains in $y$.
-    By the definition of type addition, we have that $\tau_2 = \tau_1 + \tau_2$, and so the refinement must also be the same. It follows that the contents
+    Here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$,
+    by the definition of type addition, we have that $\tau_1 + \tau_2 = \{x\COL\TINT\mid\varphi_1\land \varphi_2\}$, that gives if a value satisfies the refinement of $x$ before transition,
+    then it must satisfy the refinement $\tau_1 = \{x \COL \TINT \mid \phi_1\}$ itself. It follows that the contents
     of $y$ must therefore satisfy the refinement of $\tau_2$ as well. Furthermore, by the definition of assign, the value contained in $x$ is taken
     from the memory cell pointed to by $y$, and thus $y$ trivially satisfies that the refinement that $y = x$.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$, we focus on prove that $F_0=F_1$, which defines as below:\newline
@@ -1019,15 +1025,23 @@ The followings are key lemmas:
     that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $H(R(x))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
     Aliasing means that two pointer share the same memory cell, so we will have $H(R(x))=H(R(y))$, we can obtain that the refinement predicates $\phi$ holds for $H(R(y))$.\newline
     Also because of aliasing, the sum of the refinement to the memory cell should not change.
-    According to the rules for $\tau_1+\tau_2$, we will analyze 2 cases.\newline
-    In case for \rn{[Tadd-Ref3]}, we suppose the refinement for $x$ is $\tau_1\TREF^0$, the refinement for $y$ is $\tau_2\TREF^r, r>0$,
-    that means only reference $y$ can update the memory cell, with aliasing, both $x$ and $y$ are pointing to the same memory cell, which contains the refinement
-    $\tau_2\TREF^r$ according to the definition of rules for $\tau_1+\tau_2$, now we have $\tenv[x \hookleftarrow \tau_2 \TREF^{r'_1}][y \hookleftarrow \tau_2 \TREF^{r'_2}]$ and $r'_1+r'_2=r$,
-    the refinement in the previous environment still holds for $\tau_2$.\newline
-    In case for \rn{[Tadd-Ref1]}, we suppose the refinement for $x$ is $\tau_1=\{x\COL\TINT\mid\phi_1\}$, the refinement for $y$ is $\tau_2=\{y\COL\TINT\mid\phi_2\}$ and $r_1\neq 0\land r_2\neq 0$, that means
-    the refinements of the two references are different, according to the definition of rules for $\tau_1+\tau_2$, we need to do conjunction with the two refinements which can be written as $\{n\COL\TINT\mid\phi_2\land \phi_1\}$ for both
-    $x$ and $y$. With aliasing, both $x$ and $y$ are pointing to the same memory cell, so the refinement of the reference satisfies not only $\tau_1$ but also $\tau_2$.\newline
-    Other cases are trivially proved from $\tau_1+\tau_2\approx\tau_1'+\tau_2'$
+    We will analyze 2 cases here. Other cases are trivially symmetrically shown from the addition rules.\newline
+    In case for \rn{[Tadd-Ref2]}, we suppose the refinement for $x$ before transition is $\tau_1\TREF^0$, the refinement for $y$ before transition is $\tau_2\TREF^r, r>0$,
+    here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$.
+    The refinement for $x$ after transition is $\tau'_1\TREF^{r'_1}$, the refinement for $y$ after transition is $\tau'_2\TREF^{r'_2}, r'_1>0, r'_2>0$,
+    here $\tau'_1 = \{x\COL\TINT\mid\varphi'_1\}$ and $\tau'_2 = \{x\COL\TINT\mid\varphi'_2\}$.\newline
+    Before transition according to \rn{[Tadd-Ref2]}, only reference $y$ can update the memory cell, which gives that the conjunction of two refinement is $\varphi_1\land\varphi_2\produces\varphi_2$.
+    After transition according to \rn{[Tadd-Ref1]}, the conjunction of two refinement is $\varphi'_1\land\varphi'_2$.
+    With aliasing, both $x$ and $y$ are pointing to the same memory cell, which shows $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^{r_1+r_2}\approx\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}$ from the rules for type equality.
+    In this case, we have $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^r=\{x\COL\TINT\mid\varphi_2\}\TREF^r$ and $\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}=\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r}$ since $r'_1+r'_2=r$ holds.\newline
+    In case for \rn{[Tadd-Ref1]}, we suppose the refinement for $x$ before transition is $\tau_1\TREF^{r_1}$, the refinement for $y$ before transition is $\tau_2\TREF^{r_2}, r_1>0, r_2>0$,
+    here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$.
+    The refinement for $x$ after transition is $\tau'_1\TREF^{r'_1}$, the refinement for $y$ after transition is $\tau'_2\TREF^{r'_2}, r'_1>0, r'_2>0$,
+    here $\tau'_1 = \{x\COL\TINT\mid\varphi'_1\}$ and $\tau'_2 = \{x\COL\TINT\mid\varphi'_2\}$.\newline
+    Before transition according to \rn{[Tadd-Ref1]}, the conjunction of two refinement is $\varphi_1\land\varphi_2$.
+    After transition according to \rn{[Tadd-Ref1]}, the conjunction of two refinement is $\varphi'_1\land\varphi'_2$.
+    With aliasing, both $x$ and $y$ are pointing to the same memory cell, which shows $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^{r_1+r_2}\approx\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}$ from the rules for type equality.
+    In this case, we have $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^{r_1+r_2}=\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^r$ and $\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}=\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r}$ since $r'_1+r'_2=r_1+r_2=r$ holds.\newline
     Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
     To prove that $F_0=F_1$ follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
