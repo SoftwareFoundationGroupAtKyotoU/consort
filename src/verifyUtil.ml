@@ -28,10 +28,23 @@ module Options = struct
     debug_ast: bool;
     save_cons: string option;
     annot_infr: bool;
-    print_model: bool
+    print_model: bool;
+    seq_solver: bool
   }
 
-  let get_arg_gen () =
+  type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
+
+  let default = {
+    debug_pred = false;
+    debug_cons = false;
+    save_cons = None;
+    debug_ast = false;
+    annot_infr = false;
+    print_model = false;
+    seq_solver = false
+  }
+
+  let debug_arg_gen () =
     let open Arg in
     let debug_cons = ref true in
     let debug_pred = ref true in
@@ -51,7 +64,7 @@ module Options = struct
         (mk_arg "pred" debug_pred "predicate explanations") @
         (mk_arg "model" show_model "inferred model") @
         [
-          ("-annot-infr", Set annot_infr, "Annotate the program with the inferred types");
+          ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
           ("-show-model", Set show_model, "Print model produced from successful verification");
           ("-save-cons", String (fun r -> save_cons := Some r), "Save constraints in <file>");
           ("-show-all", Unit (fun () ->
@@ -61,8 +74,8 @@ module Options = struct
              List.iter (fun r -> r:= false) all_debug_flags
            ), "Suppress all debug output")
         ] in
-    (arg_defs, (fun () ->
-       {
+    (arg_defs, (fun ?(comb=default) () ->
+       { comb with
          debug_pred = !debug_pred;
          debug_ast = !debug_ast;
          print_model = !show_model;
@@ -71,15 +84,62 @@ module Options = struct
          save_cons = !save_cons
        }))
 
-  let default = {
-    debug_pred = false;
-    debug_cons = false;
-    save_cons = None;
-    debug_ast = false;
-    annot_infr = false;
-    print_model = false
-  }
+  let (>>) ((a1,f1) : arg_spec) ((a2,f2) : arg_spec) =
+    (a1 @ a2, (fun ?(comb=default) () ->
+       f2 ~comb:(f1 ~comb ()) ()))
+
+  let seq f o =
+    (o >> f ())
+
+  let solver_arg_gen () =
+    let open Arg in
+    let seq_run = ref false in
+    ([
+      ("-seq-solver", Set seq_run, "Run two inference passes; the first inferring ownership, the second inferring refinements")
+    ], (fun ?(comb=default) () ->
+       { comb with
+         seq_solver = !seq_run }))
 end
+
+let some r = Some r
+
+let infer opts intr program_types ast =
+  if (not opts.Options.seq_solver) then
+    Inference.infer ~print_pred:opts.debug_pred ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp program_types ast
+    |> some
+  else
+    let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp program_types ast in
+    let module R = Inference.Result in
+    match OwnershipSolver.solve_ownership r.R.theta r.R.ovars r.R.ownership with
+    | None -> None
+    | Some o_soln ->
+      let open RefinementTypes in
+      let module IM = Map.Make(struct type t = int let compare = (-) end) in
+      let o_map = List.fold_left (fun acc (k,v) -> IM.add k v acc) IM.empty o_soln in
+      let rec map_type =
+        function
+        | Int _ -> Int ()
+        | Ref (t,OConst o) -> Ref (map_type t, o)
+        | Ref (t,OVar ov) -> Ref (map_type t,IM.find ov o_map)
+        | Tuple (_,tl) -> Tuple ([],List.map map_type tl)
+      in
+      let o_gamma_tbl = Hashtbl.create 10 in
+      Hashtbl.iter (fun i g ->
+        Hashtbl.add o_gamma_tbl i @@ StringMap.map map_type g
+      ) r.R.ty_envs;
+      let o_theta = StringMap.map (fun { arg_types; output_types; result_type } ->
+          {
+            arg_types = List.map map_type arg_types;
+            output_types = List.map map_type output_types;
+            result_type = map_type result_type
+          }) r.R.theta in
+      Inference.infer
+        ~print_pred:opts.debug_pred
+        ~save_types:opts.annot_infr
+        ~o_solve:(o_gamma_tbl,o_theta)
+        ~intrinsics:intr.Intrinsics.op_interp
+        program_types ast
+      |> some
 
 
 let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
@@ -102,18 +162,23 @@ let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
   let program_types = SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
-    print_endline @@ AstPrinter.pretty_print_program ast;
+    Printf.fprintf stderr "%s\n" @@ AstPrinter.pretty_print_program ast;
     StringMap.iter (fun n a ->
       Printf.fprintf stderr "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
-    ) program_types
+    ) program_types;
+    flush stderr
   end;
-  let r = Inference.infer ~print_pred:opts.debug_pred ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp program_types ast in
-  if opts.annot_infr then begin
-    let ty_envs = r.Inference.Result.ty_envs in
-    print_endline @@ AstPrinter.pretty_print_program ~with_labels:false ~annot:(pprint_ty_env ty_envs) ast
-  end;
-  HornBackend.solve
-    ~debug_cons:opts.debug_cons
-    ?save_cons:opts.save_cons
-    ~get_model:opts.print_model
-    ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r
+  let r_opt = infer opts intr program_types ast in
+  match r_opt with
+  | None -> false
+  | Some r ->
+    if opts.annot_infr then begin
+      let ty_envs = r.Inference.Result.ty_envs in
+      Printf.fprintf stderr "%s\n" @@ AstPrinter.pretty_print_program ~with_labels:false ~annot:(pprint_ty_env ty_envs) ast;
+      flush stderr
+    end;
+    HornBackend.solve
+      ~debug_cons:opts.debug_cons
+      ?save_cons:opts.save_cons
+      ~get_model:opts.print_model
+      ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r
