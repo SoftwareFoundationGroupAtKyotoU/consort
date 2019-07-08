@@ -1,77 +1,7 @@
 open Ast
 open SimpleTypes
 open Sexplib.Std
-
-module UnionFind : sig
-  type t
-  val find: t -> int -> int
-  val union: t -> int -> int -> unit
-  val mk: (parent:int -> child:int -> unit) -> t
-  val new_node: t -> int
-end = struct
-  type node = {
-    id: int;
-    mutable parent: node;
-    mutable rank: int;
-  }
-  
-  type t = {
-    table: (int, node) Hashtbl.t;
-    mutable next: int;
-    merge_hook : parent:int -> child:int -> unit
-  }
-
-  let make_and_add uf =
-    let rec node = { id = uf.next; parent = node; rank = 1 } in
-    Hashtbl.add uf.table node.id node;
-    uf.next <- uf.next + 1;
-    node.id
-
-  let mk merge_hook =
-    let uf = { table = Hashtbl.create 10; next = 0; merge_hook } in
-    (*List.iter (fun r ->
-      Some r |> (make_and_add uf) |> ignore
-    ) roots;*)
-    uf
-
-  let rec compress node =
-    if node.parent == node then
-      node
-    else
-      let found = compress node.parent in
-      node.parent <- found;
-      found
-
-  let find_internal uf id1 =
-    let node = Hashtbl.find uf.table id1 in
-    (compress node)
-
-  let find uf id1 =
-    (find_internal uf id1).id
-
-  let union uf id1 id2 =
-    let n1 = find_internal uf id1 in
-    let n2 = find_internal uf id2 in
-    if n1 == n2 then
-      ()
-    else begin
-      let (new_root,child) = begin
-        if n2.rank < n1.rank then
-          (n2.parent <- n1; (n1,n2))
-        else if n1.rank < n2.rank then
-          (n1.parent <- n2; (n2,n1))
-        else
-          (let (new_root,child) = (n1,n2) in
-          child.parent <- new_root;
-          new_root.rank <- new_root.rank + 1;
-          (new_root,child))
-      end in
-      uf.merge_hook ~parent:new_root.id ~child:child.id
-    end
-
-  let new_node uf = make_and_add uf
-end
-
+    
 type 'a c_typ = [
   | `Int
   | `Ref of 'a
