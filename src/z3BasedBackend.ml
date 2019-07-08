@@ -111,57 +111,8 @@ module Make(S: STRATEGY) = struct
           pp_refine ~interp conseq (`AVar "NU")
         ]
       ]
-    ] ff;
+    ] ff.printer;
     break ff
-
-  let pp_oconstraint ff ocon =
-    begin
-      match ocon with
-      | Write o -> pg "assert" [
-                       pg "=" [
-                         po o;
-                         plift "1.0"
-                       ]
-                     ] ff
-      | Live o -> pg "assert" [
-                      pg ">" [
-                        po o;
-                        plift "0.0"
-                      ]
-                    ] ff
-      | Shuff ((o1,o2),(o1',o2')) ->
-        pg "assert" [
-            pg "=" [
-              pg "+" [
-                po o1;
-                po o2
-              ];
-              pg "+" [
-                po o1';
-                po o2'
-              ];
-            ]
-          ] ff
-      | Split (o,(o1,o2)) ->
-        pg "assert" [
-            pg "=" [
-              po o;
-              pg "+" [
-                po o1;
-                po o2
-              ]
-            ]
-          ] ff
-      | Eq (o1,o2) ->
-        pg "assert" [
-            pg "=" [
-              po o1;
-              po o2
-            ]
-          ] ff
-    end;
-    break ff
-
   module Strat = S(struct
       let ovar_name = ovar_name
     end)
@@ -171,13 +122,11 @@ module Make(S: STRATEGY) = struct
     let open Inference.Result in
     let { ownership = owner_cons; ovars; refinements; arity; theta; _ } = infer_res in
     IntMap.iter (fun k v ->
-      pp_sexpr (fun spc ps ->
-        ps "declare-fun"; spc ();
-        ps @@ pred_name k; spc();
-        psl (init v (fun _ -> "Int")) ff;
-        spc ();
-        ps "Bool"
-      ) ff;
+      pg "declare-fun" [
+        pl @@ pred_name k;
+        psl (init v (fun _ -> "Int"));
+        pl "Bool";
+      ] ff.printer;
       break ff
     ) arity;
     try
