@@ -29,8 +29,12 @@ type pred_context = {
 type funenv = funtype SM.t
 type tenv = typ SM.t
 
+type ownership_type = (unit, float) RefinementTypes._typ
+type o_theta = ownership_type RefinementTypes._funtype StringMap.t
+type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
+
 type oante =
-  | ORel of RefinementTypes.ownership * [ `Eq | `Ge | `Gt ] * float
+  | ORel of ownership * [ `Eq | `Ge | `Gt ] * float
   | OAny of oante list [@@deriving sexp]
 
 let sexp_of_tenv = SM.sexp_of_t ~v:sexp_of_typ
@@ -66,7 +70,8 @@ type context = {
   pred_arity: int IntMap.t;
   v_counter: int;
   pred_detail: (int,pred_context) Hashtbl.t;
-  store_env: int -> tenv -> unit
+  store_env: int -> tenv -> unit;
+  o_info: o_solution
 }
 
 module Result = struct
@@ -139,6 +144,32 @@ and split_type ctxt t =
       ) tl (ctxt,[],[])
     in
     (ctxt',(Tuple (b,tl1),Tuple (b,tl2)))
+
+let rec split_type_with arg_t in_t =
+  match arg_t,in_t with
+  | Int _,Int _ -> (arg_t,arg_t)
+  | Ref (arg_t',OConst o1),Ref (in_t',in_o) -> begin
+      assert ((Pervasives.compare in_o o1) <= 0);
+      let (arg_t'1,arg_t'2) = split_type_with arg_t' in_t' in
+      Ref (arg_t'1,OConst (o1 -. in_o)),Ref (arg_t'2, OConst in_o)
+    end
+  | Ref (_,OVar _),_ -> failwith "Found free ovar in split type"
+  | Tuple (b,arg_tl), Tuple (_,tl_o) ->
+    let (arg_tl1,arg_tl2) =
+      List.map2 split_type_with arg_tl tl_o
+      |> List.split
+    in
+    Tuple (b,arg_tl1), Tuple (b,arg_tl2)
+  | _ -> assert false
+
+let split_arg i c_name ctxt arg_t =
+  let (_,o_th) = ctxt.o_info in
+  if not @@ SM.mem c_name o_th then
+    split_type ctxt arg_t
+  else
+    let { arg_types; _ } = SM.find c_name o_th in
+    let in_t = List.nth arg_types i in
+    (ctxt,split_type_with arg_t in_t)
 
 let add_constraint gamma ctxt ?(o=[]) ante conseq =
   { ctxt with
@@ -649,14 +680,10 @@ let rec shuffle_owners t1 t2 t1' t2' ctxt =
     ) ctxt orig_tl new_tl
   | _ -> assert false
 
-(*let rec post_update_type = function
-  | _ -> false
+let rec post_update_type = function
+  | Int _ -> false
   | Tuple (_,tl) -> List.exists post_update_type tl
-   | Ref _ -> true*)
-
-let post_update_type = function
-  | _ -> true
-
+  | Ref _ -> true
 
 let rec sum_ownership t1 t2 out ctxt =
   match t1,t2,out with
@@ -669,13 +696,48 @@ let rec sum_ownership t1 t2 out ctxt =
         sum_ownership e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
   | _ -> assert false
 
+let remove_sub ps ctxt =
+  List.fold_left (fun c (i,_) ->
+    { c with pred_arity =
+        IntMap.remove i c.pred_arity }) ctxt ps
+
+let rec meet_loop t_ref t_own =
+  match t_ref,t_own with
+  | Int r,Int () -> Int r
+  | Ref (t_ref',_),Ref (t_own',o) ->
+    Ref (meet_loop t_ref' t_own', OConst o)
+  | Tuple (b,tl_ref), Tuple (_,tl_own) ->
+    let tl_ref_cons = List.map2 meet_loop tl_ref tl_own in
+    Tuple (b,tl_ref_cons)
+  | _ -> failwith "Inconsistent type shapes"
+
+let meet_ownership st_id (o_envs,_) ap t =
+  if not (Hashtbl.mem o_envs st_id) then
+    t
+  else
+    let o_env = Hashtbl.find o_envs st_id in
+    map_ap ap (fun o_typ ->
+      meet_loop t o_typ) (fun s -> SM.find s o_env)
+
+let meet_gamma st_id o_info =
+  SM.mapi (fun v t ->
+    meet_ownership st_id o_info (`AVar v) t)
+
+let meet_out i callee ctxt t =
+  let (_,o_th) = ctxt.o_info in
+  if not @@ SM.mem callee o_th then
+    t
+  else
+    let { output_types; _  } = SM.find callee o_th in
+    meet_loop t @@ List.nth output_types i
+
 let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
     | Ref (r,o) -> (r,o)
     | _ -> failwith "Not actually a ref"
   in
-  ctxt.store_env e_id ctxt.gamma;
+  ctxt.store_env e_id @@ meet_gamma e_id ctxt.o_info ctxt.gamma;
   match e with
   | EVar v ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp v in
@@ -688,7 +750,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         add_type_implication dg (c_type t2) (c_type t) ctxt''
       | None -> ctxt''
     end
-  (*    |> remove_var ~loc:(LLet 0) remove_scope*)
+  (*    |> remove_var ~loc:(LLet e_id) remove_scope*)
   | Seq (e1, e2) ->
     let ctxt' = process_expr ctxt e1 in
     process_expr ?output_type ~remove_scope ctxt' e2
@@ -711,7 +773,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     in
     process_expr ?output_type ~remove_scope ctxt' cont
       
-  | Let (patt,rhs,exp) ->
+  | Let (patt,rhs,((cont_id,_) as exp)) ->
     let ctxt,assign_type = begin
       match rhs with
       | Var left_v ->
@@ -721,7 +783,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         |> with_type t2
       | Const n -> (ctxt,Int (ConstEq n))
       | Nondet -> (ctxt, Int Top)
-      | Call c -> process_call ctxt c
+      | Call c -> process_call ~e_id ~cont_id ctxt c
       | Deref ptr ->
         let (target_type,o) = lkp_ref ptr in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
@@ -763,17 +825,17 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
-    process_expr ?output_type (* ~remove_scope:(SS.union bound_vars remove_scope) *) str_ctxt exp
+    process_expr ?output_type (*~remove_scope:(SS.union bound_vars remove_scope)*) str_ctxt exp
     |> remove_var ~loc:(LLet e_id) bound_vars
       
   | Assert (relation,cont) ->
     cont
     |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation)
 
-  | Alias (v1,ap2,cont) ->
+  | Alias (v1,ap2,((next_id,_) as cont)) ->
     let loc = LAlias e_id in
     (* get the variable type *)
-    let t1 = lkp v1 in
+    let t1 = lkp v1 |> meet_ownership e_id ctxt.o_info @@ (`AVar v1) in
     (* compute the free vars *)
     let free_vars = predicate_vars @@ SM.bindings ctxt.gamma in
 
@@ -786,24 +848,27 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         (* here fv may refer to the _symbolic_ variables for tuple elements contained in the value
            stored in the root of ap2. The fresh type for v1 must also refer to these variables *)
         let (c_fresh,t2') = make_fresh_type ~target_var:ap ~loc ~fv ~bind:subst t ctxt in
-        ((c_fresh,t2',fv,subst),t2')
+        let t2'own = meet_ownership next_id ctxt.o_info ap t2' in
+        ((c_fresh,t2'own,fv,subst),t2'own)
       ) lkp in
     (* extract the original t2 type *)
     let (t2,_) = map_ap_with_bindings ap free_vars (fun (_,subst') t ->
         assert (subst' = subst);
-        (t,t)
+        (t |> meet_ownership e_id ctxt.o_info ap,t)
       ) lkp in
     let ap_fv_const = List.filter (function
       | #Paths.concr_ap as cr -> Paths.is_const_ap cr
       | `Sym i -> List.assoc i subst |> Paths.is_const_ap
       ) ap_fv
     in
+    let force_v1_cons = List.length ap_fv_const <> List.length ap_fv in
     let (ctxt'',t1'sym) = make_fresh_type ~target_var:(`AVar v1) ~loc ~fv:ap_fv_const ~bind:subst t1 ctxt' in
+    let t1'own = meet_ownership next_id ctxt.o_info (`AVar v1) t1'sym in
     (* now t1' is a fresh type with the same shape at t1, but with fresh predicates potentially 
        referring to (unbound!) symbolic variables. We now push the substitution for t2 into t1'sym *)
     let t1' = walk_with_bindings (fun _ _ r () ->
         ((), partial_subst subst r)
-      ) (`AVar v1) ([],[]) t1'sym () |> snd in
+      ) (`AVar v1) ([],[]) t1'own () |> snd in
     (* now t1' and t2' refer to the same sets of free variables: any symbolic variables
        appearing in t1' and t2' are bound by tuple types *)
     let app_matrix = apply_matrix ~t1 ~t2_bind:subst ~t2 in
@@ -813,15 +878,17 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       | `ADeref ap
       | `AProj (ap,_) -> up_ap ap t2_base' ctxt
     in
-    let (ctxt'app,(psub1,psub2)) =
+    let (ctxt'app,(psub2,psub1)) =
       ctxt''
-      |> (app_matrix ~out_root:ap ~out_bind:subst ~out_type:t2' >>
-        app_matrix ~out_root:(`AVar v1) ~out_type:t1')
+      |> (app_matrix ~force_cons:false ~out_root:ap ~out_bind:subst ~out_type:t2' >>
+        app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
     in
     let res = ctxt'app
       |> shuffle_owners t1 t2 t1' t2'
       |> up_ap ap @@ sub_pdef psub2 t2_base
       |> update_type v1 @@ sub_pdef psub1 t1'
+      |> remove_sub psub1
+      |> remove_sub psub2
     in
     process_expr ?output_type ~remove_scope res cont
 
@@ -874,11 +941,12 @@ and make_fresh_type ~target_var ~loc ~fv ?(bind=[]) t ctxt =
   ) (fun p (sym_vars,sym_vals) _ context ->
     make_fresh_pred ~loc ~pred_vars:(sym_vars,p,sym_vals) context
   ) target_var (fv,bind) t ctxt
-and process_call ctxt c =
-  let arg_bindings = List.map (fun k ->
-      (k,SM.find k ctxt.gamma)) c.arg_names
+    
+and process_call ~e_id ~cont_id ctxt c =
+  let arg_bindings = List.mapi (fun i k ->
+      (i,k,SM.find k ctxt.gamma)) c.arg_names
   in
-  let p_vars = predicate_vars arg_bindings in
+  let p_vars = predicate_vars @@ List.map (fun (_,k,v) -> (k,v)) arg_bindings in
   let inst_symb path (fv,sym_vals) f_refinement () =
     ((),
      match f_refinement with
@@ -906,25 +974,33 @@ and process_call ctxt c =
   (* TODO: consistently use this function *)
   let post_type_vars = gamma_predicate_vars ctxt.gamma in
   let loc = LCall c.label in
-  let updated_ctxt = List.fold_left2 (fun acc (k,arg_t) (in_t,out_t) ->
+  let updated_ctxt = List.fold_left2 (fun acc (i,k,arg_t) (in_t,out_t) ->
       let constrain_in t c =
         let concr_arg_type = compile_type t k in
         add_type_implication input_env concr_arg_type in_t c
         |> constrain_owner t in_t
       in
       if post_update_type arg_t then
-        (* split the argument type *)
-        let (ctxt',(formal,resid)) = split_type acc arg_t in
         let ap = `AVar k in
+        (* split the argument type *)
+        let arg_t_o = meet_ownership e_id acc.o_info ap arg_t in
+        let (ctxt',(resid,formal)) = split_arg i c.callee acc arg_t_o in
         (* the (to be) summed type *)
         let (ctxt'',fresh_type) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars arg_t ctxt' in
-        let (ctxt''',psub) = apply_matrix ~t1:resid ~t2:out_t ~force_cons:false ~out_root:ap ~out_type:fresh_type ctxt'' in
+        let (ctxt''',psub) = apply_matrix
+            ~t1:resid
+            ~t2:(meet_out i c.callee ctxt'' out_t)
+            ~force_cons:false
+            ~out_root:ap
+            ~out_type:(meet_ownership cont_id ctxt''.o_info ap fresh_type)
+            ctxt'' in
         (* now the magic *)
         ctxt'''
         (* constrain the formal half of the arg type *) 
         |> constrain_in formal
         |> sum_ownership resid out_t fresh_type
         |> update_type k @@ sub_pdef psub fresh_type
+        |> remove_sub psub
       else
         constrain_in arg_t acc
     ) ctxt arg_bindings in_out_types
@@ -972,7 +1048,7 @@ let print_pred_details t =
     Printf.fprintf stderr "  At: %s\n<<\n" @@ loc_to_string loc
   ) t
   
-let infer ~print_pred ~save_types ~intrinsics st (fns,main) =
+let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
   let init_fun_type ctxt f_def =
     let rec lift_simple_loop target_var ~loc (free_vars,sym) t ctxt =
       match t with
@@ -1033,7 +1109,10 @@ let infer ~print_pred ~save_types ~intrinsics st (fns,main) =
     pred_arity = IntMap.empty;
     v_counter = 0;
     pred_detail = Hashtbl.create 10;
-    store_env
+    store_env;
+    o_info = (match o_solve with
+    | Some e -> e
+    | None -> (Hashtbl.create 10,SM.empty))
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in

@@ -57,10 +57,10 @@ type ap_symb =
 
 type ty_binding = (int * ap_symb) list [@@deriving sexp]
 
-type 'a _typ =
+type ('a,'o) _typ =
   | Int of 'a
-  | Ref of 'a _typ * ownership
-  | Tuple of ty_binding * ('a _typ) list
+  | Ref of ('a,'o) _typ * 'o
+  | Tuple of ty_binding * (('a,'o) _typ) list
 [@@deriving sexp]
 
 type arg_refinment =
@@ -68,14 +68,16 @@ type arg_refinment =
   | BuiltInPred of string
   | True[@@deriving sexp]
 
-type typ = ((refine_ap list) refinement) _typ [@@deriving sexp]
-type ftyp = arg_refinment _typ[@@deriving sexp]
+type typ = (((refine_ap list) refinement),ownership) _typ [@@deriving sexp]
+type ftyp = (arg_refinment,ownership) _typ[@@deriving sexp]
 
-type funtype = {
-  arg_types: ftyp list;
-  output_types: ftyp list;
-  result_type: ftyp
+type 'a _funtype = {
+  arg_types: 'a list;
+  output_types: 'a list;
+  result_type: 'a
 }[@@deriving sexp]
+
+type funtype = ftyp _funtype [@@deriving sexp]
 
 let unsafe_get_ownership = function
   | `Ref (_,o) -> o
@@ -94,11 +96,11 @@ let rec to_simple_type = function
   | Int _ -> `Int
   | Tuple (_,t) -> `Tuple (List.map to_simple_type t)
 
-let to_simple_funenv = StringMap.map (fun { arg_types; result_type; _ } ->
+let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
     {
       SimpleTypes.arg_types = List.map to_simple_type arg_types;
       SimpleTypes.ret_type = to_simple_type result_type;
-    })
+    }) env
 
 let subst_pv mapping pl =
   let map_ap = function
@@ -143,7 +145,7 @@ let compile_bindings blist root =
     | SProj i -> (k,`AProj (root,i))
   ) blist
 
-let compile_type t1 root : (Paths.concr_ap list * Paths.concr_ap) refinement _typ =
+let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap) refinement,'b) _typ =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)
@@ -232,6 +234,9 @@ let map_ap_with_bindings ap fvs f gen =
   in
   inner_loop ap f
 
+let map_ap ap f gen =
+  map_ap_with_bindings ap [] (fun _ t -> (f t,t)) gen |> fst
+
 let refine_ap_to_string = function
   | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
   | `Sym i -> Printf.sprintf "$%d" i
@@ -246,8 +251,8 @@ let pp_owner =
   | OVar o -> ps @@ Printf.sprintf "$o%d" o
   | OConst f -> ps @@ Printf.sprintf "%f" f
 
-let simplify_ref =
-  let rec loop ~ex ~k (r: refine_ap list refinement) =
+let simplify_ref r_in = 
+  let rec loop ~ex ~k r =
     match r with
     | Relation _
     | CtxtPred _
@@ -266,7 +271,7 @@ let simplify_ref =
         r1
     | Top -> ex ()
   in
-  loop ~ex:(fun () -> Top) ~k:(fun r' -> r')
+  loop ~ex:(fun () -> Top) ~k:(fun r' -> r') r_in
 
 let rec pp_ref =
   let open PrettyPrint in
@@ -355,3 +360,5 @@ let rec pp_type : typ -> Format.formatter -> unit =
         pf "@ ref@ ";
         pp_owner o
       ]
+      
+let string_of_type = PrettyPrint.pretty_print_gen_rev pp_type
