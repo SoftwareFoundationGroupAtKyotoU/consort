@@ -113,7 +113,7 @@ let lhs :=
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
 let callee ==
   | ~ = ID; <>
-  | LPAREN; ~ = OPERATOR; RPAREN; <>
+  | LPAREN; ~ = operator; RPAREN; <>
 
 let rel_op :=
   | ~ = OPERATOR; <>
