@@ -6,7 +6,7 @@ module HornStrategy(I: Z3BasedBackend.OV) = struct
     | None -> raise Z3BasedBackend.OwnershipFailure
 
   include Z3BasedBackend.StandardSolver(struct
-      let strat = "(check-sat-using (then qe-light horn))"
+      let strat = "(check-sat-using (then propagate-values qe-light horn))"
     end)
 end
 
