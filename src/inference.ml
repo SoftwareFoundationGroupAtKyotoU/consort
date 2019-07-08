@@ -332,7 +332,7 @@ let fold_left3i f a l1 l2 l3 =
   let rec inner_loop i acc l1 l2 l3 =
     match l1,l2,l3 with
     | h1::t1,h2::t2,h3::t3 ->
-      inner_loop (i+1) (f a i h1 h2 h3) t1 t2 t3
+      inner_loop (i+1) (f acc i h1 h2 h3) t1 t2 t3
     | [],[],[] -> acc
     | _ -> raise @@ Invalid_argument "differing lengths"
   in
