@@ -18,16 +18,16 @@ let pp_wf o_buf i =
       pl @@ ovar_name i;
       pl @@ ovar_mult i
     ]
-  ] o_buf;
+  ] o_buf.printer;
   break o_buf
 
 let print_owner_decl ovars ff =
   List.iter (fun ov ->
-    print_string_list [ "declare-const"; ovar_name ov; "Real" ] ff;
+    print_string_list [ "declare-const"; ovar_name ov; "Real" ] ff.printer;
     break ff
   ) ovars
 
-let po = function
+let po : ownership -> (Sexplib.Sexp.t -> 'a) -> 'a = function
   | OVar o -> pl @@ ovar_name o
   | OConst f -> pl @@ string_of_float f
 
@@ -39,13 +39,13 @@ let pp_oconstraint ff ocon =
                        po o;
                        plift "1.0"
                      ]
-                   ] ff
+                   ]
     | Live o -> pg "assert" [
                     pg ">" [
                       po o;
                       plift "0.0"
                     ]
-                  ] ff
+                  ]
     | Shuff ((o1,o2),(o1',o2')) ->
       pg "assert" [
           pg "=" [
@@ -58,7 +58,7 @@ let pp_oconstraint ff ocon =
               po o2'
             ];
           ]
-        ] ff
+        ]
     | Split (o,(o1,o2)) ->
       pg "assert" [
           pg "=" [
@@ -68,27 +68,20 @@ let pp_oconstraint ff ocon =
               po o2
             ]
           ]
-        ] ff
+        ]
     | Eq (o1,o2) ->
       pg "assert" [
           pg "=" [
             po o1;
             po o2
           ]
-        ] ff
-  end;
+        ]
+  end ff.printer;
   break ff
 
 let print_ownership_constraints ovars ocons sexp_buf =
   print_owner_decl ovars sexp_buf;
   List.iter (pp_oconstraint sexp_buf) ocons
-
-let rec collect_ovars acc = function
-  | Ref (t,OVar o) -> (collect_ovars ((plift @@ ovar_name o)::acc) t)
-  | Ref (t,_) -> collect_ovars acc t
-  | Int _ -> acc
-  | Tuple (_,t) -> List.fold_left collect_ovars acc t
-
 let rec extract_assoc m acc =
   let open Sexplib.Sexp in
   match m with
@@ -109,31 +102,34 @@ let print_ownership o_vals sexp_buf =
       pl @@ ovar_name o_var;
       pl "Real";
       pl @@ string_of_float o_val
-    ] sexp_buf;
+    ] sexp_buf.printer;
     break sexp_buf) o_vals
       
-let solve_ownership theta ovars ocons =
+let solve_ownership _theta ovars ocons =
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
-  atom o_buf pred;
+  atom o_buf.printer pred;
   break o_buf;
-  let i = StringMap.fold (fun _ { arg_types; _ } acc ->
-      List.fold_left collect_ovars acc arg_types
-    ) theta []
-  in
-  if (List.length i > 0) then begin
-    pg "minimize" [
-      pg "+" i
-    ] o_buf
-  end;
+  let live_count = List.map (fun ov ->
+    pg "ite" [
+      pg "=" [ pl @@ ovar_mult ov; pl "0" ];
+      pl "0";
+      pl "1"
+    ]) ovars in
+
   List.iter (fun i ->
     pg "declare-const" [
       pl @@ ovar_mult i;
       pl "Int"
-    ] o_buf;
+    ] o_buf.printer;
     break o_buf
   ) ovars;
   List.iter (pp_wf o_buf) ovars;
+  if (List.length live_count > 0) then begin
+    pg "maximize" [
+      pg "+" live_count
+    ] o_buf.printer
+  end;
   finish o_buf;
   let (res,model) = Z3Channel.call_z3_raw ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" o_buf in
   match res,model with
