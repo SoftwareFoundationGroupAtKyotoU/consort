@@ -884,22 +884,23 @@ The followings are key lemmas:
 
 \paragraph{Proof of Lemma 2.}
 \begin{proof}
-  The proof organized by cases analysis on showing that $\bf{Cons}$ $(H', R', \tenv'')$ holds and the transition rule of $e$. Notice $H',R', \tenv''$
-  represent heap, register and type environment respectively after the transition.
+  The proof is organized by cases analysis on the transition rule used of $e$, and showing that the output configuration is well typed by
+  $\vdash_C^D$, and for that we must find a $\tenv''$ that is consistent with $H'$ and $R'$ and also satisfies the other conditions imposed by
+  the definition of $\vdash_C^D$. Here $\tenv'',H',R'$ represent the type environment, heap and register respectively.
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] \\
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]] \\
     [[ G' = G [ x <- T2 ] ]]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the definition of configuration typing $[[ |- D <H, R, CE : Es, x>]]$, we can obtain\newline
-    $[[En[e] = x]] \andalso [[En]] = [][[ /\]] e = x$\newline
-    $[[ Th | [] : T => G' | ll |-e En : Tn => Gn ]]$\newline
-    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] $.\newline
-    From above, we can obtain that $[[ Th | [] : T1 => G' | B |-e [] : T1 => G' ]]$.\newline
-    Also using $\bf{\cref{lem:stack-well-typed}}$, we can show that $[[ |- D <H, R, Es, CE[x]>]]$, since  $[[Th | G' | B |- CE[x] : Tn => Gn]]$.\newline
-    For the next caller in the stack $\overrightarrow{E}$, what it needs to execute the expression as the precondition(type refinement and environment) is exactly
-    the same as the return type refinement $\tau_n$ and return environment $\tenv_n$, which shows that the stack is well typed after we execute our expression context $E_c$.
-    It remains to show that $\bf{Cons}$ $(H,R,\tenv''\mapsto \tenv [ x : \tau_1 + \tau_2])$,
+    By the Inversion on configuration typing $[[ |- D <H, R, CE : Es, x>]]$ and $[[En[e] = x]] \land [[En]] = [][[ /\]] e = x,$
+    we can obtain\newline
+    $[[ Th | [] : T1 => G' | B |-e [] : T1 => G' ]]$\newline
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$.\newline
+    Also using $\cref{lem:stack-well-typed}$, we can show that $\funenv \mid [] \COL \tau_1 \produces \tenv' \mid \overrightarrow{\mathit{l}} \vdash_E E_c[x] \COL \tau_c \produces \tenv_c$ if
+    $\funenv \mid [] \COL \tau_1 \produces \tenv' \mid \overrightarrow{\mathit{l}} \vdash_E E_c \COL \tau_c \produces \tenv_c$ satisfies.\newline
+    It gives that for the next caller $E_c$ in the stack $\overrightarrow{E}$, the precondition(type refinement and environment) which it needs to type check the expression is exactly
+    the same as the return type refinement $\tau_1$ and return environment $\tenv'$, which shows that the stack is well typed after we type check the context $x$.\newline
+    It remains to show that $\bf{Cons}$ $(H,R,\tenv''= \tenv [ x : \tau_1 + \tau_2])$,
     which follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv$).
   \end{rneqncase}
   \begin{rneqncase}{R-Deref}{
@@ -1021,28 +1022,28 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Alias}$, we can obtain $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]$ and $[[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]]$.
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$.\newline
     It remains to show $[[Cons(H, R, G'')]]$.\newline
-    From $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]=x\in \textit{dom}(\tenv). x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/n]\phi$, here $\tenv(x)=\{n\COL\TINT\mid\phi\}\TREF^r, [[r > 0]]$, which means
-    that the refinement predicates $\phi$ in the previous environment holds for $R$ and also $H(R(x))$ replaces $n$ in the $\{n\COL\TINT\mid\phi\}$.
-    Aliasing means that two pointer share the same memory cell, so we will have $H(R(x))=H(R(y))$, we can obtain that the refinement predicates $\phi$ holds for $H(R(y))$.\newline
-    Also because of aliasing, the sum of the refinement to the memory cell should not change.
     We will analyze 2 cases here. Other cases are trivially symmetrically shown from the addition rules.\newline
-    In case for \rn{[Tadd-Ref2]}, we suppose the refinement for $x$ before transition is $\tau_1\TREF^0$, the refinement for $y$ before transition is $\tau_2\TREF^r, r>0$,
-    here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$.
-    The refinement for $x$ after transition is $\tau'_1\TREF^{r'_1}$, the refinement for $y$ after transition is $\tau'_2\TREF^{r'_2}, r'_1>0, r'_2>0$,
-    here $\tau'_1 = \{x\COL\TINT\mid\varphi'_1\}$ and $\tau'_2 = \{x\COL\TINT\mid\varphi'_2\}$.\newline
-    Before transition according to \rn{[Tadd-Ref2]}, only reference $y$ can update the memory cell, which gives that the conjunction of two refinement is $\varphi_1\land\varphi_2\produces\varphi_2$.
-    After transition according to \rn{[Tadd-Ref1]}, the conjunction of two refinement is $\varphi'_1\land\varphi'_2$.
-    With aliasing, both $x$ and $y$ are pointing to the same memory cell, which shows $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^{r_1+r_2}\approx\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}$ from the rules for type equality.
-    In this case, we have $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^r=\{x\COL\TINT\mid\varphi_2\}\TREF^r$ and $\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}=\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r}$ since $r'_1+r'_2=r$ holds.\newline
-    In case for \rn{[Tadd-Ref1]}, we suppose the refinement for $x$ before transition is $\tau_1\TREF^{r_1}$, the refinement for $y$ before transition is $\tau_2\TREF^{r_2}, r_1>0, r_2>0$,
-    here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{x\COL\TINT\mid\varphi_2\}$.
-    The refinement for $x$ after transition is $\tau'_1\TREF^{r'_1}$, the refinement for $y$ after transition is $\tau'_2\TREF^{r'_2}, r'_1>0, r'_2>0$,
-    here $\tau'_1 = \{x\COL\TINT\mid\varphi'_1\}$ and $\tau'_2 = \{x\COL\TINT\mid\varphi'_2\}$.\newline
-    Before transition according to \rn{[Tadd-Ref1]}, the conjunction of two refinement is $\varphi_1\land\varphi_2$.
-    After transition according to \rn{[Tadd-Ref1]}, the conjunction of two refinement is $\varphi'_1\land\varphi'_2$.
-    With aliasing, both $x$ and $y$ are pointing to the same memory cell, which shows $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^{r_1+r_2}\approx\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}$ from the rules for type equality.
-    In this case, we have $\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^{r_1+r_2}=\{x\COL\TINT\mid\varphi_1\land\varphi_2\}\TREF^r$ and $\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r'_1+r'_2}=\{x\COL\TINT\mid\varphi'_1\land\varphi'_2\}\TREF^{r}$ since $r'_1+r'_2=r_1+r_2=r$ holds.\newline
-    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$.
+    In case for \rn{[Tadd-Ref1]}, we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^{r_2},  r_1>0, r_2>0$.
+    After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
+    We also have $\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}+\{y\COL\TINT\mid\phi_2\}\TREF^{r_2}\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, using \rn{[Tadd-Ref1]},
+    it turns to $\{x\COL\TINT\mid\phi_1\land\phi_2\}\TREF^{r_1+r_2}\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
+    $\phi_1\land\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equality.\newline
+    With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
+    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/n]\phi_1$, we know that the refinement predicates $\phi_1$ in the previous environment holds for $R$ and also $H(R(x))$,
+    similarly the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$, we write as $\phi_1(R;H(R(x)))$ and $\phi_2(R;H(R(y)))$ hold.
+    From above, we obtain $\phi_1(R;H(R(x)))\land \phi_2(R;H(R(y))) \produces \phi_1(R;H(R(x)))\land \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
+    which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.\newline
+    In case for \rn{[Tadd-Ref2]}, we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^0, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^r, r>0$.
+    After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
+    We also have $\{x\COL\TINT\mid\phi_1\}\TREF^0+\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, using \rn{[Tadd-Ref2]},
+    it turns to $\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
+    $\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equality.\newline
+    With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
+    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=y\in \textit{dom}(R)\land H(R(y))\in \mathbb{Z}\land [R;H(R(y))/n]\phi_2$, we know that the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$,
+    we write as $\phi_2(R;H(R(y)))$ holds.
+    From above, we obtain $\phi_2(R;H(R(y)))\produces \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
+    which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.
+    Then, it's to show $\forall h\in \textit{dom}(H).F(h)\leq 1$. Here $F_0$ represents the $F$ before transition, $F_1$ represents the $F$ after transition.
     To prove that $F_0=F_1$ follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
     which follows immediately from the conditions $\tau_1\TREF^{r_1} + \tau_2\TREF^{r_2} = \tau'_1\TREF^{r'_1} + \tau'_2\TREF^{r'_2}$ and $R(x) = R(y)$.\newline
