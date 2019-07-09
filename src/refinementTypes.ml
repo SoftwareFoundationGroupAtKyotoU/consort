@@ -10,18 +10,18 @@ type pred_loc =
   | LCall of int * string 
 
 
-type rel_imm =
-  | RAp of Paths.const_ap
+type 'r rel_imm =
+  | RAp of 'r
   | RConst of int [@@deriving sexp]
 
-type rel_op =
+type 'r rel_op =
     Nu
-  | RImm of rel_imm [@@deriving sexp]
+  | RImm of 'r rel_imm [@@deriving sexp]
 
-type refinement_rel = {
-  rel_op1: rel_op;
+type 'r refinement_rel = {
+  rel_op1: 'r rel_op;
   rel_cond: string;
-  rel_op2: rel_imm;
+  rel_op2: 'r rel_imm;
 } [@@deriving sexp]
 
 type refine_ap = [
@@ -36,16 +36,16 @@ Top: unconstrained
 Const: the constaint constraint
 Eq: equality with variable b
 *)
-type 'c refinement =
+type ('c,'r) refinement =
   | Pred of string * 'c
   | CtxtPred of int * string * 'c
   | Top
   | ConstEq of int
-  | Relation of refinement_rel
-  | And of 'c refinement * 'c refinement
+  | Relation of 'r refinement_rel
+  | And of ('c,'r) refinement * ('c,'r) refinement
   | NamedPred of string * 'c [@@deriving sexp]
 
-type concr_refinement = (Paths.concr_ap list * Paths.concr_ap) refinement [@@deriving sexp]
+type concr_refinement = ((Paths.concr_ap list * Paths.concr_ap), Paths.concr_ap) refinement [@@deriving sexp]
 
 type ownership =
     OVar of int
@@ -68,7 +68,7 @@ type arg_refinment =
   | BuiltInPred of string
   | True[@@deriving sexp]
 
-type typ = (((refine_ap list) refinement),ownership) _typ [@@deriving sexp]
+type typ = (((refine_ap list,refine_ap) refinement),ownership) _typ [@@deriving sexp]
 type ftyp = (arg_refinment,ownership) _typ[@@deriving sexp]
 
 type 'a _funtype = {
@@ -102,23 +102,41 @@ let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
       SimpleTypes.ret_type = to_simple_type result_type;
     }) env
 
+let map_ap mapping : refine_ap -> Paths.concr_ap = function
+  | `Sym i -> List.assoc i mapping
+  | #Paths.concr_ap as cp -> cp
+
+let partial_map_ap mapping : refine_ap -> refine_ap = function
+  | `Sym i when List.mem_assoc i mapping -> (List.assoc i mapping :> refine_ap)
+  | r -> r
+
 let subst_pv mapping pl =
-  let map_ap = function
-    | `Sym i -> List.assoc i mapping
-    | #Paths.concr_ap as cp -> cp
-  in
+  let map_ap = map_ap mapping in
   List.map map_ap pl
 
-let partial_subst subst_assoc =
-  let subst = List.map (function
-    | `Sym i when List.mem_assoc i subst_assoc -> (List.assoc i subst_assoc :> refine_ap)
-    | r -> r) in
+let map_rel_imm (map_fn: 'a -> 'b) : 'a rel_imm -> 'b rel_imm = function
+  | RConst i -> RConst i
+  | RAp r -> RAp (map_fn r)
+
+let map_relation (map_fn: 'a -> 'b) ({ rel_op1; rel_cond; rel_op2 }: 'a refinement_rel) =
+  let r1 =
+    match rel_op1 with
+    | Nu -> Nu
+    | RImm i -> RImm (map_rel_imm map_fn i)
+  in
+  let r2 = map_rel_imm map_fn rel_op2 in
+  ({ rel_op1 = r1; rel_cond; rel_op2 = r2 }: 'b refinement_rel)
+  
+
+let partial_subst subst_assoc : (refine_ap list, refine_ap) refinement -> (refine_ap list, refine_ap) refinement =
+  let subst_fn = partial_map_ap subst_assoc in
+  let subst = List.map subst_fn in
   let rec loop r =
     match r with
     | Pred (i,pv) -> Pred (i,subst pv)
     | CtxtPred (i1,i2,pv) -> CtxtPred (i1,i2, subst pv)
     | Top -> Top
-    | Relation rel -> Relation rel
+    | Relation rel -> Relation (map_relation subst_fn rel)
     | ConstEq ce -> ConstEq ce
     | And (p1,p2) -> And (loop p1, loop p2)
     | NamedPred (nm,pv) -> NamedPred (nm, subst pv)
@@ -126,13 +144,14 @@ let partial_subst subst_assoc =
   loop
 
 let compile_refinement target subst_assoc =
+  let subst_fn = map_ap subst_assoc in
   let subst = subst_pv subst_assoc in
   let rec loop r = 
     match r with
     | Pred (i,pv) -> Pred (i,(subst pv,target))
     | CtxtPred (i1,i2,pv) -> CtxtPred (i1,i2,(subst pv,target))
     | Top -> Top
-    | Relation rel -> Relation rel
+    | Relation rel -> Relation (map_relation subst_fn rel)
     | ConstEq ce -> ConstEq ce
     | And (p1,p2) -> And (loop p1, loop p2)
     | NamedPred (nm,pv) -> NamedPred (nm,(subst pv,target))
@@ -145,7 +164,7 @@ let compile_bindings blist root =
     | SProj i -> (k,`AProj (root,i))
   ) blist
 
-let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap) refinement,'b) _typ =
+let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap, Paths.concr_ap) refinement,'b) _typ =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)

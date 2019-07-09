@@ -178,6 +178,11 @@ let rec process_expr ctxt (_,e) =
     unify_imm rop1;
     unify_imm rop2;
     process_expr ctxt e
+  | EAnnot (g,e) ->
+    List.iter (fun (k,t) ->
+        unify_var k @@ (RefinementTypes.to_simple_type t :> typ)
+      ) g;
+    process_expr ctxt e
   | Let (p,lhs,expr) ->
     let v_type =
       match lhs with

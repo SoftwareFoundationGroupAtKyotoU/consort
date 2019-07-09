@@ -11,6 +11,8 @@ let next_line lexbuf =
 
 let int = '-'? ['0'-'9']+
 
+let float = '-'?['0'-'9']+ '.' ['0' - '9']*
+
 let white = [' ' '\t']+
 let newline = '\n'
 let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
@@ -25,6 +27,7 @@ rule read =
   | white    { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "()" { UNIT }
+  | float { FLOAT (float_of_string @@ Lexing.lexeme lexbuf) }
   | int { INT (int_of_string @@ Lexing.lexeme lexbuf) }
   | "if" { IF }
   | "then" { THEN }
@@ -38,12 +41,20 @@ rule read =
   | "mkref" { MKREF }
   | "alias" { ALIAS }
   | "assert" { ASSERT }
+  | "$gamma" { GAMMA }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
+  | "/\\" { AND }
   | '.' { DOT }
+  | "int" { INT_T }
+  | "ref" { REF }
   | '=' { EQ }
+  | 'T' { TOP }
+  | "->" { ARROW }
+  | '~' { NU }
+  | '$' { DOLLAR }
   | ":=" { ASSIGN }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }
   | '_' { UNDERSCORE }
