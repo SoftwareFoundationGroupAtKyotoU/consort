@@ -75,7 +75,7 @@ let rec force_resolve uf resolv t : r_typ =
   | `Int -> `Int
   | `Ref t' -> `Ref (force_resolve uf resolv t')
   | `Tuple tl -> `Tuple (List.map (force_resolve uf resolv) tl)
-  | _ -> failwith "Unconstrained value"
+  | _ -> (* "polymorphism" *) `Int
 
 let resolve ctxt (r: typ) =
   resolve_type ctxt.uf ctxt.resolv r

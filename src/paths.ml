@@ -18,12 +18,18 @@ let rec to_z3_ident = function
   | `AVar v -> v
 
 let t_ind a i = `AProj (a,i)
-let rec has_var v = function
-  | `AVar v' -> v = v'
-  | `AProj (a, _)
-  | `ADeref a -> has_var v a
 
 let rec is_const_ap = function
   | `AVar _ -> true
   | `AProj (ap,_) -> is_const_ap ap
   | `ADeref _ -> false
+
+let rec has_root v = function
+  | `AVar v' -> v = v'
+  | `ADeref ap
+  | `AProj (ap,_) -> has_root v ap
+
+let rec has_root_p p = function
+  | `AVar v -> p v
+  | `ADeref ap
+  | `AProj (ap,_) -> has_root_p p ap
