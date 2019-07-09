@@ -10,15 +10,16 @@ type concr_ap = P.concr_ap
 
 let loc_to_string =
   let labeled_expr s i = Printf.sprintf "%s@%d" s i in
-  let fn_loc fn l = Printf.sprintf "fn %s %s" fn l in
+  let fn_nm_loc = Printf.sprintf "fn %s %s %s" in
+  let fn_loc = Printf.sprintf "fn %s %s" in
   function
   | LCond i -> labeled_expr "if" i
-  | LArg f -> fn_loc f "Arg"
+  | LArg (f,a) -> fn_nm_loc f "Arg" a
   | LReturn f -> fn_loc f "Ret"
-  | LOutput f -> fn_loc f "Out"
+  | LOutput (f,a) -> fn_nm_loc f "Out" a
   | LAlias i -> labeled_expr "alias" i
   | LLet i -> labeled_expr "let" i
-  | LCall i -> labeled_expr "call" i
+  | LCall (i,a) -> labeled_expr a i
 
 type pred_context = {
   fv: refine_ap list;
@@ -67,7 +68,7 @@ type context = {
   ownership: ocon list;
   ovars: int list;
   refinements: tcon list;
-  pred_arity: int IntMap.t;
+  pred_arity: int StringMap.t;
   v_counter: int;
   pred_detail: (int,pred_context) Hashtbl.t;
   store_env: int -> tenv -> unit;
@@ -80,7 +81,7 @@ module Result = struct
     ownership: ocon list;
     ovars: int list;
     refinements: tcon list;
-    arity: int IntMap.t;
+    arity: int StringMap.t;
     ty_envs: (int,tenv) Hashtbl.t
   }
 end
@@ -215,6 +216,24 @@ let ap_is_target target sym_vals ap =
 let filter_fv path sym_vals fv =
   List.filter (fun free_var -> not @@ ap_is_target path sym_vals free_var) fv
 
+let ext_names = true
+
+let mk_pred_name n target_var loc =
+  let c = 
+    match loc with
+    | LCond i -> Printf.sprintf "join-%d" i
+    | LArg (f_name,a_name) -> Printf.sprintf "%s-%s-in" f_name a_name
+    | LReturn f_name -> Printf.sprintf "%s-ret" f_name
+    | LOutput (f_name, a_name) -> Printf.sprintf "%s-%s-out" f_name a_name
+    | LAlias i -> Printf.sprintf "shuf-%d" i
+    | LLet i -> Printf.sprintf "scope-%d" i
+    | LCall (i,a) -> Printf.sprintf "call-%d-%s-out" i a
+  in
+  if ext_names then
+    c ^ "-" ^ (Paths.to_z3_ident target_var)
+  else
+    c ^ "-" ^ (string_of_int n)
+
 let alloc_pred ~loc (fv,target_var,sym_vals) ctxt =
   let n = ctxt.v_counter in
   let target_in_fv =
@@ -225,12 +244,12 @@ let alloc_pred ~loc (fv,target_var,sym_vals) ctxt =
   let arity = (List.length fv) -
       (if target_in_fv then 1 else 0) + 1 + !KCFA.cfa (* 1 for nu and k for context *)
   in
-  (*  Printf.printf "%d: New arity: %d\n" n arity;*)
+  let p_name = mk_pred_name n target_var loc in
   Hashtbl.add ctxt.pred_detail n { fv = (fv :> refine_ap list); loc; target_var };
   ({ ctxt with
      v_counter = n + 1;
-     pred_arity = IntMap.add n arity ctxt.pred_arity
-   }, n)
+     pred_arity = StringMap.add p_name arity ctxt.pred_arity
+   }, p_name)
     
 
 let make_fresh_pred ~pred_vars:((fv,target,s_val) as pred_vars) ~loc ctxt =
@@ -699,7 +718,7 @@ let rec sum_ownership t1 t2 out ctxt =
 let remove_sub ps ctxt =
   List.fold_left (fun c (i,_) ->
     { c with pred_arity =
-        IntMap.remove i c.pred_arity }) ctxt ps
+        StringMap.remove i c.pred_arity }) ctxt ps
 
 let rec meet_loop t_ref t_own =
   match t_ref,t_own with
@@ -973,8 +992,8 @@ and process_call ~e_id ~cont_id ctxt c =
   let in_out_types = List.combine concr_in_t symb_out_t in
   (* TODO: consistently use this function *)
   let post_type_vars = gamma_predicate_vars ctxt.gamma in
-  let loc = LCall c.label in
   let updated_ctxt = List.fold_left2 (fun acc (i,k,arg_t) (in_t,out_t) ->
+      let loc = LCall (c.label,k) in
       let constrain_in t c =
         let concr_arg_type = compile_type t k in
         add_type_implication input_env concr_arg_type in_t c
@@ -1075,15 +1094,15 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
       lift_simple_loop (`AVar target_var) ~loc (fv,[]) t
     in
     let gen_arg_preds ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
-        let (ctxt',t') = lift_simple_type k ~loc fv t acc_c in
+        let (ctxt',t') = lift_simple_type k ~loc:(loc k) fv t acc_c in
         (ctxt',t'::acc_ty)
       ) arg_templ (ctxt,[])
     in
     let simple_ftype = SM.find f_def.name st in
     let arg_templ = List.combine f_def.args simple_ftype.SimpleTypes.arg_types in
     let free_vars = List.filter (fun (_,t) -> t = `Int) arg_templ |> List.map (fun (n,_) -> (`AVar n)) in
-    let (ctxt',arg_types) = gen_arg_preds ~loc:(LArg f_def.name) free_vars arg_templ ctxt in
-    let (ctxt'',output_types) = gen_arg_preds ~loc:(LOutput f_def.name) free_vars arg_templ ctxt' in
+    let (ctxt',arg_types) = gen_arg_preds ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ ctxt in
+    let (ctxt'',output_types) = gen_arg_preds ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ ctxt' in
     let (ctxt''', result_type) =
       lift_simple_type "RET" ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type ctxt''
     in
@@ -1106,7 +1125,7 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
     ownership = [];
     ovars = [];
     refinements = [];
-    pred_arity = IntMap.empty;
+    pred_arity = StringMap.empty;
     v_counter = 0;
     pred_detail = Hashtbl.create 10;
     store_env;

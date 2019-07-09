@@ -2,12 +2,12 @@ open Sexplib.Std
 
 type pred_loc =
   | LCond of int
-  | LArg of string
+  | LArg of string * string
   | LReturn of string
-  | LOutput of string
+  | LOutput of string * string
   | LAlias of int
   | LLet of int
-  | LCall of int
+  | LCall of int * string 
 
 
 type rel_imm =
@@ -37,8 +37,8 @@ Const: the constaint constraint
 Eq: equality with variable b
 *)
 type 'c refinement =
-  | Pred of int * 'c
-  | CtxtPred of int * int * 'c
+  | Pred of string * 'c
+  | CtxtPred of int * string * 'c
   | Top
   | ConstEq of int
   | Relation of refinement_rel
@@ -64,7 +64,7 @@ type ('a,'o) _typ =
 [@@deriving sexp]
 
 type arg_refinment =
-  | InfPred of int
+  | InfPred of string
   | BuiltInPred of string
   | True[@@deriving sexp]
 
@@ -275,7 +275,7 @@ let simplify_ref r_in =
 
 let rec pp_ref =
   let open PrettyPrint in
-  let pred_name i = Printf.sprintf "P%d" i in
+  let pred_name i = i in
   let pp_alist o = List.map (fun ap -> ps @@ refine_ap_to_string ap) o in
   let print_pred i o ctxt = pb [
       pf "%s(" @@ pred_name i;
