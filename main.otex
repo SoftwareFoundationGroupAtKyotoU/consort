@@ -888,20 +888,19 @@ The followings are key lemmas:
   $\vdash_C^D$, and for that we must find a $\tenv''$ that is consistent with $H'$ and $R'$ and also satisfies the other conditions imposed by
   the definition of $\vdash_C^D$. Here $\tenv'',H',R'$ represent the type environment, heap and register respectively.
   \begin{rneqncase}{R-Var}{
-    [[ |- D <H, R, CE : Es, x>]], [[<H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]] \\
-    [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]] \\
-    [[ G' = G [ x <- T2 ] ]]
+    [[ |- D <H, R, En-1 : Es, x>]], [[<H, R, En-1 : Es, x> --> D <H, R, Es, En-1[x]> ]] \\
+    [[ Th | G [ x : Tn + T'] | B |- x : Tn => G[ x <- T' ] ]] \\
+    [[ Gn = G [ x <- T' ] ]]
     }
-    By the Inversion on configuration typing $[[ |- D <H, R, CE : Es, x>]]$ and $[[En[e] = x]] \land [[En]] = [][[ /\]] e = x,$
+    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ and $[[En[e] = x]] \land [[En]] = [][[ /\]] e = x,$
     we can obtain\newline
-    $[[ Th | [] : T1 => G' | B |-e [] : T1 => G' ]]$\newline
+    $[[ Th | [] : Tn => Gn | B |-e [] : Tn => Gn ]]$\newline
     $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$.\newline
-    Also using $\cref{lem:stack-well-typed}$, we can show that $\funenv \mid [] \COL \tau_1 \produces \tenv' \mid \overrightarrow{\mathit{l}} \vdash_E E_c[x] \COL \tau_c \produces \tenv_c$ if
-    $\funenv \mid [] \COL \tau_1 \produces \tenv' \mid \overrightarrow{\mathit{l}} \vdash_E E_c \COL \tau_c \produces \tenv_c$ satisfies.\newline
-    It gives that for the next caller $E_c$ in the stack $\overrightarrow{E}$, the precondition(type refinement and environment) which it needs to type check the expression is exactly
-    the same as the return type refinement $\tau_1$ and return environment $\tenv'$, which shows that the stack is well typed after we type check the context $x$.\newline
-    It remains to show that $\bf{Cons}$ $(H,R,\tenv''= \tenv [ x : \tau_1 + \tau_2])$,
-    which follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv$).
+    Also using $\cref{lem:stack-well-typed}$, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]].$\newline
+    It gives that for the next caller $E_{n-1}$ in the stack $\overrightarrow{E}$, the precondition(type refinement and environment) which it needs to type check the expression is exactly
+    the same as the return type refinement $\tau_n$ and return environment $\tenv_n$, which shows that the stack is well typed after we type check the context $x$.\newline
+    It remains to show that $\bf{Cons}$ $(H,R,\tenv_n= \tenv [ x : \tau_n + \tau'])$,
+    which follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv_n=\tenv$).
   \end{rneqncase}
   \begin{rneqncase}{R-Deref}{
     [[ |- D <H, R, Es, E[let x = *y in e]>]]\\
@@ -1074,18 +1073,18 @@ The followings are key lemmas:
   \end{rneqncase}
   \begin{rneqncase}{R-Call}{
     [[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]\\
-    [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]\\
-    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
+    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e' : T' => G' \ x]]\\
     }
+    $[[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]$\newline
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, we can obtain
     $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$ \newline
     $[[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
     $[[ B |- T' => G' \ x]]$\newline
-    $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]]$\newline
-    Using the Inversion $\cref{lem:inversion}$ of the definition of configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain
-    $[[ Th | [] : T' => G' | ll |-e E : T2 => G2 ]].$\newline
+    $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e' : T' => G' ]]$\newline
+    By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain
+    $[[ Th | [] : T' => G' | ll |-e E : T' => G' ]].$\newline
     We want to show that: \begin{align*}
-    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : csub vsub Tp => G[yi <- csub vsub Ti'] ]] \\
+    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e' : csub vsub Tp => G[yi <- csub vsub Ti'] ]] \\
     & [[ Th | [] : csub vsub Tp => G[yi <- csub vsub Ti] | ll |-e E[let x = [] l in e] : T2 => G2 ]]
     \end{align*}
     To prove these, we can look at $\bf{\cref{lem:callfunc}}$.\newline

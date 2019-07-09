@@ -88,6 +88,7 @@ grammar
   Es {{ tex \overrightarrow{E} }} :: Es_ ::=                  {{ com  stack }}
     | .                  ::   :: empty {{ tex \cdot }}
     | CE : Es             ::   :: cons
+    | En-1 : Es             ::    :: cons_new
 
   ph {{ tex \varphi }} :: 'P_' ::= {{ com refinement predicates }}
     | pfun ( x1 , .. , xn ) :: :: pred_sym {{ com predicate in underlying logic }}
