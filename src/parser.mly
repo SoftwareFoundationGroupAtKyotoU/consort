@@ -34,6 +34,15 @@
 
 %token UNDERSCORE
 
+// types
+%token DOLLAR INT_T REF TOP
+%token GAMMA
+%token ARROW
+%token NU AND
+%token <float> FLOAT
+
+%left AND
+
 %type <SurfaceAst.op> op
 %type <SurfaceAst.op list> arg_list
 
@@ -71,8 +80,11 @@ let expr :=
   | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
   | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
+  | GAMMA; lbl = expr_label; LBRACE; ~ = ty_env; RBRACE; <EAnnot>
   | ~ = var_ref; <>
   | ~ = INT; <Int>
+
+let ty_env == separated_list(SEMI, separated_pair(ID, COLON, typ))
 
 let var_ref :=
   | ~ = ID; ~ = expr_label; <Var>
@@ -127,3 +139,49 @@ let rel_op :=
 
 let expr_label == COLON; ~ = INT; <> | { LabelManager.register () }
 let pre_label == ~ = INT; COLON; <> | { LabelManager.register () }
+
+let typ :=
+  | ~ = refine; INT_T; { RefinementTypes.Int refine }
+  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ, RefinementTypes.OConst o) }
+  | LPAREN; ~ = tup_list; RPAREN; {
+		let (m_bind,t_l) =
+		  List.mapi (fun i (b_l,t) ->
+					  (List.map (fun b -> (b,RefinementTypes.SProj i)) b_l,t)
+					) tup_list
+		  |> List.split
+		in
+		RefinementTypes.Tuple (List.concat m_bind,t_l)
+	  }
+
+let ap_elem :=
+  | STAR; { `Deref }
+  | ~ = INT; <`Proj>
+
+let ref_ap :=
+  | root = ID; rest = separated_list(ARROW, ap_elem); {
+		List.fold_left (fun acc i ->
+						 match i with
+						 | `Deref -> `ADeref acc
+						 | `Proj i -> `AProj (acc,i)
+					   ) (`AVar root) rest
+	  }
+
+let rel_arg :=
+  | DOLLAR; s_var = INT; { RefinementTypes.RAp (`Sym s_var) }
+  | ~ = ref_ap; { RefinementTypes.RAp (ref_ap :> RefinementTypes.refine_ap) }
+  | i = INT; { RefinementTypes.RConst i }
+
+
+let refine :=
+  | TOP; { RefinementTypes.Top }
+  | NU; EQ; n = INT; { RefinementTypes.ConstEq n }
+  | NU; op = OPERATOR; arg = rel_arg; {
+		let open RefinementTypes in
+		Relation { rel_op1 = Nu; rel_cond = op; rel_op2 = arg }
+	  }
+  | r1 = refine; AND; r2 = refine; <RefinementTypes.And>
+
+let tup_list == separated_nonempty_list(COMMA, tup_typ)
+let tup_typ :=
+  | DOLLAR; s_var = INT; COLON; ~ = typ; { ([s_var],typ) }
+  | ~ = typ; { ([],typ) }

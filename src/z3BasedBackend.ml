@@ -149,6 +149,7 @@ module Make(S: STRATEGY) = struct
     try
       Strat.ownership theta ovars owner_cons ff;
       List.iter (pp_constraint ~interp ff) refinements;
+      SexpPrinter.finish ff;
       Strat.solve ~debug_cons ?save_cons ~get_model ~defn_file ff
     with
       OwnershipFailure -> false

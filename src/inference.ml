@@ -240,7 +240,6 @@ let alloc_pred ~loc (fv,target_var,sym_vals) ctxt =
     List.exists (fun free_var ->
       ap_is_target target_var sym_vals free_var) fv
   in
-  (*  Printf.printf "%d: is %s included in fv? %b\n" n (refine_ap_to_string target_var) target_in_fv;*)
   let arity = (List.length fv) -
       (if target_in_fv then 1 else 0) + 1 + !KCFA.cfa (* 1 for nu and k for context *)
   in
@@ -329,7 +328,7 @@ let remove_var ~loc to_remove ctxt =
   updated
 
 let lift_imm_op_to_rel = function
-  | IVar v -> RAp (`AVar v)
+  | IVar v -> RAp ((`AVar v) :> concr_ap)
   | IInt n -> RConst n
 
 let lift_relation { rop1; cond; rop2 } =
@@ -345,7 +344,7 @@ let rec strengthen_eq ~strengthen_type ~target =
   match strengthen_type with
   | Int r ->
     let r' = And (r,Relation {
-          rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp target
+          rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (target :> refine_ap)
         })
     in
     Int r'
@@ -458,7 +457,7 @@ let generalize_pred root out_type combined_pred =
     | Top -> Top
     | ConstEq n -> ConstEq n
     | And (r1,r2) -> And (gen_loop r1,gen_loop r2)
-    | Relation r -> Relation r
+    | Relation r -> Relation (RefinementTypes.map_relation gen_ap r)
     | Pred (i,(fv,_)) -> Pred (i,List.map gen_ap fv)
     | CtxtPred (i1,i2,(fv,_)) -> CtxtPred (i1,i2,List.map gen_ap fv)
     | NamedPred (nm,(fv,_)) -> NamedPred (nm,List.map gen_ap fv)
@@ -545,14 +544,13 @@ let rec push_subst bind = function
     let b_ext = List.map (fun (i,v) -> (i,SVar v)) bind in
     Tuple (b_ext @ b, tl)
 
-let sub_pdef =
+let sub_pdef : (string * (refine_ap list, refine_ap) refinement) list -> (typ -> typ) =
   function
   | [] -> (fun t -> t)
   | sub_assoc ->
     map_refinement (function
       | Pred (i,_) when List.mem_assoc i sub_assoc -> List.assoc i sub_assoc
       | r -> r)
-                     
 
 let rec assign_patt ~let_id ?(count=0) ctxt p t =
   match p,t with
@@ -953,6 +951,15 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       let (ctxt',t) = subsume_types ctxt ~target_var:k1 t1 t2 in
       add_type k1 t ctxt'
     ) u_ctxt b1 b2
+
+  | EAnnot (ty_env,next) ->
+    let env' =
+      List.fold_left (fun acc (k,v) ->
+        StringMap.add k v acc
+      ) StringMap.empty ty_env in
+    _dump_env env';
+    next
+    |> process_expr ?output_type ~remove_scope { ctxt with gamma = env' }
 
 and make_fresh_type ~target_var ~loc ~fv ?(bind=[]) t ctxt =
   walk_with_bindings ~o_map:(fun c _ ->

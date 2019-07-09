@@ -69,6 +69,71 @@ let pp_ap = function
 
 let upp_imm = ul pp_imm
 
+let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_ap) RefinementTypes.refinement) =
+  let open RefinementTypes in
+  match r with
+  | Top -> ps "T"
+  | ConstEq n -> pf "~ = %d" n
+  | Relation { rel_op1; rel_cond; rel_op2 } ->
+    let print_rimm () = function
+      | RConst i -> pi i
+      | RAp (`Sym i) -> pf "$%d" i
+      | RAp (#Paths.concr_ap as c) -> ps @@ Paths.to_z3_ident c
+    in
+    let r1_printer () r1 = match r1 with
+      | Nu -> ps "~"
+      | RImm i -> print_rimm () i
+    in
+    pf "%a@ %s@ %a"
+      r1_printer rel_op1
+      rel_cond
+      print_rimm rel_op2
+  | And (r1,r2) ->
+    pf "%a@ /\\@ %a"
+      (ul pp_ref_ast) r1
+      (ul pp_ref_ast) r2
+  | _ -> failwith @@ "Cannot annotate with relation " ^ (pretty_print_gen_rev pp_ref r)
+    
+
+let rec pp_typ t =
+  let open RefinementTypes in
+  let t_printer = match t with
+    | Int r -> pf "%a int" (ul pp_ref_ast) r
+    | Ref (t,OConst o) -> pf "%a ref %f" (ul pp_typ) t o
+    | Tuple (bl,t) ->
+      let ty_printers =
+        List.mapi (fun i t ->
+          let binder_print = List.filter (fun (_,bind) ->
+              match bind with
+              | SProj i' when i' = i -> true
+              | _ -> false
+            ) bl |> List.fold_left (fun _ (v,_) ->
+                pf "$%d: " v
+              ) null
+          in
+          pl [
+            binder_print;
+            pp_typ t
+          ]
+        ) t in
+      pl [
+        ps "(";
+        psep_gen (pf ",@ ") ty_printers;
+        ps ")"
+      ]
+    | _ -> failwith @@ "Can't print type " ^ (string_of_type t)
+  in
+  pb [
+    t_printer
+  ]
+
+
+let pp_ty_env gamma =
+  psep_gen semi @@
+    List.map (fun (k, t) ->
+      pf "%s: %a" k (ul pp_typ) t
+    ) gamma
+
 let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
   let e_printer =
     match e with
@@ -115,6 +180,14 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
                     pv v;
                     po_id () id
                   ]
+    | EAnnot(ty_env,e) ->
+      pl [
+          indent_from_here;
+          pf "$gamma%a {" po_id id; newline;
+          pp_ty_env ty_env;
+          dedent; newline; ps "}"; semi;
+          pp_expr ~ip ~annot e
+        ]
   in
   match e with
   | Seq _ -> e_printer
