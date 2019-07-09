@@ -1,0 +1,27 @@
+update(c,l)
+  assert(c < l)
+
+push(c,l) {
+  let c_plus = c + 1 in
+  if c = l then {
+    let l2 = l*2 in
+	let l_plus = l2 + 1 in {
+      update(c, l_plus);
+      push(c_plus, l_plus)
+	}
+  } else {
+    update(c, l);
+	push(c_plus,l)
+  }
+}
+
+{
+  let c = _ in
+  let l = _ in {
+  $gamma {
+    c: ~ <= l /\ ~ >= 0 int;
+	l: ~ >= 0 int
+  };
+  push(c, l)
+  }
+}

@@ -10,6 +10,8 @@ function r_test {
 	cd $THIS_DIR;
 	make test;
 	r_test -seq-solver -pos ./positive-tests;
+	r_test -pos ./positive-tests;
+	r_test -pos -seq-solver ./challenge-problem;
 	r_test -pos -cfa 2 ./positive-tests/2cfa;
 	r_test -neg ./negative-tests
 )

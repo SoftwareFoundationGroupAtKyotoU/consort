@@ -122,6 +122,13 @@ let rec denote_type path (bind: (int * Paths.concr_ap) list) acc t =
         denote_type (`AProj (path,i)) bind' acc te
       ) acc
 
+let with_refl ap t =
+  walk_with_bindings (fun root _ r () ->
+    match root with
+    | `ADeref _ -> ((),r)
+    | _ -> ((), And (r,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp root }))
+  ) ap ([],[]) t () |> snd
+
 let denote_gamma gamma =
   SM.fold (fun v t acc ->
     denote_type (`AVar v) [] acc t
@@ -206,7 +213,7 @@ let add_type_implication gamma t1_ t2_ ctxt_ =
   impl_loop ctxt_ t1_ t2_
 
 let add_var_implication dg gamma var t ctxt =
-  add_type_implication dg (compile_type (SM.find var gamma) var) (compile_type t var) ctxt
+  add_type_implication dg (compile_type (SM.find var gamma) var |> with_refl (`AVar var)) (compile_type t var) ctxt
 
 let ap_is_target target sym_vals ap =
   match ap with
@@ -249,29 +256,23 @@ let alloc_pred ~loc (fv,target_var,sym_vals) ctxt =
      v_counter = n + 1;
      pred_arity = StringMap.add p_name arity ctxt.pred_arity
    }, p_name)
-    
 
 let make_fresh_pred ~pred_vars:((fv,target,s_val) as pred_vars) ~loc ctxt =
   let (ctxt',p) = alloc_pred ~loc pred_vars ctxt in
   (ctxt',Pred (p,filter_fv target s_val fv))
 
-let rec free_vars_contains_v (r: concr_refinement) v =
-  let has_var = function
-    | #concr_ap as cp -> Paths.has_var v cp
-  in
-  let imm_is_var ri = match ri with RConst _ -> false | RAp ap -> Paths.has_var v (ap :> concr_ap) in
+let rec free_vars_contains (r: concr_refinement) v_set =
+  let root_pred ap = Paths.has_root_p (fun root -> SS.mem root v_set) ap in
+  let imm_is_var ri = match ri with RConst _ -> false | RAp ap -> root_pred ap in
   match r with
   | Pred (_,(pv,_))
   | NamedPred (_,(pv,_))
-  | CtxtPred (_,_,(pv,_)) -> List.exists has_var pv
+  | CtxtPred (_,_,(pv,_)) -> List.exists root_pred pv
   | Relation { rel_op1 = op1; rel_op2 = op2; _ } ->
     imm_is_var op2 || (match op1 with
       RImm v -> imm_is_var v | Nu -> false)
-  | And (r1, r2) -> free_vars_contains_v r1 v || free_vars_contains_v r2 v
+  | And (r1, r2) -> free_vars_contains r1 v_set || free_vars_contains r2 v_set
   | _ -> false
-
-let free_vars_contains ss r =
-  SS.exists (free_vars_contains_v r) ss
 
 let predicate_vars kv =
   List.fold_left (fun acc (k, t) ->
@@ -298,9 +299,9 @@ let lift_src_ap = function
   | AProj (v,i) -> `AProj (`AVar v,i)
   | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
 
-let remove_var_from_pred ~loc ~curr_te ~to_remove path (sym_vars,sym_val) r context =
+let remove_var_from_pred ~loc ~curr_te ~oracle path (sym_vars,sym_val) r context =
   let curr_comp = compile_refinement path sym_val r in
-  if free_vars_contains to_remove curr_comp then
+  if oracle curr_comp path then
     let (ctxt',new_pred) = make_fresh_pred ~loc ~pred_vars:(sym_vars,path,sym_val) context in
     let new_comp = compile_refinement path sym_val new_pred in
     let ctxt'' = add_constraint curr_te ctxt' curr_comp new_comp in
@@ -308,14 +309,45 @@ let remove_var_from_pred ~loc ~curr_te ~to_remove path (sym_vars,sym_val) r cont
   else
     (context,r)
 
-let remove_var_from_type ~loc ~curr_te ~to_remove root_var in_scope t context =
-  let staged = remove_var_from_pred ~loc ~curr_te ~to_remove in
+let remove_var_from_type ~loc ~curr_te ~oracle root_var in_scope t context =
+  let staged = remove_var_from_pred ~loc ~curr_te ~oracle in
   walk_with_bindings staged root_var (in_scope,[]) t context
+
+let rec get_ref_aps = function
+  | And (r1,r2) -> get_ref_aps r1 @ get_ref_aps r2
+  | NamedPred (_,(fv,_))
+  | Pred (_,(fv,_))
+  | CtxtPred (_,_,(fv,_)) -> fv
+  | ConstEq _
+  | Top -> []
+  | Relation { rel_op1; rel_op2; _ } ->
+    let get_imm = function
+      | RAp r -> [r]
+      | RConst _ -> []
+    in
+    (get_imm rel_op2) @ (match rel_op1 with
+    | Nu -> []
+    | RImm i -> get_imm i)
 
 let remove_var ~loc to_remove ctxt =
   let curr_te = denote_gamma ctxt.gamma in
   let in_scope = SM.bindings ctxt.gamma |> List.filter (fun (k,_) -> not (SS.mem k to_remove)) |> predicate_vars in
-  let remove_fn = remove_var_from_type ~loc ~curr_te ~to_remove in
+  let ref_vars = SS.fold (fun var acc ->
+      walk_with_bindings (fun root (_,sym_vals) r a ->
+        let a' =
+          compile_refinement root sym_vals r
+          |> get_ref_aps
+          |> List.filter (fun p -> not (Paths.has_root var p))
+          |> List.map Paths.to_z3_ident
+          |> List.fold_left (fun acc nm -> SS.add nm acc) a
+        in
+        (a',r)
+      ) (`AVar var) ([],[]) (SM.find var ctxt.gamma) acc |> fst) to_remove SS.empty
+  in
+  let removal_oracle = (fun r path ->
+    (SS.mem (Paths.to_z3_ident path) ref_vars) || (free_vars_contains r to_remove)
+  ) in
+  let remove_fn = remove_var_from_type ~loc ~curr_te ~oracle:removal_oracle in
   let updated =
     SM.fold (fun v_name t c ->
       if SS.mem v_name to_remove then
@@ -767,7 +799,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         add_type_implication dg (c_type t2) (c_type t) ctxt''
       | None -> ctxt''
     end
-  (*    |> remove_var ~loc:(LLet e_id) remove_scope*)
+    |> remove_var ~loc:(LLet e_id) remove_scope
   | Seq (e1, e2) ->
     let ctxt' = process_expr ctxt e1 in
     process_expr ?output_type ~remove_scope ctxt' e2
@@ -842,8 +874,8 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
-    process_expr ?output_type (*~remove_scope:(SS.union bound_vars remove_scope)*) str_ctxt exp
-    |> remove_var ~loc:(LLet e_id) bound_vars
+    process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp
+    (*|> remove_var ~loc:(LLet e_id) bound_vars*)
       
   | Assert (relation,cont) ->
     cont
@@ -957,7 +989,6 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       List.fold_left (fun acc (k,v) ->
         StringMap.add k v acc
       ) StringMap.empty ty_env in
-    _dump_env env';
     next
     |> process_expr ?output_type ~remove_scope { ctxt with gamma = env' }
 
@@ -1002,7 +1033,7 @@ and process_call ~e_id ~cont_id ctxt c =
   let updated_ctxt = List.fold_left2 (fun acc (i,k,arg_t) (in_t,out_t) ->
       let loc = LCall (c.label,k) in
       let constrain_in t c =
-        let concr_arg_type = compile_type t k in
+        let concr_arg_type = compile_type t k |> with_refl (`AVar k) in
         add_type_implication input_env concr_arg_type in_t c
         |> constrain_owner t in_t
       in
