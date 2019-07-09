@@ -1343,29 +1343,29 @@ The followings are key lemmas:
 
 \begin{lemma}
   \label{lem:stack-well-typed}
-  For any $[[G0]]$ such that $[[Th | G0 | B |- x: T => G]]$ and $[[ Th | [] : T => G | B |-e E[let y = [] l in e] : T' => G' ]]$ then
-  $[[ Th | G0 | B |- E[let y = [] l in e][x] : T' => G' ]]$
+  For any $[[G0]]$ such that $[[Th | G0 | l:ll |- x: T => G]]$ and $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ then
+  $[[ Th | G0 | ll |- E[let y = [] l in e][x] : T' => G' ]]$
 \end{lemma}
 \begin{proof}
-  It suffices to show that $[[ Th | G0 | B |- let y = x in e : T1 => G1]]$
-  and $[[ Th | [] : T1 => G1 | B |-e E : T' => G']]$
+  It suffices to show that $[[ Th | G0 | ll |- let y = x in e : T1 => G1]]$
+  and $[[ Th | [] : T1 => G1 | ll |-e E : T' => G']]$
   whence the result will hold from \cref{lem:ectxt-sub-well-typed}.
 
   By inversion on
-  $[[ Th | [] : T => G | B |-e E[let y = [] l in e] : T' => G' ]]$ and
-  $[[ Th | G0 | B |- x : T => G]]$ we have that:
+  $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ and
+  $[[ Th | G0 | l:ll |- x : T => G]]$ we have that:
   \begin{align}
-    & [[ Th | G, y: T | B |- e : T2 => G2 ]] \\
+    & [[ Th | G, y: T | ll |- e : T2 => G2 ]] \\
     & [[ Th | []: T2 => G2 \ y | B |-e E : T' => G' ]] \\
-    & [[ B |- T2 => G2 \ y ]] \\
+    & [[ ll |- T2 => G2 \ y ]] \\
     & [[ G0(x) = T + T' ]] \\
     & [[ G = G0[x <- T'] ]]
   \end{align}
   We take $[[ G1 = G2 \ y ]]$, $[[ T2 = T1 ]]$. To show that
-  $[[ Th | G0[x : T + T'] | B |- let y = x in e : T1 => G1 ]]$ it
+  $[[ Th | G0[x : T + T'] | ll |- let y = x in e : T1 => G1 ]]$ it
   remains to show that
-  $[[Th | G0[x <- T' /\ x x = y],y : T /\ y y = x | B |- e : T2 =>
-  G2]]$ and that $[[ B |- T2 => G2 \ y]]$.
+  $[[Th | G0[x <- T' /\ x x = y],y : T /\ y y = x | ll |- e : T2 =>
+  G2]]$ and that $[[ ll |- T2 => G2 \ y]]$.
   The former follows from first weakening the types of $[[x]]$ and $[[y]]$ with \rn{T-Sub}
   and from assumption (1), and the latter follows from (3).
 \end{proof}
