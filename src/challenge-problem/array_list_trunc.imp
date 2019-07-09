@@ -1,0 +1,41 @@
+test(p) {
+  let (c,l) = *p in assert(c <= l)
+}
+
+update(p) {
+ let (curr,len) = *p in {
+   assert(curr < len);
+   let one = 1 in {
+     let incr = curr + one in {
+	   let new_t = (incr,len) in {
+         p := new_t
+       };
+	 };
+   }
+ }
+}
+
+push(p) {
+  let (curr,len) = *p in {
+  if curr = len then
+    let dl = len * 2 in
+    p := (curr, dl + 1)
+  else
+    ()
+  };
+  update(p);
+  push(p)
+}
+
+{
+  let c = _ in
+  let l = _ in {
+  $gamma {
+    c: ~ <= l /\ ~ >= 0 int;
+	l: ~ >= 0 int
+  };
+  let k = (c, l) in
+  let p = mkref k in
+  push(p)
+  }
+}

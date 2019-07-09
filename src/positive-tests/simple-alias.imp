@@ -1,0 +1,12 @@
+f(p) {
+  assert(0 < *p)
+}
+
+{
+  let x = mkref 3 in
+  let y = x in {
+    f(y);
+	assert(*y = 3);
+	assert(*x = 3)
+  }
+}

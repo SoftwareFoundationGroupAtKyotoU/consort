@@ -36,6 +36,7 @@ type exp =
   | Assert of int * relation
   | Call of call
   | Seq of exp * exp
+  | EAnnot of int * (string * RefinementTypes.typ) list
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -74,7 +75,7 @@ let rec simplify_expr ?next count e =
         A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
         |> tag_with i
       )
-  | Seq (((Assign _ | Alias _ | Assert _) as ue),e1) ->
+  | Seq (((Assign _ | Alias _ | Assert _ | EAnnot _) as ue),e1) ->
     simplify_expr ~next:e1 count ue
   | Seq (e1,e2) ->
     A.Seq (simplify_expr count e1,simplify_expr count e2)
@@ -104,6 +105,7 @@ let rec simplify_expr ?next count e =
     bind_in ~ctxt:i count (`Call c) (fun _ tvar ->
         A.EVar tvar |> tag_fresh
       )
+  | EAnnot (i,g) -> A.EAnnot (g, get_continuation count) |> tag_with i
 and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
   match lhs with

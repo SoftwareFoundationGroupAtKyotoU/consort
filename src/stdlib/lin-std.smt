@@ -17,3 +17,8 @@
 (define-fun rel-=-out ((out Int) (x1 Int) (x2 Int)) Bool
  (ite (= x1 x2) (= out 0)
 	   (= out 1)))
+
+
+(define-fun rel-<=-out ((out Int) (x1 Int) (x2 Int)) Bool
+ (ite (<= x1 x2) (= out 0)
+	   (= out 1)))
