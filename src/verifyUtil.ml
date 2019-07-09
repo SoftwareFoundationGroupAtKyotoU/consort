@@ -174,7 +174,7 @@ let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
   | Some r ->
     if opts.annot_infr then begin
       let ty_envs = r.Inference.Result.ty_envs in
-      Printf.fprintf stderr "%s\n" @@ AstPrinter.pretty_print_program ~with_labels:false ~annot:(pprint_ty_env ty_envs) ast;
+      Printf.fprintf stderr "%s\n" @@ AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) ast;
       flush stderr
     end;
     HornBackend.solve

@@ -53,10 +53,16 @@ let arg_list :=
   | ~ = delimited(LPAREN, separated_nonempty_list(COMMA, op), RPAREN); <>
   | UNIT; { [] }
 
+let seq :=
+  | ~ = expr; RBRACE; { [expr] }
+  | RBRACE; { [] }
+  | ~ = expr; SEMI; ~ = seq; { expr::seq }
+
+
 let expr :=
   | UNIT; { Unit }
   | ~ = delimited(LBRACE, expr, RBRACE); <>
-  | LBRACE; e = expr; SEMI; rest = separated_nonempty_list(SEMI, expr); RBRACE; {
+  | LBRACE; e = expr; SEMI; rest = seq; {
 		list_to_seq e rest
 	  }
   | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
