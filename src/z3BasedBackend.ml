@@ -48,10 +48,10 @@ module Make(S: STRATEGY) = struct
     | NamedPred (n,(args,o)) ->
       ff |> psl @@ [ n; binding ] @ (refine_args o args)
     | Pred (i,(args,o)) ->
-      let ctxt = init !KCFA.cfa ctxt_var in
+      let ctxt = List.init !KCFA.cfa ctxt_var in
       print_string_list (pred_name i::ctxt @ [ binding ] @ (refine_args o args)) ff
     | CtxtPred (ctxt,i,(args,o)) ->
-      let c_string = (string_of_int ctxt)::(init (!KCFA.cfa-1) (fun i -> ctxt_var @@ i + 1)) in
+      let c_string = (string_of_int ctxt)::(List.init (!KCFA.cfa-1) (fun i -> ctxt_var @@ i + 1)) in
       print_string_list (pred_name i::c_string @ [ binding ] @ (refine_args o args)) ff
     | Top -> atom ff "true"
     | ConstEq n -> print_string_list [ "="; binding; string_of_int n ] ff
@@ -112,7 +112,7 @@ module Make(S: STRATEGY) = struct
       
   let pp_constraint ~interp ff { env; ante; conseq; owner_ante } =
     let gamma = close_env env ante conseq in
-    let context_vars = init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
+    let context_vars = List.init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
     let env_vars = List.map (fun (ap,_) -> Printf.sprintf "(%s Int)" @@ Paths.to_z3_ident ap) gamma in
     let free_vars = "(NU Int)":: context_vars @ env_vars in
     let denote_gamma = List.fold_left (fun acc (ap,r) ->
