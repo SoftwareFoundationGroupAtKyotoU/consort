@@ -17,7 +17,7 @@ let white = [' ' '\t']+
 let newline = '\n'
 let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
 let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
-let non_comment = [^ '/' '*' ]+
+let non_comment = [^ '/' '*' '\n']+
 let comment_delim = [ '/' '*' ]
 let operators = ['+' '-' '*' '/' '%' '<' '>' '=' '!']+
 let not_newline = [^'\n']+
@@ -30,7 +30,7 @@ rule read =
   | newline { next_line lexbuf; read lexbuf }
   | "()" { UNIT }
   | float { FLOAT (float_of_string @@ Lexing.lexeme lexbuf) }
-  | int { INT (int_of_string @@ Lexing.lexeme lexbuf) }
+  | int { let i = int_of_string @@ Lexing.lexeme lexbuf in LabelManager._internal_incr i; INT i }
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
@@ -65,6 +65,7 @@ rule read =
   | _ { failwith @@ "Invalid token " ^ (Lexing.lexeme lexbuf) }
 and comment =
   parse
+  | newline { next_line lexbuf; comment lexbuf }
   | non_comment { comment lexbuf }
   | "*/" { () }
   | "/*" { comment lexbuf; comment lexbuf }
