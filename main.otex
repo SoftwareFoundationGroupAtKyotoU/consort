@@ -1525,7 +1525,7 @@ The followings are key lemmas:
   \end{align*}
 
   \begin{align*}
-    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[a in H]].[[F(a)]] \leq 1 \\
+    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.F(a)]] \leq 1 \\
     [[SAT(H,R,G)]] = & [[ forall x in G.x in R]]\wedge \\
     & \begin{cases}
       [[R(x)]] \in \mathbb{Z} \wedge [[ [R;R(x)/y]ph ]] & [[ G(x) = {y:int | ph} ]] \\
