@@ -202,6 +202,7 @@ and maybe_brace ~ip ~annot ?(all_seq=false) ?pre ((_,e) as tagged_e) : formatter
       | Alias _ when all_seq -> true
       | Assert _ when all_seq -> true
       | Assign _ when all_seq -> true
+      | EAnnot _ when all_seq -> true
       | _ -> false
   in
   if need_block then

@@ -15,3 +15,8 @@ let get_label_expl () =
    
 let print_label_explanation () =
   Hashtbl.iter (Printf.printf "Label %d is from desugaring of: %d\n") tracker
+
+let _internal_incr i =
+  if i > !counter then
+    counter := (i + 1)
+    
