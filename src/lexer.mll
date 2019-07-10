@@ -20,9 +20,11 @@ let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
 let non_comment = [^ '/' '*' ]+
 let comment_delim = [ '/' '*' ]
 let operators = ['+' '-' '*' '/' '%' '<' '>' '=' '!']+
+let not_newline = [^'\n']+
 
 rule read =
   parse
+  | "//" { line_comment lexbuf; read lexbuf }
   | "/*" { comment lexbuf; read lexbuf }
   | white    { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
@@ -67,3 +69,7 @@ and comment =
   | "*/" { () }
   | "/*" { comment lexbuf; comment lexbuf }
   | comment_delim { comment lexbuf }
+and line_comment =
+  parse
+  | not_newline { line_comment lexbuf }
+  | newline { next_line lexbuf; () }

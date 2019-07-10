@@ -9,11 +9,13 @@
 
 (executable
  (name test)
+ (preprocess (pps ppx_sexp_conv))
  (libraries csr_core)
  (modules Test))
 
 (executable
  (name test_suite)
+ (preprocess (pps ppx_sexp_conv))
  (libraries csr_core)
  (modules Test_suite))
 
