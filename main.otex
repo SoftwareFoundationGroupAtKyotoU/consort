@@ -985,7 +985,7 @@ The followings are key lemmas:
     and thus $x'$ trivially satisfies that the refinement that $x' = y$.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$.
     To prove $F_0=F_1$ follows from:\newline
-    $\sum_{z\in\textit{dom}(\tenv'')}\mathbf{own}(H',R'(z),\tenv''(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',y,\tau_1\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto 1\}$,
+    $\sum_{z\in\textit{dom}(\tenv'')}\mathbf{own}(H',R'(z),\tenv''(z)) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \mathbf{own}(H',x,\tau_2\TREF^1) = \sum_{z\in\textit{dom}(\tenv)}\mathbf{own}(H,R(z),\tenv(z)) + \{a\mapsto 1\}$,
     where $a\notin \textit{dom}(H)$.
   \end{rneqncase}
   \begin{rneqncase}{R-Assign}{
@@ -996,13 +996,13 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | B |- e : T => G']]$.
     We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
-    From $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]=x\in \textit{dom}(\tenv). x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land [R;R(x)/n]\phi$, here $\tenv(x)=\{n\COL\TINT\mid\phi\}$ and $\{x\COL\TINT\mid\phi\}\TREF^1 = \{x\COL\TINT\mid\varphi_1\}\TREF^0+\{y\COL\TINT\mid\varphi_2\}\TREF^1$.
+    From $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]=x\in \textit{dom}(\tenv). x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land [R;R(x)/n]\phi$, here $\tenv(x)=\{n\COL\TINT\mid\phi\}$ and $\{x\COL\TINT\mid\phi\} = \{x\COL\TINT\mid\varphi_1\}+\{y\COL\TINT\mid\varphi_2\}$.
     From the definition of $\rn{T-Assign}$, we have $R(x)=H'(R'(y))$, here $H', R'$ represent the post condition after transition, we can obtain that the refinement predicates $\phi$ holds for $H'(R'(y))$.\newline
     $[y \hookleftarrow (\tau_2 \TREF^1\land_y y =_{\tau_1} x]$ requires that $y$ should satisfy not only $\tau_2\TREF^1$ but also the contents of $y$ equals to $x$ in the post environment $\tenv''$.
     The refinement of $x$ (described by $\tau_1+\tau_2$) is divided into $\tau_2$, which will be transferred to $y$, and $\tau_1$, which remains in $x$.
     Here $\tau_1 = \{x\COL\TINT\mid\varphi_1\}$ and $\tau_2 = \{y\COL\TINT\mid\varphi_2\}$,
-    by the definition of type addition, we have that $\tau_1 + \tau_2 = \{x\COL\TINT\mid\varphi_1\}\TREF^0+\{y\COL\TINT\mid\varphi_2\}\TREF^1=\{y\COL\TINT\mid\varphi_2\}\TREF^1$, that gives if a value satisfies the refinement of $x$ before transition,
-    then it must satisfy the refinement $\tau_2 = \{y \COL \TINT \mid \varphi_2\}\TREF^1$ itself. Furthermore, by the definition of $\rn{T-Assign}$, we have $R(x)=H'(R'(y))$, and thus $y$ trivially satisfies that the refinement that $y = x$.\newline
+    by the definition of type addition, we have that $\tau_1 + \tau_2 = \{x\COL\TINT\mid\varphi_1\}+\{y\COL\TINT\mid\varphi_2\}$, that gives if a value satisfies the refinement of $x$ before transition,
+    then it must satisfy the refinement $\tau_2 = \{y \COL \TINT \mid \varphi_2\}$ itself. Furthermore, by the definition of $\rn{T-Assign}$, we have $R(x)=H'(R'(y))$, and thus $y$ trivially satisfies that the refinement that $y = x$.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$, we focus on prove that $F_0=F_1$, defines as below, where $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))$\newline
     $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv''(y)) + \mathbf{own}(H', R'(x), \tenv''(x))$\newline
@@ -1079,7 +1079,7 @@ The followings are key lemmas:
     $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$ \newline
     $[[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
     $[[ B |- T' => G' \ x]]$\newline
-    $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e' : T' => G' ]]$\newline
+    $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e' : T' => G' \ x]]$\newline
     By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain
     $[[ Th | [] : T' => G' \ x | ll |-e E : Tn => Gn ]].$\newline
     We want to show that: \begin{align*}
