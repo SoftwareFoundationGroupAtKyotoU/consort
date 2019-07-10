@@ -2,7 +2,8 @@
 
 set -ev
 
-opam init --yes --no-setup --comp 4.03.0
+opam init --yes --no-setup --comp 4.06.0
+opam switch --yes create 4.06.0
 eval $(opam config env)
 opam install --yes menhir ppx_sexp_conv sexplib
 
