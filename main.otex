@@ -892,12 +892,12 @@ The followings are key lemmas:
     [[ Th | G [ x : Tn + T'] | B |- x : Tn => G[ x <- T' ] ]] \\
     [[ Gn = G [ x <- T' ] ]]
     }
-    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ and $[[En[e] = x]] \land [[En]] = [][[ /\]] e = x,$
+    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ and $[[En[e] = x]] [[/\]] [[En]] = [][[/\]] [[e = x]],$
     we can obtain\newline
     $[[ Th | [] : Tn => Gn | B |-e [] : Tn => Gn ]]$\newline
     $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$.\newline
     Also using $\cref{lem:stack-well-typed}$, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]].$\newline
-    By $\cref{lem:stack_var}$, any decomposition of $E_{n-1}[x]$ into a context $E'$ and expression $e'$ will be well-typed with respect to the stack $\overrightarrow{E}$.\newline
+    By $\cref{lem:stack_var}$, any decomposition of $[[En-1 [x] ]]$ into a context $[[E']]$ and expression $[[e']]$ will be well-typed with respect to the stack $[[Es]]$.\newline
     It remains to show that $\bf{Cons}$ $(H,R,\tenv_n= \tenv [ x : \tau_n + \tau'])$,
     which follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv_n=\tenv$).
   \end{rneqncase}
