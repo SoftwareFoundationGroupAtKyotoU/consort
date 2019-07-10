@@ -11,10 +11,10 @@ push(p) {
     let dl = len * 2 in
     p := (curr, dl + 1)
   else
-    ();
+    ()
+  };
   update(p);
   push(p)
-  }
 }
 
 {

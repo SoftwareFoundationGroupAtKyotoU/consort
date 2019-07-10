@@ -122,11 +122,14 @@ let rec denote_type path (bind: (int * Paths.concr_ap) list) acc t =
         denote_type (`AProj (path,i)) bind' acc te
       ) acc
 
+let with_pred_refl root r =
+  match root with
+  | `ADeref _ -> r
+  | _ -> And (r,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp root })
+
 let with_refl ap t =
   walk_with_bindings (fun root _ r () ->
-    match root with
-    | `ADeref _ -> ((),r)
-    | _ -> ((), And (r,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp root }))
+    ((), with_pred_refl root r)
   ) ap ([],[]) t () |> snd
 
 let denote_gamma gamma =
@@ -304,7 +307,7 @@ let remove_var_from_pred ~loc ~curr_te ~oracle path (sym_vars,sym_val) r context
   if oracle curr_comp path then
     let (ctxt',new_pred) = make_fresh_pred ~loc ~pred_vars:(sym_vars,path,sym_val) context in
     let new_comp = compile_refinement path sym_val new_pred in
-    let ctxt'' = add_constraint curr_te ctxt' curr_comp new_comp in
+    let ctxt'' = add_constraint curr_te ctxt' (curr_comp |> with_pred_refl path) new_comp in
     (ctxt'',new_pred)
   else
     (context,r)
