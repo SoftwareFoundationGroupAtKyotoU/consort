@@ -475,6 +475,10 @@ the environment can't hold for some states.
 The expression about function definition, we replace it by the function body itself and we also need to remember to bind $x$ to
 the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written by $\LET x=[] \IN e$.
 
+In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
+any model $[[M]]$ in our underlying theory such that
+$[[ forall x in R.M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
+
 \begin{figure}
 \[
   \begin{array}{rcl}
