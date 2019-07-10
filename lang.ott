@@ -77,7 +77,7 @@ grammar
 	| 0 :: :: z
 
   E :: E_ ::=    {{ com evaluation context }}
-    | []                ::   :: hole
+  | []                ::   :: hole
 	| E ; e :: :: seq {{ tex [[E]]\SEQ[[e]] }}
 	| ( E ) :: :: paren
 	| E = E' :: :: eq
