@@ -1,6 +1,10 @@
 let () =
   let intrinsic_file = ref None in
-  let (flags,to_opts) = VerifyUtil.Options.get_arg_gen () in
+  let (flags,to_opts) =
+    let open VerifyUtil.Options in
+    debug_arg_gen ()
+    |> seq solver_arg_gen
+  in
   let spec = let open Arg in
   flags @ [
     ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");

@@ -17,7 +17,8 @@ let package = (
     binop "<" "rel-<-out";
     binop "-" "minus---out";
     binop "*" "times-*-out";
-    binop "=" "rel-=-out"
+    binop "=" "rel-=-out";
+    binop "<=" "rel-<=-out"
   ],
   StringMap.of_bindings [
     nrel "<";

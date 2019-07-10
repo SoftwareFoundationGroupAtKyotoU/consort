@@ -1,0 +1,12 @@
+assume(p) {
+  if 0 < *p then
+    ()
+  else assume(p)
+}
+
+{
+ let x = mkref _ in {
+ assume(x);
+ assert(0 < *x)
+ }
+}

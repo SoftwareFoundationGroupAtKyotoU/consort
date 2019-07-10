@@ -13,11 +13,7 @@ push(p) {
   else
     ();
   update(p);
-  let b = _ in
-  if b then
-    ()
-  else
-    push(p)
+  push(p)
   }
 }
 

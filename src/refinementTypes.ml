@@ -2,26 +2,26 @@ open Sexplib.Std
 
 type pred_loc =
   | LCond of int
-  | LArg of string
+  | LArg of string * string
   | LReturn of string
-  | LOutput of string
+  | LOutput of string * string
   | LAlias of int
   | LLet of int
-  | LCall of int
+  | LCall of int * string 
 
 
-type rel_imm =
-  | RAp of Paths.const_ap
+type 'r rel_imm =
+  | RAp of 'r
   | RConst of int [@@deriving sexp]
 
-type rel_op =
+type 'r rel_op =
     Nu
-  | RImm of rel_imm [@@deriving sexp]
+  | RImm of 'r rel_imm [@@deriving sexp]
 
-type refinement_rel = {
-  rel_op1: rel_op;
+type 'r refinement_rel = {
+  rel_op1: 'r rel_op;
   rel_cond: string;
-  rel_op2: rel_imm;
+  rel_op2: 'r rel_imm;
 } [@@deriving sexp]
 
 type refine_ap = [
@@ -36,16 +36,16 @@ Top: unconstrained
 Const: the constaint constraint
 Eq: equality with variable b
 *)
-type 'c refinement =
-  | Pred of int * 'c
-  | CtxtPred of int * int * 'c
+type ('c,'r) refinement =
+  | Pred of string * 'c
+  | CtxtPred of int * string * 'c
   | Top
   | ConstEq of int
-  | Relation of refinement_rel
-  | And of 'c refinement * 'c refinement
+  | Relation of 'r refinement_rel
+  | And of ('c,'r) refinement * ('c,'r) refinement
   | NamedPred of string * 'c [@@deriving sexp]
 
-type concr_refinement = (Paths.concr_ap list * Paths.concr_ap) refinement [@@deriving sexp]
+type concr_refinement = ((Paths.concr_ap list * Paths.concr_ap), Paths.concr_ap) refinement [@@deriving sexp]
 
 type ownership =
     OVar of int
@@ -57,25 +57,27 @@ type ap_symb =
 
 type ty_binding = (int * ap_symb) list [@@deriving sexp]
 
-type 'a _typ =
+type ('a,'o) _typ =
   | Int of 'a
-  | Ref of 'a _typ * ownership
-  | Tuple of ty_binding * ('a _typ) list
+  | Ref of ('a,'o) _typ * 'o
+  | Tuple of ty_binding * (('a,'o) _typ) list
 [@@deriving sexp]
 
 type arg_refinment =
-  | InfPred of int
+  | InfPred of string
   | BuiltInPred of string
   | True[@@deriving sexp]
 
-type typ = ((refine_ap list) refinement) _typ [@@deriving sexp]
-type ftyp = arg_refinment _typ[@@deriving sexp]
+type typ = (((refine_ap list,refine_ap) refinement),ownership) _typ [@@deriving sexp]
+type ftyp = (arg_refinment,ownership) _typ[@@deriving sexp]
 
-type funtype = {
-  arg_types: ftyp list;
-  output_types: ftyp list;
-  result_type: ftyp
+type 'a _funtype = {
+  arg_types: 'a list;
+  output_types: 'a list;
+  result_type: 'a
 }[@@deriving sexp]
+
+type funtype = ftyp _funtype [@@deriving sexp]
 
 let unsafe_get_ownership = function
   | `Ref (_,o) -> o
@@ -94,29 +96,47 @@ let rec to_simple_type = function
   | Int _ -> `Int
   | Tuple (_,t) -> `Tuple (List.map to_simple_type t)
 
-let to_simple_funenv = StringMap.map (fun { arg_types; result_type; _ } ->
+let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
     {
       SimpleTypes.arg_types = List.map to_simple_type arg_types;
       SimpleTypes.ret_type = to_simple_type result_type;
-    })
+    }) env
+
+let map_ap mapping : refine_ap -> Paths.concr_ap = function
+  | `Sym i -> List.assoc i mapping
+  | #Paths.concr_ap as cp -> cp
+
+let partial_map_ap mapping : refine_ap -> refine_ap = function
+  | `Sym i when List.mem_assoc i mapping -> (List.assoc i mapping :> refine_ap)
+  | r -> r
 
 let subst_pv mapping pl =
-  let map_ap = function
-    | `Sym i -> List.assoc i mapping
-    | #Paths.concr_ap as cp -> cp
-  in
+  let map_ap = map_ap mapping in
   List.map map_ap pl
 
-let partial_subst subst_assoc =
-  let subst = List.map (function
-    | `Sym i when List.mem_assoc i subst_assoc -> (List.assoc i subst_assoc :> refine_ap)
-    | r -> r) in
+let map_rel_imm (map_fn: 'a -> 'b) : 'a rel_imm -> 'b rel_imm = function
+  | RConst i -> RConst i
+  | RAp r -> RAp (map_fn r)
+
+let map_relation (map_fn: 'a -> 'b) ({ rel_op1; rel_cond; rel_op2 }: 'a refinement_rel) =
+  let r1 =
+    match rel_op1 with
+    | Nu -> Nu
+    | RImm i -> RImm (map_rel_imm map_fn i)
+  in
+  let r2 = map_rel_imm map_fn rel_op2 in
+  ({ rel_op1 = r1; rel_cond; rel_op2 = r2 }: 'b refinement_rel)
+  
+
+let partial_subst subst_assoc : (refine_ap list, refine_ap) refinement -> (refine_ap list, refine_ap) refinement =
+  let subst_fn = partial_map_ap subst_assoc in
+  let subst = List.map subst_fn in
   let rec loop r =
     match r with
     | Pred (i,pv) -> Pred (i,subst pv)
     | CtxtPred (i1,i2,pv) -> CtxtPred (i1,i2, subst pv)
     | Top -> Top
-    | Relation rel -> Relation rel
+    | Relation rel -> Relation (map_relation subst_fn rel)
     | ConstEq ce -> ConstEq ce
     | And (p1,p2) -> And (loop p1, loop p2)
     | NamedPred (nm,pv) -> NamedPred (nm, subst pv)
@@ -124,13 +144,14 @@ let partial_subst subst_assoc =
   loop
 
 let compile_refinement target subst_assoc =
+  let subst_fn = map_ap subst_assoc in
   let subst = subst_pv subst_assoc in
   let rec loop r = 
     match r with
     | Pred (i,pv) -> Pred (i,(subst pv,target))
     | CtxtPred (i1,i2,pv) -> CtxtPred (i1,i2,(subst pv,target))
     | Top -> Top
-    | Relation rel -> Relation rel
+    | Relation rel -> Relation (map_relation subst_fn rel)
     | ConstEq ce -> ConstEq ce
     | And (p1,p2) -> And (loop p1, loop p2)
     | NamedPred (nm,pv) -> NamedPred (nm,(subst pv,target))
@@ -143,7 +164,7 @@ let compile_bindings blist root =
     | SProj i -> (k,`AProj (root,i))
   ) blist
 
-let compile_type t1 root : (Paths.concr_ap list * Paths.concr_ap) refinement _typ =
+let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap, Paths.concr_ap) refinement,'b) _typ =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)
@@ -232,6 +253,9 @@ let map_ap_with_bindings ap fvs f gen =
   in
   inner_loop ap f
 
+let map_ap ap f gen =
+  map_ap_with_bindings ap [] (fun _ t -> (f t,t)) gen |> fst
+
 let refine_ap_to_string = function
   | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
   | `Sym i -> Printf.sprintf "$%d" i
@@ -246,8 +270,8 @@ let pp_owner =
   | OVar o -> ps @@ Printf.sprintf "$o%d" o
   | OConst f -> ps @@ Printf.sprintf "%f" f
 
-let simplify_ref =
-  let rec loop ~ex ~k (r: refine_ap list refinement) =
+let simplify_ref r_in = 
+  let rec loop ~ex ~k r =
     match r with
     | Relation _
     | CtxtPred _
@@ -266,11 +290,11 @@ let simplify_ref =
         r1
     | Top -> ex ()
   in
-  loop ~ex:(fun () -> Top) ~k:(fun r' -> r')
+  loop ~ex:(fun () -> Top) ~k:(fun r' -> r') r_in
 
 let rec pp_ref =
   let open PrettyPrint in
-  let pred_name i = Printf.sprintf "P%d" i in
+  let pred_name i = i in
   let pp_alist o = List.map (fun ap -> ps @@ refine_ap_to_string ap) o in
   let print_pred i o ctxt = pb [
       pf "%s(" @@ pred_name i;
@@ -355,3 +379,5 @@ let rec pp_type : typ -> Format.formatter -> unit =
         pf "@ ref@ ";
         pp_owner o
       ]
+      
+let string_of_type = PrettyPrint.pretty_print_gen_rev pp_type
