@@ -75,6 +75,7 @@ grammar
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
 	| 0 :: :: z
+	| M ( x ) :: :: model_lkp
 
   E :: E_ ::=    {{ com evaluation context }}
   | []                ::   :: hole
@@ -195,6 +196,7 @@ grammar
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
 	| /\ :: :: and {{ tex \wedge }}
+	| M :: :: model {{ tex \mathcal{M} }}
 
   logical_frag :: '' ::=
     | ph :: :: phi
@@ -209,6 +211,7 @@ grammar
 	| G |= logical_frag :: :: tyenv_model
 	| R |= logical_frag :: :: env_model
 	| R !|= logical_frag :: :: env_not_model
+	| M |= logical_frag :: :: logical_model
 
   FVF :: 'FV_' ::=
   	| FPV ( T ) :: :: fpv_t
@@ -226,6 +229,9 @@ grammar
 
    omap :: 'OM_' ::=
     | { a |-> r } :: :: omap
+
+  model :: 'M_' ::=
+    | M :: :: m {{ tex \mathcal{M} }}
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
@@ -274,7 +280,7 @@ grammar
     | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
 	| r1 = r2 :: :: own_eq
-  | C1 != C2 :: :: conf_ineq
+	  | C1 != C2 :: :: conf_ineq
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
