@@ -17,8 +17,8 @@ let () =
     ("-intrinsics", Arg.String (fun x -> i := Some x), "Load built in intrinsics from <file>")
   ] @ a_list in
   let dir_list = ref [] in
-  let v_opts = gen () in
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
+  let v_opts = gen () in
   List.iter (fun dir -> 
     let test_files = Sys.readdir dir in
     Array.iter (fun f_name ->
