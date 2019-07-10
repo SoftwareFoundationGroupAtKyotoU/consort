@@ -89,3 +89,6 @@ let pretty_print_gen printer x =
   printer ff x;
   Format.pp_print_flush ff ();
   Buffer.contents buf
+
+let pretty_print_gen_rev printer x =
+  pretty_print_gen (fun ff x -> printer x ff) x

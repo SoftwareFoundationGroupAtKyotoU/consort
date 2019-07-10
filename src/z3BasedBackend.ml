@@ -26,7 +26,7 @@ module Make(S: STRATEGY) = struct
 
   let ovar_name = OwnershipSolver.ovar_name
 
-  let pred_name p = Printf.sprintf "pred-%d" p
+  let pred_name p = p
     
   let pp_imm o ff = match o with
     | RAp ap -> atom ff @@ Paths.to_z3_ident ap
@@ -92,6 +92,23 @@ module Make(S: STRATEGY) = struct
       | `ADeref _ -> false
       | _ -> true
     ) env
+
+  let simplify sexpr =
+    let open Sexplib.Sexp in
+    (fun k ->
+      let rec simplify_loop acc r =
+        match r with
+        | List (Atom "and"::rest) ->
+          List.fold_left simplify_loop acc rest
+        | Atom "true" -> acc
+        | _ -> r::acc
+      in
+      match simplify_loop [] sexpr with
+      | [] -> k @@ Atom "true"
+      | [h] -> k h
+      | l -> k @@ List (Atom "and"::l)
+    )
+          
       
   let pp_constraint ~interp ff { env; ante; conseq; owner_ante } =
     let gamma = close_env env ante conseq in
@@ -107,61 +124,12 @@ module Make(S: STRATEGY) = struct
       pg "forall" [
         print_string_list free_vars;
         pg "=>" [
-          pg "and" ((pp_refine ~interp ante (`AVar "NU"))::e_assum);
+          pg "and" ((pp_refine ~interp ante (`AVar "NU"))::e_assum) simplify;
           pp_refine ~interp conseq (`AVar "NU")
         ]
       ]
-    ] ff;
+    ] ff.printer;
     break ff
-
-  let pp_oconstraint ff ocon =
-    begin
-      match ocon with
-      | Write o -> pg "assert" [
-                       pg "=" [
-                         po o;
-                         plift "1.0"
-                       ]
-                     ] ff
-      | Live o -> pg "assert" [
-                      pg ">" [
-                        po o;
-                        plift "0.0"
-                      ]
-                    ] ff
-      | Shuff ((o1,o2),(o1',o2')) ->
-        pg "assert" [
-            pg "=" [
-              pg "+" [
-                po o1;
-                po o2
-              ];
-              pg "+" [
-                po o1';
-                po o2'
-              ];
-            ]
-          ] ff
-      | Split (o,(o1,o2)) ->
-        pg "assert" [
-            pg "=" [
-              po o;
-              pg "+" [
-                po o1;
-                po o2
-              ]
-            ]
-          ] ff
-      | Eq (o1,o2) ->
-        pg "assert" [
-            pg "=" [
-              po o1;
-              po o2
-            ]
-          ] ff
-    end;
-    break ff
-
   module Strat = S(struct
       let ovar_name = ovar_name
     end)
@@ -170,19 +138,18 @@ module Make(S: STRATEGY) = struct
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
     let { ownership = owner_cons; ovars; refinements; arity; theta; _ } = infer_res in
-    IntMap.iter (fun k v ->
-      pp_sexpr (fun spc ps ->
-        ps "declare-fun"; spc ();
-        ps @@ pred_name k; spc();
-        psl (init v (fun _ -> "Int")) ff;
-        spc ();
-        ps "Bool"
-      ) ff;
+    StringMap.iter (fun k v ->
+      pg "declare-fun" [
+        pl @@ pred_name k;
+        psl (init v (fun _ -> "Int"));
+        pl "Bool";
+      ] ff.printer;
       break ff
     ) arity;
     try
       Strat.ownership theta ovars owner_cons ff;
       List.iter (pp_constraint ~interp ff) refinements;
+      SexpPrinter.finish ff;
       Strat.solve ~debug_cons ?save_cons ~get_model ~defn_file ff
     with
       OwnershipFailure -> false

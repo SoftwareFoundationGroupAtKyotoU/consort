@@ -1,6 +1,6 @@
 val ovar_name : int -> string
 val print_owner_decl : int list -> SexpPrinter.t -> unit
-val po : RefinementTypes.ownership -> SexpPrinter.t -> unit
+val po : RefinementTypes.ownership -> (Sexplib.Sexp.t -> 'a) -> 'a
 val print_ownership_constraints :
   int list -> Inference.ocon list -> SexpPrinter.t -> unit
 val print_ownership :
