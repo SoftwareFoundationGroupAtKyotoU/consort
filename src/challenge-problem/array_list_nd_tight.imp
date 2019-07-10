@@ -11,14 +11,19 @@ push(p) {
     let dl = len * 2 in
     p := (curr, dl + 1)
   else
-    ();
+    ()
+  };
   update(p);
   push(p)
-  }
 }
 
 {
-  let k = (0, 0) in
-  let p = mkref k in
-  push(p)
+  let k = (_, _) in {
+    $gamma {
+   	   k: ($0: ~ <= $1 /\ ~ >= 0 int,
+	    $1: ~ >= 0 int)
+    };
+    let p = mkref k in
+    push(p)
+  }
 }
