@@ -96,7 +96,7 @@ let ap :=
   | v = ID; DOT; ind = INT; { Ast.AProj (v, ind) }
 
 let patt :=
-  | LPAREN; plist = separated_list(COMMA, patt); RPAREN; <Ast.PTuple>
+  | LPAREN; plist = separated_nonempty_list(COMMA, patt); RPAREN; <Ast.PTuple>
   | UNDERSCORE; { Ast.PNone }
   | ~ = ID; <Ast.PVar>
 
@@ -105,6 +105,16 @@ let op :=
   | ~ = ID; <`OVar>
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
+  | LPAREN; o = bin_op; RPAREN; { (o :> op) }
+
+let tuple_rest :=
+  | l = lhs; COMMA; { [l] }
+  | l = lhs; { [l] }
+  | l1 = lhs; COMMA; l2 = tuple_rest; { l1::l2 }
+
+let tuple_contents :=
+  | l = lhs; COMMA; { [l] }
+  | l1 = lhs; COMMA; l2 = tuple_rest; { l1::l2 }
 
 let ref_op :=
   | o = lhs; { (o :> lhs) }
@@ -126,7 +136,7 @@ let lhs :=
   | o = op; { (o :> lhs) }
   | MKREF; ~ = ref_op; <`Mkref>
   | ~ = fn_call; <`Call>
-  | LPAREN; l = separated_list(COMMA, lhs); RPAREN; <`Tuple>
+  | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
 
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
 let callee ==

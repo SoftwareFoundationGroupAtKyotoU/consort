@@ -5,6 +5,7 @@ type op = [
   | `OInt of int
   | `ODeref of string
   | `Nondet
+  | `BinOp of op * string * op
 ] 
 type call = string * int * (op list)
 

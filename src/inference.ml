@@ -584,7 +584,7 @@ let sub_pdef : (string * (refine_ap list, refine_ap) refinement) list -> (typ ->
   | [] -> (fun t -> t)
   | sub_assoc ->
     map_refinement (function
-      | Pred (i,_) when List.mem_assoc i sub_assoc -> List.assoc i sub_assoc
+      | (Pred (i,_) as r) -> List.assoc_opt i sub_assoc |> Option.value ~default:r
       | r -> r)
 
 let rec assign_patt ~let_id ?(count=0) ctxt p t =
@@ -623,10 +623,6 @@ let rec collect_bound_vars acc patt =
   | PTuple pl -> List.fold_left collect_bound_vars acc pl
   | PNone -> acc
 
-let o_map f o = match o with
-  | Some d -> Some (f d)
-  | None -> None
-
 (* t is the type of the location on the RHS that is being bound (and destructed
    by assignment to patt *)
 let rec strengthen_type ?root t patt ctxt =
@@ -653,7 +649,7 @@ let rec strengthen_type ?root t patt ctxt =
   | Tuple (b,tl),PTuple pl ->
     let ind_tl = List.mapi (fun i t -> (i,t)) tl in
     let (ctxt',tl') = List.fold_right2 (fun (i,t) p (ctxt_acc,tl_acc) ->
-        let sub_root = o_map (fun r -> Paths.t_ind r i) root in
+        let sub_root = Option.map (fun r -> Paths.t_ind r i) root in
         let (c_acc',t') = strengthen_type ?root:sub_root t p ctxt_acc in
         (c_acc', t'::tl_acc)
       ) ind_tl pl (ctxt,[]) in
@@ -764,12 +760,12 @@ let rec meet_loop t_ref t_own =
   | _ -> failwith "Inconsistent type shapes"
 
 let meet_ownership st_id (o_envs,_) ap t =
-  if not (Hashtbl.mem o_envs st_id) then
-    t
-  else
-    let o_env = Hashtbl.find o_envs st_id in
+  Hashtbl.find_opt o_envs st_id
+  |> Option.map (fun o_env -> 
     map_ap ap (fun o_typ ->
       meet_loop t o_typ) (fun s -> SM.find s o_env)
+    )
+  |> Option.value ~default:t
 
 let meet_gamma st_id o_info =
   SM.mapi (fun v t ->
@@ -777,11 +773,11 @@ let meet_gamma st_id o_info =
 
 let meet_out i callee ctxt t =
   let (_,o_th) = ctxt.o_info in
-  if not @@ SM.mem callee o_th then
-    t
-  else
-    let { output_types; _  } = SM.find callee o_th in
-    meet_loop t @@ List.nth output_types i
+  SM.find_opt callee o_th
+  |> Option.map (fun { output_types; _ } -> 
+      meet_loop t @@ List.nth output_types i
+    )
+  |> Option.value ~default:t
 
 let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
   let lkp v = SM.find v ctxt.gamma in
