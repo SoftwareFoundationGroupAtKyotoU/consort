@@ -1096,8 +1096,9 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$ and $[[ G |= ph ]]$.\newline
     Here $[[ G |= ph ]]$ can be written as $\models \sem{[[G]]}\produces \varphi$, which means under any valuation or variables that satisfy the refinements in $\tenv$, $\varphi$ will be true.
     Also if $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]$, which will give
-    that every concrete value in the register should satisfy the refinement predicates $\varphi$ in the type environment, we can say that every model $\{x\mapsto R(x)\}$ is sufficient to satisfy the assertion $\varphi$,
-    that is $[[ R |= ph ]]$, but in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is obvious contradictory with what we have been
+    that every concrete value in the register should satisfy the refinement predicates $\varphi$ in the type environment.
+    We write $[[R |= ph]]$ to mean that for any model $[[M]]$ in our underlying theory such that $[[ forall x in R.M(x) = R(x) ]]$, $[[ M |= ph ]]$ holds.
+    But in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is obvious contradictory with what we have been
     derived, which shows the case is impossible.
   \end{rneqncase}
   \begin{rneqncase}{R-Call}{
@@ -1110,12 +1111,12 @@ The followings are key lemmas:
     $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$ \newline
     $[[csub = [l:ll/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
     $[[ B |- T' => G' \ x]]$\newline
-    $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | ll |- e' : T' => G' \ x]]$\newline
+    $[[ Th | Gn+1, x : Tn+1 | ll |- e' : T' => G' \ x]]$\newline
     By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain
     $[[ Th | [] : T' => G' \ x | ll |-e E : Tn => Gn ]].$\newline
     We want to show that: \begin{align*}
-    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : csub vsub T => G[yi <- csub vsub Ti'] ]] \\
-    & [[ Th | [] : csub vsub T => G[yi <- csub vsub Ti'] | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
+    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : Tn+1 => Gn+1 ]] \\
+    & [[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
     \end{align*}
     To prove these, we can look at $\cref{lem:callfunc}$.\newline
     By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$

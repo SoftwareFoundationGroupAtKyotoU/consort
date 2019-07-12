@@ -139,6 +139,7 @@ grammar
 	| vsub T :: M :: subst_var
 	| T1 /\ x ph :: :: strength {{ tex [[T1]] \wedge_{[[x]]} [[ph]] }}
 	| T1 = T2 :: :: eq
+  | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
@@ -180,6 +181,7 @@ grammar
 	| [ B / A ] G :: :: cxtSubst
 	| ( G ) :: :: paren
 	| G1 = G2 :: :: tyenvDef
+  | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
