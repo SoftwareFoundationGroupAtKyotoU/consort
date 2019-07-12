@@ -64,6 +64,7 @@ grammar
   R :: R_ ::= {{ com env or register file }}
     | empty :: :: em {{ tex \emptyset }}
 	| R { x |-> Rv } :: :: fresh
+  | R1 = R2 :: :: tyenvDef
   H :: H_ ::= {{ com heap }}
     | empty :: :: em {{ tex \emptyset }}
 	| H { a |-> Rv } :: :: update
@@ -72,6 +73,7 @@ grammar
   Rv :: Rv_ ::= {{ com runtime value forms }}
     | a :: :: addr
 	| R ( x ) :: :: var
+  | R ( y ) :: :: var_y
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
 	| 0 :: :: z
@@ -109,6 +111,7 @@ grammar
   lvar {{ tex V }} :: 'LV_' ::=
   	| nu :: :: nu {{ tex \nu }}
     | x :: :: var
+    | n :: :: var_n
 
   V :: 'V_' ::=
     | x :: :: var
@@ -183,6 +186,7 @@ grammar
     |  ->                 ::   :: arrow      {{ tex \rightarrow }}
     | |-                  ::   :: turnstile  {{ tex \vdash }}
     | |-e                  ::   :: e_turnstile  {{ tex \vdash_{E} }}
+    | |-D                  ::   :: D_turnstile {{ tex \vdash_C^D }}
     | |=                  ::   :: models     {{ tex \models }}
     | in                  ::   :: in         {{ tex \in }}
     | <:                  ::   :: sub        {{ tex \leq }}
