@@ -1,0 +1,5 @@
+{
+  let x = (3,) in
+  let (y) = x in
+  assert(y = 3)
+}
