@@ -107,7 +107,7 @@ let map_ap mapping : refine_ap -> Paths.concr_ap = function
   | #Paths.concr_ap as cp -> cp
 
 let partial_map_ap mapping : refine_ap -> refine_ap = function
-  | `Sym i when List.mem_assoc i mapping -> (List.assoc i mapping :> refine_ap)
+  | `Sym i -> List.assoc_opt i mapping |> Option.map (fun x -> (x :> refine_ap)) |> Option.value ~default:(`Sym i)
   | r -> r
 
 let subst_pv mapping pl =
