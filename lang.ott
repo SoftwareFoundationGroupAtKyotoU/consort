@@ -65,6 +65,7 @@ grammar
     | empty :: :: em {{ tex \emptyset }}
 	| R { x |-> Rv } :: :: fresh
   | R1 = R2 :: :: tyenvDef
+
   H :: H_ ::= {{ com heap }}
     | empty :: :: em {{ tex \emptyset }}
 	| H { a |-> Rv } :: :: update
