@@ -14,12 +14,7 @@ let pprint_ty_env =
           )
         |> psep_gen newline
       in
-      pl [
-        indent_from_here;
-        ps "/*"; newline;
-        pp_ty_env; dedent; newline;
-        ps "*/"; newline
-      ]
+      pblock ~nl:true ~op:(ps "/*") ~body:pp_ty_env ~close:(ps "*/")
 
 module Options = struct
   type t = {
@@ -144,17 +139,7 @@ let infer opts intr program_types ast =
 
 let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
   let open Options in
-  let f = open_in in_name in
-  let lexbuf = Lexing.from_channel f in
-  let ast = try
-    Parser.prog Lexer.read lexbuf |> SurfaceAst.simplify
-  with
-    | Parser.Error -> let open Lexing in
-    failwith @@ Printf.sprintf "Parse error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
-    | Failure _ ->
-      let open Lexing in
-      failwith @@ Printf.sprintf "Lexing error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
-  in
+  let ast = AstUtil.parse_file in_name in
   let intr = match intrinsic_defn with
     | Some i_name -> Intrinsics.load i_name
     | None -> Intrinsics.empty
@@ -162,7 +147,7 @@ let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
   let program_types = SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
-    Printf.fprintf stderr "%s\n" @@ AstPrinter.pretty_print_program ast;
+    AstPrinter.pretty_print_program stderr ast;
     StringMap.iter (fun n a ->
       Printf.fprintf stderr "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
     ) program_types;
@@ -174,7 +159,7 @@ let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
   | Some r ->
     if opts.annot_infr then begin
       let ty_envs = r.Inference.Result.ty_envs in
-      Printf.fprintf stderr "%s\n" @@ AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) ast;
+      AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) stderr ast;
       flush stderr
     end;
     HornBackend.solve

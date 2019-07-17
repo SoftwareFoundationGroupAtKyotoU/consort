@@ -117,7 +117,8 @@ let process_call lkp ctxt { callee; arg_names; _ } =
 let _dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
 
-let rec process_expr ctxt (_,e) =
+let rec process_expr save_type ctxt (id,e) =
+  save_type id ctxt.tyenv;
   let res t = resolve ctxt t in
   let lkp n = StringMap.find n ctxt.tyenv |> res in
   let unify_var n typ = unify ctxt (lkp n) typ in
@@ -136,18 +137,18 @@ let rec process_expr ctxt (_,e) =
   | EVar v -> lkp v
   | Cond (v,e1,e2) ->
     unify_var v `Int;
-    let t1 = process_expr ctxt e1 in
-    let t2 = process_expr ctxt e2 in
+    let t1 = process_expr save_type ctxt e1 in
+    let t2 = process_expr save_type ctxt e2 in
     unify ctxt t1 t2; t1
   | Seq (e1,e2) ->
-    process_expr ctxt e1 |> ignore;
-    process_expr ctxt e2
+    process_expr save_type ctxt e1 |> ignore;
+    process_expr save_type ctxt e2
   | Assign (v1,IInt _,e) ->
     unify_ref v1 `Int;
-    process_expr ctxt e
+    process_expr save_type ctxt e
   | Assign (v1,IVar v2,e) ->
     unify_ref v1 @@ lkp v2;
-    process_expr ctxt e
+    process_expr save_type ctxt e
   | Alias (v, ap,e) ->
     let find ap =
       match ap with
@@ -173,16 +174,16 @@ let rec process_expr ctxt (_,e) =
         end
     in
     unify ctxt (lkp v) (find ap);
-    process_expr ctxt e
+    process_expr save_type ctxt e
   | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1;
     unify_imm rop2;
-    process_expr ctxt e
+    process_expr save_type ctxt e
   | EAnnot (g,e) ->
     List.iter (fun (k,t) ->
         unify_var k @@ (RefinementTypes.to_simple_type t :> typ)
       ) g;
-    process_expr ctxt e
+    process_expr save_type ctxt e
   | Let (p,lhs,expr) ->
     let v_type =
       match lhs with
@@ -220,15 +221,15 @@ let rec process_expr ctxt (_,e) =
         acc''
     in
     let ctxt' = unify_patt ctxt p v_type in
-    process_expr ctxt' expr
+    process_expr save_type ctxt' expr
 
-let constrain_fn uf fenv resolv ({ name; body; _ } as fn) =
+let constrain_fn save_type uf fenv resolv ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt =  { uf; fenv; tyenv; resolv } in
-  let out_type = process_expr ctxt body in
+  let out_type = process_expr save_type ctxt body in
   unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
 
-let typecheck_prog intr_types (fns,body) =
+let typecheck_prog ?save_types intr_types (fns,body) =
   let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
   let uf = UnionFind.mk (fun ~parent ~child ->
       if Hashtbl.mem resolv child then
@@ -249,11 +250,25 @@ let typecheck_prog intr_types (fns,body) =
       }
     ) intr_types fenv_
   in
-  List.iter (constrain_fn uf fenv resolv) fns;
-  process_expr {
+  let cached : (int,typ SM.t) Hashtbl.t = Hashtbl.create 10 in
+  let save_type : int -> typ SM.t -> unit = match save_types with
+    | None -> (fun _ _ -> ())
+    | Some _ -> Hashtbl.add cached
+  in
+  List.iter (constrain_fn save_type uf fenv resolv) fns;
+  process_expr save_type {
     resolv; uf; fenv; tyenv = StringMap.empty;
   } body |> ignore;
   let get_soln = force_resolve uf resolv in
+  (match save_types with
+  | None -> ()
+  | Some f -> f (fun i ->
+                  match Hashtbl.find_opt cached i with
+                  | None -> None
+                  | Some e ->
+                    let mapped = SM.map get_soln e in
+                    Some mapped
+                ));
   List.fold_left (fun acc { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
     let arg_types = List.map get_soln @@ List.map (fun x -> `Var x) arg_types_v in

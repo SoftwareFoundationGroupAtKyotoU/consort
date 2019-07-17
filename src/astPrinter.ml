@@ -221,20 +221,20 @@ and maybe_brace ~ip ~annot ?(all_seq=false) ?pre ((_,e) as tagged_e) : formatter
       pp_expr ~ip ~annot tagged_e
     ]
 
-let pprint_fn ~ip ~annot ff {name; args; body} =
-  let open Format in begin
-    pl [
-      indent_from_here;
-      pf "%s(%s)" name @@ String.concat ", " args;
-      ps "{"; newline;
-      pp_expr ~ip ~annot body;
-      dedent; newline; ps "}"
-    ] ff;
-    pp_force_newline ff ()
-  end
+let pprint_fn ~ip ~annot_fn ~annot ff {name; args; body} =
+  pl [
+    annot_fn name;
+    pblock
+      ~nl:true
+      ~op:(pf "%s(%s) {" name @@ String.concat ", " args)
+      ~body:(pp_expr ~ip ~annot body)
+      ~close:(ps "}");
+  ] ff
 
-let pprint_prog ~ip ~annot ff (fn,body) =
-  List.iter (pprint_fn ~ip ~annot ff) fn;
+let pprint_prog ~ip ~annot_fn ~annot ff (fn,body) =
+  pp_open_vbox ff 0;
+  List.iter (pprint_fn ~ip ~annot_fn ~annot ff) fn;
+  pp_close_box ff ();
   pp_open_vbox ff 1;
   fprintf ff "{@;";
   pp_expr ~ip ~annot body ff;
@@ -247,7 +247,7 @@ let id_printer labels =
   else
     (fun () _ -> (fun _ff -> ())),(fun () _ -> (fun _ff -> ()))
     
-
-let pretty_print_program ?(with_labels=true) ?(annot=(fun _ _ -> ())) = pretty_print_gen (pprint_prog ~ip:(id_printer with_labels) ~annot)
-let pretty_print_expr ?(with_labels=true) ?(annot=(fun _ _ -> ())) = pretty_print_gen (fun ff e -> pp_expr ~ip:(id_printer with_labels) ~annot e ff)
-let pretty_print_fn ?(with_labels=true) ?(annot=(fun _ _ -> ())) = pretty_print_gen (pprint_fn ~ip:(id_printer with_labels) ~annot)
+let pretty_print_program ?(with_labels=true) ?(annot_fn=(fun _ _ -> ())) ?(annot=(fun _ _ -> ())) out_chan prog =
+  let ff = Format.formatter_of_out_channel out_chan in
+  pprint_prog ~ip:(id_printer with_labels) ~annot_fn ~annot ff prog;
+  Format.pp_print_newline ff ()
