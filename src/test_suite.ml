@@ -23,7 +23,10 @@ let () =
     let test_files = Sys.readdir dir in
     Array.iter (fun f_name ->
       if Filename.check_suffix f_name ".imp" then
-        run_test v_opts !i !expect (dir ^ "/" ^ f_name)
+        try
+          run_test v_opts !i !expect (dir ^ "/" ^ f_name)
+        with
+          Failure s -> failwith @@ Printf.sprintf "Test %s failed with message: %s" f_name s
       else ()
     ) test_files;
   ) !dir_list;
