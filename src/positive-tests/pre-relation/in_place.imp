@@ -1,0 +1,11 @@
+incr_pointer(p) {
+  p := *p + 1
+}
+
+{
+  let x = mkref _ in
+  let y = *x in {
+    incr_pointer(x);
+	assert(y < *x)
+  }
+}

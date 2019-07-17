@@ -1,0 +1,11 @@
+idem(p) {
+   p := *p
+}
+
+{
+  let t = mkref _ in
+  let y = *t in {
+     idem(t);
+	 assert(y = *t)
+  }
+}
