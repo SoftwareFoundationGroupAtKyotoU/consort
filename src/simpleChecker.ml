@@ -39,12 +39,15 @@ type resolv_map = (int,typ) Hashtbl.t
 let _sexp_of_resolv_map r = Hashtbl.fold (fun k v acc ->
     (k,v)::acc
   ) r [] |> [%sexp_of: (int * typ) list]
-    
+
+type tuple_cons = {var: int; ind: int; unif: int}
+
 type fn_ctxt = {
   uf: UnionFind.t;
   resolv: resolv_map;
   fenv: funenv;
-  tyenv: tyenv
+  tyenv: tyenv;
+  t_cons: (tuple_cons list) ref
 }
 
 let make_fenv uf fns =
@@ -65,42 +68,97 @@ let add_var v t ctxt =
   else
     { ctxt with tyenv = StringMap.add v t ctxt.tyenv }
 
-let rec resolve_type uf resolv r =
+let rec canonical_type uf r =
   match r with
   | `Var v ->
     let id = UnionFind.find uf v in
     `Var id
-  | `Ref t -> `Ref (resolve_type uf resolv t)
+  | `Ref t -> `Ref (canonical_type uf t)
   | `Tuple tl ->
-    `Tuple (List.map (resolve_type uf resolv) tl)
+    `Tuple (List.map (canonical_type uf) tl)
   | _ -> r
 
-let rec force_resolve uf resolv t : r_typ =
-  match resolve_type uf resolv t with
-  | `Int -> `Int
-  | `Ref t' -> `Ref (force_resolve uf resolv t')
-  | `Tuple tl -> `Tuple (List.map (force_resolve uf resolv) tl)
-  | `Var id ->
-    Hashtbl.find_opt resolv id
-    |> Option.map (force_resolve uf resolv)
-    |> Option.value ~default:`Int
+let canonicalize ctxt (r: typ) =
+  canonical_type ctxt.uf r
 
-let resolve ctxt (r: typ) =
-  resolve_type ctxt.uf ctxt.resolv r
+let unfold uf resolv = function
+  | `Var v ->
+    let v' = UnionFind.find uf v in
+    Hashtbl.find_opt resolv v'
+    |> Option.map @@ canonical_type uf
+    |> Option.value ~default:(`Var v)
+  | t -> t
 
-let rec unify ctxt t1 t2 =
-  let ty_assign v ty = Hashtbl.add ctxt.resolv v ty in
-  match (resolve ctxt t1, resolve ctxt t2) with
-  | (`Var v1, `Var v2) -> UnionFind.union ctxt.uf v1 v2
-  |( `Var v1, (#c_inst as ct))
-  | (#c_inst as ct, `Var v1) ->
-    ty_assign v1 ct
-  | (`Ref t1',`Ref t2') ->
-    unify ctxt t1' t2'
-  | (`Tuple tl1, `Tuple tl2) ->
-    List.iter2 (unify ctxt) tl1 tl2
-  | (t1,t2) when t1 = t2 -> ()
-  | _ -> failwith "Ill-typed"
+module CoHypS = Set.Make(struct
+    type t = int * int
+    let compare (a1,b1) (a2,b2) =
+      let a_cmp = a1 - a2 in
+      if a_cmp = 0 then b1 - b2 else a_cmp
+  end)
+
+let rec unify_inner ?(hyp_set=CoHypS.empty) uf resolv t1 t2 =
+  if t1 = t2 then ()
+  else
+    let next_set =
+      match t1,t2 with
+      | `Var v1,`Var v2 when CoHypS.mem (v1,v2) hyp_set ->
+        CoHypS.iter (fun (a,b) ->
+            UnionFind.union uf a b
+          ) hyp_set;
+        None
+      | `Var v1,`Var v2 ->
+        Some (CoHypS.add (v1,v2) hyp_set)
+      | _,_ -> Some hyp_set
+    in
+    Option.iter (fun h_set ->
+      let ty_assign v ty = Hashtbl.add resolv v ty in
+      match (unfold uf resolv t1, unfold uf resolv t2) with
+      | (`Var v1, `Var v2) -> UnionFind.union uf v1 v2
+      | (`Var v1, (#c_inst as ct))
+      | (#c_inst as ct, `Var v1) ->
+        ty_assign v1 ct
+      | (`Ref t1',`Ref t2') ->
+        unify_inner ~hyp_set:h_set uf resolv t1' t2'
+      | (`Tuple tl1, `Tuple tl2) ->
+        List.iter2 (unify_inner ~hyp_set:h_set uf resolv) tl1 tl2
+      | (u1,u2) when u1 = u2 -> ()
+      | (u1,u2) -> failwith @@ Printf.sprintf "Ill-typed (cannot unify %s and %s)" (string_of_typ u1) (string_of_typ u2)
+    ) next_set
+
+let unify ctxt t1 t2 =
+  unify_inner ctxt.uf ctxt.resolv t1 t2
+
+module IS = Set.Make(struct
+    type t = int
+    let compare = (-)
+  end)
+
+let rec resolve_with_rec res f v_set k t =
+  match f t with
+  | `Int -> k IS.empty `Int
+  | `Ref t' -> resolve_with_rec res f v_set (fun is t ->
+                   k is @@ `Ref t) t'
+  | `Tuple tl ->
+    List.fold_left (fun k_acc t ->
+        (fun l is_acc ->
+          resolve_with_rec res f v_set (fun is t' ->
+            k_acc (t'::l) (IS.union is_acc is)
+          ) t
+        )
+      ) 
+      (fun l is ->
+          k is @@ `Tuple l
+        ) tl [] IS.empty
+  | `Var v when IS.mem v v_set -> k (IS.singleton v) @@ `TVar v
+  | `Var v when not @@ Hashtbl.mem res v ->
+    k IS.empty `Int
+  | `Var v ->
+    resolve_with_rec res f (IS.add v v_set) (fun is t ->
+        if IS.mem v is then
+          k (IS.remove v is) @@ `Mu (v,t)
+        else
+          k is t
+      ) @@ Hashtbl.find res v
 
 let process_call lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort Pervasives.compare arg_names in
@@ -128,7 +186,7 @@ let dump_sexp p t =
 
 let rec process_expr save_type ctxt (id,e) =
   save_type id ctxt.tyenv;
-  let res t = resolve ctxt t in
+  let res t = canonicalize ctxt t in
   let lkp n = StringMap.find n ctxt.tyenv |> res in
   let unify_var n typ = unify ctxt (lkp n) typ in
   let unify_imm c = match c with
@@ -168,19 +226,17 @@ let rec process_expr save_type ctxt (id,e) =
         unify ctxt t (`Ref (`Var tv));
         (`Var tv)
       | APtrProj (v,ind) ->
-        let t = lkp v |> force_resolve ctxt.uf ctxt.resolv in
-        begin
-          match (t :> typ) with
-          | `Ref (`Tuple tl) when ind < List.length tl -> List.nth tl ind
-          | _ -> failwith "could not deduce length of tuple in alias"
-        end
+        let tuple_v = UnionFind.new_node ctxt.uf in
+        let content_v = UnionFind.new_node ctxt.uf in
+        unify_ref v @@ `Var tuple_v;
+        ctxt.t_cons := { var = tuple_v; ind; unif = content_v }::!(ctxt.t_cons);
+        `Var content_v
       | AProj (v,ind) ->
-        let t = lkp v |> force_resolve ctxt.uf ctxt.resolv in
-        begin
-        match (t :> typ) with
-        | `Tuple tl when ind < List.length tl -> List.nth tl ind
-        | _ -> failwith "Could not deduce length of tuple in alias"
-        end
+        let tuple_v = UnionFind.new_node ctxt.uf in
+        let content_v = UnionFind.new_node ctxt.uf in
+        unify_var v @@ `Var tuple_v;
+        ctxt.t_cons := { var = tuple_v; ind; unif = content_v }::!(ctxt.t_cons);
+        `Var content_v
     in
     unify ctxt (lkp v) (find ap);
     process_expr save_type ctxt e
@@ -209,7 +265,7 @@ let rec process_expr save_type ctxt (id,e) =
       | Deref p ->
         let tv = fresh_var () in
         unify ctxt (`Ref tv) @@ lkp p;
-        resolve ctxt tv
+        canonicalize ctxt tv
       | Null -> `Ref (fresh_var ())
       | Tuple tl ->
         `Tuple (List.map (function
@@ -235,9 +291,11 @@ let rec process_expr save_type ctxt (id,e) =
 
 let constrain_fn save_type uf fenv resolv ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
-  let ctxt =  { uf; fenv; tyenv; resolv } in
+  let t_cons = ref [] in
+  let ctxt =  { uf; fenv; tyenv; resolv; t_cons } in
   let out_type = process_expr save_type ctxt body in
-  unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v)
+  unify ctxt out_type (`Var (StringMap.find name fenv).ret_type_v);
+  !t_cons
 
 let typecheck_prog ?save_types intr_types (fns,body) =
   let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
@@ -248,9 +306,21 @@ let typecheck_prog ?save_types intr_types (fns,body) =
     ) in
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
+    let module IM = Map.Make(struct type t = int let compare = Pervasives.compare end) in
+    let rec abstract_type map = function
+      | `TVar id -> `Var (IM.find id map)
+      | `Ref t -> `Ref (abstract_type map t)
+      | `Int -> `Int
+      | `Tuple tl ->
+        `Tuple (List.map (abstract_type map) tl)
+      | `Mu (v,t) ->
+        let i = UnionFind.new_node uf in
+        let t' = abstract_type (IM.add v i map) t in
+        Hashtbl.add resolv i t'; t'
+    in
     let lift_const t =
       let t_id = UnionFind.new_node uf in
-      Hashtbl.add resolv t_id (t : r_typ  :> typ);
+      Hashtbl.add resolv t_id @@ abstract_type IM.empty t;
       t_id
     in
     StringMap.fold (fun k { arg_types; ret_type } ->
@@ -265,11 +335,22 @@ let typecheck_prog ?save_types intr_types (fns,body) =
     | None -> (fun _ _ -> ())
     | Some _ -> Hashtbl.add cached
   in
-  List.iter (constrain_fn save_type uf fenv resolv) fns;
+  let t_cons = ref @@ (List.map (constrain_fn save_type uf fenv resolv) fns |> List.concat) in
   process_expr save_type {
-    resolv; uf; fenv; tyenv = StringMap.empty;
+    resolv; uf; fenv; tyenv = StringMap.empty; t_cons
   } body |> ignore;
-  let get_soln = force_resolve uf resolv in
+  List.iter (fun { var; ind; unif } ->
+    let t_typ = Hashtbl.find_opt resolv var in
+    match t_typ with
+    | None -> failwith "Could not deduce type of tuple"
+    | Some (`Tuple tl) ->
+      if (List.compare_length_with tl ind) <= 0 then
+        failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
+      else
+        unify_inner uf resolv (`Var unif) @@ List.nth tl ind
+    | Some t' -> failwith @@ "Ill-typed: expected tuple, got " ^ (string_of_typ t')
+  ) !t_cons;
+  let get_soln = resolve_with_rec resolv (canonical_type uf) IS.empty (fun _ t -> t) in
   (match save_types with
   | None -> ()
   | Some f -> f (fun i ->
