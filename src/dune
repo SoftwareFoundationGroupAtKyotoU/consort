@@ -2,27 +2,48 @@
 (ocamllex lexer)
 
 (library
- (name csr_core)
+ (name util)
  (preprocess (pps ppx_sexp_conv))
  (wrapped false)
  (libraries sexplib)
- (modules (:standard \ Test Test_suite GenLin)))
+ (modules StringMap UnionFind PrettyPrint Files SexpPrinter Option))
+
+(library
+ (name lang)
+ (preprocess (pps ppx_sexp_conv))
+ (wrapped false)
+ (libraries sexplib util)
+ (modules Parser Ast SurfaceAst AstPrinter SimpleChecker Lexer LabelManager SimpleTypes RefinementTypes Paths AstUtil Intrinsics))
+
+(library
+ (name consort)
+ (preprocess (pps ppx_sexp_conv))
+ (wrapped false)
+ (libraries sexplib util lang)
+ (modules Inference KCFA
+          HornBackend OwnershipSolver SmtBackend
+          Z3BasedBackend Z3Channel VerifyUtil))
 
 (executable
  (name test)
  (preprocess (pps ppx_sexp_conv))
- (libraries csr_core)
+ (libraries consort)
  (modules Test))
 
 (executable
  (name test_suite)
  (preprocess (pps ppx_sexp_conv))
- (libraries csr_core)
+ (libraries consort)
  (modules Test_suite))
-
 
 (executable
  (name genLin)
  (preprocess (pps ppx_sexp_conv))
- (libraries csr_core)
+ (libraries consort)
  (modules genLin))
+
+(executable
+ (name typecheck)
+ (preprocess (pps ppx_sexp_conv))
+ (libraries lang)
+ (modules Typecheck))

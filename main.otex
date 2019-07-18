@@ -1470,11 +1470,11 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
-  Let $[[ E[let x = f l (y1,,yn) in e] ]]$ be a term in a program
+  Let $[[ E[let x = f l (y1,,yn) in e'] ]]$ be a term in a program
   $[[ <D, e> ]]$ such that:
   \label{lem:callfunc}
   \begin{bcpcasearray}
-    [[ Th | G0 | ll |- let x = f l (y1,,yn) in e : T1 => G1 ]] &  [[ csub = [l:ll/A] ]] \\
+    [[ Th | G0 | ll |- let x = f l (y1,,yn) in e' : T1 => G1 ]] &  [[ csub = [l:ll/A] ]] \\
     [[ Th | [] : T1 => G1 | ll |-e E : T2 => G2 ]] & [[ vsub = [y1/x1],,[yn/xn] ]] \\
     [[ f |-> ( x1, .. ,xn) e' in D]] & [[ Th |- f |-> (x1,..,xn) e ]] \\
   \end{bcpcasearray}
@@ -1497,7 +1497,7 @@ The followings are key lemmas:
   $[[ Th | G0 | l:ll |- vsub e : csub vsub Tp => G0[yi <- csub vsub Ti ] ]]$ as required.
 
   The second part follows immeidately by inversion on the typing of
-  $[[E]]$ and $[[let x = f l (y1,,yn) in e ]]$.
+  $[[E]]$ and $[[let x = f l (y1,,yn) in e' ]]$.
 \end{proof}
 \section{TODO}
 
@@ -1583,7 +1583,7 @@ The followings are key lemmas:
   \leavevmode
   \infrule[R-Var]{
   }{
-    [[ <H, R, CE : Es, E[x]> --> D <H, R, Es, CE[x]> ]]
+    [[ <H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]]
    }
    \infrule[R-Seq]{
    }{
