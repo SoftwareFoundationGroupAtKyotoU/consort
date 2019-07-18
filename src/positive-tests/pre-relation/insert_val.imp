@@ -1,0 +1,16 @@
+insert_val(p,x) {
+  let t = *p in
+  if x < t then
+    p := x
+  else ()
+}
+
+{
+  let x = _ in
+  let y = _ in
+  let p = mkref x in {
+    insert_val(p,y);
+	assert(*p <= x);
+	assert(*p <= y)
+  }
+}

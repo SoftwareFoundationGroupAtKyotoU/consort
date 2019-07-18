@@ -46,8 +46,8 @@ module Options = struct
 
   let debug_arg_gen () =
     let open Arg in
-    let debug_cons = ref true in
-    let debug_pred = ref true in
+    let debug_cons = ref false in
+    let debug_pred = ref false in
     let debug_ast = ref true in
     let show_model = ref false in
     let annot_infr = ref false in

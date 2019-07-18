@@ -244,14 +244,16 @@ let mk_pred_name n target_var loc =
   else
     c ^ "-" ^ (string_of_int n)
 
-let alloc_pred ~loc (fv,target_var,sym_vals) ctxt =
+let alloc_pred ~loc ?(add_post_var=false) (fv,target_var,sym_vals) ctxt =
   let n = ctxt.v_counter in
   let target_in_fv =
     List.exists (fun free_var ->
       ap_is_target target_var sym_vals free_var) fv
   in
   let arity = (List.length fv) -
-      (if target_in_fv then 1 else 0) + 1 + !KCFA.cfa (* 1 for nu and k for context *)
+      (if target_in_fv then 1 else 0) +
+      1 + !KCFA.cfa + (* 1 for nu and k for context *)
+      (if add_post_var then 1 else 0) (* add an extra variable for post *)
   in
   let p_name = mk_pred_name n target_var loc in
   Hashtbl.add ctxt.pred_detail n { fv = (fv :> refine_ap list); loc; target_var };
@@ -465,17 +467,23 @@ let generalize_pred root out_type combined_pred =
       k (root :> refine_ap) out_type
     else
       match ap with
-      | `AVar v -> exc (`AVar v)
+      | `APre v -> exc ~pre:true (`APre v)
+      | `AVar v -> exc ~pre:false (`AVar v)
       | `ADeref ap' ->
         gen_ap_loop ap'
-          ~exc:(fun _ -> failwith "Free deref rooted outside target")
+          ~exc:(fun ~pre _ ->
+            if pre then
+              exc ~pre (ap :> refine_ap)
+            else
+              failwith @@ "Free deref rooted outside target " ^ (string_of_type out_type) ^ " " ^ P.to_z3_ident root
+          )
           ~k:(fun _ t ->
             match t with
             | Ref (t',_) -> k (ap :> refine_ap) t'
             | _ -> assert false)
       | `AProj (ap',i) -> 
         gen_ap_loop ap'
-          ~exc:(fun _ -> (ap :> refine_ap))
+          ~exc:(fun ~pre _ -> exc ~pre (ap :> refine_ap))
           ~k:(fun _ t ->
             match t with
             | Tuple (b,tl) ->
@@ -487,7 +495,7 @@ let generalize_pred root out_type combined_pred =
             | _ -> assert false
           )
   in
-  let gen_ap ap = gen_ap_loop ap ~exc:(fun t -> t) ~k:(fun ap _ -> ap) in
+  let gen_ap ap = gen_ap_loop ap ~exc:(fun ~pre:_ t -> t) ~k:(fun ap _ -> ap) in
   let rec gen_loop = function
     | Top -> Top
     | ConstEq n -> ConstEq n
@@ -503,8 +511,11 @@ let generalize_pred root out_type combined_pred =
    node, it generates a constrain on out_type's refinements based
    on the ownerships along the paths from the roots of t1 and t2 to the leaf.
 *)
-let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[]) ~out_type ctxt =
+let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[]) ~out_type ctxt =
   let g = denote_gamma ctxt.gamma in
+  let pp = match pp_constr with
+    | None -> (fun _ p -> p)
+    | Some f -> f in
   let rec inner_loop (c1,t1) (c2,t2) (c_out,out_t) ctxt =
     match t1,t2,out_t with
     | Tuple (b1,tl1), Tuple (b2,tl2), Tuple (b_out,tl_out) ->
@@ -534,7 +545,7 @@ let apply_matrix ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[
       let c_r2 = ctxt_compile_ref c2 r2 in
       if gen_constraint then
         let mk_constraint oante ante =
-          {
+          pp c1.path @@ {
             env = g;
             ante = ante;
             conseq = c_out_r;
@@ -922,6 +933,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let app_matrix = apply_matrix ~t1 ~t2_bind:subst ~t2 in
     (* function to update t2 *)
     let rec up_ap ap t2_base' ctxt = match ap with
+      | `APre _ -> assert false
       | `AVar v -> update_type v t2_base' ctxt
       | `ADeref ap
       | `AProj (ap,_) -> up_ap ap t2_base' ctxt
@@ -1003,36 +1015,35 @@ and process_call ~e_id ~cont_id ctxt c =
       (i,k,SM.find k ctxt.gamma)) c.arg_names
   in
   let p_vars = predicate_vars @@ List.map (fun (_,k,v) -> (k,v)) arg_bindings in
-  let inst_symb path (fv,sym_vals) f_refinement () =
-    ((),
+  let inst_symb path (fv,sym_vals) f_refinement =
      match f_refinement with
      | InfPred p -> 
        CtxtPred (c.label,p,filter_fv path sym_vals fv)
      | True -> Top
-     | BuiltInPred f -> NamedPred (f,fv))
+     | BuiltInPred f -> NamedPred (f,fv)
   in
-  let inst_concr target_var (fv,subst) f_refinement () =
-    let (_, symb_out) = inst_symb target_var (fv,subst) f_refinement () in
-    ((), compile_refinement target_var subst symb_out)
+  let inst_concr target_var (fv,subst) f_refinement =
+    let symb_out = inst_symb target_var (fv,subst) f_refinement in
+    compile_refinement target_var subst symb_out
   in
   let input_env = ctxt.gamma |> denote_gamma in
   let callee_type = SM.find c.callee ctxt.theta in
-  let inst_fn_type f = List.map (fun (a,t) ->
-      walk_with_bindings f (`AVar a) (p_vars,[]) t ()
-      |> snd
+  let inst_fn_type ?(pv=p_vars) f = List.map (fun (a,t) ->
+      map_with_bindings f (`AVar a) (pv,[]) t
     )
   in
   let concr_in_t = List.combine c.arg_names callee_type.arg_types
     |> inst_fn_type inst_concr in
   let symb_out_t = List.combine c.arg_names callee_type.output_types
-    |> inst_fn_type inst_symb in
+    |> inst_fn_type ~pv:((`AVar "!pre")::p_vars) inst_symb in
   let in_out_types = List.combine concr_in_t symb_out_t in
   (* TODO: consistently use this function *)
   let post_type_vars = gamma_predicate_vars ctxt.gamma in
   let updated_ctxt = List.fold_left2 (fun acc (i,k,arg_t) (in_t,out_t) ->
       let loc = LCall (c.label,k) in
+      let concretize_arg_t t = compile_type t k |> with_refl (`AVar k) in
       let constrain_in t c =
-        let concr_arg_type = compile_type t k |> with_refl (`AVar k) in
+        let concr_arg_type = concretize_arg_t t in
         add_type_implication input_env concr_arg_type in_t c
         |> constrain_owner t in_t
       in
@@ -1043,16 +1054,26 @@ and process_call ~e_id ~cont_id ctxt c =
         let (ctxt',(resid,formal)) = split_arg i c.callee acc arg_t_o in
         (* the (to be) summed type *)
         let (ctxt'',fresh_type) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars arg_t ctxt' in
+        let concr_arg_type = concretize_arg_t arg_t in
         let (ctxt''',psub) = apply_matrix
+            ~pp_constr:(fun path constr ->
+              let pre_type =
+                match map_ap path (fun t -> t) (fun _ -> concr_arg_type) with
+                | Int r -> with_pred_refl path r
+                | _ -> failwith "I've made a terrible mistake"
+              in
+              {constr with
+                env = ((`AVar "!pre"),pre_type)::constr.env }
+            )
             ~t1:resid
             ~t2:(meet_out i c.callee ctxt'' out_t)
-            ~force_cons:false
+            ~force_cons:true
             ~out_root:ap
             ~out_type:(meet_ownership cont_id ctxt''.o_info ap fresh_type)
             ctxt'' in
         (* now the magic *)
         ctxt'''
-        (* constrain the formal half of the arg type *) 
+        (* constrain the formal half of the arg type *)
         |> constrain_in formal
         |> sum_ownership resid out_t fresh_type
         |> update_type k @@ sub_pdef psub fresh_type
@@ -1061,7 +1082,7 @@ and process_call ~e_id ~cont_id ctxt c =
         constrain_in arg_t acc
     ) ctxt arg_bindings in_out_types
   in
-  let result = walk_with_bindings inst_symb (`AVar "dummy") (p_vars,[]) callee_type.result_type () |> snd in
+  let result = map_with_bindings inst_symb (`AVar "dummy") (p_vars,[]) callee_type.result_type in
   (updated_ctxt, result)
 
 let process_function_bind ctxt fdef =
@@ -1069,25 +1090,36 @@ let process_function_bind ctxt fdef =
   let f_typ = SM.find fdef.name ctxt.theta in
   let typ_template = List.combine arg_names f_typ.arg_types in
   let fv = predicate_vars typ_template in
-  let inst_symb n t =
-    walk_with_bindings (fun path (fv,sym_vals) p () ->
+  let inst_symb ~post n t =
+    map_with_bindings (fun path (fv,sym_vals) p ->
+      let base_fv = filter_fv path sym_vals fv in
+      let pred_args = if post then
+          ((P.pre path) :> refine_ap)::base_fv
+        else
+          base_fv
+      in
       match p with
-        | InfPred id -> (),Pred (id,filter_fv path sym_vals fv)
+        | InfPred id -> Pred (id,pred_args)
         | _ -> assert false
-    ) (`AVar n) (fv,[]) t ()
-    |> snd
+    ) (`AVar n) (fv,[]) t
   in
   let init_env = List.fold_left (fun g (n,t) ->
-      let inst = inst_symb n t in
-      SM.add n inst g
+      let inst = inst_symb ~post:false n t in
+      let (g',inst') =
+        walk_with_path (fun path p g ->
+          let pre_var = P.to_z3_ident path in
+          (SM.add pre_var (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (path :> refine_ap) }))
+        ) (`APre n) inst g
+      in
+      SM.add n inst' g'
     ) SM.empty typ_template
   in
-  let result_type = inst_symb "Ret" f_typ.result_type in
+  let result_type = inst_symb ~post:false "Ret" f_typ.result_type in
   let ctxt' = process_expr ~output_type:result_type ~remove_scope:SS.empty { ctxt with gamma = init_env } fdef.body in
   let out_typ_template = List.combine arg_names f_typ.output_types in
   let result_denote = ctxt'.gamma |> denote_gamma in
   List.fold_left (fun acc (v,out_ty) ->
-      let out_refine_type = inst_symb v out_ty in
+      let out_refine_type = inst_symb ~post:true v out_ty in
       add_var_implication result_denote acc.gamma v out_refine_type acc
       |> constrain_owner (SM.find v acc.gamma) out_refine_type
     ) ctxt' out_typ_template
@@ -1106,14 +1138,14 @@ let print_pred_details t =
   
 let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
   let init_fun_type ctxt f_def =
-    let rec lift_simple_loop target_var ~loc (free_vars,sym) t ctxt =
+    let rec lift_simple_loop ~post target_var ~loc (free_vars,sym) t ctxt =
       match t with
       | `Int ->
-        let (ctxt',i) = alloc_pred ~loc  (free_vars,target_var,sym) ctxt in
+        let (ctxt',i) = alloc_pred ~add_post_var:post ~loc  (free_vars,target_var,sym) ctxt in
         (ctxt',Int (InfPred i))
       | `Ref st' ->
         let (ctxt',o) = alloc_ovar ctxt in
-        let (ctxt'',t') = lift_simple_loop (`ADeref target_var) ~loc (free_vars,sym) st' ctxt' in
+        let (ctxt'',t') = lift_simple_loop ~post (`ADeref target_var) ~loc (free_vars,sym) st' ctxt' in
         (ctxt'',Ref (t',o))
       | `Tuple stl ->
         let i_stl = List.mapi (fun i st -> (i,st)) stl in
@@ -1122,7 +1154,7 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
         in
         let binding' = update_binding target_var b (free_vars,sym) in
         let (ctxt',tl') = List.fold_right (fun (i,st) (c_acc,tl_acc) ->
-            let (c_acc',te) = lift_simple_loop (`AProj (target_var,i)) ~loc binding' st c_acc in
+            let (c_acc',te) = lift_simple_loop ~post (`AProj (target_var,i)) ~loc binding' st c_acc in
             (c_acc',te::tl_acc)
           ) i_stl (ctxt,[]) in
         (ctxt',Tuple (b,tl'))
@@ -1130,18 +1162,18 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
     let lift_simple_type target_var ~loc fv t =
       lift_simple_loop (`AVar target_var) ~loc (fv,[]) t
     in
-    let gen_arg_preds ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
-        let (ctxt',t') = lift_simple_type k ~loc:(loc k) fv t acc_c in
+    let gen_arg_preds ~post ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
+        let (ctxt',t') = lift_simple_type ~post k ~loc:(loc k) fv t acc_c in
         (ctxt',t'::acc_ty)
       ) arg_templ (ctxt,[])
     in
     let simple_ftype = SM.find f_def.name st in
     let arg_templ = List.combine f_def.args simple_ftype.SimpleTypes.arg_types in
     let free_vars = List.filter (fun (_,t) -> t = `Int) arg_templ |> List.map (fun (n,_) -> (`AVar n)) in
-    let (ctxt',arg_types) = gen_arg_preds ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ ctxt in
-    let (ctxt'',output_types) = gen_arg_preds ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ ctxt' in
+    let (ctxt',arg_types) = gen_arg_preds ~post:false ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ ctxt in
+    let (ctxt'',output_types) = gen_arg_preds ~post:true ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ ctxt' in
     let (ctxt''', result_type) =
-      lift_simple_type "RET" ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type ctxt''
+      lift_simple_type ~post:false "RET" ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type ctxt''
     in
     { ctxt''' with
       theta = SM.add f_def.name {
