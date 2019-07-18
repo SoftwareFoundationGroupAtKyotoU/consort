@@ -246,14 +246,9 @@ let mk_pred_name n target_var loc =
   else
     c ^ "-" ^ (string_of_int n)
 
-let alloc_pred ~loc ?(add_post_var=false) (fv,target_var,sym_vals) ctxt =
+let alloc_pred ~loc ?(add_post_var=false) fv target_var ctxt =
   let n = ctxt.v_counter in
-  let target_in_fv =
-    List.exists (fun free_var ->
-      ap_is_target target_var sym_vals free_var) fv
-  in
-  let arity = (List.length fv) -
-      (if target_in_fv then 1 else 0) +
+  let arity = (List.length fv) +
       1 + !KCFA.cfa + (* 1 for nu and k for context *)
       (if add_post_var then 1 else 0) (* add an extra variable for post *)
   in
@@ -264,9 +259,10 @@ let alloc_pred ~loc ?(add_post_var=false) (fv,target_var,sym_vals) ctxt =
      pred_arity = StringMap.add p_name arity ctxt.pred_arity
    }, p_name)
 
-let make_fresh_pred ~pred_vars:((fv,target,s_val) as pred_vars) ~loc ctxt =
-  let (ctxt',p) = alloc_pred ~loc pred_vars ctxt in
-  (ctxt',Pred (p,filter_fv target s_val fv))
+let make_fresh_pred ~pred_vars:(fv,target,s_val) ~loc ctxt =
+  let fv' = filter_fv target s_val fv in
+  let (ctxt',p) = alloc_pred ~loc fv' target ctxt in
+  (ctxt',Pred (p,fv'))
 
 let rec free_vars_contains (r: concr_refinement) v_set =
   let root_pred ap = Paths.has_root_p (fun root -> SS.mem root v_set) ap in
@@ -299,6 +295,45 @@ let fresh_tvar () =
   let v = !t_var_counter in
   incr t_var_counter;
   v
+
+let rec lift_to_refinement ~pred path fv t ctxt =
+  match t with
+  | `Int ->
+    let (ctxt',r) = pred fv path ctxt in
+    (ctxt',Int r)
+  | `Ref t' ->
+    let (ctxt',t'ref) = lift_to_refinement ~pred (`ADeref path) fv t' ctxt in
+    let (ctxt'',ov) = alloc_ovar ctxt' in
+    (ctxt'',Ref (t'ref, ov))
+  | `Tuple stl ->
+    let i_stl = List.mapi (fun i st -> (i,st)) stl in
+    let b = List.filter (fun (_,t) -> t = `Int) i_stl
+      |> List.map (fun (i,_) -> (fresh_tvar (),SProj i))
+    in
+    let rec loop i acc l =
+      match l with
+      | [] -> (acc,[])
+      | h::t ->
+        let (acc',t') = loop (i+1) acc t in
+        let sym_fv =
+          if h <> `Int then
+            b
+          else
+            List.filter (fun (_,k) ->
+              match k with
+              | SProj i' when i = i' -> false
+              | _ -> true
+            ) b
+        in
+        let fv' =
+          List.map (fun (v,_) -> `Sym v) sym_fv
+          |> (@) fv
+        in
+        let (acc'',h') = lift_to_refinement ~pred (`AProj (path,i)) fv' h acc' in
+        (acc'',h'::t')
+    in
+    let (ctxt',tl') = loop 0 ctxt stl in
+    (ctxt',Tuple (b,tl'))
 
 let lift_src_ap = function
   | AVar v -> `AVar v
@@ -844,10 +879,22 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         ctxt'
         |> update_type left_v t1
         |> with_type t2
+            
       | Const n -> (ctxt,Int (ConstEq n))
+        
       | Nondet -> (ctxt, Int Top)
+        
       | Call c -> process_call ~e_id ~cont_id ctxt c
-      | Null -> assert false
+                    
+      | Null ->
+        ctxt
+        |> lift_to_refinement
+            ~pred:(fun fv p ctxt ->
+              let (ctxt',p) = alloc_pred ~loc:(LLet e_id) fv p ctxt in
+              (ctxt',Pred (p,fv)))
+            (`AVar "null")
+            (gamma_predicate_vars ctxt.gamma) @@ Hashtbl.find ctxt.type_hints e_id
+
       | Deref ptr ->
         let (target_type,o) = lkp_ref ptr in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
@@ -855,6 +902,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         |> update_type ptr @@ (ref_of t1 o)
         |> add_owner_con [Live o]
         |> with_type t2
+            
       | Ast.Tuple tl ->
         let rec make_tuple c ind i_list =
           match i_list with
@@ -877,6 +925,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         in
         let (c',ty_list,t_binding) = make_tuple ctxt 0 tl in
         c',Tuple (t_binding,ty_list)
+          
       | Mkref init' ->
         match init' with
         | RNone -> (ctxt,Ref (Int Top,OConst 1.0))
@@ -885,6 +934,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
           let (ctxt',(t1,t2)) = split_type ctxt @@ lkp r_var in
           update_type r_var t1 ctxt'
           |> with_type @@ Ref (t2,OConst 1.0)
+                
     end in
     let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
@@ -1143,32 +1193,16 @@ let print_pred_details t =
   
 let infer ~print_pred ~save_types ?o_solve ~intrinsics ~type_hints st (fns,main) =
   let init_fun_type ctxt f_def =
-    let rec lift_simple_loop ~post target_var ~loc (free_vars,sym) t ctxt =
-      match t with
-      | `Int ->
-        let (ctxt',i) = alloc_pred ~add_post_var:post ~loc  (free_vars,target_var,sym) ctxt in
-        (ctxt',Int (InfPred i))
-      | `Ref st' ->
-        let (ctxt',o) = alloc_ovar ctxt in
-        let (ctxt'',t') = lift_simple_loop ~post (`ADeref target_var) ~loc (free_vars,sym) st' ctxt' in
-        (ctxt'',Ref (t',o))
-      | `Tuple stl ->
-        let i_stl = List.mapi (fun i st -> (i,st)) stl in
-        let b = List.filter (fun (_,t) -> t = `Int) i_stl
-          |> List.map (fun (i,_) -> (fresh_tvar (),SProj i))
-        in
-        let binding' = update_binding target_var b (free_vars,sym) in
-        let (ctxt',tl') = List.fold_right (fun (i,st) (c_acc,tl_acc) ->
-            let (c_acc',te) = lift_simple_loop ~post (`AProj (target_var,i)) ~loc binding' st c_acc in
-            (c_acc',te::tl_acc)
-          ) i_stl (ctxt,[]) in
-        (ctxt',Tuple (b,tl'))
-    in
-    let lift_simple_type target_var ~loc fv t =
-      lift_simple_loop (`AVar target_var) ~loc (fv,[]) t
+    let lift_simple_type ~post ~loc =
+      lift_to_refinement ~pred:(fun fv path ctxt ->
+        let (ctxt',i) = alloc_pred ~add_post_var:post ~loc fv path ctxt in
+        (ctxt',InfPred i))
     in
     let gen_arg_preds ~post ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
-        let (ctxt',t') = lift_simple_type ~post k ~loc:(loc k) fv t acc_c in
+        let fv' = List.filter (function
+          | `AVar v when v = k -> false
+          | _ -> true) fv in
+        let (ctxt',t') = lift_simple_type ~post ~loc:(loc k) (`AVar k) fv' t acc_c in
         (ctxt',t'::acc_ty)
       ) arg_templ (ctxt,[])
     in
@@ -1178,7 +1212,7 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics ~type_hints st (fns,main)
     let (ctxt',arg_types) = gen_arg_preds ~post:false ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ ctxt in
     let (ctxt'',output_types) = gen_arg_preds ~post:true ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ ctxt' in
     let (ctxt''', result_type) =
-      lift_simple_type ~post:false "RET" ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type ctxt''
+      lift_simple_type ~post:false (`AVar "RET") ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type ctxt''
     in
     { ctxt''' with
       theta = SM.add f_def.name {
