@@ -1040,8 +1040,9 @@ The followings are key lemmas:
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y,x\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R'(z),\tenv''(z))$\newline
     Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{a\mapsto 1\}+\mathbf{own}(H, R(x), \tau_1+\tau_2)$,
-    and $x$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ should be $\emptyset$,
-    we can finally prove $F_0=F_1$.
+    and $x$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ should be $\emptyset$.
+    We also have $[[own(H,R'(x'),T1)]] + [[own(H,R'(y),T2 ref 1)]] =  \{a\mapsto 1\}$, since $x'$ is an integer.
+    We can finally prove $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Alias}{
     [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
@@ -1094,10 +1095,10 @@ The followings are key lemmas:
     [[ Th | G | B |- assert(ph); e : T => G']]
     }
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$ and $[[ G |= ph ]]$.\newline
-    Here $[[ G |= ph ]]$ can be written as $\models \sem{[[G]]}\produces \varphi$, which means under any valuation or variables that satisfy the refinements in $\tenv$, $\varphi$ will be true.
-    Also if $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]$, which will give
-    that every concrete value in the register should satisfy the refinement predicates $\varphi$ in the type environment.
-    We write $[[R |= ph]]$ to mean that for any model $[[M]]$ in our underlying theory such that $[[ forall x in R.M(x) = R(x) ]]$, $[[ M |= ph ]]$ holds.
+    Here $[[ G |= ph ]]$ can be written as $\models \sem{[[G]]}\produces \varphi$, which means under any model $[[M]]$ that satisfy the refinements in $\tenv$, $\varphi$ will be true, that is $[[ M |= ph ]]$.
+    Also if $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H, R,G)]] \produces [[SAT(H,R,G)]]$, which will give
+    that every concrete value in the register should satisfy the refinement predicates $\varphi$ in the type environment, we can obtain the model built from $R$, where $[[M(x) = R(x)]]$, is an element from the models defined to satisfy $[[ph]]$ above.\newline
+    Now, we have that for any model $[[M]]$ in our underlying theory such that $[[ forall x in R.M(x) = R(x) ]]$, $[[ M |= ph ]]$ holds, from the definition of $[[R |= ph]]$, we can obtain that $[[R |= ph]]$ must be true.
     But in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is obvious contradictory with what we have been
     derived, which shows the case is impossible.
   \end{rneqncase}
@@ -1107,7 +1108,7 @@ The followings are key lemmas:
     [[f |-> (x1, .., xn) e in D]]
     }
     $[[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]$\newline
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, we can obtain
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, and define $\tenv_{n+1} = [[ G[yi <- csub vsub Ti'] ]]$ and $\tau_{n+1} = [[ csub vsub T ]]$ we can obtain \newline
     $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$ \newline
     $[[csub = [l:ll/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
     $[[ B |- T' => G' \ x]]$\newline
@@ -1120,14 +1121,14 @@ The followings are key lemmas:
     \end{align*}
     To prove these, we can look at $\cref{lem:callfunc}$.\newline
     By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
-    and expression $e'$ will be well-typed with respect to the types expected by the stack $\overrightarrow{E}$.\newline
+    and expression $e'$ will be well-typed with respect to the types expected by the stack $\overrightarrow{E}$, which is the original stack before taking step of $\rn{R-Call}$.\newline
     $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv, H'=H, R'=R$).
   \end{rneqncase}
 \end{proof}
 
 \begin{lemma}
   \label{lem:f0f1}
-  Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\ \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
+  Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\setminus \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
 \end{lemma}
 
 
