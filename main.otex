@@ -1120,7 +1120,11 @@ The followings are key lemmas:
     & [[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
     \end{align*}
     To prove these, we can look at $\cref{lem:callfunc}$.\newline
-    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
+    In the $\rn{R-Call}$ case, we push the call function in the stack $[[Es]]$, so that the length of the new stack $|[[E[let x = [] l in e'] : Es]]|$ should be $n+1$.
+    Thus, we need to prove that $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, which can be divided into prove
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e En : Tn => Gn ]]$. The first one is easy to obtain.\newline
+    $[[ Th | [] : Tn+1 => Gn+1 | lln |-e En : Tn => Gn ]]$, in this case $E_n$ is $[[ E[let x = [] l in e'] ]]$, thus it's proved above.\newline
+    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
     and expression $e'$ will be well-typed with respect to the types expected by the stack $\overrightarrow{E}$, which is the original stack before taking step of $\rn{R-Call}$.\newline
     $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv, H'=H, R'=R$).
   \end{rneqncase}
