@@ -13,6 +13,7 @@
 %token UNIT
 %token <int> INT
 %token <string> ID
+%token NULL
 // conditionals
 %token IF THEN ELSE
 // bindings
@@ -106,6 +107,7 @@ let op :=
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
   | LPAREN; o = bin_op; RPAREN; { (o :> op) }
+  | NULL; { `Null }
 
 let tuple_rest :=
   | l = lhs; COMMA; { [l] }

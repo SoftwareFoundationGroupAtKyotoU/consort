@@ -210,6 +210,7 @@ let rec process_expr save_type ctxt (id,e) =
         let tv = fresh_var () in
         unify ctxt (`Ref tv) @@ lkp p;
         resolve ctxt tv
+      | Null -> `Ref (fresh_var ())
       | Tuple tl ->
         `Tuple (List.map (function
           | RInt _
