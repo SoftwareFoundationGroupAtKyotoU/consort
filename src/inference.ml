@@ -33,6 +33,7 @@ type tenv = typ SM.t
 type ownership_type = (unit, float) RefinementTypes._typ
 type o_theta = ownership_type RefinementTypes._funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
+type type_hints = (int,SimpleTypes.r_typ) Hashtbl.t
 
 type oante =
   | ORel of ownership * [ `Eq | `Ge | `Gt ] * float
@@ -72,7 +73,8 @@ type context = {
   v_counter: int;
   pred_detail: (int,pred_context) Hashtbl.t;
   store_env: int -> tenv -> unit;
-  o_info: o_solution
+  o_info: o_solution;
+  type_hints: type_hints
 }
 
 module Result = struct
@@ -679,6 +681,7 @@ let rec strengthen_let patt rhs ctxt =
   | _,Mkref RNone
   | _,Mkref (RInt _)
   | _,Nondet
+  | _,Null
   | _,Call _ -> ctxt
   | _,Var v ->
     let t = SM.find v ctxt.gamma in
@@ -844,6 +847,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       | Const n -> (ctxt,Int (ConstEq n))
       | Nondet -> (ctxt, Int Top)
       | Call c -> process_call ~e_id ~cont_id ctxt c
+      | Null -> assert false
       | Deref ptr ->
         let (target_type,o) = lkp_ref ptr in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
@@ -1137,7 +1141,7 @@ let print_pred_details t =
     Printf.fprintf stderr "  At: %s\n<<\n" @@ loc_to_string loc
   ) t
   
-let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
+let infer ~print_pred ~save_types ?o_solve ~intrinsics ~type_hints st (fns,main) =
   let init_fun_type ctxt f_def =
     let rec lift_simple_loop ~post target_var ~loc (free_vars,sym) t ctxt =
       match t with
@@ -1201,7 +1205,8 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics st (fns,main) =
     store_env;
     o_info = (match o_solve with
     | Some e -> e
-    | None -> (Hashtbl.create 10,SM.empty))
+    | None -> (Hashtbl.create 10,SM.empty));
+    type_hints
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
   let ctxt' = List.fold_left process_function ctxt fns in

@@ -9,3 +9,10 @@ let iter f = function
 let value o ~default = match o with
   | Some o -> o
   | None -> default
+
+(* I understand monads *)
+let bind f = function
+  | Some x -> f x
+  | None -> None
+
+let return x = Some x
