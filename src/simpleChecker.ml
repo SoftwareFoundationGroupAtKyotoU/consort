@@ -13,6 +13,13 @@ type typ = [
 | `Var of int
 ] [@@deriving sexp]
 
+let rec string_of_typ = function
+  | `Var i -> Printf.sprintf "'%d" i
+  | `Ref t -> Printf.sprintf "%s ref" @@ string_of_typ t
+  | `Int -> "int"
+  | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
+[@@ocaml.warning "-32"]
+
 type c_inst = typ c_typ
 
 type funtyp_v = {
@@ -62,9 +69,7 @@ let rec resolve_type uf resolv r =
   match r with
   | `Var v ->
     let id = UnionFind.find uf v in
-    if Hashtbl.mem resolv id then
-      (Hashtbl.find resolv id :> typ) |> resolve_type uf resolv
-    else (`Var id)
+    `Var id
   | `Ref t -> `Ref (resolve_type uf resolv t)
   | `Tuple tl ->
     `Tuple (List.map (resolve_type uf resolv) tl)
@@ -75,7 +80,10 @@ let rec force_resolve uf resolv t : r_typ =
   | `Int -> `Int
   | `Ref t' -> `Ref (force_resolve uf resolv t')
   | `Tuple tl -> `Tuple (List.map (force_resolve uf resolv) tl)
-  | _ -> (* "polymorphism" *) `Int
+  | `Var id ->
+    Hashtbl.find_opt resolv id
+    |> Option.map (force_resolve uf resolv)
+    |> Option.value ~default:`Int
 
 let resolve ctxt (r: typ) =
   resolve_type ctxt.uf ctxt.resolv r
@@ -84,7 +92,7 @@ let rec unify ctxt t1 t2 =
   let ty_assign v ty = Hashtbl.add ctxt.resolv v ty in
   match (resolve ctxt t1, resolve ctxt t2) with
   | (`Var v1, `Var v2) -> UnionFind.union ctxt.uf v1 v2
-  | (`Var v1, (#c_inst as ct))
+  |( `Var v1, (#c_inst as ct))
   | (#c_inst as ct, `Var v1) ->
     ty_assign v1 ct
   | (`Ref t1',`Ref t2') ->
@@ -114,8 +122,9 @@ let process_call lkp ctxt { callee; arg_names; _ } =
     unify ctxt (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
   `Var ret_type_v
 
-let _dump_sexp p t =
+let dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
+[@@ocaml.warning "-32"]
 
 let rec process_expr save_type ctxt (id,e) =
   save_type id ctxt.tyenv;
@@ -159,16 +168,16 @@ let rec process_expr save_type ctxt (id,e) =
         unify ctxt t (`Ref (`Var tv));
         (`Var tv)
       | APtrProj (v,ind) ->
-        let t = lkp v |> resolve ctxt in
+        let t = lkp v |> force_resolve ctxt.uf ctxt.resolv in
         begin
-          match t with
+          match (t :> typ) with
           | `Ref (`Tuple tl) when ind < List.length tl -> List.nth tl ind
           | _ -> failwith "could not deduce length of tuple in alias"
         end
       | AProj (v,ind) ->
-        let t = lkp v |> resolve ctxt in
+        let t = lkp v |> force_resolve ctxt.uf ctxt.resolv in
         begin
-        match t with
+        match (t :> typ) with
         | `Tuple tl when ind < List.length tl -> List.nth tl ind
         | _ -> failwith "Could not deduce length of tuple in alias"
         end

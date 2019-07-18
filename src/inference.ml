@@ -371,11 +371,12 @@ let lift_imm_op_to_rel = function
 let lift_relation { rop1; cond; rop2 } =
   Relation { rel_op1 = RImm (lift_imm_op_to_rel rop1); rel_cond = cond; rel_op2 = lift_imm_op_to_rel rop2 }
 
-let _dump_env ?(msg) tev =
+let dump_env ?(msg) tev =
   (match msg with
   | Some m -> print_endline m;
   | None -> ());
   sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline
+[@@ocaml.warning "-32"] 
 
 let rec strengthen_eq ~strengthen_type ~target =
   match strengthen_type with
