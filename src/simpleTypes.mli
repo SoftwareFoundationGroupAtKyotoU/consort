@@ -1,7 +1,9 @@
 type r_typ = [
   | `Int
+  | `TVar of int
   | `Tuple of r_typ list
   | `Ref of r_typ
+  | `Mu of int * r_typ
 ]
 
 type funtyp = {
