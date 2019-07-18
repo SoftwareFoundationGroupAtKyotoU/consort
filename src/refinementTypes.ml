@@ -192,8 +192,6 @@ let update_binding path tup_b (fv_ap,sym_vals) =
   let sym_vals' = sym_vals @ b_vals in
   (fv_ap',sym_vals')
 
-(* curr_te here and in the following is the type environment
-   prior to the removal operation *)
 let rec walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
   match t with
   | Int r ->
@@ -220,6 +218,25 @@ let rec walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
     let (a',tl') = loop a tl_named in
     (a',Tuple (b,tl'))
 
+let walk_with_path ?o_map f root =
+  walk_with_bindings ?o_map (fun p _ r a' ->
+    f p r a'
+  ) root ([],[])
+
+let map_with_bindings ?o_map f root bindings t =
+  walk_with_bindings ?o_map (fun p b r () ->
+    ((), f p b r)
+  ) root bindings t () |> snd
+
+let fold_with_bindings f root bindings t a =
+  walk_with_bindings (fun p b r a' ->
+    (f p b r a',r)
+  ) root bindings t a |> fst
+
+let map_with_path f root t =
+  map_with_bindings (fun p _ r ->
+    f p r) root ([],[]) t
+
 let rec update_nth l i v =
   match l with
   | h::t ->
@@ -232,6 +249,7 @@ let rec update_nth l i v =
 let map_ap_with_bindings ap fvs f gen =
   let rec inner_loop ap' c =
     match ap' with
+    | `APre _ -> failwith "V illegal"
     | `AVar v -> c (fvs,[]) (gen v)
     | `ADeref ap ->
       inner_loop ap (fun b t' ->
