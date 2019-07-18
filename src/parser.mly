@@ -121,7 +121,8 @@ let ref_op :=
 
 let cond_expr :=
   | ~ = ID; <`Var>
-  | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string]) }
+  | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string | `Nondet]) }
+  | UNDERSCORE; { `Nondet }
 
 let bin_op :=
   | o1 = op; op_name = operator; o2 = op; <`BinOp>
