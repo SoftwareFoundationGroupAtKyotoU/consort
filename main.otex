@@ -1113,19 +1113,22 @@ The followings are key lemmas:
     $[[csub = [l:ll/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
     $[[ B |- T' => G' \ x]]$\newline
     $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | ll |- e' : T' => G' \ x]]$\newline
-    By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, and define $\tenv_{n+1} = [[ G[yi <- csub vsub Ti'] ]]$ and $\tau_{n+1} = [[ csub vsub T ]]$, we can obtain \newline
+    By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain \newline
     $[[ Th | [] : T' => G' \ x | ll |-e E : Tn => Gn ]].$\newline
     We want to show that: \begin{align*}
-    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : Tn+1 => Gn+1 ]] \\
-    & [[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
+    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : csub vsub T => G[yi <- csub vsub Ti'] ]] \\
+    & [[ Th | [] : csub vsub T => G[yi <- csub vsub Ti'] | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
     \end{align*}
     To prove these, we can look at $\cref{lem:callfunc}$.\newline
     We need to prove that $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$  where $[[ E'n = E[let x = [] l in e'] ]]$ and $[[ E'i = Ei ]] (0 \leq i < n)$,
     which can be divided into prove
-    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e En : Tn => Gn ]]$. The first one is easy to obtain.\newline
-    $[[ Th | [] : Tn+1 => Gn+1 | lln |-e En : Tn => Gn ]]$, in this case $E_n$ is $[[ E[let x = [] l in e'] ]]$, thus it's proved above.\newline
-    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
-    and expression $e'$ will be well-typed with respect to the types expected by the stack $\overrightarrow{E}$, which is the original stack before taking step of $\rn{R-Call}$.\newline
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$. The first one is easy to obtain.\newline
+    We define $\tenv_{n+1} = [[ G[yi <- csub vsub Ti'] ]]$ and $\tau_{n+1} = [[ csub vsub T ]]$.
+    It remains to show $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$.
+    In this case $E'_n$ is $[[ E[let x = [] l in e'] ]]$.
+    Thus from above we obtain $[[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]$.\newline
+    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'_n$
+    and expression $e'_n$ will be well-typed as $\tau_n$ and $\tenv_n$ with respect to the types expected by the stack $\overrightarrow{E}$, which is the original stack before taking step of $\rn{R-Call}$.\newline
     $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv, H'=H, R'=R$).
   \end{rneqncase}
 \end{proof}
