@@ -81,6 +81,17 @@ let rec psep_gen sep l ff = match l with
   | h::t -> h ff; sep ff; psep_gen sep t ff
 let psep sep = psep_gen (ps sep)
 
+let pblock ?(nl=false) ~op ~body ~close =
+  pl [
+    pl [
+      indent_from_here;
+      op;
+      newline
+    ];
+    body; dedent; newline;
+    close; (if nl then newline else null)
+  ]
+
 let ul f = fun () -> f
 
 let pretty_print_gen printer x =
