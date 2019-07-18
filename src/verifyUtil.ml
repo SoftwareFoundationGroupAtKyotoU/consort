@@ -96,14 +96,12 @@ module Options = struct
          seq_solver = !seq_run }))
 end
 
-let some r = Some r
-
-let infer opts intr program_types ast =
+let infer opts intr type_hints program_types ast =
   if (not opts.Options.seq_solver) then
-    Inference.infer ~print_pred:opts.debug_pred ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp program_types ast
-    |> some
+    Inference.infer ~print_pred:opts.debug_pred ~type_hints ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp program_types ast
+    |> Option.return
   else
-    let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp program_types ast in
+    let r = Inference.infer ~print_pred:false ~save_types:true ~type_hints ~intrinsics:intr.Intrinsics.op_interp program_types ast in
     let module R = Inference.Result in
     match OwnershipSolver.solve_ownership r.R.theta r.R.ovars r.R.ownership with
     | None -> None
@@ -132,10 +130,32 @@ let infer opts intr program_types ast =
         ~print_pred:opts.debug_pred
         ~save_types:opts.annot_infr
         ~o_solve:(o_gamma_tbl,o_theta)
+        ~type_hints
         ~intrinsics:intr.Intrinsics.op_interp
         program_types ast
-      |> some
+      |> Option.return
 
+let collect_null_loc (fn,prog) =
+  let open Ast in
+  let rec loop (i,e) acc =
+    match e with
+    | EVar _ -> acc
+    | Cond (_,e1,e2)
+    | Seq (e1, e2) ->
+      loop e1 acc
+      |> loop e2
+    | Let (PVar v,Null,(i',e')) ->
+      loop (i',e') @@ (i,v,i')::acc
+    | EAnnot (_,e)
+    | Assert (_,e)
+    | Assign (_,_,e)
+    | Alias (_,_,e)
+    | Let (_,_,e) -> loop e acc
+  in
+  List.fold_left (fun acc { body; _ } ->
+    loop body acc
+  ) [] fn
+  |> loop prog
 
 let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
   let open Options in
@@ -144,8 +164,16 @@ let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
     | Some i_name -> Intrinsics.load i_name
     | None -> Intrinsics.empty
   in
+  let null_locs = collect_null_loc ast in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let program_types = SimpleChecker.typecheck_prog simple_typing ast in
+  let type_hints = Hashtbl.create 10 in
+  let program_types = SimpleChecker.typecheck_prog ~save_types:(fun lkp ->
+      List.iter (fun (tgt,v,nxt) ->
+        lkp nxt
+        |> Option.bind @@ StringMap.find_opt v
+        |> Option.iter @@ Hashtbl.add type_hints tgt
+      ) null_locs
+    ) simple_typing ast in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
     StringMap.iter (fun n a ->
@@ -153,7 +181,7 @@ let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
     ) program_types;
     flush stderr
   end;
-  let r_opt = infer opts intr program_types ast in
+  let r_opt = infer opts intr type_hints program_types ast in
   match r_opt with
   | None -> false
   | Some r ->
