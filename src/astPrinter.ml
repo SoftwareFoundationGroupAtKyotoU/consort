@@ -51,6 +51,7 @@ let pp_lhs = function
                  ]
   | Call c -> pprint_fn_call c
   | Nondet -> ps "_"
+  | Null -> ps "null"
 
 let rec pp_patt = function
   | PVar v -> pv v

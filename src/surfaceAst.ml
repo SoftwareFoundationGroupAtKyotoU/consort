@@ -6,9 +6,9 @@ type op = [
   | `ODeref of string
   | `Nondet
   | `BinOp of op * string * op
-] 
+  | `Null
+]
 type call = string * int * (op list)
-
 
 type lhs = [
   | op
@@ -115,6 +115,7 @@ let rec simplify_expr ?next count e =
 and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
   match lhs with
+  | `Null -> k @@ A.Null
   | `OVar v -> k @@ A.Var v
   | `OInt i -> k @@ A.Const i
   | `ODeref v -> k @@ A.Deref v

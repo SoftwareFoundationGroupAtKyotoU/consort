@@ -58,6 +58,7 @@ rule read =
   | '~' { NU }
   | '$' { DOLLAR }
   | ":=" { ASSIGN }
+  | "null" { NULL }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }
   | '_' { UNDERSCORE }
   | id { ID (Lexing.lexeme lexbuf) }

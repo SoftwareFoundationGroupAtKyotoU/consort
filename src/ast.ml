@@ -25,6 +25,7 @@ type lhs =
   | Deref of string
   | Tuple of ref_contents list
   | Nondet
+  | Null
 
 type patt =
   | PVar of string
