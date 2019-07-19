@@ -1,4 +1,5 @@
 open Sexplib.Std
+open Greek
 
 type pred_loc =
   | LCond of int
@@ -278,9 +279,6 @@ let refine_ap_to_string = function
   | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
   | `Sym i -> Printf.sprintf "$%d" i
 
-
-let alpha = "\xCE\xB1"
-let nu = "\xCE\xBD"
 
 let pp_owner =
   let open PrettyPrint in
