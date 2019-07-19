@@ -1127,8 +1127,8 @@ The followings are key lemmas:
     It remains to show $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$.
     In this case $E'_n$ is $[[ E[let x = [] l in e'] ]]$.
     Thus from above we obtain $[[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]$.\newline
-    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'_n$
-    and expression $e'_n$ will be well-typed as $\tau_n$ and $\tenv_n$ with respect to the types expected by the stack $\overrightarrow{E}$, which is the original stack before taking step of $\rn{R-Call}$.\newline
+    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
+    and expression $e'$ will be well-typed as $\tau_{n+1}$ and $\tenv_{n+1}$ with respect to the types expected by the return context $E'_n$.\newline
     $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv, H'=H, R'=R$).
   \end{rneqncase}
 \end{proof}
