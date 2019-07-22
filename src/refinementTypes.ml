@@ -1,5 +1,6 @@
 open Sexplib.Std
 open Greek
+open Std
 
 type pred_loc =
   | LCond of int
@@ -58,10 +59,14 @@ type ap_symb =
 
 type ty_binding = (int * ap_symb) list [@@deriving sexp]
 
+type rec_args = (int * int) list [@@deriving sexp]
+
 type ('a,'o) _typ =
   | Int of 'a
   | Ref of ('a,'o) _typ * 'o
   | Tuple of ty_binding * (('a,'o) _typ) list
+  | TVar of int
+  | Mu of rec_args * int * ('a, 'o) _typ
 [@@deriving sexp]
 
 type arg_refinment =
@@ -80,10 +85,6 @@ type 'a _funtype = {
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
-let unsafe_get_ownership = function
-  | `Ref (_,o) -> o
-  | _ -> failwith "This is why its unsafe"
-
 let ref_of t1 o = Ref (t1, o)
 
 let rec map_refinement f =
@@ -91,11 +92,15 @@ let rec map_refinement f =
   | Int r -> Int (f r)
   | Ref (t,o) -> Ref (map_refinement f t,o)
   | Tuple (b,tl) -> Tuple (b,(List.map (map_refinement f) tl))
+  | Mu (a,v,t) -> Mu (a,v,map_refinement f t)
+  | TVar v -> TVar v
 
 let rec to_simple_type = function
   | Ref (t,_) -> `Ref (to_simple_type t)
   | Int _ -> `Int
   | Tuple (_,t) -> `Tuple (List.map to_simple_type t)
+  | Mu (_,v,t) -> `Mu (v, to_simple_type t)
+  | TVar v -> `TVar v
 
 let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
     {
@@ -127,7 +132,6 @@ let map_relation (map_fn: 'a -> 'b) ({ rel_op1; rel_cond; rel_op2 }: 'a refineme
   in
   let r2 = map_rel_imm map_fn rel_op2 in
   ({ rel_op1 = r1; rel_cond; rel_op2 = r2 }: 'b refinement_rel)
-  
 
 let partial_subst subst_assoc : (refine_ap list, refine_ap) refinement -> (refine_ap list, refine_ap) refinement =
   let subst_fn = partial_map_ap subst_assoc in
@@ -143,6 +147,55 @@ let partial_subst subst_assoc : (refine_ap list, refine_ap) refinement -> (refin
     | NamedPred (nm,pv) -> NamedPred (nm, subst pv)
   in
   loop
+
+let unfold_gen ~gen ~rmap arg id t_in =
+  let codom = List.map snd arg in
+  let do_subst t =
+    let rec loop acc = function
+      | Int r -> (acc,Int (rmap r))
+      | TVar a -> (acc,TVar a)
+      | Mu _ -> failwith "let's not deal with this yet"
+      | Ref (t,o) ->
+        let (acc',t') = loop acc t in
+        (acc', Ref (t',o))
+      | Tuple (b,tl) ->
+        let (acc',b') =
+          map_with_accum acc (fun acc (i,r) ->
+            let fresh_var = gen () in
+            let acc' =
+              if List.mem i codom then
+                (i,fresh_var)::acc
+              else
+                acc
+            in
+            (acc',(fresh_var,r))
+          ) b in
+        let (acc'',tl') = map_with_accum acc' loop tl in
+        (acc'',Tuple (b',tl'))
+    in
+    loop [] t
+  in
+  let rec loop =
+    function
+    | TVar t_id when t_id = id ->
+      let (new_arg,t') = do_subst t_in in
+      Mu (new_arg,id,t')
+    | TVar v -> TVar v
+    | Mu (arg,id,t) -> Mu (arg,id,loop t)
+    | Tuple (b,tl) ->
+      let tl' = List.map loop tl in
+      Tuple (b,tl')
+    | Ref (t,o) -> Ref (loop t, o)
+    | Int r -> Int r
+  in
+  loop t_in
+  
+let unfold ~gen arg id t_in =
+  let subst_map = List.map (fun (v,new_v) ->
+      (v,`Sym new_v)
+    ) arg in
+  let psub = partial_subst subst_map in
+  unfold_gen ~gen ~rmap:psub arg id t_in
 
 let compile_refinement target subst_assoc =
   let subst_fn = map_ap subst_assoc in
@@ -176,9 +229,10 @@ let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap, Paths.concr_a
           compile_loop t (`AProj (root,i)) bindings'
         ) tl in
       Tuple ([],tl')
+    | TVar v  -> TVar v
+    | Mu (a,v,t) -> Mu (a,v, compile_loop t root bindings)
   in
   compile_loop t1 (`AVar root) []
-
 
 let subst_of_binding root = List.map (fun (i,p) ->
     match p with
@@ -195,6 +249,10 @@ let update_binding path tup_b (fv_ap,sym_vals) =
 
 let rec walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
   match t with
+  | TVar v -> (a,TVar v)
+  | Mu (ar,v,t') ->
+    let (a',t'') = walk_with_bindings ~o_map f root bindings t' a in
+    (a', Mu (ar,v,t''))
   | Int r ->
     let (a',r') = f root bindings r a in
     (a',Int r')
@@ -385,7 +443,7 @@ let rec pp_type : typ -> Format.formatter -> unit =
       ps ")"
     ]
   | Int r -> pb [
-                 pf "{\xCE\xBD:int@ |@ ";
+                 pf "{%s:int@ |@ " nu;
                  simplify_ref r |> pp_ref;
                  ps "}"
                ]
@@ -394,6 +452,13 @@ let rec pp_type : typ -> Format.formatter -> unit =
         pp_type t;
         pf "@ ref@ ";
         pp_owner o
+      ]
+  | TVar v -> pf "'%d" v
+  | Mu (_,v,t) ->
+    pb [
+        pf "%s '%d.@ (" mu v;
+        pp_type t;
+        ps ")"
       ]
       
 let string_of_type = PrettyPrint.pretty_print_gen_rev pp_type
