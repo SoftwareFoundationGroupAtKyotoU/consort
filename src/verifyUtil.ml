@@ -1,3 +1,5 @@
+open Std
+
 let pprint_ty_env =
   let open PrettyPrint in
   fun ty_envs i ->
@@ -115,6 +117,8 @@ let infer opts intr type_hints program_types ast =
         | Ref (t,OConst o) -> Ref (map_type t, o)
         | Ref (t,OVar ov) -> Ref (map_type t,IM.find ov o_map)
         | Tuple (_,tl) -> Tuple ([],List.map map_type tl)
+        | TVar id -> TVar id
+        | Mu (a,i,t) -> Mu (a,i,map_type t)
       in
       let o_gamma_tbl = Hashtbl.create 10 in
       Hashtbl.iter (fun i g ->

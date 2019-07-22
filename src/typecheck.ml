@@ -1,4 +1,5 @@
 open Ast
+open Std
 
 let rec find_first (i,e) =
   match e with
@@ -48,9 +49,8 @@ let () =
   let (fn,prog) = AstUtil.parse_file file in
   let acc =
     List.fold_left
-      (fun acc { args; body; _ } ->
-        let first_id = find_first body in
-        annot_let body @@ (first_id, first_id,args)::acc
+      (fun acc { body; _ } ->
+        annot_let body acc
       ) (annot_let prog []) fn
   in
   let print_types = Hashtbl.create 10 in

@@ -44,3 +44,8 @@ let rec has_root_p p = function
   | `APre _ -> false
   | `ADeref ap
   | `AProj (ap,_) -> has_root_p p ap
+
+module PathSet = Set.Make(struct
+    type t = concr_ap
+    let compare = Pervasives.compare
+  end)

@@ -1,4 +1,3 @@
-module IntMap : Map.S with type key = int
 
 type funenv = RefinementTypes.funtype StringMap.t
 type oante =

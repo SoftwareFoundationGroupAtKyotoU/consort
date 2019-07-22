@@ -1,6 +1,7 @@
 open Ast
 open SimpleTypes
 open Sexplib.Std
+open Std
     
 type 'a c_typ = [
   | `Int
@@ -28,7 +29,6 @@ type funtyp_v = {
 }
 
 module SM = StringMap
-module SS = Set.Make(String)
 
 type funenv = funtyp_v SM.t
 let _sexp_of_tyenv = SM.sexp_of_t ~v:sexp_of_typ
@@ -49,6 +49,21 @@ type fn_ctxt = {
   tyenv: tyenv;
   t_cons: (tuple_cons list) ref
 }
+
+let abstract_type uf resolv t =
+  let module IM = Std.IntMap in
+  let rec loop map = function
+    | `TVar id -> `Var (IM.find id map)
+  | `Ref t -> `Ref (loop map t)
+  | `Int -> `Int
+  | `Tuple tl ->
+    `Tuple (List.map (loop map) tl)
+  | `Mu (v,t) ->
+    let i = UnionFind.new_node uf in
+    let t' = loop (IM.add v i map) t in
+    Hashtbl.add resolv i t'; t'
+  in
+  loop IM.empty t
 
 let make_fenv uf fns =
   List.fold_left (fun acc {name; args; _} ->
@@ -88,13 +103,6 @@ let unfold uf resolv = function
     |> Option.map @@ canonical_type uf
     |> Option.value ~default:(`Var v)
   | t -> t
-
-module CoHypS = Set.Make(struct
-    type t = int * int
-    let compare (a1,b1) (a2,b2) =
-      let a_cmp = a1 - a2 in
-      if a_cmp = 0 then b1 - b2 else a_cmp
-  end)
 
 let rec unify_inner ?(hyp_set=CoHypS.empty) uf resolv t1 t2 =
   if t1 = t2 then ()
@@ -246,7 +254,7 @@ let rec process_expr save_type ctxt (id,e) =
     process_expr save_type ctxt e
   | EAnnot (g,e) ->
     List.iter (fun (k,t) ->
-        unify_var k @@ (RefinementTypes.to_simple_type t :> typ)
+        unify_var k @@ abstract_type ctxt.uf ctxt.resolv @@ RefinementTypes.to_simple_type t
       ) g;
     process_expr save_type ctxt e
   | Let (p,lhs,expr) ->
@@ -306,21 +314,9 @@ let typecheck_prog ?save_types intr_types (fns,body) =
     ) in
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
-    let module IM = Map.Make(struct type t = int let compare = Pervasives.compare end) in
-    let rec abstract_type map = function
-      | `TVar id -> `Var (IM.find id map)
-      | `Ref t -> `Ref (abstract_type map t)
-      | `Int -> `Int
-      | `Tuple tl ->
-        `Tuple (List.map (abstract_type map) tl)
-      | `Mu (v,t) ->
-        let i = UnionFind.new_node uf in
-        let t' = abstract_type (IM.add v i map) t in
-        Hashtbl.add resolv i t'; t'
-    in
     let lift_const t =
       let t_id = UnionFind.new_node uf in
-      Hashtbl.add resolv t_id @@ abstract_type IM.empty t;
+      Hashtbl.add resolv t_id @@ abstract_type uf resolv t;
       t_id
     in
     StringMap.fold (fun k { arg_types; ret_type } ->
