@@ -283,9 +283,9 @@ let split_arg ctxt t1 t2 =
       let (ctxt,(t1,t2)) = loop ctxt r1 r2 in
       let rem = o -. o_const in
       (ctxt,(Ref (t1,OConst rem), Ref (t2,OConst o_const)))
-    | Ref (r1,OVar _), Ref (r2,_) ->
+    | Ref (r1,OVar o), Ref (r2,_) ->
       let (ctxt',(o1,o2)) = (alloc_ovar >> alloc_ovar) ctxt in
-      let (ctxt'',(rn',rn'')) = loop ctxt' r1 r2 in
+      let (ctxt'',(rn',rn'')) = loop { ctxt' with ownership = Split (OVar o,(o1,o2))::ctxt'.ownership } r1 r2 in
       (ctxt'',(Ref (rn',o1), Ref (rn'',o2)))
     | Mu (a,i,t1), Mu (_,_,t2) ->
       let (ctxt',(t1',t2')) = loop ctxt t1 t2 in
@@ -305,16 +305,6 @@ let split_arg ctxt t1 t2 =
   in
   let (ctxt',(t1'rem,t1'form)) = loop ctxt (RecTypes.unwrap t1) (RecTypes.unwrap t2) in
   ctxt',RecTypes.certify_equiv t1'rem t2, RecTypes.certify_equiv t1'form t2
-
-(* let split_arg i c_name ctxt arg_t =
- *   let (_,o_th) = ctxt.o_info in
- *   if not @@ SM.mem c_name o_th then
- *     split_type ctxt arg_t
- *   else
- *     let { arg_types; _ } = SM.find c_name o_th in
- *     let in_t = List.nth arg_types i in
- *     let arg'w,in'w = unfold_own ~t1:arg_t ~t2:in_t in
- *     (ctxt,split_type_with arg'w in'w) *)
 
 let add_constraint gamma ctxt ?(o=[]) ante conseq =
   { ctxt with
@@ -1134,7 +1124,11 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
             (gamma_predicate_vars ctxt.gamma) @@ Hashtbl.find ctxt.type_hints e_id
 
       | Deref ptr ->
-        let (target_type,o) = lkp_ref ptr in
+        let (target_type_pre,o) = lkp_ref ptr in
+        let target_type = match target_type_pre with
+          | Mu (a,i,t) -> unfold ~gen:fresh_tvar a i t
+          | t -> t
+        in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
         ctxt'
         |> update_type ptr @@ (ref_of t1 o)
