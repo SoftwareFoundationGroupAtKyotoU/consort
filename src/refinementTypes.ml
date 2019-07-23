@@ -2,16 +2,6 @@ open Sexplib.Std
 open Greek
 open Std
 
-type pred_loc =
-  | LCond of int
-  | LArg of string * string
-  | LReturn of string
-  | LOutput of string * string
-  | LAlias of int
-  | LLet of int
-  | LCall of int * string 
-
-
 type 'r rel_imm =
   | RAp of 'r
   | RConst of int [@@deriving sexp]

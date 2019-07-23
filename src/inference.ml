@@ -9,6 +9,16 @@ module P = Paths
 
 type concr_ap = P.concr_ap
 
+type pred_loc =
+  | LCond of int
+  | LArg of string * string
+  | LReturn of string
+  | LOutput of string * string
+  | LAlias of int
+  | LLet of int
+  | LCall of int * string
+  | LNull of int
+
 let loc_to_string =
   let labeled_expr s i = Printf.sprintf "%s@%d" s i in
   let fn_nm_loc = Printf.sprintf "fn %s %s %s" in
@@ -21,6 +31,7 @@ let loc_to_string =
   | LAlias i -> labeled_expr "alias" i
   | LLet i -> labeled_expr "let" i
   | LCall (i,a) -> labeled_expr a i
+  | LNull i -> labeled_expr "ifnull" i
 
 type pred_context = {
   fv: refine_ap list;
@@ -392,6 +403,7 @@ let mk_pred_name n target_var loc =
     | LAlias i -> Printf.sprintf "shuf-%d" i
     | LLet i -> Printf.sprintf "scope-%d" i
     | LCall (i,a) -> Printf.sprintf "call-%d-%s-out" i a
+    | LNull i -> Printf.sprintf "ifnull-%d" i
   in
   if ext_names then
     c ^ "-" ^ (Paths.to_z3_ident target_var)
@@ -1241,7 +1253,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     process_expr ?output_type ~remove_scope res cont
 
   | Cond(v,e1,e2) ->
-    let add_pc_refinement ctxt cond =
+    let add_pc_refinement cond ctxt =
       let curr_ref = lkp v in
       let branch_refinement = {
         rel_op1 = Nu;
@@ -1251,39 +1263,19 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       ctxt |>
       update_type v @@ map_refinement (fun r -> And (r,Relation branch_refinement)) curr_ref
     in
-    let ctxt1 = process_expr ?output_type ~remove_scope (add_pc_refinement ctxt "=") e1 in
-    let ctxt2 = process_expr ?output_type ~remove_scope (add_pc_refinement {
-        ctxt with
-          refinements = ctxt1.refinements;
-          v_counter = ctxt1.v_counter;
-          ownership = ctxt1.ownership;
-          pred_arity = ctxt1.pred_arity;
-          ovars = ctxt1.ovars
-        } "!=") e2 in
-    let loc = LCond e_id in
-    let u_ctxt = { ctxt2 with gamma = SM.empty } in
-    let b1 = SM.bindings ctxt1.gamma in
-    let b2 = SM.bindings ctxt2.gamma in
-    let predicate_vars = predicate_vars @@ b1 in
-    let dg1 = denote_gamma ctxt1.gamma in
-    let dg2 = denote_gamma ctxt2.gamma in
-    let subsume_types ctxt ~target_var t1_fold t2_fold =
-      let (t1,t2) = RecTypes.unfold ~t1:t1_fold ~t2:t2_fold in     
-      let (ctxt',t') = RecTypes.map_with_acc (make_fresh_type ~loc ~target_var:(`AVar target_var) ~fv:predicate_vars) t1 ctxt in
-      let c_up =
-        add_folded_var_implication dg1 target_var t1 t' ctxt'
-        |> add_folded_var_implication dg2 target_var t2 t'
-        |> constrain_owner t1 t'
-        |> constrain_owner t2 t'
-      in
-      (c_up,RecTypes.unwrap t')
-    in
-    List.fold_left2 (fun ctxt (k1,t1) (k2,t2) ->
-      assert (k1 = k2);
-      let (ctxt',t) = subsume_types ctxt ~target_var:k1 t1 t2 in
-      add_type k1 t ctxt'
-    ) u_ctxt b1 b2
-
+    process_conditional
+      ?output_type ~remove_scope
+      ~tr_path:(add_pc_refinement "=")
+      ~fl_path:(add_pc_refinement "!=")
+      e_id e1 e2 ctxt
+  | NCond (v,e1,e2) ->
+    process_conditional
+      ?output_type ~remove_scope
+      ~tr_path:(fun ctxt ->
+        let (ctxt',t) = make_fresh_type ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt in
+        update_type v t ctxt'
+      )
+      ~fl_path:(fun ctxt -> ctxt) e_id e1 e2 ctxt
   | EAnnot (ty_env,next) ->
     let env' =
       List.fold_left (fun acc (k,v) ->
@@ -1291,6 +1283,40 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       ) StringMap.empty ty_env in
     next
     |> process_expr ?output_type ~remove_scope { ctxt with gamma = env' }
+
+and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
+  let ctxt1 = process_expr ?output_type ~remove_scope (tr_path ctxt) e1 in
+  let ctxt2 = process_expr ?output_type ~remove_scope (fl_path {
+        ctxt with
+        refinements = ctxt1.refinements;
+        v_counter = ctxt1.v_counter;
+        ownership = ctxt1.ownership;
+        pred_arity = ctxt1.pred_arity;
+        ovars = ctxt1.ovars
+      }) e2 in
+  let loc = LCond e_id in
+  let u_ctxt = { ctxt2 with gamma = SM.empty } in
+  let b1 = SM.bindings ctxt1.gamma in
+  let b2 = SM.bindings ctxt2.gamma in
+  let predicate_vars = predicate_vars @@ b1 in
+  let dg1 = denote_gamma ctxt1.gamma in
+  let dg2 = denote_gamma ctxt2.gamma in
+  let subsume_types ctxt ~target_var t1_fold t2_fold =
+    let (t1,t2) = RecTypes.unfold ~t1:t1_fold ~t2:t2_fold in     
+    let (ctxt',t') = RecTypes.map_with_acc (make_fresh_type ~loc ~target_var:(`AVar target_var) ~fv:predicate_vars) t1 ctxt in
+    let c_up =
+      add_folded_var_implication dg1 target_var t1 t' ctxt'
+      |> add_folded_var_implication dg2 target_var t2 t'
+      |> constrain_owner t1 t'
+      |> constrain_owner t2 t'
+    in
+    (c_up,RecTypes.unwrap t')
+  in
+  List.fold_left2 (fun ctxt (k1,t1) (k2,t2) ->
+    assert (k1 = k2);
+    let (ctxt',t) = subsume_types ctxt ~target_var:k1 t1 t2 in
+    add_type k1 t ctxt'
+  ) u_ctxt b1 b2
 
 and make_fresh_type ~target_var ~loc ~fv ?(bind=[]) t ctxt =
   walk_with_bindings ~o_map:(fun c _ ->
@@ -1512,6 +1538,7 @@ let collect_null_loc (fn,prog) =
   let rec loop (i,e) acc =
     match e with
     | EVar _ -> acc
+    | NCond (_,e1,e2)
     | Cond (_,e1,e2)
     | Seq (e1, e2) ->
       loop e1 acc
