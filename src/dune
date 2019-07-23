@@ -47,3 +47,10 @@
  (preprocess (pps ppx_sexp_conv))
  (libraries lang)
  (modules Typecheck))
+
+(executable
+ (name ownership)
+ (preprocess (pps ppx_sexp_conv))
+ (libraries consort)
+ (modules Ownership))
+            

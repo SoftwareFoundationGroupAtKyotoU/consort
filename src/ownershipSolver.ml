@@ -105,7 +105,7 @@ let print_ownership o_vals sexp_buf =
     ] sexp_buf.printer;
     break sexp_buf) o_vals
       
-let solve_ownership _theta ovars ocons =
+let solve_ownership ?save_cons _theta ovars ocons =
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;
@@ -131,7 +131,7 @@ let solve_ownership _theta ovars ocons =
     ] o_buf.printer
   end;
   finish o_buf;
-  let (res,model) = Z3Channel.call_z3_raw ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" o_buf in
+  let (res,model) = Z3Channel.call_z3_raw ?save_cons ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" o_buf in
   match res,model with
   | "sat",Some m -> begin
       let open Sexplib.Sexp in

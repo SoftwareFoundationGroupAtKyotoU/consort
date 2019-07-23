@@ -6,5 +6,6 @@ val print_ownership_constraints :
 val print_ownership :
   (int * float) list -> SexpPrinter.t -> unit
 val solve_ownership :
+  ?save_cons:string ->
   RefinementTypes.funtype StringMap.t ->
   int list -> Inference.ocon list -> (int * float) list option
