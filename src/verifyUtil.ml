@@ -139,45 +139,14 @@ let infer opts intr type_hints program_types ast =
         program_types ast
       |> Option.return
 
-let collect_null_loc (fn,prog) =
-  let open Ast in
-  let rec loop (i,e) acc =
-    match e with
-    | EVar _ -> acc
-    | Cond (_,e1,e2)
-    | Seq (e1, e2) ->
-      loop e1 acc
-      |> loop e2
-    | Let (PVar v,Null,(i',e')) ->
-      loop (i',e') @@ (i,v,i')::acc
-    | EAnnot (_,e)
-    | Assert (_,e)
-    | Assign (_,_,e)
-    | Alias (_,_,e)
-    | Let (_,_,e) -> loop e acc
-  in
-  List.fold_left (fun acc { body; _ } ->
-    loop body acc
-  ) [] fn
-  |> loop prog
-
-let check_file ?(opts=Options.default) ?intrinsic_defn in_name =
+let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
   let open Options in
   let ast = AstUtil.parse_file in_name in
-  let intr = match intrinsic_defn with
-    | Some i_name -> Intrinsics.load i_name
-    | None -> Intrinsics.empty
-  in
-  let null_locs = collect_null_loc ast in
+  let intr = intrinsic_defn in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let type_hints = Hashtbl.create 10 in
-  let program_types = SimpleChecker.typecheck_prog ~save_types:(fun lkp ->
-      List.iter (fun (tgt,v,nxt) ->
-        lkp nxt
-        |> Option.bind @@ StringMap.find_opt v
-        |> Option.iter @@ Hashtbl.add type_hints tgt
-      ) null_locs
-    ) simple_typing ast in
+  let (hint_gen, save_types) = Inference.collect_type_hints ast in
+  let program_types = SimpleChecker.typecheck_prog ~save_types simple_typing ast in
+  let type_hints = hint_gen () in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
     StringMap.iter (fun n a ->

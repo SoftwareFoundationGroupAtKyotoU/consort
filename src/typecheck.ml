@@ -31,21 +31,8 @@ let rec annot_let (id,e) acc =
   | Let (patt,_,e) ->
     annot_let e @@ (get_bindings_for id patt e)::acc
 
-let () =
-  let (intr,file) =
-    let open Arg in
-    let intr_file = ref None in
-    let input_file = ref None in
-    let spec = [
-      ("-intr", String (fun s -> intr_file := Some s), "Use intrinsic file <file>")
-    ] in
-    let () = parse spec (fun s -> input_file := Some s) "Parse and (simple) typecheck <file>" in
-    ((match !intr_file with
-    | None -> Intrinsics.empty
-    | Some s -> Intrinsics.load s), match !input_file with
-      | None -> failwith "No input file specified"
-      | Some s -> s)
-  in
+let typecheck i_gen file =
+  let intr = i_gen () in
   let (fn,prog) = AstUtil.parse_file file in
   let acc =
     List.fold_left
@@ -91,3 +78,7 @@ let () =
             ~body:ty_list
             ~close:(ps "*/") f
   ) stdout (fn,prog)
+
+let () =
+  let (spec,i_gen) = Intrinsics.option_loader () in
+  Files.run_with_file spec "Parse and (simple) typecheck <file>" @@ typecheck i_gen

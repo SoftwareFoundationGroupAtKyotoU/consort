@@ -1505,4 +1505,38 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics ~type_hints st (fns,main)
     arity = pred_arity;
     ty_envs 
   }
-  
+
+
+let collect_null_loc (fn,prog) =
+  let open Ast in
+  let rec loop (i,e) acc =
+    match e with
+    | EVar _ -> acc
+    | Cond (_,e1,e2)
+    | Seq (e1, e2) ->
+      loop e1 acc
+      |> loop e2
+    | Let (PVar v,Null,(i',e')) ->
+      loop (i',e') @@ (i,v,i')::acc
+    | EAnnot (_,e)
+    | Assert (_,e)
+    | Assign (_,_,e)
+    | Alias (_,_,e)
+    | Let (_,_,e) -> loop e acc
+  in
+  List.fold_left (fun acc { body; _ } ->
+    loop body acc
+  ) [] fn
+  |> loop prog
+
+let collect_type_hints ast =
+  let null_locs = collect_null_loc ast in
+  let type_hints = Hashtbl.create 10 in
+  let ty_cb lkp =
+      List.iter (fun (tgt,v,nxt) ->
+        lkp nxt
+        |> Option.bind @@ StringMap.find_opt v
+        |> Option.iter @@ Hashtbl.add type_hints tgt
+    ) null_locs
+  in
+  (fun () -> type_hints), ty_cb

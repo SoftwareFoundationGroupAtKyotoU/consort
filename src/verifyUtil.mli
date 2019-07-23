@@ -15,4 +15,4 @@ module Options :
     val seq : (unit -> arg_spec) -> arg_spec -> arg_spec
     val default : t
   end
-val check_file : ?opts:Options.t -> ?intrinsic_defn:string -> string -> bool
+val check_file : ?opts:Options.t -> ?intrinsic_defn:Intrinsics.interp_t -> string -> bool

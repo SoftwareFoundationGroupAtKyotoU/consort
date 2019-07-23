@@ -247,17 +247,17 @@ let update_binding path tup_b (fv_ap,sym_vals) =
   let sym_vals' = sym_vals @ b_vals in
   (fv_ap',sym_vals')
 
-let rec walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
+let rec walk_with_bindings_own ~o_map f root bindings t a =
   match t with
   | TVar v -> (a,TVar v)
   | Mu (ar,v,t') ->
-    let (a',t'') = walk_with_bindings ~o_map f root bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~o_map f root bindings t' a in
     (a', Mu (ar,v,t''))
   | Int r ->
     let (a',r') = f root bindings r a in
     (a',Int r')
   | Ref (t',o) ->
-    let (a',t'') = walk_with_bindings ~o_map f (`ADeref root) bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~o_map f (`ADeref root) bindings t' a in
     let (a'',o') = o_map a' o in
     (a'',Ref (t'',o'))
   | Tuple (b,tl) ->
@@ -270,12 +270,15 @@ let rec walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
       match l with
       | [] -> (a_accum,[])
       | (nm,t)::tl ->
-        let (acc',t') = walk_with_bindings ~o_map f nm bindings' t a_accum in
+        let (acc',t') = walk_with_bindings_own ~o_map f nm bindings' t a_accum in
         let (acc'',tl') = loop acc' tl in
         (acc'',t'::tl')
     in
     let (a',tl') = loop a tl_named in
     (a',Tuple (b,tl'))
+
+let walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
+  walk_with_bindings_own ~o_map f root bindings t a
 
 let walk_with_path ?o_map f root =
   walk_with_bindings ?o_map (fun p _ r a' ->
@@ -412,10 +415,11 @@ let rec pp_ref =
         pp_ref r2
       ]
 
-let rec pp_type : typ -> Format.formatter -> unit =
+
+let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o) _typ -> Format.formatter -> unit =
   let open PrettyPrint in
   let sym_var = pf "$%d" in
-  function
+  let rec pp_type = function
   | Tuple (b,tl) ->
     let bound_vars = List.filter (fun (_,p) ->
         match p with
@@ -442,23 +446,35 @@ let rec pp_type : typ -> Format.formatter -> unit =
       psep_gen (pf ",@ ") pp_tl;
       ps ")"
     ]
-  | Int r -> pb [
+  | Int r -> r_print "int" r (*pb [
                  pf "{%s:int@ |@ " nu;
                  simplify_ref r |> pp_ref;
                  ps "}"
-               ]
+                                ]*)
   | Ref (t,o) ->
     pb [
         pp_type t;
         pf "@ ref@ ";
-        pp_owner o
+        o_print o
       ]
   | TVar v -> pf "'%d" v
   | Mu (_,v,t) ->
     pb [
-        pf "%s '%d.@ (" mu v;
+        pf "(%s '%d.@ " mu v;
         pp_type t;
         ps ")"
       ]
-      
+  in
+  pp_type
+
+let pp_type : typ -> Format.formatter -> unit =
+  let open PrettyPrint in
+  pp_type_gen (fun k r ->
+    pb [
+      pf "{%s:%s@ |@ " nu k;
+      simplify_ref r |> pp_ref;
+      ps "}"
+    ]) pp_owner
+
 let string_of_type = PrettyPrint.pretty_print_gen_rev pp_type
+let string_of_owner = PrettyPrint.pretty_print_gen_rev pp_owner

@@ -45,3 +45,5 @@ val infer :
   intrinsics:funenv ->
   type_hints:type_hints ->
   SimpleTypes.funtyp StringMap.t -> Ast.fn list * Ast.exp -> Result.t
+
+val collect_type_hints : Ast.prog -> (unit -> type_hints) * ((int -> (SimpleTypes.r_typ StringMap.t) option) -> unit)
