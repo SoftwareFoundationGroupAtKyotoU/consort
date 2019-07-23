@@ -283,9 +283,9 @@ let split_arg ctxt t1 t2 =
       let (ctxt,(t1,t2)) = loop ctxt r1 r2 in
       let rem = o -. o_const in
       (ctxt,(Ref (t1,OConst rem), Ref (t2,OConst o_const)))
-    | Ref (r1,OVar o), Ref (r2,_) ->
+    | Ref (r1,o), Ref (r2,_) ->
       let (ctxt',(o1,o2)) = (alloc_ovar >> alloc_ovar) ctxt in
-      let (ctxt'',(rn',rn'')) = loop { ctxt' with ownership = Split (OVar o,(o1,o2))::ctxt'.ownership } r1 r2 in
+      let (ctxt'',(rn',rn'')) = loop { ctxt' with ownership = Split (o,(o1,o2))::ctxt'.ownership } r1 r2 in
       (ctxt'',(Ref (rn',o1), Ref (rn'',o2)))
     | Mu (a,i,t1), Mu (_,_,t2) ->
       let (ctxt',(t1',t2')) = loop ctxt t1 t2 in
