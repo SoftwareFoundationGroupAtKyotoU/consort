@@ -1046,7 +1046,7 @@ let meet_loop t_ref t_own =
 let meet_ownership st_id (o_envs,_) ap t =
   Hashtbl.find_opt o_envs st_id
   |> Option.map (fun o_env -> 
-      map_ap ap (fun o_typ ->
+      map_ap ~gen_t:fresh_tvar ap (fun o_typ ->
         let (t1,t2) = unfold_own ~t1:t ~t2:o_typ in
         meet_loop t1 t2) (fun s -> SM.find s o_env)
     )
@@ -1200,7 +1200,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     (* silly *)
     let ap = lift_src_ap ap2 in
 
-    let ((ctxt',t1,t2,t2',subst,ap_fv),t2_base) = map_ap_with_bindings ap free_vars (fun (fv,subst) t ->
+    let ((ctxt',t1,t2,t2',subst,ap_fv),t2_base) = map_ap_with_bindings ~gen_t:fresh_tvar ap free_vars (fun (fv,subst) t ->
         (* now unfold the two types to equivalence *)
         (* meet the ownership information (if possible) with the pre type *)
         (* NOTE: no unfolding here because the saved type is derived from the shape of t
@@ -1387,7 +1387,7 @@ and process_call ~e_id ~cont_id ctxt c =
         let (ctxt''',psub) = apply_matrix
             ~pp_constr:(fun path constr ->
               let pre_type =
-                match map_ap path (fun t -> t) (fun _ -> concr_arg_type) with
+                match map_ap ~gen_t:fresh_tvar path (fun t -> t) (fun _ -> concr_arg_type) with
                 | Int r -> with_pred_refl path r
                 | _ -> failwith "I've made a terrible mistake"
               in
