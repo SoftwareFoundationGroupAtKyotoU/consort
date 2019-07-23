@@ -31,6 +31,7 @@ rule read =
   | "()" { UNIT }
   | float { FLOAT (float_of_string @@ Lexing.lexeme lexbuf) }
   | int { let i = int_of_string @@ Lexing.lexeme lexbuf in LabelManager._internal_incr i; INT i }
+  | "ifnull" { IFNULL }
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }

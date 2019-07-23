@@ -47,6 +47,7 @@ type src_ap =
 type raw_exp =
   | EVar of string
   | Cond of string * exp * exp
+  | NCond of string * exp * exp
   | Seq of exp * exp
   | Assign of string * imm_op * exp
   | Let of patt * lhs * exp

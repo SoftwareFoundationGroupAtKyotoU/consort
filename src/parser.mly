@@ -15,7 +15,7 @@
 %token <string> ID
 %token NULL
 // conditionals
-%token IF THEN ELSE
+%token IF THEN ELSE IFNULL
 // bindings
 %token LET IN MKREF EQ
 // BIFs
@@ -77,6 +77,7 @@ let expr :=
 	  }
   | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
+  | IFNULL; lbl = expr_label; ~ = ID; THEN; thenc = expr; ELSE; elsec = expr; <NCond>
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
   | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>

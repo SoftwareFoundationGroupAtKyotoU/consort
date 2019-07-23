@@ -157,14 +157,10 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
           semi;
           pp_expr ~ip ~annot e
         ]
+    | NCond (v,tr,fl) ->
+      pp_cond ~ip ~annot id "ifnull" v tr fl
     | Cond (x,tr,fl) ->
-      pl [
-          indent_from_here;
-          pf "if%a %s then {" po_id id x; newline;
-          pp_expr ~ip ~annot tr; dedent; newline;
-          indent_from_here; ps "} else {"; newline;
-          pp_expr ~ip ~annot fl; dedent; newline; ps "}"
-        ]
+      pp_cond ~ip ~annot id "if" x tr fl
     | Alias(x,y,e) ->
       pl [
           pf "alias%a(%s = %a)" po_id id x (ul pp_ap) y;
@@ -195,6 +191,17 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
   | _ -> (fun ff ->
       annot id ff;
       e_printer ff)
+and pp_cond ~ip:((po_id,_) as ip) ~annot id cond v tr fl =
+  pblock
+    ~nl:false
+    ~op:(pf "%s%a %s then {" cond po_id id v)
+    ~body:(pp_expr ~ip ~annot tr)
+    ~close:(
+      pblock ~nl:true ~op:(ps "} else {")
+        ~body:(pp_expr ~ip ~annot fl)
+        ~close:(ps "}")
+    )
+
 
 and maybe_brace ~ip ~annot ?(all_seq=false) ?pre ((_,e) as tagged_e) : formatter -> unit =
   let need_block = 

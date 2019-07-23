@@ -18,6 +18,7 @@ let get_bindings_for id patt e =
 
 let rec annot_let (id,e) acc =
   match e with
+  | NCond (_,e1,e2)
   | Cond (_,e1,e2)
   | Seq (e1,e2) ->
     annot_let e1 acc
