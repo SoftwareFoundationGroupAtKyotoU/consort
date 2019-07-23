@@ -215,6 +215,11 @@ let rec process_expr save_type ctxt (id,e) =
     let t1 = process_expr save_type ctxt e1 in
     let t2 = process_expr save_type ctxt e2 in
     unify ctxt t1 t2; t1
+  | NCond (v,e1,e2) ->
+    unify_ref v @@ fresh_var ();
+    let t1 = process_expr save_type ctxt e1 in
+    let t2 = process_expr save_type ctxt e2 in
+    unify ctxt t1 t2; t1
   | Seq (e1,e2) ->
     process_expr save_type ctxt e1 |> ignore;
     process_expr save_type ctxt e2

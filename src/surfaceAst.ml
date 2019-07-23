@@ -31,6 +31,7 @@ type exp =
   | Var of string * int
   | Int of int
   | Cond of int * [`Var of string | `BinOp of op * string * op | `Nondet] * exp * exp
+  | NCond of int * string * exp * exp
   | Assign of int * string * lhs
   | Let of int * patt * lhs * exp
   | Alias of int * string * A.src_ap
@@ -69,6 +70,8 @@ let rec simplify_expr ?next count e =
   | Var (s,i) -> (i,A.EVar s)
   | Int i ->
     bind_in count (`OInt i) (fun _ var -> A.EVar var |> tag_fresh)
+  | NCond (i,v,e1,e2) ->
+    A.NCond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
   | Cond (i,`Var v,e1,e2) ->
     A.Cond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
   | Cond (i,`Nondet,e1,e2) ->
