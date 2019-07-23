@@ -26,7 +26,8 @@ let () =
         try
           run_test v_opts intr !expect (dir ^ "/" ^ f_name)
         with
-          Failure s -> failwith @@ Printf.sprintf "Test %s failed with message: %s" f_name s
+        | Failure s -> failwith @@ Printf.sprintf "Test %s failed with message: %s" f_name s
+        | e -> failwith @@ Printf.sprintf "Test %s failed with unknown exception: %s " f_name @@ Printexc.to_string e
       else ()
     ) test_files;
   ) !dir_list;
