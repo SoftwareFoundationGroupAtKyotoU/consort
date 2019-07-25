@@ -43,5 +43,4 @@ val infer :
   save_types:bool ->
   ?o_solve:o_solution ->
   intrinsics:funenv ->
-  type_hints:type_hints ->
-  SimpleTypes.funtyp StringMap.t -> Ast.fn list * Ast.exp -> Result.t
+  SimpleChecker.simple_results -> Ast.fn list * Ast.exp -> Result.t

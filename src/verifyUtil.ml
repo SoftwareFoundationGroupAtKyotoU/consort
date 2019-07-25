@@ -98,12 +98,12 @@ module Options = struct
          seq_solver = !seq_run }))
 end
 
-let infer opts intr type_hints program_types ast =
+let infer opts intr simple_res ast =
   if (not opts.Options.seq_solver) then
-    Inference.infer ~print_pred:opts.debug_pred ~type_hints ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp program_types ast
+    Inference.infer ~print_pred:opts.debug_pred ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp simple_res ast
     |> Option.return
   else
-    let r = Inference.infer ~print_pred:false ~save_types:true ~type_hints ~intrinsics:intr.Intrinsics.op_interp program_types ast in
+    let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
     let module R = Inference.Result in
     match OwnershipSolver.solve_ownership r.R.theta r.R.ovars r.R.ownership with
     | None -> None
@@ -134,9 +134,8 @@ let infer opts intr type_hints program_types ast =
         ~print_pred:opts.debug_pred
         ~save_types:opts.annot_infr
         ~o_solve:(o_gamma_tbl,o_theta)
-        ~type_hints
         ~intrinsics:intr.Intrinsics.op_interp
-        program_types ast
+        simple_res ast
       |> Option.return
 
 let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
@@ -144,7 +143,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
   let ast = AstUtil.parse_file in_name in
   let intr = intrinsic_defn in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let program_types,type_hints,_ = SimpleChecker.typecheck_prog simple_typing ast in
+  let ((program_types,_,_) as simple_res)= SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
     StringMap.iter (fun n a ->
@@ -152,7 +151,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
     ) program_types;
     flush stderr
   end;
-  let r_opt = infer opts intr type_hints program_types ast in
+  let r_opt = infer opts intr simple_res ast in
   match r_opt with
   | None -> false
   | Some r ->

@@ -54,11 +54,11 @@ let ownership_infr debug i_gen file =
   let intr = i_gen () in
   let ast = AstUtil.parse_file file in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let f_types,st_lkp,fl = SimpleChecker.typecheck_prog simple_op ast in
+  let ((_,_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
   print_endline "FOLD LOCATIONS>>>";
-  List.iter (Printf.printf "* %d\n") fl;
+  Std.IntSet.iter (Printf.printf "* %d\n") fl;
   print_endline "<<";
-  let r = Inference.infer ~print_pred:false ~save_types:true ~type_hints:st_lkp ~intrinsics:intr.Intrinsics.op_interp f_types ast in
+  let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
   print_program ~o_map:(fun _ o -> ((),o)) ~o_printer:RefinementTypes.pp_owner r ast;
   let open Inference.Result in
   let open PrettyPrint in
