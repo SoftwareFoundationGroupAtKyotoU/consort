@@ -13,6 +13,7 @@
 %token UNIT
 %token <int> INT
 %token <string> ID
+%token TRUE FALSE
 // conditionals
 %token IF THEN ELSE
 // bindings
@@ -103,6 +104,8 @@ let patt :=
 let op :=
   | ~ = INT; <`OInt>
   | ~ = ID; <`OVar>
+  | TRUE; { `OBool true }
+  | FALSE; { `OBool false }
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
   | LPAREN; o = bin_op; RPAREN; { (o :> op) }
