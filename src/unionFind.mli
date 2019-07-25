@@ -11,11 +11,11 @@ include UF with type key := int and type t := t
 val new_node: t -> int
 
 module Make(K : sig
-      type key
-      val hash : key -> int
-      val compare : key -> key -> int
+      type t
+      val hash : t -> int
+      val equal : t -> t -> bool
     end) : sig
   type t
-  include UF with type key := K.key and type t := t
-  val register : t -> K.key -> unit
+  include UF with type key := K.t and type t := t
+  val register : t -> K.t -> unit
 end

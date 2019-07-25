@@ -9,7 +9,7 @@ end
 module InternalMake(K : sig
       type key
       val hash : key -> int
-      val compare : key -> key -> int
+      val equal : key -> key -> bool
       type state
       val init : state
     end) = struct
@@ -19,12 +19,11 @@ module InternalMake(K : sig
     mutable rank: int
   }
 
-  module KeyHash = Hashtbl.Make(struct
-      type t = K.key
-      let hash = K.hash
-      let equal i j = (K.compare i j) = 0
+  module KeyHash = Hashtbl.Make(
+      struct
+        type t = K.key
+        include K
     end)
-
 
   type t = {
     table: node KeyHash.t;
@@ -74,12 +73,14 @@ module InternalMake(K : sig
 end
 
 module Make(K : sig
-      type key
-      val hash : key -> int
-      val compare : key -> key -> int
+      type t
+      val hash : t -> int
+      val equal : t -> t -> bool
     end) = struct
   include InternalMake(struct
-      include K
+      type key = K.t
+      let hash = K.hash
+      let equal = K.equal
       type state = unit
       let init = ()
     end)
@@ -94,7 +95,7 @@ end
 include InternalMake(struct
     type key = int
     let hash i = i
-    let compare = Pervasives.compare
+    let equal = (=)
     type state = int
     let init = 0
   end)

@@ -14,10 +14,9 @@ type funtyp = {
 
 let rec type_to_string = function
   | `Int -> "int"
-  | `Ref (`Mu _ as t) -> Printf.sprintf "(%s) ref" @@ type_to_string t
   | `Ref t -> Printf.sprintf "%s ref" @@ type_to_string t
   | `Tuple tl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map type_to_string tl
-  | `Mu (v,t) -> Printf.sprintf "%s '%d.%s" Greek.mu v @@ type_to_string t
+  | `Mu (v,t) -> Printf.sprintf "(%s '%d.%s)" Greek.mu v @@ type_to_string t
   | `TVar v -> Printf.sprintf "'%d" v
 
 let fntype_to_string { arg_types; ret_type} =
