@@ -8,10 +8,9 @@ all: stdlib/lin.intr
 
 test: all
 
-
-stdlib/lin.intr: ./genLin.ml
+stdlib/lin.intr stdlib/lin-std.smt: ./genLin.ml
 	dune build ./genLin.exe
-	dune exec ./genLin.exe > stdlib/lin.intr
+	dune exec ./genLin.exe stdlib/lin.intr lin-std.smt
 
 clean:
 	dune clean

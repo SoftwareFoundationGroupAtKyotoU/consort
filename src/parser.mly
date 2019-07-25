@@ -14,6 +14,7 @@
 %token <int> INT
 %token <string> ID
 %token NULL
+%token TRUE FALSE
 // conditionals
 %token IF THEN ELSE IFNULL
 // bindings
@@ -70,7 +71,7 @@ let seq :=
 
 
 let expr :=
-  | UNIT; { Unit }
+  | UNIT; ~ = expr_label; <Unit>
   | ~ = delimited(LBRACE, expr, RBRACE); <>
   | LBRACE; e = expr; SEMI; rest = seq; {
 		list_to_seq e rest
@@ -79,17 +80,12 @@ let expr :=
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
   | IFNULL; lbl = expr_label; ~ = ID; THEN; thenc = expr; ELSE; elsec = expr; <NCond>
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
-  | call = fn_call; <Call>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
   | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
   | GAMMA; lbl = expr_label; LBRACE; ~ = ty_env; RBRACE; <EAnnot>
-  | ~ = var_ref; <>
-  | ~ = INT; <Int>
+  | lbl = pre_label; ~ = lhs; <Value>
 
 let ty_env == separated_list(SEMI, separated_pair(ID, COLON, typ))
-
-let var_ref :=
-  | ~ = ID; ~ = expr_label; <Var>
 
 let ap :=
   | ~ = ID; <Ast.AVar>
@@ -105,6 +101,8 @@ let patt :=
 let op :=
   | ~ = INT; <`OInt>
   | ~ = ID; <`OVar>
+  | TRUE; { `OBool true }
+  | FALSE; { `OBool false }
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
   | LPAREN; o = bin_op; RPAREN; { (o :> op) }

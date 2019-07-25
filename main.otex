@@ -891,41 +891,41 @@ The followings are key lemmas:
   The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
   $[[ |-D ]]$, and for that we must find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
   the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
-  In order to show $[[ forall ]] [[ a in H ]].[[F(a)]] \leq 1$. We give that $[[a in H]]$ and $F_0$ represents the $[[F(a)]]$ before transition,
-  $F_1$ represents the $[[F(a)]]$ after transition, and to prove $F_0=F_1$ in each case.
+  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall ]] [[ a in H ]].[[F(a)]] \leq 1$.
+  We give that $[[a in H]]$ and $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.
+  We know that $F_0\leq 1$ since the configuration is well typed before transition, and to prove $F_0=F_1$ in each case.
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, En-1 : Es, x>]], [[<H, R, En-1 : Es, x> --> D <H, R, Es, En-1[x]> ]] \\
-    [[ Th | G [ x : Tn + T'] | B |- x : Tn => G[ x <- T' ] ]] \\
+    [[ Th | G [ x : Tn + T'] | ll |- x : Tn => G[ x <- T' ] ]] \\
     [[ Gn = G [ x <- T' ] ]]
     }
-    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ and $[[En[e] = x]] [[/\]] [[En]] = [][[/\]] [[e = x]],$
+    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ and $[[E[e] = x]] [[/\]] [[E]] = [][[/\]] [[e = x]],$
     we can obtain\newline
-    $[[ Th | [] : Tn => Gn | B |-e E : Tn => Gn ]]$\newline
+    $[[ Th | [] : Tn => Gn | ll |-e E : Tn => Gn ]]$\newline
     $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$.\newline
     Also using $\cref{lem:stack-well-typed}$, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]].$\newline
     By $\cref{lem:stack_var}$ and $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[En-1 [x] ]]$
-    into a context $[[E']]$ and expression $[[e']]$ will be well-typed with respect to the types expected by the stack $[[Es]]$.\newline
+    into a context $[[E']]$ and expression $[[e']]$ will be well-typed with respect to the types expected by the hole type of $E_{n-2}$.\newline
     It remains to show that $[[Cons(H,R,Gn=G[x : Tn + T'])]]$,
     which follows immediately from $[[Cons(H,R,G)]]$ (note that $[[Gn=G]]$).
   \end{rneqncase}
   \begin{rneqncase}{R-Deref}{
     [[ |- D <H, R, Es, E[let x = *y in e]>]]\\
     [[<H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]\\
-    [[ B |- T => G' \ x ]] \andalso [[ H(a) = v ]] \andalso [[ R(y) = a ]]\\
-    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
+    [[ ll |- T => G' \ x ]] \andalso [[ H(a) = v ]] \andalso [[ R(y) = a ]]\\
+    [[ Th | G[y: (T1 + T2) ref r] | ll |- let x = *y in e : T => G' \ x ]]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Deref}$, we can obtain $[[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | B |- e : T => G'\ x ]]$.
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Deref}$, we can obtain $[[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | ll |- e : T => G'\ x ]]$.
     We give $[[G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]$ and $[[ R'= R { x' |-> v } ]]$.\newline
-    We want to show $[[ Th | G'' | B |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |-> v }, G'')]]$.
-    The first one is easy to obtain using the  $\cref{lem:substitution}.$
+    We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |-> v }, G'')]]$.
+    The first is easy to obtain using $\cref{lem:substitution}.$
     It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.\newline
-    We know $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
-    The consistency of the refinements heap $H$ and $R'$ with $[[T1]]$ and $[[T2]]$ follow:\newline
-    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[H(R(y))]] \in \mathbb{Z} [[/\]] [[ [R;H(R(y))/x](ph1/\ph2) ]]$.
-    To show that the output environment $[[G'']]$ is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land_{y} y=x$.
+    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[H(R(y))]] \in \mathbb{Z} [[/\]] [[ [R;H(R(y))/x](ph1/\ph2) ]]$.
+    To show that the output environment is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land y=x'$.
     It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-Deref}$ we know $R'(x')=H'(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
-    Thus, $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land_{y} y=x$ are trivially satisfied.\newline
+    From the definition of $\rn{R-Deref}$ we have $R'(x')=H'(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
+    We then have $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land y=x$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
@@ -934,25 +934,25 @@ The followings are key lemmas:
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
     By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
     We know that $x'$ is an integer, so $[[own(H',R'(x'),G''(x'))]]$ should be $\emptyset$, and $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]$,
-    so we have $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]+ [[own(H',R'(x'),G''(x'))]]$, we can finally prove $F_0=F_1$.
+    so we have $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]+ [[own(H',R'(x'),G''(x'))]]$, and conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Let}{
     [[ |- D <H, R, Es, E[let x = y in e]> ]]\\
     [[<H, R, Es, E[let x = y in e]> --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]\\
     [[ x' fresh in R ]]\\
-    [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
+    [[ Th | G[y: T1 + T2] | ll |- let x = y in e : T => G' \ x]]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Let}$, we can obtain $[[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']]$ and
-    $[[B |- T => G' \ x]]$. We give $[[G'' = G [ y <- T1 /\ y y = T1 x'  ], x' : (T2 /\ x' x' = T2 y)]]$ and $[[ R'= R { x' |->  R(y) } ]]$.\newline
-    We want to show $[[ Th | G'' | B |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |->  R(y) }, G'')]]$.
-    The first one is easy to obtain using the $\cref{lem:substitution}.$
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Let}$, we can obtain $[[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | ll |- e : T => G']]$ and
+    $[[ll |- T => G' \ x]]$. We give $[[G'' = G [ y <- T1 /\ y y = T1 x'  ], x' : (T2 /\ x' x' = T2 y)]]$ and $[[ R'= R { x' |->  R(y) } ]]$.\newline
+    We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |->  R(y) }, G'')]]$.
+    The first is easy to obtain using $\cref{lem:substitution}.$
     It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. We proceed by case analysis on the shapes of $[[T1 + T2]]$.\newline
-    Suppose $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2}]]$ where $[[T1 = {y:int | ph1}]]$ and $[[T2 = {x:int | ph2}]]$.
-    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
-    To show that the output environment $[[G'']]$ is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]\land_{x'} x'=_{\tau_2}y$ and $[[ [R';R'(y)/y]ph1 ]]\land_{y} y=_{\tau_1}x'$.
+    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2}]]$ where $[[T1 = {y:int | ph1}]]$ and $[[T2 = {x:int | ph2}]]$.
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
+    To show that the output environment is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]\land y=x'$.
     It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
     From the definition of $\rn{R-Let}$ we know $R(y)=R'(x')=R'(y)$. Thus $y$ trivially satisfies that the refinement that $y = x'$, and $x'$ satisfies the refinement that $x'=y$.
-    Thus, that $[[ [R'; R'(x')/x]ph2 ]]\land_{x'} x'=_{\tau_2}y$ and $[[ [R';R'(y)/y]ph1 ]]\land_{y} y=_{\tau_1}x'$ are trivially satisfied.\newline
+    Thus, $[[ [R'; R'(x')/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]\land y=x'$ are satisfied.\newline
     Next, suppose $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ref r]]$ where $[[T1 = {y:int | ph1}ref r1]]$ and $[[T2 = {x:int | ph2}ref r2]]$.
     The consistency of the refinements heap $H$ and $R'$ with $[[T1]]$ and $[[T2]]$ follow from a similar argument to the integer case above.
     We must also show that the ownership invariant is preserved.\newline
@@ -962,29 +962,28 @@ The followings are key lemmas:
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
     By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
-    $[[own(H,R'(x'),T2 ref r_2)]] + [[own(H,R'(y),T1 ref r_1)]] = [[own(H,R(y),(T1+T2)ref r)]]$,
-    which follows immediately from the conditions $[[T1 ref r1 + T2 ref r2 = (T1+T2)ref r]]$, $R(y)=R'(x')=R'(y)$ and $r=r_1+r_2$,
-    we can finally prove $F_0=F_1$.
+    That $[[own(H,R'(x'),T2 ref r_2)]] + [[own(H,R'(y),T1 ref r_1)]] = [[own(H,R(y),(T1+T2)ref r)]]$ follows immediately
+    from the conditions $[[T1 ref r1 + T2 ref r2 = (T1+T2)ref r]]$, $R(y)=R'(x')=R'(y)$ and $r=r_1+r_2$.
+    We therefore conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-LetInt}{
     [[ |- D <H, R, Es, E[let x = nn in e]>]]\\
     [[ <H, R, Es, E[let x = nn in e]> --> D <H, R { x' |-> nn }, Es, E[ [x'/x]e]> ]]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-LetInt}$, we can obtain $[[ Th | G, x:{x : int | x = nn } | B |- e : T => G']]$.
-    We give that $[[ G''= G ]],x'=\{x'\COL \TINT\mid x' = n\}\}$.\newline
-    We want to show that $[[ Th | G'' | B |- [x'/x]e : T => G' \ x]]$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$.
-    The first one is easy to obtain using the $\cref{lem:substitution}.$
-    Also, that $[[ Cons(H, R { x' |-> nn }, G'') ]]$ is clear.
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-LetInt}$, we can obtain $[[ Th | G, x:{x : int | x = nn } | ll |- e : T => G']]$.
+    We give that $[[ G''= G ]],x':\{x'\COL \TINT\mid x' = n\}\}$.\newline
+    We want to show that $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x]]$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$.
+    The first one is easy to obtain using the $\cref{lem:substitution}$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$ is trivial.
   \end{rneqncase}
   \begin{rneqncase}{R-IfTrue}{
     [[ |- D <H, R, Es, E[ifz x then e1 else e2]>]]\\
     [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]\\
-    [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
+    [[ Th | G[x : {y:int|ph}] | ll |- ifz y then e1 else e2 : T => G' ]]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-If}$, we can obtain $[[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]]$.
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-If}$, we can obtain $[[ Th | G[x <- {y:int | ph /\ y = 0 }] | ll |- e1 : T => G' ]]$.
     We take $[[ G'' = G[x <- {y:int | ph /\ y = 0 }] ]]$, and want to show that $[[ Cons(H, R, G'') ]]$.\newline
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]\produces x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land [R;R(x)/y]\varphi$, here $\tenv(x)=\{y\COL\TINT\mid\varphi\}$.
-    We know that the refinement predicates $\varphi$ still holds in the output environment $[[G'']]$.
+    We know that $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]\produces x\in \textit{dom}(R)\land R(x)\in \mathbb{Z}\land [R;R(x)/y]\varphi$, here $\tenv(x)=\{y\COL\TINT\mid\varphi\}$.
+    The refinement predicates $\varphi$ still holds in the output environment, since nothing changes in the heap and the register after transition.
     Also from precondition of $\rn{R-IfTrue}$, we have $R(x)=0$, thus $y$ satisfies the refinement that $y=0$.
     Thus $[[ [R;R(x)/y]ph ]]\land y=0$ is trivially satisfied.
   \end{rneqncase}
@@ -994,45 +993,39 @@ The followings are key lemmas:
   \begin{rneqncase}{R-MkRef}{
     [[ |- D <H, R, Es, E[let x = mkref y in e]>]]\\
     [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]\\
-    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
+    [[ Th | G[y : T1 + T2] | ll |- let x = mkref y in e : T => G' \ x ]]
     }
-    Using the Inversion on the typing rule on $\rn{T-MkRef}$, we can obtain $[[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | B |- e : T => G']] \land
-    [[ B |- T => G' \ x ]]$. We give $[[ G'' = G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 ]]$.\newline
+    Using the Inversion on the typing rule on $\rn{T-MkRef}$, we can obtain $[[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | ll |- e : T => G']] \land
+    [[ ll |- T => G' \ x ]]$. We give $[[ G'' = G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 ]]$.\newline
     By the Inversion on the transition rule $\rn{R-MkRef}$, we can obtain $a\notin \textit{dom}(H)$.\newline
-    We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 | B |- [x'/x]e : T => G'\ x ]]$ and $\bf{Cons}$ $(H'= H \{ a \mapsto R(y) \},R'= R\{ x' \mapsto a \},\tenv'')$.
-    The first one is easy to obtain using the $\cref{lem:substitution}.$\newline
+    We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 | ll |- [x'/x]e : T => G'\ x ]]$ and $\bf{Cons}$ $(H'= H \{ a \mapsto R(y) \},R'= R\{ x' \mapsto a \},\tenv'')$.
+    The first is easy to obtain using $\cref{lem:substitution}.$\newline
     It remains to show $[[Cons(H',R',G'')]]$.
-    We know $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
-    The consistency of the refinements heap $H'$ and $R'$ with $[[T1]]$ and $[[T2]]$ follow:\newline
-    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
-    To show that the output environment $[[G'']]$ is consistent, it suffices to show that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land_{x'} x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$.
+    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
+    We then know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
+    To show that the output environment is consistent, it suffices to show that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$.
     It is immediate that for any value $v$ such that $[[ [R; v/y](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
     From the definition of $\rn{R-MkRef}$ we know $R(y)=H'(R'(x'))=R'(y)$. Thus $x'$ satisfies the refinement that $x'=y$.
-    Thus, that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land_{x'} x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$ are trivially satisfied.\newline
+    Thus, that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. We have:\newline
     $F_1 = \sum_{z\in\textit{dom}(\tenv'')}[[own(H',R'(z'),G''(z'))]] = \sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]] + \{a'\mapsto 1\} = F_0 + \{a'\mapsto 1\}$,
     with $[[a' not in H]]$.\newline
     We want to show that $[[forall]][[a in H']].F_1(a) \leq 1$.\newline
-    Suppose $a\neq a'$, that is $[[a in H]]$, we have $F_1(a)=F_0(a)\leq 1$ by $[[Cons(H,R,G)]]$;
-    suppose $a=a'$, we have $F_1(a)=1$ only if $a' \notin \textit{dom}(F_0)$, where $F_0=\sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]]$, which is immediate from $[[a' not in H]]$ by
+    Suppose $a\neq a'$, that is $[[a in H]]$, we have $F_1(a)=F_0(a)\leq 1$ by $[[Cons(H,R,G)]].$
+    Next, suppose $a=a'$; we have $F_1(a)=1$ only if $a' \notin \textit{dom}(F_0)$, where $F_0=\sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]]$. This is immediate from $[[a' not in H]]$ by
     the definition of $[[own(H,v,T)]]$.
   \end{rneqncase}
   \begin{rneqncase}{R-Assign}{
     [[ |- D <H, R, Es, E[y:=x;e]>]]\\
     [[ <H, R, Es, E[y:=x;e]> --> D <H { a <- R(x)}, R, Es, E[e]> ]]\andalso a = R(y)\\
-    [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
+    [[ Th | G[x: T1 + T2][y : T' ref 1] | ll |- y := x; e : T => G']]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | B |- e : T => G']]$.
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | ll |- e : T => G']]$.
     We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
-    We know $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {x:int | ph1} ]]$ and $[[T2 = {y:int | ph2} ]]$.\newline
-    The consistency of the refinements heap $H'$ and $R'$ with $[[T1]]$ and $[[T2]]$ follow:\newline
-    From $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[x in R ]] \land [[R(x)]] \in \mathbb{Z} [[/\]] [[ [R;R(x)/x](ph1/\ph2) ]]$.
-    To show that the output environment $[[G'']]$ is consistent, it suffices to show that $[[ [R'; H'(R'(y))/y]ph2 ]]\land_{y} y=_{\tau_1}x$ and $[[ [R';R'(x)/x]ph1 ]]$.
-    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / x]ph1 ]]$ and $[[ [R'; v / y]ph2 ]]$.
-    From the definition of $\rn{R-Assign}$ we know $R(x)=H'(R'(y))=R'(x)$. Thus $y$ satisfies the refinement that $y=_{\tau_1}x$.
-    Thus, $[[ [R'; H'(R'(y))/y]ph2 ]]\land_{y} y=_{\tau_1}x$ and $[[ [R';R'(x)/x]ph1 ]]$ are trivially satisfied.\newline
+    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {x:int | ph1} ]]$ and $[[T2 = {y:int | ph2} ]]$.\newline
+    By reasoning similar to the $\rn{R-Mkref}$ case, $[[ [R'; H'(R'(y))/y]ph2 ]]\land y=x$ and $[[ [R';R'(x)/x]ph1 ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$, we focus on prove that $F_0=F_1$, defines as below:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x))$\newline
@@ -1040,36 +1033,34 @@ The followings are key lemmas:
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y,x\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R'(z),\tenv''(z))$\newline
     Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{a\mapsto 1\}+\mathbf{own}(H, R(x), \tau_1+\tau_2)$,
-    and $x$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ should be $\emptyset$,
-    we can finally prove $F_0=F_1$.
+    as $x$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ is $\emptyset$.
+    We also have $[[own(H,R'(x'),T1)]] + [[own(H,R'(y),T2 ref 1)]] =  \{a\mapsto 1\}$.
+    We therefore conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Alias}{
     [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
     [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]\\
-    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G']]
+    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | ll |- alias(x = y); e : T => G']]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Alias}$, we can obtain $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]$ and $[[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]]$.
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Alias}$, we can obtain $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | ll |- e : T => G']]$ and $[[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]]$.
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$.\newline
     It remains to show $[[Cons(H, R, G'')]]$.\newline
-    We will analyze 2 cases here. Other cases are trivially symmetrically shown from the addition rules.\newline
-    In case for \rn{[Tadd-Ref1]}, we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^{r_2},  r_1>0, r_2>0$.
+    We will analyze 2 cases here. Other cases are immediate or follow from symmetric reasoning to what follows.\newline
+    Suppose both additions are derived with \rn{[Tadd-Ref1]}; we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^{r_2},  r_1>0, r_2>0$.
     After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
-    We also have $\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}+\{y\COL\TINT\mid\phi_2\}\TREF^{r_2}\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, using \rn{[Tadd-Ref1]},
-    it turns to $\{x\COL\TINT\mid\phi_1\land\phi_2\}\TREF^{r_1+r_2}\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
-    $\phi_1\land\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equality.\newline
+    We then have $\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}+\{y\COL\TINT\mid\phi_2\}\TREF^{r_2}\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, i.e., $\{x\COL\TINT\mid\phi_1\land\phi_2\}\TREF^{r_1+r_2}\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
+    $\phi_1\land\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equivalence.\newline
     With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]\produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/n]\phi_1$, we know that the refinement predicates $\phi_1$ in the previous environment holds for $R$ and also $H(R(x))$,
-    similarly the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$, we write as $\phi_1(R;H(R(x)))$ and $\phi_2(R;H(R(y)))$ hold.
+    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]\produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/x]\phi_1$, we know that the refinement predicates $\phi_1$ in the previous environment holds for $R$ and also $H(R(x))$,
+    similarly the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$; we write this as $\phi_1(R;H(R(x)))$ and $\phi_2(R;H(R(y)))$.
     From above, we obtain $\phi_1(R;H(R(x)))\land \phi_2(R;H(R(y))) \produces \phi_1(R;H(R(x)))\land \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
     which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.\newline
-    In case for \rn{[Tadd-Ref2]}, we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^0, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^r, r>0$.
+    Suppose one addition is derived with \rn{[Tadd-Ref2]}; we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^0, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^r, r>0$.
     After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
-    We also have $\{x\COL\TINT\mid\phi_1\}\TREF^0+\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, using \rn{[Tadd-Ref2]},
-    it turns to $\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
-    $\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equality.\newline
+    We then have $\{x\COL\TINT\mid\phi_1\}\TREF^0+\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, i.e., $\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
+    $\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equivalence.\newline
     With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=y\in \textit{dom}(R)\land H(R(y))\in \mathbb{Z}\land [R;H(R(y))/n]\phi_2$, we know that the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$,
-    we write as $\phi_2(R;H(R(y)))$ holds.
+    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=y\in \textit{dom}(R)\land H(R(y))\in \mathbb{Z}\land [R;H(R(y))/y]\phi_2$, i.e., $\phi_2(R;H(R(y)))$.
     From above, we obtain $\phi_2(R;H(R(y)))\produces \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
     which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$. Here $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.
@@ -1083,22 +1074,23 @@ The followings are key lemmas:
   \begin{rneqncase}{R-Assert}{
     [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ G |= ph ]]\\
     [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]\\
-    [[ Th | G | B |- assert(ph); e : T => G']]
+    [[ Th | G | ll |- assert(ph); e : T => G']]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$.\newline
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | ll |- e : T => G' ]]$.\newline
     $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv'=\tenv, H'=H, R'=R$.)\newline
   \end{rneqncase}
   \begin{rneqncase}{R-AssertFail}{
     [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ R !|= ph ]]\\
     [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]\\
-    [[ Th | G | B |- assert(ph); e : T => G']]
+    [[ Th | G | ll |- assert(ph); e : T => G']]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | B |- e : T => G' ]]$ and $[[ G |= ph ]]$.\newline
-    Here $[[ G |= ph ]]$ can be written as $\models \sem{[[G]]}\produces \varphi$, which means under any valuation or variables that satisfy the refinements in $\tenv$, $\varphi$ will be true.
-    Also if $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H , R,G)]] \produces [[SAT(H,R,G)]]$, which will give
-    that every concrete value in the register should satisfy the refinement predicates $\varphi$ in the type environment.
-    We write $[[R |= ph]]$ to mean that for any model $[[M]]$ in our underlying theory such that $[[ forall x in R.M(x) = R(x) ]]$, $[[ M |= ph ]]$ holds.
-    But in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is obvious contradictory with what we have been
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | ll |- e : T => G' ]]$ and $[[ G |= ph ]]$.\newline
+    $[[ G |= ph ]]$ is defined as $\models \sem{[[G]]}\produces \varphi$, which means under any model $[[M]]$ that satisfy the refinements in $\tenv$, $\varphi$ will be true, that is $[[ M |= ph ]]$.
+    By inversion on $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H, R,G)]] \produces [[SAT(H,R,G)]]$, which will give
+    that every concrete value in the register must satisfy the refinement predicates in the type environment.
+    Thus, $\varphi$ must be satisfied under any model $[[ M ]]$ such that $[[x in R]]. [[ M(x) = R(x) ]]$.
+    Thus $[[R |= ph]]$ must be true.
+    But in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is contradictory with what we have been
     derived, which shows the case is impossible.
   \end{rneqncase}
   \begin{rneqncase}{R-Call}{
@@ -1107,27 +1099,34 @@ The followings are key lemmas:
     [[f |-> (x1, .., xn) e in D]]
     }
     $[[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]$\newline
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, we can obtain
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, we can obtain \newline
     $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$ \newline
     $[[csub = [l:ll/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
-    $[[ B |- T' => G' \ x]]$\newline
-    $[[ Th | Gn+1, x : Tn+1 | ll |- e' : T' => G' \ x]]$\newline
-    By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain
+    $[[ ll |- T' => G' \ x]]$\newline
+    $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | ll |- e' : T' => G' \ x]]$\newline
+    By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain \newline
     $[[ Th | [] : T' => G' \ x | ll |-e E : Tn => Gn ]].$\newline
     We want to show that: \begin{align*}
-    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : Tn+1 => Gn+1 ]] \\
-    & [[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
+    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : csub vsub T => G[yi <- csub vsub Ti'] ]] \\
+    & [[ Th | [] : csub vsub T => G[yi <- csub vsub Ti'] | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
     \end{align*}
     To prove these, we can look at $\cref{lem:callfunc}$.\newline
-    By $\cref{lem:stack_var}$ and from $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
-    and expression $e'$ will be well-typed with respect to the types expected by the stack $\overrightarrow{E}$.\newline
+    We need to prove that $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$  where $[[ E'n = E[let x = [] l in e'] ]]$ and $[[ E'i = Ei ]] (0 \leq i < n)$,
+    which can be divided into proving
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$. The first follows by inversion on $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$.\newline
+    We define $\tenv_{n+1} = [[ G[yi <- csub vsub Ti'] ]]$ and $\tau_{n+1} = [[ csub vsub T ]]$.
+    It remains to show $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$.
+    As $E'_n$ is $[[ E[let x = [] l in e'] ]]$.
+    From above we obtain $[[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]$.\newline
+    Finally, by $\cref{lem:stack_var}$ and $[[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : Tn+1 => Gn+1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
+    and expression $e'$ will be well-typed as $\tau_{n+1}$ and $\tenv_{n+1}$, which are the return type and environment expected by the hole of return context $E'_n$.\newline
     $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $\tenv''=\tenv, H'=H, R'=R$).
   \end{rneqncase}
 \end{proof}
 
 \begin{lemma}
   \label{lem:f0f1}
-  Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\ \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
+  Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\setminus \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
 \end{lemma}
 
 
