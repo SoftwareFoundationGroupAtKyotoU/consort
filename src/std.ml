@@ -19,10 +19,13 @@ module Option = struct
   let return x = Some x
 end
 
-module IntMap = Map.Make(struct
-    type t = int
-    let compare n1 n2 = n1 - n2
-  end)
+module Int = struct
+  type t = int
+  let compare n1 n2 = n1 - n2
+end
+
+module IntMap = Map.Make(Int)
+module IntSet = Set.Make(Int)
 
 module StringSet = Set.Make(String)
 
