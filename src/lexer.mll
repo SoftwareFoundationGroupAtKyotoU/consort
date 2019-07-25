@@ -19,7 +19,7 @@ let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
 let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
 let non_comment = [^ '/' '*' '\n']+
 let comment_delim = [ '/' '*' ]
-let operators = ['+' '-' '*' '/' '%' '<' '>' '=' '!']+
+let operators = ['+' '-' '*' '/' '%' '<' '>' '=' '!' '&' '^' '|' '#' '@']+
 let not_newline = [^'\n']+
 
 rule read =
@@ -43,6 +43,8 @@ rule read =
   | "mkref" { MKREF }
   | "alias" { ALIAS }
   | "assert" { ASSERT }
+  | "true" { TRUE }
+  | "false" { FALSE }
   | "$gamma" { GAMMA }
   | '(' { LPAREN }
   | ')' { RPAREN }

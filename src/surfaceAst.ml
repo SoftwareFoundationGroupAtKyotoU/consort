@@ -6,6 +6,7 @@ type op = [
   | `ODeref of string
   | `Nondet
   | `BinOp of op * string * op
+  | `OBool of bool
 ] 
 type call = string * int * (op list)
 
@@ -134,6 +135,8 @@ and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `Tuple tl -> lift_to_tuple ?ctxt count tl (fun c' tlist ->
                      rest c' @@ A.Tuple tlist
                    )
+  | `OBool f -> k @@ A.Const (if f then 0 else 1)
+
 and lift_to_rinit ?ctxt count (r: lhs) rest =
   let k = rest count in
   match r with
@@ -144,6 +147,7 @@ and lift_to_rinit ?ctxt count (r: lhs) rest =
     bind_in ?ctxt count l (fun c' var ->
         rest c' @@ A.RVar var
       )
+
 and lift_to_tuple ?ctxt count l rest =
   let rec t_loop c acc kl =
     match kl with

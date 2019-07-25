@@ -1,7 +1,7 @@
 open Intrinsics
 open Sexplib.Std
 
-let binop,relop =
+let binop,relop,alias_op =
   let arg1 = "x1" in
   let arg2 = "x2" in
   let out = "out" in
@@ -65,7 +65,8 @@ let binop,relop =
     in
     ty::ty_acc,def::def_acc
   in
-  binop',relop'
+  binop',relop',fun sym def_name (ty_acc,def_acc) ->
+    (gen_ty sym def_name)::ty_acc,def_acc
 
 let nrel id = (id,id)
 
