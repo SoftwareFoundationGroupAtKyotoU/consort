@@ -3,7 +3,7 @@ module type UF = sig
   type key
   val find: t -> key -> key
   val union: t -> key -> key -> unit
-  val mk: (parent:key -> child:key -> unit) -> t
+  val mk: unit -> t
 end
 
 type t

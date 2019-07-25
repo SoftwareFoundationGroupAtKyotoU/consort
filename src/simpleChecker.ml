@@ -317,11 +317,7 @@ let constrain_fn save_type uf fenv resolv ({ name; body; _ } as fn) =
 
 let typecheck_prog ?save_types intr_types (fns,body) =
   let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
-  let uf = UnionFind.mk (fun ~parent ~child ->
-      if Hashtbl.mem resolv child then
-        Hashtbl.add resolv parent (Hashtbl.find resolv child)
-      else ()
-    ) in
+  let uf = UnionFind.mk () in
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
     let lift_const t =
