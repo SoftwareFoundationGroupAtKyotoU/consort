@@ -512,8 +512,9 @@ let rec lift_to_refinement ~pred path fv t ctxt =
           | Int _ ->
             let (ctxt',p) = pred inner_fv inner_path ctxt in
             (ctxt',Int p)
-          | Ref (r,o) ->
-            walk_ref do_sub inner_path inner_fv r o ctxt
+          | Ref (r,_) ->
+            let (ctxt',o') = alloc_ovar ctxt in
+            walk_ref do_sub inner_path inner_fv r o' ctxt'
           | Mu _ -> failwith "pass"
           | Tuple (b,tl) ->
             let b' = List.map (fun (old_sym,p) ->
@@ -611,7 +612,8 @@ let dump_env ?(msg) tev =
   (match msg with
   | Some m -> print_endline m;
   | None -> ());
-  sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline
+  sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline;
+  flush stdout
 [@@ocaml.warning "-32"] 
 
 let rec strengthen_eq ~strengthen_type ~target =
@@ -916,7 +918,7 @@ let rec strengthen_type ?root t patt ctxt =
         (c_acc', t'::tl_acc)
       ) ind_tl pl (ctxt,[]) in
     (ctxt', Tuple (b,tl'))
-  | (TVar _ | Mu _),_ -> failwith "Nonsensical strengthening"
+  | (TVar _ | Mu _),_ -> (ctxt,t)
   | _ -> assert false
 
 let rec strengthen_let patt rhs ctxt =
@@ -939,7 +941,7 @@ let rec strengthen_let patt rhs ctxt =
   | _,Deref v ->
     let (t,o) = lkp_ref v in
     let (ctxt',t') = strengthen_type t patt ctxt in
-   update_type v (Ref (t',o)) ctxt'
+    update_type v (Ref (t',o)) ctxt'
   | (PVar v),Mkref (RVar v') ->
     let (t,o) = lkp_ref v in
     let t' = strengthen_eq ~strengthen_type:t ~target:(`AVar v') in
@@ -1060,13 +1062,20 @@ let meet_out i callee ctxt t =
   let (_,o_th) = ctxt.o_info in
   SM.find_opt callee o_th
   |> Option.map (fun { output_types; _ } ->
-      (*      let (t1,t2) = unfold_own ~t1:t ~t2:(List.nth output_types i) in
-         meet_loop t1 t2*)
       unsafe_meet t @@ List.nth output_types i
     )
   |> Option.value ~default:t
 
-
+let rec unfold_for_patt patt ty =
+  let ty' =
+    match ty with
+    | Mu (a,i,t) -> unfold ~gen:fresh_tvar a i t
+    | _ -> ty
+  in
+  match patt,ty' with
+  | PTuple pl, Tuple (b,tl) ->
+    Tuple (b,List.map2 unfold_for_patt pl tl)
+  | _ -> ty'
 
 let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
   let lkp v = SM.find v ctxt.gamma in
@@ -1086,6 +1095,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         let (t2',ret') = RecTypes.unfold ~t1:t2 ~t2:t in      
         let dg = denote_type (`AVar "<ret>") [] (denote_gamma ctxt''.gamma) @@ RecTypes.unwrap t2' in
         add_type_implication dg (c_type t2') (c_type ret') ctxt''
+        |> constrain_owner t2' ret'
       | None -> ctxt''
     end
     |> remove_var ~loc:(LLet e_id) remove_scope
@@ -1136,11 +1146,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
             (gamma_predicate_vars ctxt.gamma) @@ Hashtbl.find ctxt.type_hints e_id
 
       | Deref ptr ->
-        let (target_type_pre,o) = lkp_ref ptr in
-        let target_type = match target_type_pre with
-          | Mu (a,i,t) -> unfold ~gen:fresh_tvar a i t
-          | t -> t
-        in
+        let (target_type,o) = lkp_ref ptr in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
         ctxt'
         |> update_type ptr @@ (ref_of t1 o)
@@ -1180,12 +1186,11 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
           |> with_type @@ Ref (t2,OConst 1.0)
                 
     end in
-    let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
+    let unfolded_type = unfold_for_patt patt assign_type in
+    let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt unfolded_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
-    process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp
-    (*|> remove_var ~loc:(LLet e_id) bound_vars*)
-      
+    process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp    
   | Assert (relation,cont) ->
     cont
     |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation)
