@@ -10,7 +10,7 @@ test: all
 
 stdlib/lin.intr: ./genLin.ml
 	dune build ./genLin.exe
-	dune exec ./genLin.exe > stdlib/lin.intr
+	dune exec ./genLin.exe stdlib/lin.intr lin-std.smt
 
 clean:
 	dune clean
