@@ -35,7 +35,7 @@ let rec annot_let (id,e) acc =
 let typecheck i_gen file =
   let intr = i_gen () in
   let (fn,prog) = AstUtil.parse_file file in
-  let acc =
+  let let_bindings =
     List.fold_left
       (fun acc { body; _ } ->
         annot_let body acc
@@ -43,13 +43,12 @@ let typecheck i_gen file =
   in
   let print_types = Hashtbl.create 10 in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let f_types = SimpleChecker.typecheck_prog ~save_types:(fun lkp ->
-      List.iter (fun (tgt_id,src_id,vars) ->
+  let f_types,lkp,_ = SimpleChecker.typecheck_prog simple_op (fn,prog) in
+  List.iter (fun (tgt_id,src_id,vars) ->
         lkp src_id
         |> Option.map @@ StringMap.filter (fun k _ -> List.mem k vars)
         |> Option.iter @@ Hashtbl.add print_types tgt_id
-      ) acc
-    ) simple_op (fn,prog) in
+  ) let_bindings;
   let open PrettyPrint in
   AstPrinter.pretty_print_program ~with_labels:false ~annot_fn:(fun f_name ff ->
     pl [

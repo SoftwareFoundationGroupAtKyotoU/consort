@@ -144,9 +144,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
   let ast = AstUtil.parse_file in_name in
   let intr = intrinsic_defn in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let (hint_gen, save_types) = Inference.collect_type_hints ast in
-  let program_types = SimpleChecker.typecheck_prog ~save_types simple_typing ast in
-  let type_hints = hint_gen () in
+  let program_types,type_hints,_ = SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
     StringMap.iter (fun n a ->

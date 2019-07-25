@@ -11,6 +11,10 @@ module Option = struct
     | Some o -> o
     | None -> default
 
+  let unsafe_get o ~msg = match o with
+    | Some v -> v
+    | None -> failwith msg
+
   (* I understand monads *)
   let bind f = function
     | Some x -> f x

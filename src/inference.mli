@@ -24,7 +24,7 @@ type tcon = {
 type ownership_type = (unit, float) RefinementTypes._typ
 type o_theta = ownership_type RefinementTypes._funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
-type type_hints = (int,SimpleTypes.r_typ) Hashtbl.t
+type type_hints = int -> (SimpleTypes.r_typ StringMap.t) option
 
 module Result :
   sig
@@ -45,5 +45,3 @@ val infer :
   intrinsics:funenv ->
   type_hints:type_hints ->
   SimpleTypes.funtyp StringMap.t -> Ast.fn list * Ast.exp -> Result.t
-
-val collect_type_hints : Ast.prog -> (unit -> type_hints) * ((int -> (SimpleTypes.r_typ StringMap.t) option) -> unit)
