@@ -45,7 +45,7 @@ type tenv = typ SM.t
 type ownership_type = (unit, float) RefinementTypes._typ
 type o_theta = ownership_type RefinementTypes._funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
-type type_hints = (int,SimpleTypes.r_typ) Hashtbl.t
+type type_hints = int -> (SimpleTypes.r_typ StringMap.t) option
 
 type oante =
   | ORel of ownership * [ `Eq | `Ge | `Gt ] * float
@@ -1136,15 +1136,22 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         
       | Call c -> process_call ~e_id ~cont_id ctxt c
                     
-      | Null ->
-        ctxt
-        |> lift_to_refinement
+      | Null -> begin
+        match patt with
+        | PNone -> (ctxt,Int Top (* what *))
+        | PTuple _ -> assert false
+        | PVar v ->
+          ctxt
+          |> lift_to_refinement
             ~pred:(fun fv p ctxt ->
               let (ctxt',p) = alloc_pred ~loc:(LLet e_id) fv p ctxt in
               (ctxt',Pred (p,fv)))
-            (`AVar "null")
-            (gamma_predicate_vars ctxt.gamma) @@ Hashtbl.find ctxt.type_hints e_id
-
+              (`AVar "null")
+              (gamma_predicate_vars ctxt.gamma) @@
+              (ctxt.type_hints cont_id
+               |> Option.bind @@ StringMap.find_opt v
+               |> Option.unsafe_get ~msg:"Could not infer type of null")
+        end
       | Deref ptr ->
         let (target_type,o) = lkp_ref ptr in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
@@ -1536,39 +1543,3 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics ~type_hints st (fns,main)
     arity = pred_arity;
     ty_envs 
   }
-
-
-let collect_null_loc (fn,prog) =
-  let open Ast in
-  let rec loop (i,e) acc =
-    match e with
-    | EVar _ -> acc
-    | NCond (_,e1,e2)
-    | Cond (_,e1,e2)
-    | Seq (e1, e2) ->
-      loop e1 acc
-      |> loop e2
-    | Let (PVar v,Null,(i',e')) ->
-      loop (i',e') @@ (i,v,i')::acc
-    | EAnnot (_,e)
-    | Assert (_,e)
-    | Assign (_,_,e)
-    | Alias (_,_,e)
-    | Let (_,_,e) -> loop e acc
-  in
-  List.fold_left (fun acc { body; _ } ->
-    loop body acc
-  ) [] fn
-  |> loop prog
-
-let collect_type_hints ast =
-  let null_locs = collect_null_loc ast in
-  let type_hints = Hashtbl.create 10 in
-  let ty_cb lkp =
-      List.iter (fun (tgt,v,nxt) ->
-        lkp nxt
-        |> Option.bind @@ StringMap.find_opt v
-        |> Option.iter @@ Hashtbl.add type_hints tgt
-    ) null_locs
-  in
-  (fun () -> type_hints), ty_cb
