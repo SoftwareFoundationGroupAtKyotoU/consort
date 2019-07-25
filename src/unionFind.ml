@@ -3,76 +3,21 @@ module type UF = sig
   type key
   val find: t -> key -> key
   val union: t -> key -> key -> unit
-  val mk: (parent:key -> child:key -> unit) -> t
+  val mk: unit -> t
 end
 
-type node = {
-  id: int;
-  mutable parent: node;
-  mutable rank: int;
-}
-
-type t = {
-  table: (int, node) Hashtbl.t;
-  mutable next: int;
-  merge_hook : parent:int -> child:int -> unit
-}
-
-let make_and_add uf =
-  let rec node = { id = uf.next; parent = node; rank = 1 } in
-  Hashtbl.add uf.table node.id node;
-  uf.next <- uf.next + 1;
-  node.id
-
-let mk merge_hook =
-  let uf = { table = Hashtbl.create 10; next = 0; merge_hook } in
-  (*List.iter (fun r ->
-     Some r |> (make_and_add uf) |> ignore
-     ) roots;*)
-  uf
-
-let rec compress node =
-  if node.parent == node then
-    node
-  else
-    let found = compress node.parent in
-    node.parent <- found;
-    found
-
-let find_internal uf id1 =
-  let node = Hashtbl.find uf.table id1 in
-  (compress node)
-
-let find uf id1 =
-  (find_internal uf id1).id
-
-let union uf id1 id2 =
-  let n1 = find_internal uf id1 in
-  let n2 = find_internal uf id2 in
-  if n1 == n2 then
-    ()
-  else begin
-    let (new_root,child) = begin
-      if n2.rank < n1.rank then
-        (n2.parent <- n1; (n1,n2))
-      else if n1.rank < n2.rank then
-        (n1.parent <- n2; (n2,n1))
-      else
-        (let (new_root,child) = (n1,n2) in
-        child.parent <- new_root;
-        new_root.rank <- new_root.rank + 1;
-        (new_root,child))
-    end in
-    uf.merge_hook ~parent:new_root.id ~child:child.id
-  end
-
-let new_node uf = make_and_add uf
-
-module Make(K : sig
+module InternalMake(K : sig
       type key
       val hash : key -> int
       val compare : key -> key -> int
+      type state
+      val init : state
     end) = struct
+  type node = {
+    id : K.key;
+    mutable parent: node;
+    mutable rank: int
+  }
 
   module KeyHash = Hashtbl.Make(struct
       type t = K.key
@@ -80,39 +25,81 @@ module Make(K : sig
       let equal i j = (K.compare i j) = 0
     end)
 
-  type _t = {
-    uf: t;
-    rev_mapping: (int,K.key) Hashtbl.t;
-    key_mapping: int KeyHash.t
+
+  type t = {
+    table: node KeyHash.t;
+    mutable state: K.state;
   }
 
-  let mk cb = 
-    let rev_mapping = Hashtbl.create 10 in
-    let key_mapping = KeyHash.create 10 in
+  let mk () =
     {
-      uf = mk (fun ~parent ~child ->
-          cb
-            ~parent:(Hashtbl.find rev_mapping parent)
-            ~child:(Hashtbl.find rev_mapping child));
-      rev_mapping; key_mapping
+      table = KeyHash.create 10;
+      state = K.init
     }
 
-  let find { uf; key_mapping; rev_mapping } k =
-    let k_id = KeyHash.find key_mapping k in
-    Hashtbl.find rev_mapping (find uf k_id)
+  let make_and_add uf k =
+    let rec node = { id = k; parent = node; rank = 1 } in
+    KeyHash.add uf.table k node
 
-  let union { uf; key_mapping; _ } k1 k2 =
-    union uf
-      (KeyHash.find key_mapping k1)
-      (KeyHash.find key_mapping k2)
+  let rec compress node =
+    if node.parent == node then
+      node
+    else
+      let found = compress node.parent in
+      node.parent <- found;
+      found
 
-  let register { uf; key_mapping; rev_mapping } k =
-    if KeyHash.mem key_mapping k then
+  let find_internal uf id1 =
+    let node = KeyHash.find uf.table id1 in
+    (compress node)
+
+  let find uf id1 =
+    (find_internal uf id1).id
+
+  let union uf id1 id2 =
+    let n1 = find_internal uf id1 in
+    let n2 = find_internal uf id2 in
+    if n1 == n2 then
+      ()
+    else begin
+      if n2.rank < n1.rank then
+        n2.parent <- n1
+      else if n1.rank < n2.rank then
+        n1.parent <- n2
+      else
+        let (new_root,child) = (n1,n2) in
+        child.parent <- new_root;
+        new_root.rank <- new_root.rank + 1
+    end
+end
+
+module Make(K : sig
+      type key
+      val hash : key -> int
+      val compare : key -> key -> int
+    end) = struct
+  include InternalMake(struct
+      include K
+      type state = unit
+      let init = ()
+    end)
+
+  let register uf k =
+    if KeyHash.mem uf.table k then
       ()
     else
-      let id = new_node uf in
-      KeyHash.add key_mapping k id;
-      Hashtbl.add rev_mapping id k
-
-  type t = _t
+      make_and_add uf k
 end
+
+include InternalMake(struct
+    type key = int
+    let hash i = i
+    let compare = Pervasives.compare
+    type state = int
+    let init = 0
+  end)
+
+let new_node uf =
+  let id = uf.state in
+  make_and_add uf id;
+  uf.state <- id + 1; id
