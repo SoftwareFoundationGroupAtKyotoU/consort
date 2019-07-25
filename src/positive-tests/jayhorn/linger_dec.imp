@@ -1,0 +1,30 @@
+linger_dec(p) {
+  p := -1;
+  if _ then {
+    0
+  } else {
+    let old_b = _ in
+    let d = mkref old_b in
+	if 0 < old_b then {
+	  let res = mkref _ in {
+      if _ then {
+       res := linger_dec(d)
+      } else {
+       res := linger_dec(p)
+      };
+	  let t = *d <= old_b in
+	  let res_val = *res in
+	  let ret = t + res_val in ret
+	  }
+    } else { 0 }
+  }
+}
+
+{
+  let p  = mkref _ in {
+  $gamma {
+    p: ~ > 0 int ref 1.0
+  };
+  let ret = linger_dec(p) in assert(ret = 0)
+  }
+}
