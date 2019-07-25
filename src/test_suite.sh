@@ -7,7 +7,7 @@ function r_test {
 }
 
 declare -a POS_DIRS
-POS_DIRS=(pre-relation challenge-problem)
+POS_DIRS=(pre-relation challenge-problem jayhorn)
 
 (
 	cd $THIS_DIR;

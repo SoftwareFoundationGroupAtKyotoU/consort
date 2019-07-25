@@ -1,7 +1,7 @@
 linger_dec(p) {
   p := -1;
   if _ then {
-    0
+    true
   } else {
     let old_b = _ in
     let d = mkref old_b in
@@ -12,11 +12,9 @@ linger_dec(p) {
       } else {
        res := linger_dec(p)
       };
-	  let t = *d <= old_b in
-	  let res_val = *res in
-	  let ret = t + res_val in ret
+	  *res && (*d <= old_b)
 	  }
-    } else { 0 }
+    } else { true }
   }
 }
 
