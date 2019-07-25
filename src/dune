@@ -39,7 +39,7 @@
 (executable
  (name genLin)
  (preprocess (pps ppx_sexp_conv))
- (libraries consort)
+ (libraries lang)
  (modules genLin))
 
 (executable

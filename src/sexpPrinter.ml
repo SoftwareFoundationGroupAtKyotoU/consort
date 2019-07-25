@@ -22,6 +22,9 @@ let pg = print_generic
 let plift s ff = ff @@ Sexplib.Sexp.Atom s
 let pl : string -> (Sexplib.Sexp.t -> 'a) -> 'a = plift
 
+let ll l ff = iter_print l (fun k ->
+    ff @@ Sexplib.Sexp.List k
+  )
 
 let print_string_list l ff =
   iter_print (List.map pl l) (fun pl -> ff @@ Sexplib.Sexp.List pl)
