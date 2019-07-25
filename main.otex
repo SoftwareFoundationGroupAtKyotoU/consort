@@ -891,8 +891,9 @@ The followings are key lemmas:
   The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
   $[[ |-D ]]$, and for that we must find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
   the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
-  In order to show $[[ forall ]] [[ a in H ]].[[F(a)]] \leq 1$, we give that $[[a in H]]$ and $F_0$ represents the $[[F(a)]]$ before transition,
-  $F_1$ represents the $[[F(a)]]$ after transition. We know that $F_0\leq 1$ since the configuration is well typed before transition, and to prove $F_0=F_1$ in each case.
+  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall ]] [[ a in H ]].[[F(a)]] \leq 1$.
+  We give that $[[a in H]]$ and $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.
+  We know that $F_0\leq 1$ since the configuration is well typed before transition, and to prove $F_0=F_1$ in each case.
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, En-1 : Es, x>]], [[<H, R, En-1 : Es, x> --> D <H, R, Es, En-1[x]> ]] \\
     [[ Th | G [ x : Tn + T'] | ll |- x : Tn => G[ x <- T' ] ]] \\
@@ -1024,11 +1025,7 @@ The followings are key lemmas:
     We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
     By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {x:int | ph1} ]]$ and $[[T2 = {y:int | ph2} ]]$.\newline
-    We then know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[x in R ]] \land [[R(x)]] \in \mathbb{Z} [[/\]] [[ [R;R(x)/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; H'(R'(y))/y]ph2 ]]\land y=x$ and $[[ [R';R'(x)/x]ph1 ]]$.
-    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / x]ph1 ]]$ and $[[ [R'; v / y]ph2 ]]$.
-    From the definition of $\rn{R-Assign}$ we know $R(x)=H'(R'(y))=R'(x)$. Thus $y$ satisfies the refinement that $y=x$.
-    Thus, $[[ [R'; H'(R'(y))/y]ph2 ]]\land y=x$ and $[[ [R';R'(x)/x]ph1 ]]$ are satisfied.\newline
+    By reasoning similar to the $\rn{R-Mkref}$ case, $[[ [R'; H'(R'(y))/y]ph2 ]]\land y=x$ and $[[ [R';R'(x)/x]ph1 ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$, we focus on prove that $F_0=F_1$, defines as below:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x))$\newline
@@ -1105,7 +1102,7 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, we can obtain \newline
     $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$ \newline
     $[[csub = [l:ll/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]]$ \newline
-    $[[ B |- T' => G' \ x]]$\newline
+    $[[ ll |- T' => G' \ x]]$\newline
     $[[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | ll |- e' : T' => G' \ x]]$\newline
     By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain \newline
     $[[ Th | [] : T' => G' \ x | ll |-e E : Tn => Gn ]].$\newline
