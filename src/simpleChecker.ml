@@ -129,7 +129,12 @@ let dump_sexp p t =
 let rec process_expr save_type ctxt (id,e) =
   save_type id ctxt.tyenv;
   let res t = resolve ctxt t in
-  let lkp n = StringMap.find n ctxt.tyenv |> res in
+  let lkp n =
+    try
+      StringMap.find n ctxt.tyenv |> res
+    with
+      Not_found -> failwith @@ Printf.sprintf "Undefined variable %s at expression %d" n id
+  in
   let unify_var n typ = unify ctxt (lkp n) typ in
   let unify_imm c = match c with
     | IInt _ -> ();
