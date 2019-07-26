@@ -156,9 +156,12 @@ let with_pred_refl root r =
   | _ -> And (r,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp root })
 
 let with_refl ap t =
-  walk_with_bindings (fun root _ r () ->
-    ((), with_pred_refl root r)
-  ) ap ([],[]) t () |> snd
+  map_with_bindings (fun ~under_mu root _ r->
+    if under_mu then
+      r
+    else
+      with_pred_refl root r
+  ) ap ([],[]) t
 
 let denote_gamma gamma =
   SM.fold (fun v t acc ->
@@ -391,22 +394,22 @@ let map_tuple f b tl =
 let map_ref f t o =
   Ref (f t, o)
 
-let rec lift_to_refinement ~pred path fv t ctxt =
+let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
   match t with
   | `Int ->
-    let (ctxt',r) = pred fv path ctxt in
+    let (ctxt',r) = pred ~under_mu fv path ctxt in
     (ctxt',Int r)
   | `Ref t' ->
     let (ctxt',ov) = alloc_ovar ctxt in
-    walk_ref (lift_to_refinement ~pred) path fv t' ov ctxt'
+    walk_ref (lift_to_refinement ~under_mu ~pred) path fv t' ov ctxt'
   | `Tuple stl ->
     let i_stl = List.mapi (fun i st -> (i,st)) stl in
     let b = List.filter (fun (_,t) -> t = `Int) i_stl
       |> List.map (fun (i,_) -> (fresh_tvar (),SProj i))
     in
-    walk_tuple b (lift_to_refinement ~pred) path fv stl ctxt
+    walk_tuple b (lift_to_refinement ~under_mu ~pred) path fv stl ctxt
   | `Mu (id,t) ->
-    let (ctxt',t') = lift_to_refinement ~pred path fv t ctxt in
+    let (ctxt',t') = lift_to_refinement ~under_mu ~pred path fv t ctxt in
     let rec gen_sub acc t = match t with
       | TVar _
       | Int _ -> acc
@@ -426,7 +429,7 @@ let rec lift_to_refinement ~pred path fv t ctxt =
           match orig_t with
           | TVar _ -> ctxt,orig_t
           | Int _ ->
-            let (ctxt',p) = pred inner_fv inner_path ctxt in
+            let (ctxt',p) = pred ~under_mu:true inner_fv inner_path ctxt in
             (ctxt',Int p)
           | Ref (r,_) ->
             let (ctxt',o') = alloc_ovar ctxt in
@@ -457,7 +460,7 @@ let lift_src_ap = function
   | AProj (v,i) -> `AProj (`AVar v,i)
   | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
 
-let remove_var_from_pred ~loc ~curr_te ~oracle path (sym_vars,sym_val) r context =
+let remove_var_from_pred ~loc ~curr_te ~oracle ~under_mu:_ path (sym_vars,sym_val) r context =
   let curr_comp = compile_refinement path sym_val r in
   if oracle curr_comp path then
     let (ctxt',new_pred) = make_fresh_pred ~loc ~pred_vars:(sym_vars,path,sym_val) context in
@@ -491,7 +494,7 @@ let remove_var ~loc to_remove ctxt =
   let curr_te = denote_gamma ctxt.gamma in
   let in_scope = SM.bindings ctxt.gamma |> List.filter (fun (k,_) -> not (SS.mem k to_remove)) |> predicate_vars in
   let ref_vars = SS.fold (fun var acc ->
-      walk_with_bindings (fun root (_,sym_vals) r a ->
+      walk_with_bindings (fun ~under_mu:_ root (_,sym_vals) r a ->
         let a' =
           compile_refinement root sym_vals r
           |> get_ref_aps
@@ -675,23 +678,23 @@ let generalize_pred root out_type combined_pred =
 let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[]) ~out_type ctxt =
   let g = denote_gamma ctxt.gamma in
   let pp = match pp_constr with
-    | None -> (fun _ p -> p)
+    | None -> (fun ~under_mu:_ _ p -> p)
     | Some f -> f in
-  let rec inner_loop (c1,t1) (c2,t2) (c_out,out_t) ctxt =
+  let rec inner_loop ~under_mu (c1,t1) (c2,t2) (c_out,out_t) ctxt =
     match t1,t2,out_t with
     | Tuple (b1,tl1), Tuple (b2,tl2), Tuple (b_out,tl_out) ->
       let st1 = step_tup c1 b1 in
       let st2 = step_tup c2 b2 in
       let st3 = step_tup c_out b_out in
       fold_left3i (fun c ind t1' t2' t_out' ->
-        inner_loop
+        inner_loop ~under_mu
           (st1 ind t1')
           (st2 ind t2')
           (st3 ind t_out')
           c
       ) ctxt tl1 tl2 tl_out
     | Ref (t1',o1), Ref (t2',o2), Ref (t_out',o_out) ->
-      inner_loop
+      inner_loop ~under_mu
         (step_ref c1 o1 t1')
         (step_ref c2 o2 t2')
         (step_ref c_out o_out t_out')
@@ -699,7 +702,7 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
     | TVar _,TVar _,TVar _ ->
       ctxt
     | Mu (_,_,t1'), Mu (_,_,t2'), Mu (_,_,out_t') ->
-      inner_loop (c1,t1') (c2,t2') (c_out,out_t') ctxt
+      inner_loop ~under_mu:true (c1,t1') (c2,t2') (c_out,out_t') ctxt
     | Int r1,Int r2,Int out_r ->
       let gen_constraint =
         (force_cons) ||
@@ -710,7 +713,7 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
       let c_r2 = ctxt_compile_ref c2 r2 in
       if gen_constraint then
         let mk_constraint oante ante =
-          pp c1.path @@ {
+          pp ~under_mu c1.path @@ {
             env = g;
             ante = ante;
             conseq = c_out_r;
@@ -743,7 +746,7 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
       o_stack = []
     },t)
   in
-  inner_loop
+  inner_loop ~under_mu:false
     (mk_ctxt [] t1)
     (mk_ctxt t2_bind t2)
     (mk_ctxt out_bind out_type)
@@ -1003,7 +1006,7 @@ let constrain_fold  ~unfolded:(unfolded_t,unfolded_v) ~folded:(folded_t,_) ctxt 
 let get_type_scheme ~loc id v ctxt =
   ctxt
   |> 
-    lift_to_refinement ~pred:(fun fv p ctxt ->
+    lift_to_refinement ~pred:(fun ~under_mu:_ fv p ctxt ->
       let (ctxt',p) = alloc_pred ~loc fv p ctxt in
       (ctxt',Pred (p,fv))
     ) (`AVar v) (gamma_predicate_vars ctxt.gamma) @@
@@ -1169,7 +1172,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
        Great question! Short answer: I can't design APIs.
        Long answer: in the simple checker it is much easier to treat
        dereferences in alias expressions as a read, which then gets
-       as an unfold (instead of a write, which is an unfold). So we allow
+       flagged as an unfold (instead of a write, which is an fold). So we allow
        this strangeness until I inevitably mix this up *)
     let is_fold = IntSet.mem e_id ctxt.iso.unfold_locs in
     (* now make a fresh type for the location referred to by ap *)
@@ -1219,7 +1222,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       | `ADeref ap
       | `AProj (ap,_) -> up_ap ap t2_base' ctxt
     in
-    let (ctxt'app,(psub1,psub2)) =
+    let (ctxt'app,(psub2,psub1)) =
       ctxt''
       |> (app_matrix ~force_cons:is_fold ~out_root:ap ~out_bind:subst ~out_type:t2_constr'
         >> app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
@@ -1301,7 +1304,7 @@ and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 
 and make_fresh_type ~target_var ~loc ~fv ?(bind=[]) t ctxt =
   walk_with_bindings ~o_map:(fun c _ ->
     alloc_ovar c
-  ) (fun p (sym_vars,sym_vals) _ context ->
+  ) (fun ~under_mu:_ p (sym_vars,sym_vals) _ context ->
     make_fresh_pred ~loc ~pred_vars:(sym_vars,p,sym_vals) context
   ) target_var (fv,bind) t ctxt
     
@@ -1311,32 +1314,33 @@ and process_call ~e_id ~cont_id ctxt c =
   in
   let p_vars = predicate_vars @@ List.map (fun (_,k,v) -> (k,v)) arg_bindings in
   
-  let inst_symb path (fv,sym_vals) f_refinement =
+  let inst_symb ~add_post ~under_mu path (fv_raw,sym_vals) f_refinement =
+    let fv = if add_post && (not under_mu) then (`AVar "!pre")::fv_raw else fv_raw in
      match f_refinement with
      | InfPred p -> 
        CtxtPred (c.label,p,filter_fv path sym_vals fv)
      | True -> Top
      | BuiltInPred f -> NamedPred (f,fv)
   in
-  let inst_concr target_var (fv,subst) f_refinement =
-    let symb_out = inst_symb target_var (fv,subst) f_refinement in
+  let inst_concr ~add_post ~under_mu target_var (fv,subst) f_refinement =
+    let symb_out = inst_symb ~add_post ~under_mu target_var (fv,subst) f_refinement in
     compile_refinement target_var subst symb_out
   in
   let input_env = ctxt.gamma |> denote_gamma in
   let callee_type = SM.find c.callee ctxt.theta in
-  let inst_fn_type ?(pv=p_vars) f = List.map (fun (a,t) ->
-      map_with_bindings f (`AVar a) (pv,[]) t
+  let inst_fn_type f = List.map (fun (a,t) ->
+      map_with_bindings f (`AVar a) (p_vars,[]) t
     )
   in
   
   let concr_in_t = List.combine c.arg_names callee_type.arg_types
-    |> inst_fn_type inst_concr
+    |> inst_fn_type @@ inst_concr ~add_post:false
     |> List.mapi (fun i t ->
         meet_arg i c.callee ctxt t
       )
   in
   let symb_out_t = List.combine c.arg_names callee_type.output_types
-    |> inst_fn_type ~pv:((`AVar "!pre")::p_vars) inst_symb in
+    |> inst_fn_type @@ inst_symb ~add_post:true in
   
   let in_out_types = List.combine concr_in_t symb_out_t in
   (* TODO: consistently use this function *)
@@ -1361,10 +1365,17 @@ and process_call ~e_id ~cont_id ctxt c =
         let[@ocaml.warning "-26"]  concr_arg_type = concretize_arg_t arg_t in
         
         let (ctxt''',psub) = apply_matrix
-            ~pp_constr:(fun _path constr ->
-              let pre_type = Top in
-              {constr with
-                env = ((`AVar "!pre"),pre_type)::constr.env }
+            ~pp_constr:(fun ~under_mu path constr  ->
+              if under_mu then
+                constr
+              else
+                let pre_type =
+                  match map_ap path (fun t -> t) (fun _ -> concr_arg_type) with
+                  | Int r -> with_pred_refl path r
+                  | _ -> failwith "I've made a terrible mistake"
+                in
+                {constr with
+                  env = ((`AVar "!pre"),pre_type)::constr.env }
             )
             ~t1:resid
             ~t2:out_owner
@@ -1385,7 +1396,7 @@ and process_call ~e_id ~cont_id ctxt c =
         constrain_in arg_t acc
     ) ctxt arg_bindings in_out_types
   in
-  let result = map_with_bindings inst_symb (`AVar "dummy") (p_vars,[]) callee_type.result_type in
+  let result = map_with_bindings (inst_symb ~add_post:false) (`AVar "dummy") (p_vars,[]) callee_type.result_type in
   (updated_ctxt, result)
 
 let process_function_bind ctxt fdef =
@@ -1394,9 +1405,9 @@ let process_function_bind ctxt fdef =
   let typ_template = List.combine arg_names f_typ.arg_types in
   let fv = predicate_vars typ_template in
   let inst_symb ~post n t =
-    map_with_bindings (fun path (fv,sym_vals) p ->
+    map_with_bindings (fun ~under_mu path (fv,sym_vals) p ->
       let base_fv = filter_fv path sym_vals fv in
-      let pred_args = if post then
+      let pred_args = if post && (not under_mu) then
           ((P.pre path) :> refine_ap)::base_fv
         else
           base_fv
@@ -1409,9 +1420,13 @@ let process_function_bind ctxt fdef =
   let init_env = List.fold_left (fun g (n,t) ->
       let inst = inst_symb ~post:false n t in
       let (g',inst') =
-        walk_with_path (fun path p g ->
-          let pre_var = P.to_z3_ident path in
-          (SM.add pre_var (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (path :> refine_ap) }))
+        walk_with_path (fun ~under_mu path p g ->
+          if under_mu then
+            (g,p)
+          else
+            let pre_var = P.to_z3_ident path in
+            (SM.add pre_var (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (path :> refine_ap) }))
+            
         ) (`APre n) inst g
       in
       SM.add n inst' g'
@@ -1442,8 +1457,8 @@ let print_pred_details t =
 let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,main) =
   let init_fun_type ctxt f_def =
     let lift_simple_type ~post ~loc =
-      lift_to_refinement ~pred:(fun fv path ctxt ->
-        let (ctxt',i) = alloc_pred ~add_post_var:post ~loc fv path ctxt in
+      lift_to_refinement ~pred:(fun ~under_mu fv path ctxt ->
+        let (ctxt',i) = alloc_pred ~add_post_var:(post && (not under_mu)) ~loc fv path ctxt in
         (ctxt',InfPred i))
     in
     let gen_arg_preds ~post ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->

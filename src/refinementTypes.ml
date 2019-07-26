@@ -240,17 +240,17 @@ let update_binding path tup_b (fv_ap,sym_vals) =
   let sym_vals' = sym_vals @ b_vals in
   (fv_ap',sym_vals')
 
-let rec walk_with_bindings_own ~o_map f root bindings t a =
+let rec walk_with_bindings_own ?(under_mu=false) ~o_map f root bindings t a =
   match t with
   | TVar v -> (a,TVar v)
   | Mu (ar,v,t') ->
-    let (a',t'') = walk_with_bindings_own ~o_map f root bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~under_mu:true ~o_map f root bindings t' a in
     (a', Mu (ar,v,t''))
   | Int r ->
-    let (a',r') = f root bindings r a in
+    let (a',r') = f ~under_mu root bindings r a in
     (a',Int r')
   | Ref (t',o) ->
-    let (a',t'') = walk_with_bindings_own ~o_map f (`ADeref root) bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~under_mu ~o_map f (`ADeref root) bindings t' a in
     let (a'',o') = o_map a' o in
     (a'',Ref (t'',o'))
   | Tuple (b,tl) ->
@@ -263,7 +263,7 @@ let rec walk_with_bindings_own ~o_map f root bindings t a =
       match l with
       | [] -> (a_accum,[])
       | (nm,t)::tl ->
-        let (acc',t') = walk_with_bindings_own ~o_map f nm bindings' t a_accum in
+        let (acc',t') = walk_with_bindings_own ~under_mu ~o_map f nm bindings' t a_accum in
         let (acc'',tl') = loop acc' tl in
         (acc'',t'::tl')
     in
@@ -274,23 +274,23 @@ let walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
   walk_with_bindings_own ~o_map f root bindings t a
 
 let walk_with_path ?o_map f root =
-  walk_with_bindings ?o_map (fun p _ r a' ->
-    f p r a'
+  walk_with_bindings ?o_map (fun ~under_mu p _ r a' ->
+    f ~under_mu p r a'
   ) root ([],[])
 
 let map_with_bindings ?o_map f root bindings t =
-  walk_with_bindings ?o_map (fun p b r () ->
-    ((), f p b r)
+  walk_with_bindings ?o_map (fun ~under_mu p b r () ->
+    ((), f ~under_mu p b r)
   ) root bindings t () |> snd
 
 let fold_with_bindings f root bindings t a =
-  walk_with_bindings (fun p b r a' ->
-    (f p b r a',r)
+  walk_with_bindings (fun ~under_mu p b r a' ->
+    (f ~under_mu p b r a',r)
   ) root bindings t a |> fst
 
 let map_with_path f root t =
-  map_with_bindings (fun p _ r ->
-    f p r) root ([],[]) t
+  map_with_bindings (fun ~under_mu p _ r ->
+    f ~under_mu p r) root ([],[]) t
 
 let rec update_nth l i v =
   match l with
