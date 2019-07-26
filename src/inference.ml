@@ -993,13 +993,12 @@ let rec unfold_once = function
   | Mu (a,i,t) -> unfold ~gen:fresh_tvar a i t
   | TVar _ -> assert false
 
-let constrain_fold  ~folded:(folded_t,folded_var) ~unfolded:(unfolded_t,unfolded_v) ctxt =
+let constrain_fold  ~unfolded:(unfolded_t,unfolded_v) ~folded:(folded_t,_) ctxt =
   let folded_unfold = unfold_once folded_t in
-  (* FIXME: awful hack *)
-  let folded_c = compile_type folded_unfold @@ folded_var ^ "->*" in
+  let folded_c = compile_type_path folded_unfold (`AVar unfolded_v) in
   ctxt
-  |> add_type_implication (denote_gamma ctxt.gamma) folded_c @@ compile_type unfolded_t unfolded_v
-  |> constrain_owner folded_unfold unfolded_t
+  |> add_type_implication (denote_gamma ctxt.gamma) (compile_type unfolded_t unfolded_v) folded_c
+  |> constrain_owner unfolded_t folded_unfold
 
 let get_type_scheme ~loc id v ctxt =
   ctxt
@@ -1052,7 +1051,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let (ctxt'',t2_assign) =
       if IntSet.mem e_id ctxt.iso.fold_locs then
         let ctxt_f,t2_fresh = make_fresh_type ~target_var:(`ADeref (`AVar lhs)) ~fv:(gamma_predicate_vars ctxt.gamma) ~loc:(LFold e_id) orig ctxt' in
-        constrain_fold ~folded:(t2_fresh,lhs) ~unfolded:(t2,rhs) ctxt_f
+        constrain_fold ~folded:(t2_fresh,`ADeref (`AVar lhs)) ~unfolded:(t2,rhs) ctxt_f
         |> with_type t2_fresh
       else
         (ctxt',t2)
@@ -1074,13 +1073,13 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
 
   | Let (PVar v,Mkref (RVar v_ref),((cont_id,_) as exp)) when IntSet.mem e_id ctxt.iso.fold_locs ->
     (* FOLD, EVERYBODY FOLD *)
-    let ctxt',fresh_type = get_type_scheme ~loc:(LLet e_id) cont_id v ctxt in
+    let ctxt',fresh_type = get_type_scheme ~loc:(LFold e_id) cont_id v ctxt in
     let (fresh_cont,o) = unsafe_split_ref fresh_type in
     let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(`AVar v_ref) in
     let (ctxt'',(t1,t2)) = split_type ctxt' @@ lkp v_ref in
     let ctxt''' =
       ctxt''
-      |> constrain_fold ~folded:(fresh_cont,v) ~unfolded:(t2,v_ref)
+      |> constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref)
       |> update_type v_ref t1
       |> bind_var v @@ ref_of fresh_strengthened o
       |> add_owner_con [Write o]
@@ -1359,15 +1358,11 @@ and process_call ~e_id ~cont_id ctxt c =
         (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
         let (ctxt'',fresh_type_) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars resid ctxt' in
         let fresh_type_own = meet_ownership cont_id ctxt''.o_info ap fresh_type_ in
-        let concr_arg_type = concretize_arg_t arg_t in
+        let[@ocaml.warning "-26"]  concr_arg_type = concretize_arg_t arg_t in
         
         let (ctxt''',psub) = apply_matrix
-            ~pp_constr:(fun path constr ->
-              let pre_type =
-                match map_ap path (fun t -> t) (fun _ -> concr_arg_type) with
-                | Int r -> with_pred_refl path r
-                | _ -> failwith "I've made a terrible mistake"
-              in
+            ~pp_constr:(fun _path constr ->
+              let pre_type = Top in
               {constr with
                 env = ((`AVar "!pre"),pre_type)::constr.env }
             )

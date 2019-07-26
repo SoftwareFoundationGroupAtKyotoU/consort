@@ -208,7 +208,7 @@ let compile_bindings blist root =
     | SProj i -> (k,`AProj (root,i))
   ) blist
 
-let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap, Paths.concr_ap) refinement,'b) _typ =
+let compile_type_path t1 ap =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)
@@ -222,7 +222,10 @@ let compile_type t1 root : ((Paths.concr_ap list * Paths.concr_ap, Paths.concr_a
     | TVar v  -> TVar v
     | Mu (a,v,t) -> Mu (a,v, compile_loop t root bindings)
   in
-  compile_loop t1 (`AVar root) []
+  compile_loop t1 ap []
+
+let compile_type t1 root =
+  compile_type_path t1 @@ `AVar root
 
 let subst_of_binding root = List.map (fun (i,p) ->
     match p with
