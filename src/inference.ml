@@ -968,7 +968,7 @@ let meet_loop t_ref t_own =
 let meet_ownership st_id (o_envs,_) ap t =
   Hashtbl.find_opt o_envs st_id
   |> Option.map (fun o_env -> 
-      map_ap ~gen_t:fresh_tvar ap (fun o_typ ->
+      map_ap ap (fun o_typ ->
         meet_loop t o_typ) (fun s -> SM.find s o_env)
     )
   |> Option.value ~default:t
@@ -1158,62 +1158,76 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     cont
     |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation)
 
-  | Alias (v1,ap2,((next_id,_) as cont)) ->
+  | Alias (v1,src_ap,((next_id,_) as cont)) ->
     let loc = LAlias e_id in
     (* get the variable type *)
-    let t1_folded = lkp v1 |> meet_ownership e_id ctxt.o_info @@ (`AVar v1) in
+    let t1 = lkp v1 |> meet_ownership e_id ctxt.o_info @@ (`AVar v1) in
+    (* silly *)
+    let ap = lift_src_ap src_ap in
     (* compute the free vars *)
     let free_vars = predicate_vars @@ SM.bindings ctxt.gamma in
-
-    (* silly *)
-    let ap = lift_src_ap ap2 in
-
-    let ((ctxt',t1,t2,t2',subst,ap_fv),t2_base) = map_ap_with_bindings ~gen_t:fresh_tvar ap free_vars (fun (fv,subst) t ->
-        (* now unfold the two types to equivalence *)
-        (* meet the ownership information (if possible) with the pre type *)
-        (* NOTE: no unfolding here because the saved type is derived from the shape of t
-         before unfolding: the two shapes MUST match *)
-        (* HOT TAKE: WE SHOULD NEVER UNFOLD WHEN MEETING?!?!?! *)
-        let t2_pre_own = meet_ownership e_id ctxt.o_info ap t in
-        let (t1'unfold,t2'unfold) = (t1_folded,t2_pre_own) in
-        (* make a fresh type *)
-        let (c_fresh,t2_fresh) = make_fresh_type ~target_var:ap ~fv ~loc ~bind:subst t2'unfold ctxt in
-        (* meet the fresh type (if possible) with ownership information *)
-        (* NOTE: As above, there will be _NO_ unfolding here, because the shape of the saved
-           type is determined by the unfolding above, so we are guaranteed that
-           the shapes are equivalent *)
-        let t2_fresh_own = meet_ownership next_id ctxt.o_info ap t2_fresh in
-        (c_fresh,t1'unfold,t2'unfold,t2_fresh_own,subst,fv),t2_fresh_own
-      ) lkp in
+    (* Why are we checking unfold_locs here?
+       Great question! Short answer: I can't design APIs.
+       Long answer: in the simple checker it is much easier to treat
+       dereferences in alias expressions as a read, which then gets
+       as an unfold (instead of a write, which is an unfold). So we allow
+       this strangeness until I inevitably mix this up *)
+    let is_fold = IntSet.mem e_id ctxt.iso.unfold_locs in
+    (* now make a fresh type for the location referred to by ap *)
+    (* return back the context, substitution, free vars, old type (o met), and new type (o met) *)
+    let (ctxt',subst,ap_fv,t2_sub,t2_sub'),t2' = map_ap_with_bindings ap free_vars (fun (fv,subst) t ->
+        (* make the fresh type *)
+        let (c_fresh,t') = make_fresh_type ~loc ~target_var:ap ~fv ~bind:subst t ctxt in
+        (* pre alias ownership *)
+        let t2_sub = meet_ownership e_id ctxt.o_info ap t in
+        (* post alias ownership *)
+        let t2_sub' = meet_ownership next_id ctxt.o_info ap t' in
+        (c_fresh,subst,fv,t2_sub,t2_sub'),t2_sub'
+      ) lkp
+    in
+    (* get all free variables referred to in the predicate of t2 that are also
+       addressable from t1 (i.e., not memory locations *)
     let ap_fv_const = List.filter (function
       | #Paths.concr_ap as cr -> Paths.is_const_ap cr
       | `Sym i -> List.assoc i subst |> Paths.is_const_ap
       ) ap_fv
     in
+    (* If the sets of FV are not equal, then we have to force the
+       generation of new predicates for T1 that do not have free
+       variables referring to memory locations *)
     let force_v1_cons = List.length ap_fv_const <> List.length ap_fv in
-    let (ctxt'',t1'sym) = make_fresh_type ~target_var:(`AVar v1) ~loc ~fv:ap_fv_const ~bind:subst t1 ctxt' in
+    (* Generate a fresh type for t1 with these free variables *)
+    let (ctxt'',t1_sym') = make_fresh_type ~loc ~target_var:(`AVar v1) ~fv:ap_fv_const ~bind:subst t1 ctxt' in
+    (* now t1' is a fresh type with the same shape at t1, but with
+       fresh predicates potentially referring to (unbound!) to
+       symbolic variables bound by t2's dependent type. We now push
+       the substitution for t2 into t1'sym (so a tuple var $2 is
+       tranformed into foo->1 as appropriate) *)
     let t1' =
-      meet_ownership next_id ctxt.o_info (`AVar v1) t1'sym
+      meet_ownership next_id ctxt.o_info (`AVar v1) t1_sym'
       |> map_refinement @@ partial_subst subst
     in
     (* now t1' and t2' refer to the same sets of free variables: any symbolic variables
-       appearing in t1' and t2' are bound by tuple types *)
-    let app_matrix = apply_matrix ~t1 ~t2_bind:subst ~t2 in
-    (* function to update t2 *)
+       appearing in t1' and t2' are bound by tuple types
+       
+       Finally, we may have to unfold t2' to generate correct constraints
+    *)
+    let (t2_constr,t2_constr') = if is_fold then (unfold_once t2_sub,unfold_once t2_sub') else (t2_sub,t2_sub') in
+    let app_matrix = apply_matrix ~t1 ~t2_bind:subst ~t2:t2_constr in
     let rec up_ap ap t2_base' ctxt = match ap with
       | `APre _ -> assert false
       | `AVar v -> update_type v t2_base' ctxt
       | `ADeref ap
       | `AProj (ap,_) -> up_ap ap t2_base' ctxt
     in
-    let (ctxt'app,(psub2,psub1)) =
+    let (ctxt'app,(psub1,psub2)) =
       ctxt''
-      |> (app_matrix ~force_cons:false ~out_root:ap ~out_bind:subst ~out_type:t2' >>
-        app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
+      |> (app_matrix ~force_cons:is_fold ~out_root:ap ~out_bind:subst ~out_type:t2_constr'
+        >> app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
     in
     let res = ctxt'app
-      |> shuffle_owners t1 t2 t1' t2'
-      |> up_ap ap @@ sub_pdef psub2 t2_base
+      |> shuffle_owners t1 t2_constr t1' t2_constr'
+      |> up_ap ap @@ sub_pdef psub2 t2'
       |> update_type v1 @@ sub_pdef psub1 t1'
       |> remove_sub psub1
       |> remove_sub psub2
@@ -1350,7 +1364,7 @@ and process_call ~e_id ~cont_id ctxt c =
         let (ctxt''',psub) = apply_matrix
             ~pp_constr:(fun path constr ->
               let pre_type =
-                match map_ap ~gen_t:fresh_tvar path (fun t -> t) (fun _ -> concr_arg_type) with
+                match map_ap path (fun t -> t) (fun _ -> concr_arg_type) with
                 | Int r -> with_pred_refl path r
                 | _ -> failwith "I've made a terrible mistake"
               in
