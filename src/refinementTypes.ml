@@ -298,20 +298,13 @@ let rec update_nth l i v =
       h::(update_nth t (i - 1) v)
   | [] -> raise @@ Invalid_argument "Bad index"
 
-let map_ap_with_bindings ~gen_t ap fvs f gen =
-  let with_unfolder k =
-    (fun b t ->
-      match t with
-      | Mu (a,i,t) -> k b @@ unfold_gen ~gen:gen_t ~rmap:(fun x -> x) a i t
-      | _ -> k b t
-    )
-  in
+let map_ap_with_bindings ap fvs f gen =
   let rec inner_loop ap' c =
     match ap' with
     | `APre _ -> failwith "V illegal"
     | `AVar v -> c (fvs,[]) (gen v)
     | `ADeref ap ->
-      inner_loop ap @@ with_unfolder (fun b t' ->
+      inner_loop ap (fun b t' ->
           match t' with
           | Ref (t'',o) ->
             let (a',mapped) = c b t'' in
@@ -319,7 +312,7 @@ let map_ap_with_bindings ~gen_t ap fvs f gen =
           | _ -> failwith "Invalid type for AP"
         )
     | `AProj (ap,i) ->
-      inner_loop ap @@ with_unfolder (fun b t' ->
+      inner_loop ap (fun b t' ->
           match t' with
           | Tuple (bind,tl) ->
             let t_sub = List.nth tl i in
@@ -330,8 +323,8 @@ let map_ap_with_bindings ~gen_t ap fvs f gen =
   in
   inner_loop ap f
 
-let map_ap ~gen_t ap f gen =
-  map_ap_with_bindings ~gen_t ap [] (fun _ t -> (f t,t)) gen |> fst
+let map_ap ap f gen =
+  map_ap_with_bindings ap [] (fun _ t -> (f t,t)) gen |> fst
 
 let refine_ap_to_string = function
   | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
