@@ -1125,6 +1125,11 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
+\end{lemma}
+
+
+
+\begin{lemma}
   \label{lem:f0f1}
   Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\setminus \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
 \end{lemma}
