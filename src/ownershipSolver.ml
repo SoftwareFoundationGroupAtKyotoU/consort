@@ -131,9 +131,10 @@ let solve_ownership ?save_cons _theta ovars ocons =
     ] o_buf.printer
   end;
   finish o_buf;
-  let (res,model) = Z3Channel.call_z3_raw ?save_cons ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" o_buf in
-  match res,model with
-  | "sat",Some m -> begin
+  let res = Z3Channel.call_z3_raw ?save_cons ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
+  match res with
+  | Sat Some m ->
+    begin
       let open Sexplib.Sexp in
       let s = scan_sexp @@ Lexing.from_string m in
       match s with

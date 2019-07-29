@@ -7,7 +7,8 @@ module Options :
       save_cons : string option;
       annot_infr : bool;
       print_model : bool;
-      seq_solver: bool
+      seq_solver: bool;
+      check_trivial: bool
     }
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
     val debug_arg_gen : unit -> arg_spec

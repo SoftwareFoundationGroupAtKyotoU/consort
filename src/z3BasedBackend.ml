@@ -5,7 +5,7 @@ end
 exception OwnershipFailure
 
 module type SOLVER = sig
-    val solve: debug_cons:bool -> ?save_cons:string -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> bool
+    val solve: debug_cons:bool -> ?save_cons:string -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Z3Channel.solver_res
 end
 
 module StandardSolver(S: sig val strat: string end) : SOLVER = struct
@@ -167,5 +167,5 @@ module Make(S: STRATEGY) = struct
       SexpPrinter.finish ff;
       Strat.solve ~debug_cons ?save_cons ~get_model ~defn_file ff
     with
-      OwnershipFailure -> false
+      OwnershipFailure -> Unsat
 end
