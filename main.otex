@@ -894,6 +894,7 @@ The followings are key lemmas:
 \end{definition}
 
 \begin{lemma}[Register Weakening]
+  \label{lem:register}
   If $[[ SATv(H, R, Rv, T) ]]$, then for any $[[R']]$ such that $[[ R < R' ]]$, $[[ SATv(H, R', Rv, T) ]]$.
 \end{lemma}
 \begin{proof}
@@ -1159,12 +1160,13 @@ The followings are key lemmas:
   If $[[ Tp = T1 + T2 ]]$, then we have $\mathbf{own}(H,v,\tau_p) =  \mathbf{own}(H,v,\tau_1)+\mathbf{own}(H,v,\tau_2)$.
 \end{lemma}
 \begin{proof}
-  By case anlysis on the Rules for $[[ T1 + T2 ]]$.
+  By induction on the rules used to derive $[[ T1 + T2 = Tp]]$.
   \begin{rneqncase}{Tadd-Int}\newline
   We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
   $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
   From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
-  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$\end{rneqncase}
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref1}\newline
   We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
   $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.\newline
@@ -1175,13 +1177,14 @@ The followings are key lemmas:
   \begin{rneqncase}{Tadd-Ref2}\newline
   We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = T2' ref r ]]$,
   $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.\newline
-  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_1)=\emptyset.$
+  From the well-formedness condition states that all ownerships within the type $[[ T1 = T1' ref 0 ]]$ are $0$, we have $\mathbf{own}(H,v,\tau_1)=\emptyset.$
+  Also we know that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_2)$.
   It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
   \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref3}\newline
   We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $\tau_1 + \tau_2 = [[ Top ]] \TREF^0$,
   $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.\newline
-  we have $\mathbf{own}(H,v,\tau_p)=\emptyset, \mathbf{own}(H,v,\tau_1)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_1), \mathbf{own}(H,v,\tau_2)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_2)$.
+  From the well-formedness condition states that all ownerships within the types $[[ Tp ]], [[ T1 ]]$ and $[[ T2 ]]$ are $0$, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
   It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
   \end{rneqncase}
 \end{proof}
@@ -1190,33 +1193,39 @@ The followings are key lemmas:
 
 \begin{lemma}
   \label{lem:satadd}
-  If $\mathbf{sat}_v(R,H,v,=\tau_1+\tau_2)$, then 
+  If $[[ SATv(H, R, Rv, T1+T2) ]]$, then for all $[[R']]$ such that $[[ R < R' ]]$,
+  we have:\newline
+  $[[ SATv(H, R', Rv, T1) ]]$ and $[[ SATv(H, R', Rv, T2) ]]$.
 \end{lemma}
 \begin{proof}
-  By case anlysis on the Rules for $[[ T1 + T2 ]]$.
+  By induction on the rules used to derive $[[ T1 + T2 ]]$.
   \begin{rneqncase}{Tadd-Int}\newline
-  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
-  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
-  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
-  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$\end{rneqncase}
+  We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+  $[[ SATv(H, R', Rv, T1) ]]$ and $[[ SATv(H, R', Rv, T2) ]]$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
+  From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R', Rv, T1) ]] \produces [[ [R'; v/x]ph1 ]]$ and $[[ SATv(H, R', Rv, T2) ]] \produces [[ [R'; v/x]ph2 ]]$.
+  also by $\cref{lem:register}$, $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R', Rv, T1+T2) ]]\produces [[ [R'; v/x](ph1 /\ ph2) ]]$.
+  It is immediate that for any value $v$ such that $[[ [R'; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
+  \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref1}\newline
-  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
-  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.\newline
-  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\{a\mapsto (r_1+r_2)\}+\mathbf{own}(H,H(v),\tau'_1+\tau'_2)$,
-  $\mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2) = \{a\mapsto r_1\}+\mathbf{own}(H,H(v),\tau'_1) + \{a\mapsto r_2\}+\mathbf{own}(H,H(v),\tau'_2)$.
-  By the induction hypothesis, we conclude that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R', Rv, T1) /\ r1 > 0 ==> a in H /\ SATv(H,R',H(a),T1')]] \land [[ T1 = T1' ref r1 /\ Rv = a ]]$,
+  and $[[ SATv(H, R', Rv, T2) /\ r2 > 0 ==> a in H /\ SATv(H,R',H(a),T2')]] \land [[ T2 = T2' ref r2 /\ Rv = a ]]$.
+  Also by $\cref{lem:register}$, $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R', Rv, T1+T2) ]] \land (r_1+r_2) > 0 \produces[[ a in H /\ SATv(H,R',H(a),T1'+T2')]] \land [[ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
+  By the induction hypothesis, we have $[[ SATv(H,R',H(a),T1'+T2') ]]\produces [[ SATv(H,R',H(a),T1') ]]\land [[ SATv(H,R',H(a),T2') ]]$.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
   \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref2}\newline
-  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = T2' ref r ]]$,
-  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.\newline
-  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_1)=\emptyset.$
-  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  In this case, we have $[[ T1 + T2 = T2' ref r ]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref r ]]$, where $r>0$.
+  By $\cref{lem:register}$, we have $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1+T2) ]]$.
+  From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R', Rv, T1) ]]=[[ SATv(H, R', Rv, T1' ref 0) ]]\produces 0 > 0\produces [[a in H /\ SATv(H,R',H(a),T1') /\ Rv = a ]]$.
+  Then $[[ SATv(H, R', Rv, T2) ]]=[[ SATv(H, R', Rv, T1+T2) ]] \produces [[ SATv(H, R', Rv, T2' ref r) ]] \land r > 0 \produces[[ a in H /\ SATv(H,R',H(a),T2')]] \land [[ Rv = a ]]$.
+  That is $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H,R',H(a),T1') /\ SATv(H,R',H(a),T2') ]].$
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
   \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref3}\newline
-  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $\tau_1 + \tau_2 = [[ Top ]] \TREF^0$,
-  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.\newline
-  we have $\mathbf{own}(H,v,\tau_p)=\emptyset, \mathbf{own}(H,v,\tau_1)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_1), \mathbf{own}(H,v,\tau_2)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_2)$.
-  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  In this case, we have $[[ (T1+T2) ]] =[[ Top ]] \TREF^0 $, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref 0 ]]$.
+  From the definition of $\mathbf{SAT}$, as the ownerships are 0, we have $[[ SATv(H, R', Rv, T1) ]]$ and $[[ SATv(H, R', Rv, T2) ]]$ are trival true.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
   \end{rneqncase}
 \end{proof}
 
