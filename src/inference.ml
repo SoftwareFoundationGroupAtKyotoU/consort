@@ -1048,6 +1048,14 @@ let ground_null (ctxt,t) =
       | _ -> ctxt,r
   ) (`AVar "unused") ([],[]) nulled ctxt
 
+let rec to_unk t = match t with
+  | Int _
+  | TVar _ -> t
+  | Tuple (b,tl) ->
+    map_tuple to_unk b tl
+  | Mu (a,i,t) -> Mu (a,i,to_unk t)
+  | Ref (t,o,_) -> map_ref to_unk t o `NUnk
+
 let bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
 
@@ -1290,7 +1298,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     process_conditional
       ?output_type ~remove_scope
       ~tr_path:(fun ctxt ->
-        let (ctxt',t) = make_fresh_type ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt in
+        let (ctxt',t) = make_fresh_type ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt |> ground_null in
         update_type v t ctxt'
       )
       ~fl_path:(fun ctxt -> ctxt) e_id e1 e2 ctxt
@@ -1320,7 +1328,8 @@ and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 
   let dg1 = denote_gamma ctxt1.gamma in
   let dg2 = denote_gamma ctxt2.gamma in
   let subsume_types ctxt ~target_var t1 t2 =
-    let (ctxt',t') = make_fresh_type ~loc ~target_var:(`AVar target_var) ~fv:predicate_vars t1 ctxt in
+    let (ctxt',t'fresh) = make_fresh_type ~loc ~target_var:(`AVar target_var) ~fv:predicate_vars t1 ctxt in
+    let t' = to_unk t'fresh in
     let c_up =
       add_folded_var_implication dg1 target_var t1 t' ctxt'
       |> add_folded_var_implication dg2 target_var t2 t'
@@ -1391,7 +1400,7 @@ and process_call ~e_id ~cont_id ctxt c =
       if post_update_type arg_t then
         let ap = `AVar k in
         let arg_t_o = meet_ownership e_id acc.o_info ap arg_t in
-        let (ctxt',resid,formal) = split_arg ctxt arg_t_o in_t in
+        let (ctxt',resid,formal) = split_arg acc arg_t_o in_t in
         let out_owner = meet_out i c.callee ctxt' out_t in
         (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
         let (ctxt'',fresh_type_) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars resid ctxt' in
