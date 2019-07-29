@@ -885,6 +885,36 @@ The followings are key lemmas:
   $[[ |- D C ==> C != AssertFail ]]$
 \end{lemma}
 
+\begin{definition}
+  We will write $[[R < R']]$ to denote two register files such that:
+  \begin{enumerate}
+  \item $[[ dom R]] \subseteq [[ dom R' ]]$, and
+  \item $[[ forall x in R.R(x) = R'(x) ]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{lemma}[Register Weakening]
+  If $[[ SATv(H, R, Rv, T) ]]$, then for any $[[R']]$ such that $[[ R < R' ]]$, $[[ SATv(H, R', Rv, T) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. If $[[ T = T' ref r ]]$, then
+  the result is trivial if $[[r = 0]]$, otherwise it follows from the
+  inductive hypothesis. We therefore consider the case where
+  $[[ T = {y: int | ph} ]]$. Without loss of generality, we consider
+  the case where $[[ dom R' ]] \setminus [[ dom R ]] = \set{x}$,
+  $x \neq y$, and $R'(y) = nn$. (If $x = y$, then the added binding
+  has no effect by the order of substitutions given by
+  $[[ [R; Rv/y]ph ]]$. Similarly, if $R'(y) = a$, the extra binding
+  also has no effect. Finally, the case where more than one binding is
+  added follows from $n$ applications of the following argument).
+
+  From $[[SATv(H,R,Rv,T)]]$, we conclude that $[[Rv is INT]]$ and that
+  $[[ [R; Rv/y]ph ]]$. If $[[x not in FPV(ph)]]$ then $[[ [R; Rv/y]ph = [R';Rv/y]ph ]]$
+  and the result holds trivially. Otherwise, if $[[x in FPV(ph)]]$ and $[[x not in R]]$
+  from the validity of $[[ [R;Rv/y]ph ]]$, $[[ph]]$ must be true for any value of $x$,
+  whence the validity of $[[ [R;Rv/y]ph ]]$ is immediate.
+\end{proof}
+
 
 \paragraph{Proof of Lemma 2.}
 \begin{proof}
@@ -1622,17 +1652,17 @@ The followings are key lemmas:
 
   \begin{align*}
     [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.F(a)]] \leq 1 \\
-    [[SAT(H,R,G)]] = & [[ forall x in G.x in R]]\wedge \\
-    & \begin{cases}
-      [[R(x)]] \in \mathbb{Z} \wedge [[ [R;R(x)/y]ph ]] & [[ G(x) = {y:int | ph} ]] \\
-      [[r > 0]] \produces & [[ G(x) =  { y:int | ph } ref r ]] \\
-      \,\,\, [[H(R(x))]] \in \mathbb{Z} \wedge [[ [R; H(R(x))/y]ph]] &
+    [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
+    [[SATv(H,R,Rv,T)]] = & \begin{cases}
+      [[Rv is INT /\ [R ; Rv / y]ph ]] & [[ T = {y:int|ph} ]] \\
+      [[r > 0 ==> a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
     \end{cases} \\
     [[ [empty; v / x]ph ]] & = [[ [v/x]ph ]] \\
-    [[ [R { y |-> v' }; v / x]ph ]] & =  [[ [v'/y] [R ; v / x]ph ]] \\
+    [[ [R { y |-> nn }; v / x]ph ]] & =  [[ [nn/y] [R ; v / x]ph ]] \\
+    [[ [R { y |-> a }; v / x]ph ]] & =  [[ [R ; v / x]ph ]] \\
     F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
     [[own(H,v,T)]] &  = \begin{cases}
-      [[ { a |-> r } ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
+      [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
       \emptyset & o.w.
     \end{cases} \\
   \end{align*}
