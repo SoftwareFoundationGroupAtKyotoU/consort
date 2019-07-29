@@ -15,6 +15,10 @@ module Option = struct
     | Some v -> v
     | None -> failwith msg
 
+  let fold ~f ~acc = function
+    | Some v -> f acc v
+    | None -> acc
+
   (* I understand monads *)
   let bind f = function
     | Some x -> f x

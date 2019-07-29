@@ -76,6 +76,13 @@ let pp_oconstraint ff ocon =
             po o2
           ]
         ]
+    | Wf (o1,o2) ->
+      pg "assert" [
+          pg "=>" [
+            pg "=" [ po o1; pl "0.0" ];
+            pg "=" [ po o2; pl "0.0" ]
+          ]
+        ]
   end ff.printer;
   break ff
 

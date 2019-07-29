@@ -13,6 +13,7 @@ type ocon =
   | Split of RefinementTypes.ownership *
     (RefinementTypes.ownership * RefinementTypes.ownership)
   | Eq of RefinementTypes.ownership * RefinementTypes.ownership
+  | Wf of RefinementTypes.ownership * RefinementTypes.ownership
 
 type tcon = {
   env : (Paths.concr_ap * RefinementTypes.concr_refinement * RefinementTypes.nullity) list;
