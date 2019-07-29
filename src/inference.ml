@@ -73,6 +73,8 @@ type ocon =
   | Shuff of (ownership * ownership) * (ownership * ownership)
   | Split of ownership * (ownership * ownership)
   | Eq of ownership * ownership
+  (* For well-formedness: if o1 = 0, then o2 = 0 *)
+  | Wf of ownership * ownership
 
 
 type context = {
@@ -122,6 +124,23 @@ let (>>) f g = fun st ->
   (st'',(v1, v2))
 
 let add_owner_con l ctxt = { ctxt with ownership = l @ ctxt.ownership  }
+
+
+let constrain_well_formed (ctxt,t) =
+  let rec wf_loop last_o acc = function
+    | TVar _
+    | Int _ -> acc
+    | Ref (t,o,_) ->
+      let c_acc' = Option.fold ~f:(fun acc last ->
+          add_owner_con [Wf (last,o)] acc
+        ) ~acc last_o in
+      wf_loop (Some o) c_acc' t
+    | Tuple (_,tl) ->
+      List.fold_left (wf_loop last_o) acc tl
+    | Mu (_,_,t) -> wf_loop last_o acc t
+  in
+  (wf_loop None ctxt t, t)
+
 
 let update_map v t m =
   SM.remove v m
@@ -242,7 +261,9 @@ let split_arg ctxt t1 t2 =
     | _ -> type_mismatch arg_t form_t
   in
   let (ctxt',(t1'rem,t1'form)) = loop ctxt t1 t2 in
-  ctxt',t1'rem,t1'form
+  let (ctxt'',_) = constrain_well_formed (ctxt',t1'rem) in
+  let (ctxt''',_) = constrain_well_formed (ctxt'',t1'form) in
+  ctxt''',t1'rem,t1'form
 
 let add_constraint gamma ctxt ?(o=[]) ante conseq nullity =
   { ctxt with
@@ -396,65 +417,69 @@ let map_tuple f b tl =
 let map_ref f t o n =
   Ref (f t, o,n)
 
-let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
-  match t with
-  | `Int ->
-    let (ctxt',r) = pred ~under_mu fv path ctxt in
-    (ctxt',Int r)
-  | `Ref t' ->
-    let (ctxt',ov) = alloc_ovar ctxt in
-    walk_ref (lift_to_refinement ~under_mu ~pred) path fv t' ov `NUnk ctxt'
-  | `Tuple stl ->
-    let i_stl = List.mapi (fun i st -> (i,st)) stl in
-    let b = List.filter (fun (_,t) -> t = `Int) i_stl
-      |> List.map (fun (i,_) -> (fresh_tvar (),SProj i))
-    in
-    walk_tuple b (lift_to_refinement ~under_mu ~pred) path fv stl ctxt
-  | `Mu (id,t) ->
-    let (ctxt',t') = lift_to_refinement ~under_mu ~pred path fv t ctxt in
-    let rec gen_sub acc t = match t with
-      | TVar _
-      | Int _ -> acc
-      | Mu (_,_,r)
-      | Ref (r,_,_) -> gen_sub acc r
-      | Tuple (b,tl) ->
-        List.fold_left gen_sub (
-            List.fold_left (fun acc' (b,_) ->
-              (b,fresh_tvar ())::acc'
-            ) acc b) tl 
-    in
-    let sub = gen_sub [] t' in
-    let rec sub_loop path fv t ctxt =
-      match t with
-      | TVar id' when id' = id ->
-        let rec do_sub inner_path inner_fv orig_t ctxt =
-          match orig_t with
-          | TVar _ -> ctxt,orig_t
-          | Int _ ->
-            let (ctxt',p) = pred ~under_mu:true inner_fv inner_path ctxt in
-            (ctxt',Int p)
-          | Ref (r,_,n) ->
-            let (ctxt',o') = alloc_ovar ctxt in
-            walk_ref do_sub inner_path inner_fv r o' n ctxt'
-          | Mu _ -> failwith "pass"
-          | Tuple (b,tl) ->
-            let b' = List.map (fun (old_sym,p) ->
-                (List.assoc old_sym sub, p)
-              ) b in
-            walk_tuple b' do_sub inner_path fv tl ctxt
-        in
-        let (ctxt'',t_subbed) = do_sub path fv t' ctxt' in
-        ctxt'',Mu (sub,id,t_subbed)
-      | TVar _
-      | Mu _ -> failwith "PASS"
-      | Int _ -> ctxt,t
-      | Ref (r,o,n) ->
-        walk_ref sub_loop path fv r o n ctxt
-      | Tuple (b,tl) ->
-        walk_tuple b sub_loop path fv tl ctxt
-    in
-    sub_loop path fv t' ctxt'
-  | `TVar id -> ctxt,TVar id
+let lift_to_refinement ~pred path fv t ctxt = 
+  let rec lift_loop ?(under_mu=false) ~pred path fv t ctxt =
+    match t with
+    | `Int ->
+      let (ctxt',r) = pred ~under_mu fv path ctxt in
+      (ctxt',Int r)
+    | `Ref t' ->
+      let (ctxt',ov) = alloc_ovar ctxt in
+      walk_ref (lift_loop ~under_mu ~pred) path fv t' ov `NUnk ctxt'
+    | `Tuple stl ->
+      let i_stl = List.mapi (fun i st -> (i,st)) stl in
+      let b = List.filter (fun (_,t) -> t = `Int) i_stl
+        |> List.map (fun (i,_) -> (fresh_tvar (),SProj i))
+      in
+      walk_tuple b (lift_loop ~under_mu ~pred) path fv stl ctxt
+    | `Mu (id,t) ->
+      let (ctxt',t') = lift_loop ~under_mu ~pred path fv t ctxt in
+      let rec gen_sub acc t = match t with
+        | TVar _
+        | Int _ -> acc
+        | Mu (_,_,r)
+        | Ref (r,_,_) -> gen_sub acc r
+        | Tuple (b,tl) ->
+          List.fold_left gen_sub (
+              List.fold_left (fun acc' (b,_) ->
+                (b,fresh_tvar ())::acc'
+              ) acc b) tl 
+      in
+      let sub = gen_sub [] t' in
+      let rec sub_loop path fv t ctxt =
+        match t with
+        | TVar id' when id' = id ->
+          let rec do_sub inner_path inner_fv orig_t ctxt =
+            match orig_t with
+            | TVar _ -> ctxt,orig_t
+            | Int _ ->
+              let (ctxt',p) = pred ~under_mu:true inner_fv inner_path ctxt in
+              (ctxt',Int p)
+            | Ref (r,_,n) ->
+              let (ctxt',o') = alloc_ovar ctxt in
+              walk_ref do_sub inner_path inner_fv r o' n ctxt'
+            | Mu _ -> failwith "pass"
+            | Tuple (b,tl) ->
+              let b' = List.map (fun (old_sym,p) ->
+                  (List.assoc old_sym sub, p)
+                ) b in
+              walk_tuple b' do_sub inner_path fv tl ctxt
+          in
+          let (ctxt'',t_subbed) = do_sub path fv t' ctxt' in
+          ctxt'',Mu (sub,id,t_subbed)
+        | TVar _
+        | Mu _ -> failwith "PASS"
+        | Int _ -> ctxt,t
+        | Ref (r,o,n) ->
+          walk_ref sub_loop path fv r o n ctxt
+        | Tuple (b,tl) ->
+          walk_tuple b sub_loop path fv tl ctxt
+      in
+      sub_loop path fv t' ctxt'
+    | `TVar id -> ctxt,TVar id
+  in
+  lift_loop ~under_mu:false ~pred path fv t ctxt
+  |> constrain_well_formed
 
 let lift_src_ap = function
   | AVar v -> `AVar v
@@ -1350,6 +1375,7 @@ and make_fresh_type ~target_var ~loc ~fv ?(bind=[]) t ctxt =
   ) (fun ~under_mu:_ p (sym_vars,sym_vals) _ context ->
     make_fresh_pred ~loc ~pred_vars:(sym_vars,p,sym_vals) context
   ) target_var (fv,bind) t ctxt
+  |> constrain_well_formed
     
 and process_call ~e_id ~cont_id ctxt c =
   let arg_bindings = List.mapi (fun i k ->
