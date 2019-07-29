@@ -26,7 +26,8 @@ module Options = struct
     save_cons: string option;
     annot_infr: bool;
     print_model: bool;
-    seq_solver: bool
+    seq_solver: bool;
+    check_trivial: bool
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -38,7 +39,8 @@ module Options = struct
     debug_ast = false;
     annot_infr = false;
     print_model = false;
-    seq_solver = false
+    seq_solver = false;
+    check_trivial = false
   }
 
   let debug_arg_gen () =
@@ -91,11 +93,15 @@ module Options = struct
   let solver_arg_gen () =
     let open Arg in
     let seq_run = ref false in
+    let check_trivial = ref false in    
     ([
-      ("-seq-solver", Set seq_run, "Run two inference passes; the first inferring ownership, the second inferring refinements")
+      ("-seq-solver", Set seq_run, "Run two inference passes; the first inferring ownership, the second inferring refinements");
+      ("-check-triviality", Set check_trivial, "Check if produced model is trivial")
     ], (fun ?(comb=default) () ->
        { comb with
-         seq_solver = !seq_run }))
+         seq_solver = !seq_run;
+         check_trivial = !check_trivial
+       }))
 end
 
 let infer opts intr simple_res ast =
@@ -138,6 +144,41 @@ let infer opts intr simple_res ast =
         simple_res ast
       |> Option.return
 
+let check_triviality t =
+  let check_model m_raw =
+    let open Sexplib.Sexp in
+    let m = of_string m_raw in
+    match m with
+    | List (Atom "model"::l) ->
+      let triv_preds = List.fold_left (fun acc sexp ->
+          match sexp with
+          | List (Atom "define-fun"::Atom nm::rem) -> begin
+            let rem_len = List.length rem in
+            let final = List.nth rem @@ rem_len - 1 in
+            match final with
+            | Atom "false" -> nm::acc
+            | _ -> acc
+            end
+          | _ -> acc
+        ) [] l
+      in
+      if List.length triv_preds = 0 then
+        ()
+      else
+        let bad_preds = String.concat ", " triv_preds in
+        failwith @@ Printf.sprintf "Solution contains trivial solutions for %s" bad_preds
+    | _ -> ()
+  in
+  if (not t) then Option.iter (fun _ -> ())
+  else
+    Option.iter check_model
+
+let print_model t =
+  if t then
+    Option.iter (fun s -> prerr_endline s; flush stderr)
+  else
+    Option.iter (fun _ -> ())
+
 let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
   let open Options in
   let ast = AstUtil.parse_file in_name in
@@ -160,8 +201,16 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) stderr ast;
       flush stderr
     end;
-    HornBackend.solve
-      ~debug_cons:opts.debug_cons
-      ?save_cons:opts.save_cons
-      ~get_model:opts.print_model
-      ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r
+    let res =
+      HornBackend.solve
+        ~debug_cons:opts.debug_cons
+        ?save_cons:opts.save_cons
+        ~get_model:(opts.print_model || opts.check_trivial)
+        ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r
+    in
+    match res with
+    | Sat m ->
+      check_triviality opts.check_trivial m;
+      print_model opts.print_model m;
+      true
+    | _ -> false
