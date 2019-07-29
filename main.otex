@@ -951,12 +951,11 @@ The followings are key lemmas:
     We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |-> v }, G'')]]$.
     The first is easy to obtain using $\cref{lem:substitution}.$
     It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.\newline
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
-    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[H(R(y))]] \in \mathbb{Z} [[/\]] [[ [R;H(R(y))/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land y=x'$.
-    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-Deref}$ we have $R'(x')=H'(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
-    We then have $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land y=x$ are satisfied.\newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H'(R'(y)),T1) ]]\land y=x'$.
+    From the definition of $\rn{R-Deref}$ we have $R'(x')=H(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x'$.
+    We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]\land y=x'$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
@@ -964,8 +963,9 @@ The followings are key lemmas:
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
     By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
-    We know that $x'$ is an integer, so $[[own(H',R'(x'),G''(x'))]]$ should be $\emptyset$, and $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]$,
-    so we have $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]+ [[own(H',R'(x'),G''(x'))]]$, and conclude that $F_0=F_1$.
+    From $\cref{lem:ownadd}$, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $v = H(R(y))$.
+    We know that $R'(x')=H(R'(y))=H(R(y))$, so $[[ own(H,R'(x'),G''(x')) ]] =[[ own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),G(y)) ]]=[[ own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) ]]=[[ own(H,H(R'(y)),T1) ]]$,
+    so we have $[[own(H,R(y),G(y))]]=[[own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Let}{
     [[ |- D <H, R, Es, E[let x = y in e]> ]]\\
@@ -977,15 +977,12 @@ The followings are key lemmas:
     $[[ll |- T => G' \ x]]$. We give $[[G'' = G [ y <- T1 /\ y y = T1 x'  ], x' : (T2 /\ x' x' = T2 y)]]$ and $[[ R'= R { x' |->  R(y) } ]]$.\newline
     We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |->  R(y) }, G'')]]$.
     The first is easy to obtain using $\cref{lem:substitution}.$
-    It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. We proceed by case analysis on the shapes of $[[T1 + T2]]$.\newline
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2}]]$ where $[[T1 = {y:int | ph1}]]$ and $[[T2 = {x:int | ph2}]]$.
-    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]\land y=x'$.
-    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-Let}$ we know $R(y)=R'(x')=R'(y)$. Thus $y$ trivially satisfies that the refinement that $y = x'$, and $x'$ satisfies the refinement that $x'=y$.
-    Thus, $[[ [R'; R'(x')/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]\land y=x'$ are satisfied.\newline
-    Next, suppose $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ref r]]$ where $[[T1 = {y:int | ph1}ref r1]]$ and $[[T2 = {x:int | ph2}ref r2]]$.
-    The consistency of the refinements heap $H$ and $R'$ with $[[T1]]$ and $[[T2]]$ follow from a similar argument to the integer case above.
+    It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. \newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]\land y=x'$.
+    From the definition of $\rn{R-Let}$ we have $R(y)=R'(x')=R'(y)$. Thus $y$ satisfies the refinement that $y=x'$, and $x'$ satisfies the refinement that $x'=y$.
+    We then have $[[ SATv(H,R',R'(x'),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]\land y=x'$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
@@ -993,8 +990,8 @@ The followings are key lemmas:
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
     By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
-    That $[[own(H,R'(x'),T2 ref r_2)]] + [[own(H,R'(y),T1 ref r_1)]] = [[own(H,R(y),(T1+T2)ref r)]]$ follows immediately
-    from the conditions $[[T1 ref r1 + T2 ref r2 = (T1+T2)ref r]]$, $R(y)=R'(x')=R'(y)$ and $r=r_1+r_2$.
+    That $[[own(H,R'(x'),T2)]] + [[own(H,R'(y),T1)]] = [[own(H,R(y),T1+T2)]]$ follows immediately
+    from $\cref{lem:ownadd}$ and the condition $R(y)=R'(x')=R'(y)$.
     We therefore conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-LetInt}{
@@ -1032,12 +1029,11 @@ The followings are key lemmas:
     We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 | ll |- [x'/x]e : T => G'\ x ]]$ and $\bf{Cons}$ $(H'= H \{ a \mapsto R(y) \},R'= R\{ x' \mapsto a \},\tenv'')$.
     The first is easy to obtain using $\cref{lem:substitution}.$\newline
     It remains to show $[[Cons(H',R',G'')]]$.
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
-    We then know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$.
-    It is immediate that for any value $v$ such that $[[ [R; v/y](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-MkRef}$ we know $R(y)=H'(R'(x'))=R'(y)$. Thus $x'$ satisfies the refinement that $x'=y$.
-    Thus, that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$ are satisfied.\newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',H'(R'(x')),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]$.
+    From the definition of $\rn{R-MkRef}$ we have $R(y)=H'(R'(x'))=R'(y)$. Thus $x'$ satisfies the refinement that $x'=y$.
+    We then have $[[ SATv(H,R',H'(R'(x')),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. We have:\newline
     $F_1 = \sum_{z\in\textit{dom}(\tenv'')}[[own(H',R'(z'),G''(z'))]] = \sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]] + \{a'\mapsto 1\} = F_0 + \{a'\mapsto 1\}$,
@@ -1055,17 +1051,15 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | ll |- e : T => G']]$.
     We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {x:int | ph1} ]]$ and $[[T2 = {y:int | ph2} ]]$.\newline
-    By reasoning similar to the $\rn{R-Mkref}$ case, $[[ [R'; H'(R'(y))/y]ph2 ]]\land y=x$ and $[[ [R';R'(x)/x]ph1 ]]$ are satisfied.\newline
+    By reasoning similar to the $\rn{R-Mkref}$ case, $[[ SATv(H,R',H'(R'(y)),T2) ]]\land y=x$ and $[[ SATv(H,R',R'(x),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$, we focus on prove that $F_0=F_1$, defines as below:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x))$\newline
     $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv''(y)) + \mathbf{own}(H', R'(x), \tenv''(x))$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y,x\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R'(z),\tenv''(z))$\newline
-    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{a\mapsto 1\}+\mathbf{own}(H, R(x), \tau_1+\tau_2)$,
-    as $x$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ is $\emptyset$.
-    We also have $[[own(H,R'(x'),T1)]] + [[own(H,R'(y),T2 ref 1)]] =  \{a\mapsto 1\}$.
+    Since $F'_0=F'_1$ holds,
+    we have $[[own(H,R'(x),T1)]] + [[own(H,H'(R'(y)),T2) ]] =  [[own(H,H(R(y)),T2+T1) ]]$ from $\cref{lem:ownadd}$ and the condition $H(R(y))=R'(x)=H'(R'(y))$.
     We therefore conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Alias}{
