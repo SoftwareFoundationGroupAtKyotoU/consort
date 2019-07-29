@@ -7,7 +7,8 @@ function r_test {
 }
 
 declare -a POS_DIRS
-POS_DIRS=(pre-relation challenge-problem jayhorn)
+POS_DIRS=(pre-relation challenge-problem jayhorn recursive-tests)
+NEG_DIRS=(recursive-tests challenge-problem)
 
 (
 	cd $THIS_DIR;
@@ -19,4 +20,7 @@ POS_DIRS=(pre-relation challenge-problem jayhorn)
 	done
 	r_test -pos -cfa 2 ./positive-tests/2cfa;
 	r_test -neg ./negative-tests
+	for i in ${NEG_DIRS[@]}; do
+		r_test -neg ./negative-tests/$i;
+	done
 )
