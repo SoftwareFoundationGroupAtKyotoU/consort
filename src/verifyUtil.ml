@@ -114,8 +114,8 @@ let infer opts intr simple_res ast =
       let rec map_type =
         function
         | Int _ -> Int ()
-        | Ref (t,OConst o) -> Ref (map_type t, o)
-        | Ref (t,OVar ov) -> Ref (map_type t,IM.find ov o_map)
+        | Ref (t,OConst o,n) -> Ref (map_type t, o,n)
+        | Ref (t,OVar ov,n) -> Ref (map_type t,IM.find ov o_map,n)
         | Tuple (_,tl) -> Tuple ([],List.map map_type tl)
         | TVar id -> TVar id
         | Mu (a,i,t) -> Mu (a,i,map_type t)

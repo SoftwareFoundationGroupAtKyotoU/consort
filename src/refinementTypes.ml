@@ -51,9 +51,15 @@ type ty_binding = (int * ap_symb) list [@@deriving sexp]
 
 type rec_args = (int * int) list [@@deriving sexp]
 
+type nullity = [
+  | `NUnk
+  | `NNull
+  | `NLive
+] [@@deriving sexp]
+
 type ('a,'o) _typ =
   | Int of 'a
-  | Ref of ('a,'o) _typ * 'o
+  | Ref of ('a,'o) _typ * 'o * nullity
   | Tuple of ty_binding * (('a,'o) _typ) list
   | TVar of int
   | Mu of rec_args * int * ('a, 'o) _typ
@@ -75,18 +81,18 @@ type 'a _funtype = {
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
-let ref_of t1 o = Ref (t1, o)
+let ref_of t1 o n = Ref (t1, o, n)
 
 let rec map_refinement f =
   function
   | Int r -> Int (f r)
-  | Ref (t,o) -> Ref (map_refinement f t,o)
+  | Ref (t,o,n) -> Ref (map_refinement f t,o,n)
   | Tuple (b,tl) -> Tuple (b,(List.map (map_refinement f) tl))
   | Mu (a,v,t) -> Mu (a,v,map_refinement f t)
   | TVar v -> TVar v
 
 let rec to_simple_type = function
-  | Ref (t,_) -> `Ref (to_simple_type t)
+  | Ref (t,_,_) -> `Ref (to_simple_type t)
   | Int _ -> `Int
   | Tuple (_,t) -> `Tuple (List.map to_simple_type t)
   | Mu (_,v,t) -> `Mu (v, to_simple_type t)
@@ -145,9 +151,9 @@ let unfold_gen ~gen ~rmap arg id t_in =
       | Int r -> (acc,Int (rmap r))
       | TVar a -> (acc,TVar a)
       | Mu _ -> failwith "let's not deal with this yet"
-      | Ref (t,o) ->
+      | Ref (t,o,n) ->
         let (acc',t') = loop acc t in
-        (acc', Ref (t',o))
+        (acc', Ref (t',o,n))
       | Tuple (b,tl) ->
         let (acc',b') =
           map_with_accum acc (fun acc (i,r) ->
@@ -175,7 +181,7 @@ let unfold_gen ~gen ~rmap arg id t_in =
     | Tuple (b,tl) ->
       let tl' = List.map loop tl in
       Tuple (b,tl')
-    | Ref (t,o) -> Ref (loop t, o)
+    | Ref (t,o,n) -> Ref (loop t, o,n)
     | Int r -> Int r
   in
   loop t_in
@@ -212,7 +218,7 @@ let compile_type_path t1 ap =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)
-    | Ref (t,o) -> Ref (compile_loop t (`ADeref root) bindings,o)
+    | Ref (t,o,n) -> Ref (compile_loop t (`ADeref root) bindings,o,n)
     | Tuple (b,tl) ->
       let bindings' = bindings @ (compile_bindings b root) in
       let tl' = List.mapi (fun i t ->
@@ -249,10 +255,10 @@ let rec walk_with_bindings_own ?(under_mu=false) ~o_map f root bindings t a =
   | Int r ->
     let (a',r') = f ~under_mu root bindings r a in
     (a',Int r')
-  | Ref (t',o) ->
+  | Ref (t',o,n) ->
     let (a',t'') = walk_with_bindings_own ~under_mu ~o_map f (`ADeref root) bindings t' a in
     let (a'',o') = o_map a' o in
-    (a'',Ref (t'',o'))
+    (a'',Ref (t'',o',n))
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
         let nm = Paths.t_ind root i in
@@ -309,9 +315,9 @@ let map_ap_with_bindings ap fvs f gen =
     | `ADeref ap ->
       inner_loop ap (fun b t' ->
           match t' with
-          | Ref (t'',o) ->
+          | Ref (t'',o,n) ->
             let (a',mapped) = c b t'' in
-            (a',Ref (mapped,o))
+            (a',Ref (mapped,o,n))
           | _ -> failwith "Invalid type for AP"
         )
     | `AProj (ap,i) ->
@@ -444,7 +450,7 @@ let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : '
                  simplify_ref r |> pp_ref;
                  ps "}"
                                 ]*)
-  | Ref (t,o) ->
+  | Ref (t,o,_) ->
     pb [
         pp_type t;
         pf "@ ref@ ";

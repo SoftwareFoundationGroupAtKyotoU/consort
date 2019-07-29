@@ -15,10 +15,11 @@ type ocon =
   | Eq of RefinementTypes.ownership * RefinementTypes.ownership
 
 type tcon = {
-  env : (Paths.concr_ap * RefinementTypes.concr_refinement) list;
+  env : (Paths.concr_ap * RefinementTypes.concr_refinement * RefinementTypes.nullity) list;
   ante : RefinementTypes.concr_refinement;
   conseq : RefinementTypes.concr_refinement;
   owner_ante : oante list;
+  nullity: RefinementTypes.nullity
 }
 
 type ownership_type = (unit, float) RefinementTypes._typ
