@@ -100,7 +100,7 @@ let rec pp_typ t =
   let open RefinementTypes in
   let t_printer = match t with
     | Int r -> pf "%a int" (ul pp_ref_ast) r
-    | Ref (t,OConst o) -> pf "%a ref %f" (ul pp_typ) t o
+    | Ref (t,OConst o,_) -> pf "%a ref %f" (ul pp_typ) t o
     | Tuple (bl,t) ->
       let ty_printers =
         List.mapi (fun i t ->

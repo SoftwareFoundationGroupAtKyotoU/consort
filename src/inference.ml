@@ -57,10 +57,11 @@ type oante =
 let sexp_of_tenv = SM.sexp_of_t ~v:sexp_of_typ
 
 type tcon = {
-  env: (Paths.concr_ap * concr_refinement) list;
+  env: (Paths.concr_ap * concr_refinement * nullity) list;
   ante: concr_refinement;
   conseq: concr_refinement;
   owner_ante: oante list;
+  nullity: nullity
 }[@@deriving sexp]
 
 type ocon =
@@ -135,20 +136,20 @@ let add_type v t ctxt =
   in
   { ctxt with gamma = te }
 
-let rec denote_type path (bind: (int * Paths.concr_ap) list) acc t =
+let rec denote_type ?(nullity=`NLive) path (bind: (int * Paths.concr_ap) list) acc t =
   match t with
-  | Ref (t',_) -> denote_type (`ADeref path) bind acc t'
+  | Ref (t',_,n) -> denote_type ~nullity:n (`ADeref path) bind acc t'
   | Int r ->
     let comp_r = compile_refinement path bind r in
-    (path,comp_r)::acc
+    (path,comp_r,nullity)::acc
   | Tuple (b,t) ->
     let (bind' : (int * Paths.concr_ap) list) = (subst_of_binding path b) @ bind in
     List.mapi (fun i te -> (i,te)) t
     |> List.fold_left (fun acc (i,te) ->
-        denote_type (`AProj (path,i)) bind' acc te
+        denote_type ~nullity (`AProj (path,i)) bind' acc te
       ) acc
   | TVar _ -> acc
-  | Mu (_,_,t) -> denote_type path bind acc t
+  | Mu (_,_,t) -> denote_type ~nullity path bind acc t
 
 let with_pred_refl root r =
   match root with
@@ -168,17 +169,17 @@ let denote_gamma gamma =
     denote_type (`AVar v) [] acc t
   ) gamma []
 
-let rec split_ref_type ctxt (t,o) =
+let rec split_ref_type ctxt (t,o,n) =
   let (ctxt,(o1,o2)) = (alloc_ovar >> alloc_ovar) ctxt in
   let (ctxt',(t1,t2)) = split_type ctxt t in
-  let t1' = Ref (t1,o1) in
-  let t2' = Ref (t2,o2) in
+  let t1' = Ref (t1,o1,n) in
+  let t2' = Ref (t2,o2,n) in
   (add_owner_con [Split (o,(o1, o2))] ctxt', (t1', t2'))
 and split_type ctxt t =
   match t with
   | Int _ -> (ctxt, (t,t))
-  | Ref (t,o) ->
-    split_ref_type ctxt (t,o) 
+  | Ref (t,o,n) ->
+    split_ref_type ctxt (t,o,n)
   | Tuple (b,tl) ->
     let (ctxt',tl1,tl2) = List.fold_right (fun t' (ctxt',tl1,tl2) ->
         let (ctxt'',(t'1,t'2)) = split_type ctxt' t' in
@@ -194,8 +195,8 @@ and split_type ctxt t =
 let rec unsafe_meet tr town =
   match tr,town with
   | Int r,Int _ -> Int r
-  | Ref (r1,_), Ref (r2,o) ->
-    Ref (unsafe_meet r1 r2,OConst o)
+  | Ref (r1,_,n), Ref (r2,o,_) ->
+    Ref (unsafe_meet r1 r2,OConst o,n)
   | Tuple (b,tl1), Tuple (_,tl2) ->
     Tuple (b,List.map2 unsafe_meet tl1 tl2)
   | Mu (a,i,t1), Mu (_,_,t2) ->
@@ -216,14 +217,14 @@ let split_arg ctxt t1 t2 =
   let rec loop ctxt arg_t form_t =
     match arg_t,form_t with
     | Int r,Int _ -> (ctxt,(Int r,Int r))
-    | Ref (r1,OConst o), Ref (r2,OConst o_const) ->
+    | Ref (r1,OConst o,n), Ref (r2,OConst o_const,_) ->
       let (ctxt,(t1,t2)) = loop ctxt r1 r2 in
       let rem = o -. o_const in
-      (ctxt,(Ref (t1,OConst rem), Ref (t2,OConst o_const)))
-    | Ref (r1,o), Ref (r2,_) ->
+      (ctxt,(Ref (t1,OConst rem,n), Ref (t2,OConst o_const,n)))
+    | Ref (r1,o,n), Ref (r2,_,_) ->
       let (ctxt',(o1,o2)) = (alloc_ovar >> alloc_ovar) ctxt in
       let (ctxt'',(rn',rn'')) = loop { ctxt' with ownership = Split (o,(o1,o2))::ctxt'.ownership } r1 r2 in
-      (ctxt'',(Ref (rn',o1), Ref (rn'',o2)))
+      (ctxt'',(Ref (rn',o1,n), Ref (rn'',o2,n)))
     | Mu (a,i,t1), Mu (_,_,t2) ->
       let (ctxt',(t1',t2')) = loop ctxt t1 t2 in
       (ctxt', (Mu (a,i,t1'), Mu (a,i,t2')))
@@ -243,20 +244,21 @@ let split_arg ctxt t1 t2 =
   let (ctxt',(t1'rem,t1'form)) = loop ctxt t1 t2 in
   ctxt',t1'rem,t1'form
 
-let add_constraint gamma ctxt ?(o=[]) ante conseq =
+let add_constraint gamma ctxt ?(o=[]) ante conseq nullity =
   { ctxt with
     refinements = {
       env = gamma;
       ante;
       conseq;
       owner_ante = o;
+      nullity
     }::ctxt.refinements
   }
 
 let constrain_owner t1 t2 =
   let rec loop t1 t2 ctxt =
     match t1,t2 with
-    | Ref (r1,o1),Ref (r2,o2) ->
+    | Ref (r1,o1,_),Ref (r2,o2,_) ->
       add_owner_con [Eq (o1,o2)] ctxt
       |> loop r1 r2
     | Int _,Int _ -> ctxt
@@ -271,17 +273,17 @@ let constrain_owner t1 t2 =
   loop t1 t2
 
 let add_type_implication gamma t1_ t2_ ctxt_ =
-  let rec impl_loop ctxt t1 t2 =
+  let rec impl_loop ~nullity ctxt t1 t2 =
     match t1,t2 with
-    | Int r1, Int r2 -> add_constraint gamma ctxt r1 r2
-    | Ref (t1',_), Ref (t2',_) -> impl_loop ctxt t1' t2'
+    | Int r1, Int r2 -> add_constraint gamma ctxt r1 r2 nullity
+    | Ref (t1',_,n), Ref (t2',_,_) -> impl_loop ~nullity:n ctxt t1' t2'
     | Tuple (_,tl1), Tuple (_,tl2) ->
-      List.fold_left2 impl_loop ctxt tl1 tl2
+      List.fold_left2 (impl_loop ~nullity) ctxt tl1 tl2
     | TVar _,TVar _ -> ctxt
-    | Mu (_,_,t1'), Mu (_,_,t2') -> impl_loop ctxt t1' t2'
+    | Mu (_,_,t1'), Mu (_,_,t2') -> impl_loop ~nullity ctxt t1' t2'
     | t1,t2 -> type_mismatch t1 t2
   in
-  impl_loop ctxt_ t1_ t2_
+  impl_loop ~nullity:`NLive ctxt_ t1_ t2_
 
 let add_folded_var_implication dg var t1 t2 ctxt =
   let type_compile t : (concr_refinement,ownership) _typ = compile_type t var in
@@ -384,15 +386,15 @@ let walk_tuple (b: ty_binding) f path fv tl ctxt =
     )
   |> to_tuple b
 
-let walk_ref f path fv t o ctxt =
+let walk_ref f path fv t o n ctxt =
   let (ctxt',t') = f (`ADeref path) fv t ctxt in
-  ctxt',Ref (t',o)
+  ctxt',Ref (t',o,n)
 
 let map_tuple f b tl =
   Tuple (b,List.map f tl)
 
-let map_ref f t o =
-  Ref (f t, o)
+let map_ref f t o n =
+  Ref (f t, o,n)
 
 let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
   match t with
@@ -401,7 +403,7 @@ let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
     (ctxt',Int r)
   | `Ref t' ->
     let (ctxt',ov) = alloc_ovar ctxt in
-    walk_ref (lift_to_refinement ~under_mu ~pred) path fv t' ov ctxt'
+    walk_ref (lift_to_refinement ~under_mu ~pred) path fv t' ov `NUnk ctxt'
   | `Tuple stl ->
     let i_stl = List.mapi (fun i st -> (i,st)) stl in
     let b = List.filter (fun (_,t) -> t = `Int) i_stl
@@ -414,7 +416,7 @@ let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
       | TVar _
       | Int _ -> acc
       | Mu (_,_,r)
-      | Ref (r,_) -> gen_sub acc r
+      | Ref (r,_,_) -> gen_sub acc r
       | Tuple (b,tl) ->
         List.fold_left gen_sub (
             List.fold_left (fun acc' (b,_) ->
@@ -431,9 +433,9 @@ let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
           | Int _ ->
             let (ctxt',p) = pred ~under_mu:true inner_fv inner_path ctxt in
             (ctxt',Int p)
-          | Ref (r,_) ->
+          | Ref (r,_,n) ->
             let (ctxt',o') = alloc_ovar ctxt in
-            walk_ref do_sub inner_path inner_fv r o' ctxt'
+            walk_ref do_sub inner_path inner_fv r o' n ctxt'
           | Mu _ -> failwith "pass"
           | Tuple (b,tl) ->
             let b' = List.map (fun (old_sym,p) ->
@@ -446,8 +448,8 @@ let rec lift_to_refinement ?(under_mu=false) ~pred path fv t ctxt =
       | TVar _
       | Mu _ -> failwith "PASS"
       | Int _ -> ctxt,t
-      | Ref (r,o) ->
-        walk_ref sub_loop path fv r o ctxt
+      | Ref (r,o,n) ->
+        walk_ref sub_loop path fv r o n ctxt
       | Tuple (b,tl) ->
         walk_tuple b sub_loop path fv tl ctxt
     in
@@ -465,7 +467,7 @@ let remove_var_from_pred ~loc ~curr_te ~oracle ~under_mu:_ path (sym_vars,sym_va
   if oracle curr_comp path then
     let (ctxt',new_pred) = make_fresh_pred ~loc ~pred_vars:(sym_vars,path,sym_val) context in
     let new_comp = compile_refinement path sym_val new_pred in
-    let ctxt'' = add_constraint curr_te ctxt' (curr_comp |> with_pred_refl path) new_comp in
+    let ctxt'' = add_constraint curr_te ctxt' (curr_comp |> with_pred_refl path) new_comp `NUnk in
     (ctxt'',new_pred)
   else
     (context,r)
@@ -609,7 +611,7 @@ let unsafe_extract_pred = function
   | _ -> failwith "You broke an invariant somewhere I guess :("
 
 let unsafe_split_ref = function
-  | Ref (r,o) -> r,o
+  | Ref (r,o,n) -> r,o,n
   | _ -> failwith "You were supposed to give me a ref :("
 
 let combine_concr_preds (c1,ct1) (c2,ct2) c_out =
@@ -643,7 +645,7 @@ let generalize_pred root out_type combined_pred =
           )
           ~k:(fun _ t ->
             match t with
-            | Ref (t',_) -> k (ap :> refine_ap) t'
+            | Ref (t',_,_) -> k (ap :> refine_ap) t'
             | _ -> assert false)
       | `AProj (ap',i) -> 
         gen_ap_loop ap'
@@ -693,7 +695,7 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
           (st3 ind t_out')
           c
       ) ctxt tl1 tl2 tl_out
-    | Ref (t1',o1), Ref (t2',o2), Ref (t_out',o_out) ->
+    | Ref (t1',o1,_), Ref (t2',o2,_), Ref (t_out',o_out,_) ->
       inner_loop ~under_mu
         (step_ref c1 o1 t1')
         (step_ref c2 o2 t2')
@@ -717,7 +719,8 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
             env = g;
             ante = ante;
             conseq = c_out_r;
-            owner_ante = (ctxt_gt c_out) @ oante
+            owner_ante = (ctxt_gt c_out) @ oante;
+            nullity = `NUnk
           }
         in
         let cons = [
@@ -756,7 +759,7 @@ let rec push_subst bind = function
   | Int r ->
     let sigma = List.map (fun (i,v) -> (i,`AVar v)) bind in
     Int (partial_subst sigma r)
-  | Ref (t,o) -> Ref (push_subst bind t,o)
+  | Ref (t,o,n) -> map_ref (push_subst bind) t o n
   | Tuple (b,tl) ->
     let b_ext = List.map (fun (i,v) -> (i,SVar v)) bind in
     Tuple (b_ext @ b, tl)
@@ -846,7 +849,7 @@ let rec strengthen_type ?root t patt ctxt =
 
 let rec strengthen_let patt rhs ctxt =
   let lkp_ref v = match SM.find v ctxt.gamma with
-    | Ref (r,o) -> (r,o)
+    | Ref (r,o,n) -> (r,o,n)
     | _ -> failwith "not a ref"
   in
   match patt,rhs with
@@ -862,13 +865,13 @@ let rec strengthen_let patt rhs ctxt =
     let (ctxt',t') = strengthen_type ~root:(`AVar v) t patt ctxt in
     update_type v t' ctxt'
   | _,Deref v ->
-    let (t,o) = lkp_ref v in
+    let (t,o,n) = lkp_ref v in
     let (ctxt',t') = strengthen_type t patt ctxt in
-    update_type v (Ref (t',o)) ctxt'
+    update_type v (Ref (t',o,n)) ctxt'
   | (PVar v),Mkref (RVar v') ->
-    let (t,o) = lkp_ref v in
+    let (t,o,n) = lkp_ref v in
     let t' = strengthen_eq ~strengthen_type:t ~target:(`AVar v') in
-    update_type v (Ref (t',o)) ctxt
+    update_type v (Ref (t',o,n)) ctxt
   | (PTuple pl),Tuple vl ->
     (* .... why would you do this? *)
     List.fold_left2 (fun acc p_sub i_lit ->
@@ -906,7 +909,7 @@ let shuffle_owners t1 t2 t1' t2' =
   let rec loop t1 t2 t1' t2' ctxt =
     match t1,t2,t1',t2' with
     | Int _,Int _,Int _,Int _ -> ctxt
-    | Ref (r1,o1),Ref (r2,o2), Ref (r1',o1'), Ref(r2',o2') ->
+    | Ref (r1,o1,_),Ref (r2,o2,_), Ref (r1',o1',_), Ref(r2',o2',_) ->
       loop r1 r2 r1' r2' @@
         { ctxt with
           ownership = Shuff ((o1,o2),(o1',o2')) :: ctxt.ownership }
@@ -934,7 +937,7 @@ let sum_ownership t1 t2 out ctxt =
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
     | Int _, Int _, Int _ -> ctxt
-    | Ref (r1,o1), Ref (r2,o2), Ref (ro,oo) ->
+    | Ref (r1,o1,_), Ref (r2,o2,_), Ref (ro,oo,_) ->
       loop r1 r2 ro
         { ctxt with ownership = (Split (oo,(o1,o2)))::ctxt.ownership}
     | Tuple (_,tl1), Tuple (_,tl2), Tuple (_,tl_out) ->
@@ -956,8 +959,8 @@ let meet_loop t_ref t_own =
   let rec loop t_ref t_own =
     match t_ref,t_own with
     | Int r,Int () -> Int r
-    | Ref (t_ref',_),Ref (t_own',o) ->
-      Ref (loop t_ref' t_own', OConst o)
+    | Ref (t_ref',_,n),Ref (t_own',o,_) ->
+      Ref (loop t_ref' t_own', OConst o,n)
     | Tuple (b,tl_ref), Tuple (_,tl_own) ->
       let tl_ref_cons = List.map2 loop tl_ref tl_own in
       Tuple (b,tl_ref_cons)
@@ -990,7 +993,7 @@ let meet_out i callee ctxt t =
 
 let rec unfold_once = function
   | Int r -> Int r
-  | Ref (r, o) -> map_ref unfold_once r o
+  | Ref (r, o,n) -> map_ref unfold_once r o n
   | Tuple (b,tl) ->
     map_tuple unfold_once b tl
   | Mu (a,i,t) -> unfold ~gen:fresh_tvar a i t
@@ -1014,13 +1017,44 @@ let get_type_scheme ~loc id v ctxt =
        |> Option.bind @@ StringMap.find_opt v
        |> Option.unsafe_get ~msg:(Printf.sprintf "Could not infer type of %s" v))
 
+let ground_null (ctxt,t) =
+  let rec nullify = function
+    | Mu (a,i,t) -> Mu (a,i,nullify t)
+    | TVar v -> TVar v
+    | Tuple (b,tl) -> map_tuple nullify b tl
+    | Ref (t,o,_) -> Ref (nullify t,o,`NNull)
+    | Int r -> Int r
+  in
+  let nulled = nullify t in
+  let get_vars i fv =
+    assert ((List.length fv) + 1 + !KCFA.cfa = (StringMap.find i ctxt.pred_arity));
+    let env = List.mapi (fun i _ ->
+      (`AVar (Printf.sprintf "!g%d" i)),Top,`NLive
+      ) fv
+    in
+    let args = List.map (fun (a,_,_) -> a) env in
+    env,args
+  in
+  walk_with_bindings (fun ~under_mu:_ _ _ r ctxt ->
+      match r with
+      | Pred (i,fv) ->
+        let env,args = get_vars i fv in
+        let g = add_constraint env ctxt Top (Pred (i,(args,`AVar "silly"))) `NNull in
+        g,r
+      | CtxtPred (i,p,fv) ->
+        let env,args = get_vars p fv in
+        let g = add_constraint env ctxt Top (CtxtPred (i,p,(args, `AVar "silly"))) `NNull in
+        g,r
+      | _ -> ctxt,r
+  ) (`AVar "unused") ([],[]) nulled ctxt
+
 let bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
 
 let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
-    | Ref (r,o) -> (r,o)
+    | Ref (r,o,n) -> (r,o,n)
     | _ -> failwith "Not actually a ref"
   in
   let maybe_unfold { iso = { unfold_locs; _ }; _ } t =
@@ -1050,7 +1084,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       
   | Assign (lhs,IVar rhs,cont) ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp rhs in
-    let (orig,o)  = lkp_ref lhs in
+    let (orig,o,_)  = lkp_ref lhs in
     let (ctxt'',t2_assign) =
       if IntSet.mem e_id ctxt.iso.fold_locs then
         let ctxt_f,t2_fresh = make_fresh_type ~target_var:(`ADeref (`AVar lhs)) ~fv:(gamma_predicate_vars ctxt.gamma) ~loc:(LFold e_id) orig ctxt' in
@@ -1062,29 +1096,29 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let t2_eq = strengthen_eq ~strengthen_type:t2_assign ~target:(`AVar rhs) in
     let nxt = add_owner_con [Write o] ctxt''
       |> update_type rhs t1
-      |> update_type lhs @@ ref_of t2_eq o
+      |> update_type lhs @@ ref_of t2_eq o `NLive
     in
     process_expr ?output_type ~remove_scope nxt cont
 
   | Assign (lhs,IInt i,cont) ->
-    let (_,o) = lkp_ref lhs in
+    let (_,o,_) = lkp_ref lhs in
     let ctxt' =
       add_owner_con [Write o] ctxt
-      |> update_type lhs @@ ref_of (Int (ConstEq i)) o
+      |> update_type lhs @@ ref_of (Int (ConstEq i)) o `NLive
     in
     process_expr ?output_type ~remove_scope ctxt' cont
 
   | Let (PVar v,Mkref (RVar v_ref),((cont_id,_) as exp)) when IntSet.mem e_id ctxt.iso.fold_locs ->
     (* FOLD, EVERYBODY FOLD *)
     let ctxt',fresh_type = get_type_scheme ~loc:(LFold e_id) cont_id v ctxt in
-    let (fresh_cont,o) = unsafe_split_ref fresh_type in
+    let (fresh_cont,o,_) = unsafe_split_ref fresh_type in
     let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(`AVar v_ref) in
     let (ctxt'',(t1,t2)) = split_type ctxt' @@ lkp v_ref in
     let ctxt''' =
       ctxt''
       |> constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref)
       |> update_type v_ref t1
-      |> bind_var v @@ ref_of fresh_strengthened o
+      |> bind_var v @@ ref_of fresh_strengthened o `NLive
       |> add_owner_con [Write o]
     in
     process_expr ?output_type ~remove_scope:(SS.add v remove_scope) ctxt''' exp
@@ -1108,14 +1142,14 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         match patt with
         | PNone -> (ctxt,Int Top (* what *))
         | PTuple _ -> assert false
-        | PVar v -> get_type_scheme ~loc:(LNull e_id) cont_id v ctxt
+        | PVar v -> get_type_scheme ~loc:(LNull e_id) cont_id v ctxt |> ground_null
         end
       | Deref ptr ->
-        let (target_type,o) = lkp_ref ptr in
+        let (target_type,o,_) = lkp_ref ptr in
         let (ctxt',(t1,t2)) = split_type ctxt target_type in
         let t2_unfold = maybe_unfold ctxt' t2 in
         ctxt'
-        |> update_type ptr @@ (ref_of t1 o)
+        |> update_type ptr @@ (ref_of t1 o `NLive)
         |> add_owner_con [Live o]
         |> with_type t2_unfold
 
@@ -1144,12 +1178,12 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
 
       | Mkref init' ->
         match init' with
-        | RNone -> (ctxt,Ref (Int Top,OConst 1.0))
-        | RInt n -> (ctxt, Ref (Int (ConstEq n),OConst 1.0))
+        | RNone -> (ctxt,Ref (Int Top,OConst 1.0,`NLive))
+        | RInt n -> (ctxt, Ref (Int (ConstEq n),OConst 1.0,`NLive))
         | RVar r_var ->
           let (ctxt',(t1,t2)) = split_type ctxt @@ lkp r_var in
           update_type r_var t1 ctxt'
-          |> with_type @@ Ref (t2,OConst 1.0)
+          |> with_type @@ Ref (t2,OConst 1.0,`NLive)
                 
     end in
     let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
@@ -1158,7 +1192,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp    
   | Assert (relation,cont) ->
     cont
-    |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation)
+    |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation) `NUnk
 
   | Alias (v1,src_ap,((next_id,_) as cont)) ->
     let loc = LAlias e_id in
@@ -1375,7 +1409,7 @@ and process_call ~e_id ~cont_id ctxt c =
                   | _ -> failwith "I've made a terrible mistake"
                 in
                 {constr with
-                  env = ((`AVar "!pre"),pre_type)::constr.env }
+                  env = (`AVar "!pre",pre_type,`NUnk)::constr.env }
             )
             ~t1:resid
             ~t2:out_owner

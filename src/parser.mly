@@ -154,7 +154,7 @@ let pre_label == ~ = INT; COLON; <> | { LabelManager.register () }
 
 let typ :=
   | ~ = refine; INT_T; { RefinementTypes.Int refine }
-  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ, RefinementTypes.OConst o) }
+  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ, RefinementTypes.OConst o,`NUnk) }
   | LPAREN; ~ = tup_list; RPAREN; {
 		let (m_bind,t_l) =
 		  List.mapi (fun i (b_l,t) ->
