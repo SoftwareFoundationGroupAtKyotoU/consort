@@ -1125,7 +1125,70 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
+  \label{lem:ownadd}
+  If $[[ Tp = T1 + T2 ]]$, then we have $\mathbf{own}(H,v,\tau_p) =  \mathbf{own}(H,v,\tau_1)+\mathbf{own}(H,v,\tau_2)$.
 \end{lemma}
+\begin{proof}
+  By case anlysis on the Rules for $[[ T1 + T2 ]]$.
+  \begin{rneqncase}{Tadd-Int}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$\end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref1}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\{a\mapsto (r_1+r_2)\}+\mathbf{own}(H,H(v),\tau'_1+\tau'_2)$,
+  $\mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2) = \{a\mapsto r_1\}+\mathbf{own}(H,H(v),\tau'_1) + \{a\mapsto r_2\}+\mathbf{own}(H,H(v),\tau'_2)$.
+  By the induction hypothesis, we conclude that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref2}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = T2' ref r ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_1)=\emptyset.$
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref3}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $\tau_1 + \tau_2 = [[ Top ]] \TREF^0$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.\newline
+  we have $\mathbf{own}(H,v,\tau_p)=\emptyset, \mathbf{own}(H,v,\tau_1)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_1), \mathbf{own}(H,v,\tau_2)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_2)$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+\end{proof}
+
+
+
+\begin{lemma}
+  \label{lem:satadd}
+  If $\mathbf{sat}_v(R,H,v,=\tau_1+\tau_2)$, then 
+\end{lemma}
+\begin{proof}
+  By case anlysis on the Rules for $[[ T1 + T2 ]]$.
+  \begin{rneqncase}{Tadd-Int}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$\end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref1}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\{a\mapsto (r_1+r_2)\}+\mathbf{own}(H,H(v),\tau'_1+\tau'_2)$,
+  $\mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2) = \{a\mapsto r_1\}+\mathbf{own}(H,H(v),\tau'_1) + \{a\mapsto r_2\}+\mathbf{own}(H,H(v),\tau'_2)$.
+  By the induction hypothesis, we conclude that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref2}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = T2' ref r ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_1)=\emptyset.$
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref3}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $\tau_1 + \tau_2 = [[ Top ]] \TREF^0$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.\newline
+  we have $\mathbf{own}(H,v,\tau_p)=\emptyset, \mathbf{own}(H,v,\tau_1)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_1), \mathbf{own}(H,v,\tau_2)=\{a\mapsto 0\}+\mathbf{own}(H,H(v),\tau'_2)$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+\end{proof}
 
 
 
