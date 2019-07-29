@@ -19,16 +19,18 @@ let () =
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let v_opts = gen () in
   let intr = i_gen () in
+  let n_tests = ref 0 in
   List.iter (fun dir -> 
     let test_files = Sys.readdir dir in
     Array.iter (fun f_name ->
       if Filename.check_suffix f_name ".imp" then
         try
-          run_test v_opts intr !expect (dir ^ "/" ^ f_name)
+          run_test v_opts intr !expect (dir ^ "/" ^ f_name);
+          incr n_tests
         with
         | Failure s -> failwith @@ Printf.sprintf "Test %s failed with message: %s" f_name s
         | e -> failwith @@ Printf.sprintf "Test %s failed with unknown exception: %s " f_name @@ Printexc.to_string e
       else ()
     ) test_files;
   ) !dir_list;
-  print_endline "PASSED"
+  Printf.printf "PASSED (%d tests)\n" @@ !n_tests

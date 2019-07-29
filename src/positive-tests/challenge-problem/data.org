@@ -1,0 +1,9 @@
+* nd; seq; more scope -> fail
+* nd; reg; more scope -> fail
+* 0,0; seq; more scope -> timeout
+* 0,0; reg; more scope -> verify
+
+* nd; seq; less scope -> verify
+* nd; reg; less scope -> verify
+* 0,0; seq; less scope -> verify
+* 0,0; reg; less scope -> verify
