@@ -19,6 +19,11 @@ let pprint_ty_env =
       pblock ~nl:true ~op:(ps "/*") ~body:pp_ty_env ~close:(ps "*/")
 
 module Options = struct
+  type solver =
+    | Hoice
+    | Spacer
+    | Z3SMT
+  
   type t = {
     debug_pred: bool;
     debug_cons: bool;
@@ -28,7 +33,8 @@ module Options = struct
     print_model: bool;
     seq_solver: bool;
     check_trivial: bool;
-    dry_run : bool
+    dry_run : bool;
+    solver: solver
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -42,18 +48,19 @@ module Options = struct
     print_model = false;
     seq_solver = false;
     check_trivial = false;
-    dry_run = false
+    dry_run = false;
+    solver = Spacer
   }
 
   let debug_arg_gen () =
     let open Arg in
-    let debug_cons = ref false in
-    let debug_pred = ref false in
-    let debug_ast = ref true in
-    let show_model = ref false in
-    let annot_infr = ref false in
-    let dry_run = ref false in
-    let save_cons = ref None in
+    let debug_cons = ref default.debug_cons in
+    let debug_pred = ref default.debug_pred in
+    let debug_ast = ref default.debug_ast in
+    let show_model = ref default.print_model in
+    let annot_infr = ref default.annot_infr in
+    let dry_run = ref default.dry_run in
+    let save_cons = ref default.save_cons in
     let all_debug_flags = [ debug_cons; debug_pred; debug_ast; show_model ] in
     let mk_arg key flg what =
       [
@@ -97,15 +104,23 @@ module Options = struct
 
   let solver_arg_gen () =
     let open Arg in
-    let seq_run = ref false in
-    let check_trivial = ref false in    
+    let seq_run = ref default.seq_solver in
+    let check_trivial = ref default.check_trivial in
+    let solver = ref default.solver in
     ([
       ("-seq-solver", Set seq_run, "Run two inference passes; the first inferring ownership, the second inferring refinements");
-      ("-check-triviality", Set check_trivial, "Check if produced model is trivial")
+      ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
+      ("-solver", Symbol (["spacer";"hoice";"z3"], function
+         | "spacer" -> solver := Spacer
+         | "hoice" -> solver := Hoice; seq_run := true
+         | "z3" -> solver := Z3SMT
+         | _ -> assert false), " Use solver backend <solver>. (default: spacer) NOTE: Selecting Hoice enables sequential solving")
+           
     ], (fun ?(comb=default) () ->
        { comb with
          seq_solver = !seq_run;
-         check_trivial = !check_trivial
+         check_trivial = !check_trivial;
+         solver = !solver
        }))
 end
 
@@ -206,8 +221,13 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) stderr ast;
       flush stderr
     end;
-    let res =
-      HornBackend.solve
+    let solver =
+      match opts.solver with
+      | Spacer -> HornBackend.solve
+      | Z3SMT -> SmtBackend.solve
+      | Hoice -> HoiceBackend.solve
+    in
+    let res = solver
         ~debug_cons:opts.debug_cons
         ?save_cons:opts.save_cons
         ~get_model:(opts.print_model || opts.check_trivial)
