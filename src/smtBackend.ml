@@ -1,12 +1,9 @@
-module SMTStrategy(I: Z3BasedBackend.OV) = struct    
-  let ownership _ ovars owner_cons ff =
-    OwnershipSolver.print_ownership_constraints ovars owner_cons ff
+module Backend = Z3BasedBackend.Make(struct
+    let ownership _ ovars owner_cons ff =
+      OwnershipSolver.print_ownership_constraints ovars owner_cons ff
 
-  include Z3BasedBackend.StandardSolver(struct
-      let strat = "(check-sat)"
-    end)
-end
-
-module Backend = Z3BasedBackend.Make(SMTStrategy)
+  
+    let z3_tactic = "(check-sat)"
+  end)
 
 let solve = Backend.solve
