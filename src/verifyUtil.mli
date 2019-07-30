@@ -8,7 +8,8 @@ module Options :
       annot_infr : bool;
       print_model : bool;
       seq_solver: bool;
-      check_trivial: bool
+      check_trivial: bool;
+      dry_run: bool
     }
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
     val debug_arg_gen : unit -> arg_spec
