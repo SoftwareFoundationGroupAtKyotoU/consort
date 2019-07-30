@@ -3,12 +3,6 @@ let load_defn = function
   | None -> ""
 
 let base_command = "z3 -in -T:30"
-
-type solver_res =
-  | Unsat
-  | Sat of string option
-  | Timeout
-  | Unhandled of string
   
 let call_z3_raw ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
   if debug_cons then begin
@@ -43,10 +37,10 @@ let call_z3_raw ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
       else
         None
     in
-    return_and_close @@ Sat m
-  | "unsat" -> return_and_close Unsat
-  | "timeout" -> return_and_close Timeout
-  | s -> return_and_close @@ Unhandled s
+    return_and_close @@ Prover.Sat m
+  | "unsat" -> return_and_close Prover.Unsat
+  | "timeout" -> return_and_close Prover.Timeout
+  | s -> return_and_close @@ Prover.Unhandled s
 
 let call_z3 ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
   call_z3_raw ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons
