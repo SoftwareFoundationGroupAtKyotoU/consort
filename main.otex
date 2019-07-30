@@ -1123,24 +1123,14 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Alias}$, we can obtain $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | ll |- e : T => G']]$ and $[[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]]$.
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$.\newline
     It remains to show $[[Cons(H, R, G'')]]$.\newline
-    We will analyze 2 cases here. Other cases are immediate or follow from symmetric reasoning to what follows.\newline
-    Suppose both additions are derived with \rn{[Tadd-Ref1]}; we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^{r_2},  r_1>0, r_2>0$.
-    After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
-    We then have $\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}+\{y\COL\TINT\mid\phi_2\}\TREF^{r_2}\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, i.e., $\{x\COL\TINT\mid\phi_1\land\phi_2\}\TREF^{r_1+r_2}\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
-    $\phi_1\land\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equivalence.\newline
-    With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]\produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/x]\phi_1$, we know that the refinement predicates $\phi_1$ in the previous environment holds for $R$ and also $H(R(x))$,
-    similarly the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$; we write this as $\phi_1(R;H(R(x)))$ and $\phi_2(R;H(R(y)))$.
-    From above, we obtain $\phi_1(R;H(R(x)))\land \phi_2(R;H(R(y))) \produces \phi_1(R;H(R(x)))\land \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
-    which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.\newline
-    Suppose one addition is derived with \rn{[Tadd-Ref2]}; we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^0, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^r, r>0$.
-    After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
-    We then have $\{x\COL\TINT\mid\phi_1\}\TREF^0+\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, i.e., $\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
-    $\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equivalence.\newline
-    With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=y\in \textit{dom}(R)\land H(R(y))\in \mathbb{Z}\land [R;H(R(y))/y]\phi_2$, i.e., $\phi_2(R;H(R(y)))$.
-    From above, we obtain $\phi_2(R;H(R(y)))\produces \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
-    which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.
+    We suppose the refinements before transition are $\tenv(x)=\tau_1^a, \tenv(y)=\tau_2^a$.
+    After transition, the type environment becomes $\tenv''(x)=\tau_1^b, \tenv''(y)=\tau_2^b$.\newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    We then have $\tau_1^a+\tau_2^a= \tau^a$, by $\cref{lem:satadd}$, $SAT_v(H,R,v,\tau^a) \iff SAT_v(H,R,v,\tau_1^a)\land SAT_v(H,R,v,\tau_2^a)$, where $v = H(R(y))=H(R(x))$, since the definition of $\rn{R-Alias}$.
+    Similarly, we also have $\tau_1^b+\tau_2^b= \tau^b$, by $\cref{lem:satadd}$, $SAT_v(H,R',v,\tau^b) \iff SAT_v(H,R',v,\tau_1^b)\land SAT_v(H,R',v,\tau_2^b)$, where $v = H(R(y))=H(R(x))$.
+    We then have $\tau^a\approx\tau^b$, according to the rules for type equivalence.
+    From the new lemma, we have $SAT_v(H,R,v,\tau^a)\iff SAT_v(H,R',v,\tau^b)$.
+    Then the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition from above.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$. Here $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.
     To prove that $F_0=F_1$ follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
@@ -1240,39 +1230,47 @@ The followings are key lemmas:
 
 \begin{lemma}
   \label{lem:satadd}
-  If $[[ SATv(H, R, Rv, T1+T2) ]]$, then for all $[[R']]$ such that $[[ R < R' ]]$,
+  If $[[ Tp =  T1+T2 ]]$, then for all $[[R']]$ and $[[H']]$ such that $[[ R < R' ]]$ and $H\approx H'$,
   we have:\newline
-  $[[ SATv(H, R', Rv, T1) ]]$ and $[[ SATv(H, R', Rv, T2) ]]$.
+  $[[ SATv(H, R, Rv, Tp) ]] \iff [[ SATv(H', R', Rv, T1) ]]\land [[ SATv(H', R', Rv, T2) ]]$.
 \end{lemma}
 \begin{proof}
   By induction on the rules used to derive $[[ T1 + T2 ]]$.
   \begin{rneqncase}{Tadd-Int}\newline
+  Forward derivation:
   We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
   $[[ SATv(H, R', Rv, T1) ]]$ and $[[ SATv(H, R', Rv, T2) ]]$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
   From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R', Rv, T1) ]] \produces [[ [R'; v/x]ph1 ]]$ and $[[ SATv(H, R', Rv, T2) ]] \produces [[ [R'; v/x]ph2 ]]$.
   also by $\cref{lem:register}$, $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R', Rv, T1+T2) ]]\produces [[ [R'; v/x](ph1 /\ ph2) ]]$.
   It is immediate that for any value $v$ such that $[[ [R'; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
   We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
   \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref1}\newline
+  Forward derivation:
   From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R', Rv, T1) /\ r1 > 0 ==> a in H /\ SATv(H,R',H(a),T1')]] \land [[ T1 = T1' ref r1 /\ Rv = a ]]$,
   and $[[ SATv(H, R', Rv, T2) /\ r2 > 0 ==> a in H /\ SATv(H,R',H(a),T2')]] \land [[ T2 = T2' ref r2 /\ Rv = a ]]$.
   Also by $\cref{lem:register}$, $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R', Rv, T1+T2) ]] \land (r_1+r_2) > 0 \produces[[ a in H /\ SATv(H,R',H(a),T1'+T2')]] \land [[ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
   By the induction hypothesis, we have $[[ SATv(H,R',H(a),T1'+T2') ]]\produces [[ SATv(H,R',H(a),T1') ]]\land [[ SATv(H,R',H(a),T2') ]]$.
   We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
   \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref2}\newline
+  Forward derivation:
   In this case, we have $[[ T1 + T2 = T2' ref r ]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref r ]]$, where $r>0$.
   By $\cref{lem:register}$, we have $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1+T2) ]]$.
   From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R', Rv, T1) ]]=[[ SATv(H, R', Rv, T1' ref 0) ]]\produces 0 > 0\produces [[a in H /\ SATv(H,R',H(a),T1') /\ Rv = a ]]$.
   Then $[[ SATv(H, R', Rv, T2) ]]=[[ SATv(H, R', Rv, T1+T2) ]] \produces [[ SATv(H, R', Rv, T2' ref r) ]] \land r > 0 \produces[[ a in H /\ SATv(H,R',H(a),T2')]] \land [[ Rv = a ]]$.
   That is $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H,R',H(a),T1') /\ SATv(H,R',H(a),T2') ]].$
   We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
   \end{rneqncase}
   \begin{rneqncase}{Tadd-Ref3}\newline
+  Forward derivation:
   In this case, we have $[[ (T1+T2) ]] =[[ Top ]] \TREF^0 $, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref 0 ]]$.
   From the definition of $\mathbf{SAT}$, as the ownerships are 0, we have $[[ SATv(H, R', Rv, T1) ]]$ and $[[ SATv(H, R', Rv, T2) ]]$ are trival true.
   We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R', Rv, T1) ]]\land[[ SATv(H, R', Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
   \end{rneqncase}
 \end{proof}
 
