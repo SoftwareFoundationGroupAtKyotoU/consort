@@ -27,7 +27,8 @@ module Options = struct
     annot_infr: bool;
     print_model: bool;
     seq_solver: bool;
-    check_trivial: bool
+    check_trivial: bool;
+    dry_run : bool
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -40,7 +41,8 @@ module Options = struct
     annot_infr = false;
     print_model = false;
     seq_solver = false;
-    check_trivial = false
+    check_trivial = false;
+    dry_run = false
   }
 
   let debug_arg_gen () =
@@ -50,6 +52,7 @@ module Options = struct
     let debug_ast = ref true in
     let show_model = ref false in
     let annot_infr = ref false in
+    let dry_run = ref false in
     let save_cons = ref None in
     let all_debug_flags = [ debug_cons; debug_pred; debug_ast; show_model ] in
     let mk_arg key flg what =
@@ -64,6 +67,7 @@ module Options = struct
         (mk_arg "model" show_model "inferred model") @
         [
           ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
+          ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
           ("-show-model", Set show_model, "Print model produced from successful verification");
           ("-save-cons", String (fun r -> save_cons := Some r), "Save constraints in <file>");
           ("-show-all", Unit (fun () ->
@@ -80,7 +84,8 @@ module Options = struct
          print_model = !show_model;
          annot_infr = !annot_infr;
          debug_cons = !debug_cons;
-         save_cons = !save_cons
+         save_cons = !save_cons;
+         dry_run = !dry_run
        }))
 
   let (>>) ((a1,f1) : arg_spec) ((a2,f2) : arg_spec) =
