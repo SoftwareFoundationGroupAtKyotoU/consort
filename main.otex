@@ -916,6 +916,59 @@ The followings are key lemmas:
   whence the validity of $[[ [R;Rv/y]ph ]]$ is immediate.
 \end{proof}
 
+\begin{definition}
+  Two heaps $[[H]]$ and $[[H']]$ are \emph{equivalent modulo $[[a]]$}, written $[[H ~ a H']]$ if:
+  \begin{enumerate}
+  \item $[[dom H = dom H']]$
+  \item $[[forall a' in dom H.a' != a ==> H(a) = H(a')]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{lemma}[Heap Ownership Preservation]
+  Let $[[H]]$ and $[[H']]$ be two heaps such that $[[H ~ a H']]$ for
+  some $[[a]]$. If $[[own(H,v,T)(a) = 0]]$, then
+  $[[own(H,v,T) = own(H',v,T)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. If $[[T = {y:int |ph}]]$ then
+  the result trivially holds. Otherwise, $[[T = T' ref r]]$. We assume
+  that $[[v = a'']]$ and $[[a'' in H]]$ (otherwise the result
+  trivially holds).  Otherwise consider the case where $[[a'' =
+  a]]$. By definition
+  $[[own(H,a,T) = {a |-> r} + own(H,H(a),T')]]$, and by the
+  assumption that $[[own(H,a,T)(a) = 0]]$ we must have that
+  $[[r = 0]]$. Further, by the well-formedness of types, all
+  ownerships that appear in $[[T']]$ must be $[[0]]$, thus we have that
+  $[[own(H,H(a),T') = own(H',H'(a), T')]]$.
+
+  Finally, consider the case where $[[a'' != a]]$. Then from the
+  definition of $[[own(H,a'',T)]]$ and our assumption that
+  $[[own(H,a'',T)(a) = 0]]$, we have $[[own(H,H(a''),T')(a) = 0]]$,
+  and the result holds from the inductive hypothesis.
+\end{proof}
+
+\begin{lemma}
+  Let $[[H ~ a H]]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. The base case where
+  $[[T = {y:int|ph}]]$ is trivial. We therefore consider the case
+  where $[[v = a']]$ and $[[T = T' ref r]]$. If $[[a' = a]]$, then by
+  our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
+  $r = 0$, and $[[SATv(R,H',v,T)]]$ trivially holds. Otherwise, we
+  have that $[[a' != a]]$, and by definition we must have that
+  $[[own(H,H(a),T')(a) = 0]]$ whence the result follows from the
+  inductive hypothesis.
+\end{proof}
+
+\begin{lemma}
+  If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
+\end{lemma}
+\begin{proof}
+  The forward case follows from straightforward induction on the shape of $[[T1]]$
+  and from the observation that if $[[ph1 <=> ph2]]$ then $[[ [R;v/x]ph1 <=> [R;v/x]ph2]]$. The
+  backwards case follows by symmetric reasoning by induction on the shape of $[[T2]]$.
+\end{proof}
 
 \paragraph{Proof of Lemma 2.}
 \begin{proof}

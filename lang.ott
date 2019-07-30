@@ -55,6 +55,7 @@ grammar
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
+	| omap ( a ) :: :: omap_lkp
 
   C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
     | < H , R , Es , e >         ::   :: Quad {{ tex \tuple{[[H]], [[R]], [[Es]], [[e]]} }}
@@ -233,8 +234,8 @@ grammar
 	| Cons ( H , R , G ) :: :: Cons
 	| SAT ( H , R , G ) :: :: SAT
 	| SATv ( H , R , Rv , T ) :: :: satv {{ tex \mathit{SAT}_v([[H]],[[R]],[[Rv]],[[T]]) }}
-	| own ( H , Rv , T ) :: :: own
 	| F ( a ) :: :: total_own_app
+	| omap :: :: omap
 
    omap :: 'OM_' ::=
     | { a |-> r } :: :: omap
@@ -284,6 +285,17 @@ grammar
 	| FVF :: :: free_var_fun
 	| dom MF :: :: dom_mf {{ tex dom([[MF]]) }}
 
+  EqT :: 'EqT_' ::= {{ com equatable terms }}
+    | e :: :: expt
+	| Gst :: :: simple_g
+	| G :: :: gamma
+	| B :: :: ctxt
+	| Rv :: :: runtime_value
+	| VS :: :: value_set
+	| functions :: :: func
+	| csub  :: :: context_sub
+	| vsub :: :: value_sub
+
   formula :: formula_ ::=
     | logical_frag1 = logical_frag2 :: :: eq_form
     | logical_frag :: :: frag
@@ -294,6 +306,7 @@ grammar
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
 	| r1 = r2 :: :: own_eq
     | C1 != C2 :: :: conf_ineq
+	| formula1 <=> formula2 :: :: meta_biimpl
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
@@ -304,18 +317,13 @@ grammar
 	| bind not in VS :: :: notInFv {{ tex [[bind]] \not\in [[VS]] }}
 	| VS1 sub VS2 :: :: subset {{ tex [[VS1]] \subseteq [[VS2]] }}
 	| Rv is INT :: :: in_int {{ tex [[Rv]] \in [[INT]] }}
-	| Rv1 = Rv2 :: :: rvEq
 	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
-	| csub1 = csub2 :: :: sigdef
-	| B1 = B2 :: :: equiv_ctxt
+	| EqT1 = EqT2 :: :: equate
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
 	| ( formula ) :: :: parenF
-	| e1 = e2 :: :: termDef
-	| Gst1 = Gst2 :: :: stEnvEq
-	| csub1 = csub2 :: :: csubEq
-	| vsub1 = vsub2 :: :: vsubEq
 	| T1 ~ T2 :: :: tEqual {{ tex [[T1]] \approx [[T2]] }}
+	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] \approx_[[a]] [[H2]] }}
 	| R1 < R2 :: :: reg_weak {{ tex [[R1]] \sqsubseteq [[R2]] }}
