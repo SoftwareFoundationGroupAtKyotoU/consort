@@ -12,21 +12,24 @@ module Make(S: STRATEGY) = struct
           
       let po = OwnershipSolver.po
 
-      let rec ownership_ante =
+      let ownership_ante t =
         let rel = function
           | `Ge -> ">="
           | `Gt -> ">"
           | `Eq -> "="
         in
-        function
-        | ORel (o,c,f) ->
-          pg (rel c) [
-              po o;
-              plift @@ string_of_float f
-            ]
-        | OAny ol ->
-          pg "or" @@ List.map ownership_ante ol
-
+        let rec loop =
+          function
+          | ORel (o,c,f) ->
+            pg (rel c) [
+                po o;
+                plift @@ string_of_float f
+              ]
+          | OAny ol ->
+            pg "or" @@ List.map loop ol
+        in
+        loop t
+          
       let solve = Z3Channel.call_z3 ~strat:S.z3_tactic
     end)
 end

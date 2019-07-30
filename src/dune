@@ -22,7 +22,8 @@
  (libraries sexplib util lang)
  (modules Inference KCFA
           HornBackend OwnershipSolver SmtBackend
-          Z3BasedBackend Z3Channel VerifyUtil SmtLibBackend Prover))
+          Z3BasedBackend Z3Channel VerifyUtil SmtLibBackend
+          Prover SolverChannel HoiceBackend))
 
 (executable
  (name test)

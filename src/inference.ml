@@ -74,7 +74,7 @@ type ocon =
   | Split of ownership * (ownership * ownership)
   | Eq of ownership * ownership
   (* For well-formedness: if o1 = 0, then o2 = 0 *)
-  | Wf of ownership * ownership
+  | Wf of ownership * ownership [@@deriving sexp]
 
 
 type context = {
@@ -1096,7 +1096,10 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     else
       t
   in
-  ctxt.store_env e_id @@ meet_gamma e_id ctxt.o_info ctxt.gamma;
+  let ctxt = { ctxt with
+    gamma = meet_gamma e_id ctxt.o_info ctxt.gamma;
+  } in
+  ctxt.store_env e_id @@ ctxt.gamma;
   match e with
   | EVar v ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp v in
