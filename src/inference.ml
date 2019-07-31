@@ -354,9 +354,25 @@ let alloc_pred ~loc ?(add_post_var=false) fv target_var ctxt =
   in
   let p_name = mk_pred_name n target_var loc in
   Hashtbl.add ctxt.pred_detail n { fv = (fv :> refine_ap list); loc; target_var };
+  let env,args =
+    List.init (arity - (1 + !KCFA.cfa)) (fun i ->
+      (`AVar (Printf.sprintf "!g%d" i),Top, `NLive)
+    )
+    |> List.map (fun ((a,_,_) as e_it) ->
+        (e_it,a)
+      )
+    |> List.split
+  in
   ({ ctxt with
      v_counter = n + 1;
-     pred_arity = StringMap.add p_name arity ctxt.pred_arity
+     pred_arity = StringMap.add p_name arity ctxt.pred_arity;
+     refinements = {
+       env;
+       ante = Top;
+       nullity = `NNull;
+       owner_ante = [];
+       conseq = Pred (p_name,(args,`AVar ("_ground")))
+     }::ctxt.refinements
    }, p_name)
 
 let make_fresh_pred ~pred_vars:(fv,target,s_val) ~loc ctxt =
@@ -751,7 +767,14 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
         let cons = [
           mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
           mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
-          mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1
+          mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1;
+          pp ~under_mu c1.path @@ {
+            env = g;
+            ante = Top;
+            conseq = c_out_r;
+            owner_ante = ctxt_any_eq c_out;
+            nullity = `NUnk
+          }
         ] in
         let (ctxt',d_list) = ctxt in
         ({ ctxt' with refinements =
@@ -1051,7 +1074,8 @@ let ground_null (ctxt,t) =
     | Int r -> Int r
   in
   let nulled = nullify t in
-  let get_vars i fv =
+  (ctxt,nulled)
+(*  let get_vars i fv =
     assert ((List.length fv) + 1 + !KCFA.cfa = (StringMap.find i ctxt.pred_arity));
     let env = List.mapi (fun i _ ->
       (`AVar (Printf.sprintf "!g%d" i)),Top,`NLive
@@ -1072,7 +1096,7 @@ let ground_null (ctxt,t) =
         g,r
       | _ -> ctxt,r
   ) (`AVar "unused") ([],[]) nulled ctxt
-
+*)
 let rec to_unk t = match t with
   | Int _
   | TVar _ -> t
@@ -1267,7 +1291,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     (* If the sets of FV are not equal, then we have to force the
        generation of new predicates for T1 that do not have free
        variables referring to memory locations *)
-    let force_v1_cons = List.length ap_fv_const <> List.length ap_fv in
+    let _force_v1_cons = List.length ap_fv_const <> List.length ap_fv in
     (* Generate a fresh type for t1 with these free variables *)
     let (ctxt'',t1_sym') = make_fresh_type ~loc ~target_var:(`AVar v1) ~fv:ap_fv_const ~bind:subst t1 ctxt' in
     (* now t1' is a fresh type with the same shape at t1, but with
@@ -1294,8 +1318,8 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     in
     let (ctxt'app,(psub2,psub1)) =
       ctxt''
-      |> (app_matrix ~force_cons:is_fold ~out_root:ap ~out_bind:subst ~out_type:t2_constr'
-        >> app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
+      |> (app_matrix ~force_cons:true(*is_fold*) ~out_root:ap ~out_bind:subst ~out_type:t2_constr'
+        >> app_matrix ~force_cons:true(*force_v1_cons*) ~out_root:(`AVar v1) ~out_type:t1')
     in
     let res = ctxt'app
       |> shuffle_owners t1 t2_constr t1' t2_constr'
@@ -1434,7 +1458,7 @@ and process_call ~e_id ~cont_id ctxt c =
         (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
         let (ctxt'',fresh_type_) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars resid ctxt' in
         let fresh_type_own = meet_ownership cont_id ctxt''.o_info ap fresh_type_ in
-        let[@ocaml.warning "-26"]  concr_arg_type = concretize_arg_t arg_t in
+        let concr_arg_type = concretize_arg_t arg_t in
         
         let (ctxt''',psub) = apply_matrix
             ~pp_constr:(fun ~under_mu path constr  ->
