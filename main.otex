@@ -288,7 +288,6 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   \[
     [[ T /\ y ph' ]] = \begin{cases}
       [[ { z: int | [z/x]ph /\ [z/y]ph' }]] & [[ T = { x: int | ph } /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
-      [[ { z: int | [z/x]ph /\ [z/y]ph' } ref r]] & [[ T = { x: int | ph } ref r /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
       [[ T ]] & o.w.
     \end{cases}
   \]
@@ -387,7 +386,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   }
   \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- T2 ref r /\ y y = T1 x] | B |- e : T => G']] \\
+    [[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref r] | B |- e : T => G']] \\
   }{
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
@@ -955,7 +954,7 @@ The followings are key lemmas:
   $[[T = {y:int|ph}]]$ is trivial. We therefore consider the case
   where $[[v = a']]$ and $[[T = T' ref r]]$. If $[[a' = a]]$, then by
   our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
-  $r = 0$, and $[[SATv(R,H',v,T)]]$ trivially holds. Otherwise, we
+  $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds. Otherwise, we
   have that $[[a' != a]]$, and by definition we must have that
   $[[own(H,H(a),T')(a) = 0]]$ whence the result follows from the
   inductive hypothesis.
