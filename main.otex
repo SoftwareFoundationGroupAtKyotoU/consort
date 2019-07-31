@@ -974,9 +974,9 @@ The followings are key lemmas:
   The base case where $[[T = {y:int|ph}]]$ is trivial.
   Next, we consider the case where $[[T = T' ref r]]$.
   From the definition of $\mathbf{SAT}$,
-  we must have that $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds.
-  Then $r>0\produces v \in dom(H')\land[[ SATv(H',R, H'(v),T') ]]$.
-  We have $v\neq a$, which gives that $H'(v)=H(v)$.
+  if $r = 0$, then $[[SATv(H',R,v,T)]]$ trivially holds.
+  Then it remains to show $r>0\produces v \in dom(H')\land[[ SATv(H',R, H'(v),T') ]]$.
+  From $v\in dom(H)$ and $a\notin dom(H)$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
   That is $[[ SATv(H',R, H(v),T') ]]$, which is true by the induction hypothesis.
 \end{proof}
 
@@ -1037,7 +1037,7 @@ The followings are key lemmas:
     $F_1=F'_1 + [[own(H',R'(y),G''(y))]] + [[own(H',R'(x'),G''(x'))]]$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
-    By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
+    By $\cref{lem:heapop}$, $F'_0=F'_1$ holds.
     From $\cref{lem:ownadd}$, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $v = H(R(y))$.
     We know that $R'(x')=H(R'(y))=H(R(y))$, so $[[ own(H,R'(x'),G''(x')) ]] =[[ own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),G(y)) ]]=[[ own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) ]]=[[ own(H,H(R'(y)),T1) ]]$,
     so we have $[[own(H,R(y),G(y))]]=[[own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $F_0=F_1$.
@@ -1064,7 +1064,7 @@ The followings are key lemmas:
     $F_1=F'_1 + [[own(H',R'(y),G''(y))]] + [[own(H',R'(x'),G''(x'))]]$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
-    By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
+    By $\cref{lem:heapop}$, $F'_0=F'_1$ holds.
     That $[[own(H,R'(x'),T2)]] + [[own(H,R'(y),T1)]] = [[own(H,R(y),T1+T2)]]$ follows immediately
     from $\cref{lem:ownadd}$ and the condition $R(y)=R'(x')=R'(y)$.
     We therefore conclude that $F_0=F_1$.
@@ -1135,16 +1135,16 @@ The followings are key lemmas:
     From $[[Cons(H,R,G)]]$, we know that $[[a in H]], F_0(a)\leq 1$.\newline
     $F_0=F'_0 +\mathbf{own}(H, H(R(y)), \tau') + \{a\mapsto 1\} + \mathbf{own}(H, R(x), \tau_1+\tau_2)$\newline
     $F_0(a)=F'_0(a) +\mathbf{own}(H, H(R(y)), \tau')(a) + 1 + \mathbf{own}(H, R(x), \tau_1+\tau_2)(a)$\newline
-    We then have $\mathbf{own}(H, R(x), \tenv(x))=\mathbf{own}(H, R(x), \tau_1+\tau_2)=0$.
+    We then have $\mathbf{own}(H, R(x), \tenv(x))(a)=\mathbf{own}(H, R(x), \tau_1+\tau_2)(a)=0$.
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[x in R /\ SATv(H,R,R(x),G(x)) ]] $.
-    By $\cref{lem:heapfor0}$ and $\mathbf{own}(H, R(x), \tau_1+\tau_2)=0$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H',R,v,T1+T2) ]]$.
+    By $\cref{lem:heapfor0}$ and $\mathbf{own}(H, R(x), \tau_1+\tau_2)(a)=0$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H',R,v,T1+T2) ]]$.
     Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R,v,T1) ]]\land[[ SATv(H',R,v,T2) ]]$, where $v = R(x)$.
     To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]\land y=x$ and $[[ SATv(H',R,R(x),T1) ]]$.
     From the definition of $\rn{R-Assign}$ we have $R(x)=H'(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
     We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]\land y=x$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$.
-    Since $F'_0=F'_1$ holds and $[[a in H]], F_0(a)\leq 1$, if $\forall a'\in dom(H'), F''_1(a')\leq F''_0(a')$, we can conclude that $F_1(a')\leq F_0(a')\leq 1$.\newline
+    Since $F'_0=F'_1$ holds by pointwise application of $\cref{lem:heapop}$, and $[[a in H]], F_0(a)\leq 1$, if $\forall a'\in dom(H'), F''_1(a')\leq F''_0(a')$, we can conclude that $F_1(a')\leq F_0(a')\leq 1$.\newline
     Suppose $a= a'$; \newline
     $F''_1(a)=\mathbf{own}(H', H'(R(y)), \tau_2)(a) + \mathbf{own}(H', R(x), \tau_1)(a)+1$\newline
     $F''_0(a)=\mathbf{own}(H, R(x), \tau_2+\tau_1)(a) + \mathbf{own}(H, H(R(y)), \tau')(a)+1$\newline
@@ -1318,12 +1318,6 @@ The followings are key lemmas:
   \end{rneqncase}
 \end{proof}
 
-
-
-\begin{lemma}
-  \label{lem:f0f1}
-  Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\setminus \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
-\end{lemma}
 
 
 \begin{lemma} \bf{Inversion}
