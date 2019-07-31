@@ -90,10 +90,10 @@ end = struct
 
   let map_nullity (c,n_acc) n =
     match n with
+    | `NNull
     | `NUnk ->
       let id = Printf.sprintf "null?%d" c in
       `NVar id,(c+1,id::n_acc)
-    | `NNull -> `NNull,(c,n_acc)
     | `NLive -> `NLive,(c,n_acc)
       
   let pp_constraint ~interp ff { env; ante; conseq; owner_ante; nullity } =
@@ -124,13 +124,27 @@ end = struct
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
     let { ownership = owner_cons; ovars; refinements; arity; theta; _ } = infer_res in
-    StringMap.iter (fun k v ->
+    StringMap.iter (fun k (ground,v) ->
       pg "declare-fun" [
         pl @@ pred_name k;
         psl @@ (List.init v (fun _ -> "Int")) @ [ "Bool" ];
         pl "Bool";
       ] ff.printer;
-      break ff
+      break ff;
+      begin
+        if ground then
+          let g_name = Printf.sprintf "!g%d" in
+          pg "assert" [
+            pg "forall" [
+              ll @@ List.init v (fun i -> psl [ g_name i; "Int"]);
+              pg (pred_name k) @@ (List.init v (fun i -> pl @@ g_name i)) @ [
+                pl "false"
+              ]
+            ]
+          ] ff.printer;
+          break ff
+          
+      end;
     ) arity;
     try
       S.ownership theta ovars owner_cons ff;

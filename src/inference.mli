@@ -35,7 +35,7 @@ module Result :
       ownership : ocon list;
       ovars : int list;
       refinements : tcon list;
-      arity : int StringMap.t;
+      arity : (bool * int) StringMap.t;
       ty_envs: (int,tenv) Hashtbl.t
     }
   end
