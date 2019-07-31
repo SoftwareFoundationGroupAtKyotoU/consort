@@ -925,6 +925,7 @@ The followings are key lemmas:
 \end{definition}
 
 \begin{lemma}[Heap Ownership Preservation]
+  \label{lem:heapop}
   Let $[[H]]$ and $[[H']]$ be two heaps such that $[[H ~ a H']]$ for
   some $[[a]]$. If $[[own(H,v,T)(a) = 0]]$, then
   $[[own(H,v,T) = own(H',v,T)]]$.
@@ -948,20 +949,41 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
-  Let $[[H ~ a H]]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
+  \label{lem:heapfor0}
+  Let $[[H ~ a H']]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
 \end{lemma}
 \begin{proof}
   By induction on the shape of $[[T]]$. The base case where
   $[[T = {y:int|ph}]]$ is trivial. We therefore consider the case
   where $[[v = a']]$ and $[[T = T' ref r]]$. If $[[a' = a]]$, then by
   our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
-  $r = 0$, and $[[SATv(R,H',v,T)]]$ trivially holds. Otherwise, we
+  $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds. Otherwise, we
   have that $[[a' != a]]$, and by definition we must have that
-  $[[own(H,H(a),T')(a) = 0]]$ whence the result follows from the
+  $[[own(H,H(a),T')(a) = 0]]$ hence the result follows from the
   inductive hypothesis.
 \end{proof}
 
+
 \begin{lemma}
+  \label{lem:newaddheap}
+  If we have heap $H$, such that $[[ SATv(H,R,v,T) ]]$. For any heap $H'$,
+  $H' = H\{a\mapsto v'\} , a \notin dom(H)$, then we have $[[ SATv(H', R, v, T) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[ T ]]$.
+  The base case where $[[T = {y:int|ph}]]$ is trivial.
+  Next, we consider the case where $[[T = T' ref r]]$.
+  From the definition of $\mathbf{SAT}$,
+  we must have that $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds.
+  Then $r>0\produces v \in dom(H')\land[[ SATv(H',R, H'(v),T') ]]$.
+  We have $v\neq a$, which gives that $H'(v)=H(v)$.
+  That is $[[ SATv(H',R, H(v),T') ]]$, which is true by the induction hypothesis.
+\end{proof}
+
+
+
+\begin{lemma}
+  \label{lem:sattosat}
   If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
 \end{lemma}
 \begin{proof}
@@ -1005,8 +1027,8 @@ The followings are key lemmas:
     The first is easy to obtain using $\cref{lem:substitution}.$
     It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.\newline
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
-    From $\cref{lem:satadd}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
-    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H'(R'(y)),T1) ]]\land y=x'$.
+    From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]\land y=x'$.
     From the definition of $\rn{R-Deref}$ we have $R'(x')=H(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x'$.
     We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]\land y=x'$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
@@ -1032,7 +1054,7 @@ The followings are key lemmas:
     The first is easy to obtain using $\cref{lem:substitution}.$
     It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. \newline
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
-    From $\cref{lem:satadd}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
+    From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
     To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]\land y=x'$.
     From the definition of $\rn{R-Let}$ we have $R(y)=R'(x')=R'(y)$. Thus $y$ satisfies the refinement that $y=x'$, and $x'$ satisfies the refinement that $x'=y$.
     We then have $[[ SATv(H,R',R'(x'),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]\land y=x'$ are satisfied.\newline
@@ -1083,10 +1105,11 @@ The followings are key lemmas:
     The first is easy to obtain using $\cref{lem:substitution}.$\newline
     It remains to show $[[Cons(H',R',G'')]]$.
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
-    From $\cref{lem:satadd}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
-    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',H'(R'(x')),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]$.
+    From $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1+T2) ]]$. By $\cref{lem:newaddheap}$, we have $[[ SATv(H',R',v,T1+T2) ]]$.
+    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R',v,T1) ]]\land[[ SATv(H',R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]\land x'=y$ and $[[ SATv(H',R',R'(y),T1) ]]$.
     From the definition of $\rn{R-MkRef}$ we have $R(y)=H'(R'(x'))=R'(y)$. Thus $x'$ satisfies the refinement that $x'=y$.
-    We then have $[[ SATv(H,R',H'(R'(x')),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.\newline
+    We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]\land x'=y$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. We have:\newline
     $F_1 = \sum_{z\in\textit{dom}(\tenv'')}[[own(H',R'(z'),G''(z'))]] = \sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]] + \{a'\mapsto 1\} = F_0 + \{a'\mapsto 1\}$,
@@ -1104,16 +1127,37 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | ll |- e : T => G']]$.
     We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
-    By reasoning similar to the $\rn{R-Mkref}$ case, $[[ SATv(H,R',H'(R'(y)),T2) ]]\land y=x$ and $[[ SATv(H,R',R'(x),T1) ]]$ are satisfied.\newline
-    We must also show that the ownership invariant is preserved.\newline
-    Then, it's to show $[[a in H]].[[F(a)]] \leq 1$, we focus on prove that $F_0=F_1$, defines as below:\newline
-    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x))$\newline
-    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv''(y)) + \mathbf{own}(H', R'(x), \tenv''(x))$\newline
+    We define $F_0$ and $F_1$ as below:\newline
+    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x)) = F'_0 + F''_0$\newline
+    $F_1=F'_1 + \mathbf{own}(H', R(y), \tenv''(y)) + \mathbf{own}(H', R(x), \tenv''(x)) = F'_1 + F''_1$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y,x\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
-    $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R'(z),\tenv''(z))$\newline
-    Since $F'_0=F'_1$ holds,
-    we have $[[own(H,R'(x),T1)]] + [[own(H,H'(R'(y)),T2) ]] =  [[own(H,H(R(y)),T2+T1) ]]$ from $\cref{lem:ownadd}$ and the condition $H(R(y))=R'(x)=H'(R'(y))$.
-    We therefore conclude that $F_0=F_1$.
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R(z),\tenv''(z))$\newline
+    From $[[Cons(H,R,G)]]$, we know that $[[a in H]], F_0(a)\leq 1$.\newline
+    $F_0=F'_0 +\mathbf{own}(H, H(R(y)), \tau') + \{a\mapsto 1\} + \mathbf{own}(H, R(x), \tau_1+\tau_2)$\newline
+    $F_0(a)=F'_0(a) +\mathbf{own}(H, H(R(y)), \tau')(a) + 1 + \mathbf{own}(H, R(x), \tau_1+\tau_2)(a)$\newline
+    We then have $\mathbf{own}(H, R(x), \tenv(x))=\mathbf{own}(H, R(x), \tau_1+\tau_2)=0$.
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[x in R /\ SATv(H,R,R(x),G(x)) ]] $.
+    By $\cref{lem:heapfor0}$ and $\mathbf{own}(H, R(x), \tau_1+\tau_2)=0$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H',R,v,T1+T2) ]]$.
+    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R,v,T1) ]]\land[[ SATv(H',R,v,T2) ]]$, where $v = R(x)$.
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]\land y=x$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    From the definition of $\rn{R-Assign}$ we have $R(x)=H'(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]\land y=x$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.\newline
+    We must also show that the ownership invariant is preserved.\newline
+    Then, it's to show $[[a in H]].[[F(a)]] \leq 1$.
+    Since $F'_0=F'_1$ holds and $[[a in H]], F_0(a)\leq 1$, if $\forall a'\in dom(H'), F''_1(a')\leq F''_0(a')$, we can conclude that $F_1(a')\leq F_0(a')\leq 1$.\newline
+    Suppose $a= a'$; \newline
+    $F''_1(a)=\mathbf{own}(H', H'(R(y)), \tau_2)(a) + \mathbf{own}(H', R(x), \tau_1)(a)+1$\newline
+    $F''_0(a)=\mathbf{own}(H, R(x), \tau_2+\tau_1)(a) + \mathbf{own}(H, H(R(y)), \tau')(a)+1$\newline
+    We know $F_0(a')\leq 1$, that is $\mathbf{own}(H, R(x), \tau_2+\tau_1)(a) = \mathbf{own}(H, H(R(y)), \tau')(a) =0$.
+    By $\cref{lem:heapop}$, we have $\mathbf{own}(H, R(x), \tau_2+\tau_1) = \mathbf{own}(H', R(x), \tau_2+\tau_1)$.
+    Also by $\cref{lem:ownadd}$, we have $\mathbf{own}(H', R(x), \tau_2+\tau_1) = \mathbf{own}(H', R(x), \tau_1)+\mathbf{own}(H', R(x), \tau_2)$.
+    Then we have $\mathbf{own}(H', H'(R(y)), \tau_2)(a)=\mathbf{own}(H', R(x), \tau_1)(a)=0$.
+    Therefore, $F''_1(a)=\mathbf{own}(H', H'(R(y)), \tau_2)(a) + \mathbf{own}(H', R(x), \tau_1)(a)+1 = 1\leq F''_0(a')$.\newline
+    Next, suppose $a\neq a'$;\newline
+    $F''_1(a')=\mathbf{own}(H', H'(R(y)), \tau_2)(a') + \mathbf{own}(H', R(x), \tau_1)(a')$\newline
+    $F''_0(a')=\mathbf{own}(H, R(x), \tau_2+\tau_1)(a') + \mathbf{own}(H, H(R(y)), \tau')(a')$\newline
+    By reasoning similar to the case for $a= a'$, we have $F''_1(a')\leq F''_0(a')$.
+    Finally, we conclude that $[[a' in H']] F_1(a')\leq 1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Alias}{
     [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
@@ -1129,7 +1173,7 @@ The followings are key lemmas:
     We then have $\tau_1^a+\tau_2^a= \tau^a$, by $\cref{lem:satadd}$, $SAT_v(H,R,v,\tau^a) \iff SAT_v(H,R,v,\tau_1^a)\land SAT_v(H,R,v,\tau_2^a)$, where $v = H(R(y))=H(R(x))$, since the definition of $\rn{R-Alias}$.
     Similarly, we also have $\tau_1^b+\tau_2^b= \tau^b$, by $\cref{lem:satadd}$, $SAT_v(H,R',v,\tau^b) \iff SAT_v(H,R',v,\tau_1^b)\land SAT_v(H,R',v,\tau_2^b)$, where $v = H(R(y))=H(R(x))$.
     We then have $\tau^a\approx\tau^b$, according to the rules for type equivalence.
-    From the new lemma, we have $SAT_v(H,R,v,\tau^a)\iff SAT_v(H,R',v,\tau^b)$.
+    From $\cref{lem:sattosat}$, we have $SAT_v(H,R,v,\tau^a)\iff SAT_v(H,R',v,\tau^b)$.
     Then the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition from above.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$. Here $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.
     To prove that $F_0=F_1$ follows from:\newline
