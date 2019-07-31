@@ -19,7 +19,7 @@
  (name consort)
  (preprocess (pps ppx_sexp_conv))
  (wrapped false)
- (libraries sexplib util lang)
+ (libraries sexplib util lang str)
  (modules Inference KCFA
           HornBackend OwnershipSolver SmtBackend
           Z3BasedBackend Z3Channel VerifyUtil SmtLibBackend
