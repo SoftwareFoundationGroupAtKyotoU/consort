@@ -120,13 +120,14 @@ module Options = struct
        { comb with
          seq_solver = !seq_run;
          check_trivial = !check_trivial;
-         solver = !solver
+         solver = !solver;
        }))
 end
 
 let infer opts intr simple_res ast =
+  let save_types = opts.Options.annot_infr || opts.Options.check_trivial in
   if (not opts.Options.seq_solver) then
-    Inference.infer ~print_pred:opts.debug_pred ~save_types:opts.annot_infr ~intrinsics:intr.Intrinsics.op_interp simple_res ast
+    Inference.infer ~print_pred:opts.debug_pred ~save_types ~intrinsics:intr.Intrinsics.op_interp simple_res ast
     |> Option.return
   else
     let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
@@ -158,13 +159,33 @@ let infer opts intr simple_res ast =
           }) r.R.theta in
       Inference.infer
         ~print_pred:opts.debug_pred
-        ~save_types:opts.annot_infr
+        ~save_types
         ~o_solve:(o_gamma_tbl,o_theta)
         ~intrinsics:intr.Intrinsics.op_interp
         simple_res ast
       |> Option.return
 
-let check_triviality t =
+let check_triviality res ast t =
+  let rec is_trivial_refinemnt ss =
+    let open RefinementTypes in
+    function
+    | Pred (nm,_)
+    | CtxtPred(_,nm,_) ->
+      StringSet.mem nm ss
+    | And (r1,r2) -> (is_trivial_refinemnt ss r1) && (is_trivial_refinemnt ss r2)
+    | _ -> false
+  in
+  let has_trivial_ref ss =
+    let open RefinementTypes in
+    fold_refinements (fun acc r ->
+      acc || (is_trivial_refinemnt ss r)
+    ) false
+  in
+  let env_is_trivial ss =
+    StringMap.exists (fun _ t ->
+      has_trivial_ref ss t
+    )
+  in
   let check_model m_raw =
     let open Sexplib.Sexp in
     let m = of_string m_raw in
@@ -184,9 +205,25 @@ let check_triviality t =
       in
       if List.length triv_preds = 0 then
         ()
-      else
+      else begin
+        let pred_set = StringSet.of_list triv_preds in
+        Printf.fprintf stderr "!!!! Inferred trivial solution (check grounding?) !!!!\n";
+        AstPrinter.pretty_print_program ~with_labels:true ~annot:(fun id ->
+          let envs = res.Inference.Result.ty_envs in
+          Hashtbl.find_opt envs id
+          |> Option.map @@ env_is_trivial pred_set
+          |> Option.bind (fun flg ->
+              let open PrettyPrint in
+              if flg then
+                Some (pl [ ps "// TRIVIAL"; newline ])
+              else
+                None
+            )
+          |> Option.value ~default:(PrettyPrint.null)
+        ) stderr ast;
         let bad_preds = String.concat ", " triv_preds in
         failwith @@ Printf.sprintf "Solution contains trivial solutions for %s" bad_preds
+      end
     | _ -> ()
   in
   if (not t) then Option.iter (fun _ -> ())
@@ -235,7 +272,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
     in
     match res with
     | Sat m ->
-      check_triviality opts.check_trivial m;
+      check_triviality r ast opts.check_trivial m;
       print_model opts.print_model m;
       true
     | _ -> false

@@ -91,6 +91,13 @@ let rec map_refinement f =
   | Mu (a,v,t) -> Mu (a,v,map_refinement f t)
   | TVar v -> TVar v
 
+let rec fold_refinements f a = function
+  | TVar _ -> a
+  | Int r -> f a r
+  | Mu (_,_,t)
+  | Ref (t,_,_) -> fold_refinements f a t
+  | Tuple (_,tl) -> List.fold_left (fold_refinements f) a tl
+
 let rec to_simple_type = function
   | Ref (t,_,_) -> `Ref (to_simple_type t)
   | Int _ -> `Int
