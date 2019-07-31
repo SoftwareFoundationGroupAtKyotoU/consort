@@ -1027,9 +1027,10 @@ The followings are key lemmas:
     It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.\newline
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
     From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
-    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]\land y=x'$.
-    From the definition of $\rn{R-Deref}$ we have $R'(x')=H(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x'$.
-    We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]\land y=x'$ are satisfied.\newline
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$.
+    Additionally, if $[[ T1 ]]$ is an integer, by the definition of the strengthening operator, we must also show that $R'(x')=H(R'(y))=H(R(y))$, which is immediate from the definition of $\rn{R-Deref}$.
+    Thus $y$ satisfies the refinement that $y=x'$ when $[[ T1 ]]$ is an integer.
+    We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
@@ -1054,9 +1055,10 @@ The followings are key lemmas:
     It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. \newline
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
     From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
-    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]\land y=x'$.
-    From the definition of $\rn{R-Let}$ we have $R(y)=R'(x')=R'(y)$. Thus $y$ satisfies the refinement that $y=x'$, and $x'$ satisfies the refinement that $x'=y$.
-    We then have $[[ SATv(H,R',R'(x'),T2) ]]\land x'=y$ and $[[ SATv(H,R',R'(y),T1) ]]\land y=x'$ are satisfied.\newline
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$.
+    Additionally, if $[[ T1 ]]$ is an integer, by the definition of the strengthening operator, we must also show that $R(y)=R'(x')=R'(y)$, which is immediate from the definition of $\rn{R-Let}$.
+    Thus $y$ satisfies the refinement that $y=x'$ when $[[ T1 ]]$ is an integer. Similarly, $x$ satisfies the refinement that $x'=y$ when $[[ T2 ]]$ is an integer.
+    We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
@@ -1106,9 +1108,10 @@ The followings are key lemmas:
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
     From $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1+T2) ]]$. By $\cref{lem:newaddheap}$, we have $[[ SATv(H',R',v,T1+T2) ]]$.
     Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R',v,T1) ]]\land[[ SATv(H',R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
-    To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]\land x'=y$ and $[[ SATv(H',R',R'(y),T1) ]]$.
-    From the definition of $\rn{R-MkRef}$ we have $R(y)=H'(R'(x'))=R'(y)$. Thus $x'$ satisfies the refinement that $x'=y$.
-    We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]\land x'=y$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.\newline
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
+    Additionally, if $[[ T2 ]]$ is an integer, by the definition of the strengthening operator, we must also show that $R(y)=H'(R'(x'))=R'(y)$, which is immediate from the definition of $\rn{R-MkRef}$.
+    Thus $x'$ satisfies the refinement that $x'=y$ when $[[ T2 ]]$ is an integer.
+    We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. We have:\newline
     $F_1 = \sum_{z\in\textit{dom}(\tenv'')}[[own(H',R'(z'),G''(z'))]] = \sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]] + \{a'\mapsto 1\} = F_0 + \{a'\mapsto 1\}$,
@@ -1123,8 +1126,8 @@ The followings are key lemmas:
     [[ <H, R, Es, E[y:=x;e]> --> D <H { a <- R(x)}, R, Es, E[e]> ]]\andalso a = R(y)\\
     [[ Th | G[x: T1 + T2][y : T' ref 1] | ll |- y := x; e : T => G']]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | ll |- e : T => G']]$.
-    We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref 1] | ll |- e : T => G']]$.
+    We give $[[ G'' = G[x <- T1][y <- T2 /\ y y = T2 x ref 1] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
     We define $F_0$ and $F_1$ as below:\newline
     $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x)) = F'_0 + F''_0$\newline
@@ -1138,9 +1141,10 @@ The followings are key lemmas:
     We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[x in R /\ SATv(H,R,R(x),G(x)) ]] $.
     By $\cref{lem:heapfor0}$ and $\mathbf{own}(H, R(x), \tau_1+\tau_2)(a)=0$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H',R,v,T1+T2) ]]$.
     Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R,v,T1) ]]\land[[ SATv(H',R,v,T2) ]]$, where $v = R(x)$.
-    To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]\land y=x$ and $[[ SATv(H',R,R(x),T1) ]]$.
-    From the definition of $\rn{R-Assign}$ we have $R(x)=H'(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
-    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]\land y=x$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.\newline
+    To show that the output environment is consistent, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    Additionally, if $[[ T2 ]]$ is an integer, by the definition of the strengthening operator, we must also show that $R(x)=H'(R(y))$, which is immediate from the definition of $\rn{R-Assign}$.
+    Thus $y$ satisfies the refinement that $y=x$ when $[[ T2 ]]$ is an integer.
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$.
     Since $F'_0=F'_1$ holds by pointwise application of $\cref{lem:heapop}$, and $[[a in H]], F_0(a)\leq 1$, if $\forall a'\in dom(H'), F''_1(a')\leq F''_0(a')$, we can conclude that $F_1(a')\leq F_0(a')\leq 1$.\newline
