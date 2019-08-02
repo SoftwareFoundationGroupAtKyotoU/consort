@@ -1,22 +1,22 @@
 exception OwnershipFailure
 
 module type STRATEGY = sig
-  val ownership: Inference.funenv -> int list -> Inference.ocon list -> SexpPrinter.t -> unit
-  val solve: debug_cons:bool -> ?save_cons:string -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Prover.result
+  val ownership: Inference.Result.t -> SexpPrinter.t -> unit
+  val solve: Solver.solve_fn
   val ownership_ante : Inference.oante -> (Sexplib.Sexp.t -> 'a) -> 'a
 end
 
 type intrinsic_interp  = (string StringMap.t) * string option
-
+type solver_intf = opts:Solver.options -> debug_cons:bool ->  ?save_cons:string -> get_model:bool -> interp:intrinsic_interp -> Inference.Result.t -> Solver.result
 module Make(S: STRATEGY) : sig
-  val solve : debug_cons:bool ->  ?save_cons:string -> get_model:bool -> interp:intrinsic_interp -> Inference.Result.t -> Prover.result
+  val solve : solver_intf
 end = struct
   open SexpPrinter
   open Inference
   open RefinementTypes
 
   let pred_name p = p
-    
+
   let pp_imm o ff = match o with
     | RAp ap -> atom ff @@ Paths.to_z3_ident ap
     | RConst i -> atom ff @@ string_of_int i
@@ -120,10 +120,10 @@ end = struct
     ] ff.printer;
     break ff
 
-  let solve ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
+  let solve ~opts ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
-    let { ownership = owner_cons; ovars; refinements; arity; theta; _ } = infer_res in
+    let { refinements; arity; _ } = infer_res in
     StringMap.iter (fun k (ground,v) ->
       pg "declare-fun" [
         pl @@ pred_name k;
@@ -147,10 +147,10 @@ end = struct
       end;
     ) arity;
     try
-      S.ownership theta ovars owner_cons ff;
+      S.ownership infer_res ff;
       List.iter (pp_constraint ~interp ff) refinements;
       SexpPrinter.finish ff;
-      S.solve ~debug_cons ?save_cons ~get_model ~defn_file ff
+      S.solve ~opts ~debug_cons ?save_cons ~get_model ~defn_file ff
     with
       OwnershipFailure -> Unsat
 end

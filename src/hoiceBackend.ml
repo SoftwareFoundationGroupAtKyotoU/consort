@@ -1,26 +1,31 @@
 module Ch = SolverBridge.Make(struct
     let name = "hoice"
-    let base_command = "/home/jtoman/sources/hoice/target/release/hoice -t 30"
+    type st = (string * string)
 
-    type st = string
+    let prepare_out ~timeout ~command save_cons =
+      let (nm,chan) =
+        match save_cons with
+        | Some s -> (s,open_out s)
+        | None ->
+          let (nm,chan) = Filename.open_temp_file "HoiceCons" ".smt" in
+          at_exit (fun () ->
+            Sys.remove nm);
+          (nm,chan)
+      in
+      let base_command = Printf.sprintf "%s -t %d"
+          (Std.Option.value ~default:"hoice" command)
+          timeout
+      in
+      (base_command,nm),chan
 
-    let prepare_out save_cons =
-      match save_cons with
-      | Some s -> (s,open_out s)
-      | None ->
-        let (nm,chan) = Filename.open_temp_file "HoiceCons" ".smt" in
-        at_exit (fun () ->
-          Sys.remove nm);
-        (nm,chan)
-
-    let spawn nm =
+    let spawn (base_command,nm) =
       Unix.open_process_in @@ Printf.sprintf "%s %s" base_command @@ Filename.quote nm
 
     let dispose _ = ()
   end)
 
 module Backend = SmtLibBackend.Make(struct
-    let ownership _ _ _ _ = ()
+    let ownership _ _ = ()
 
     let rec interp_ante =
       let open Inference in

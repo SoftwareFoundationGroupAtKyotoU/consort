@@ -1,5 +1,5 @@
 module type STRATEGY = sig
-  val ownership: Inference.funenv -> int list -> Inference.ocon list -> SexpPrinter.t -> unit
+  val ownership: Inference.Result.t -> SexpPrinter.t -> unit
   val z3_tactic : string
 end
 

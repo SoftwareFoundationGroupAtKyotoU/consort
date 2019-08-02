@@ -3,6 +3,7 @@ let () =
     let open VerifyUtil.Options in
     debug_arg_gen ()
     |> seq solver_arg_gen
+    |> seq solver_opt_gen
   in
   let (intr_fl,loader) = Intrinsics.option_loader () in
   let spec = flags @ intr_fl @ [
