@@ -4,6 +4,7 @@ module Options :
       | Hoice
       | Spacer
       | Z3SMT
+      | Null
 
     type t = {
       debug_pred: bool;
