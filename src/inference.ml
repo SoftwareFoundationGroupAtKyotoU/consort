@@ -1070,7 +1070,7 @@ let rec to_unk t = match t with
 let bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
 
-let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
+let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
     | Ref (r,o,n) -> (r,o,n)
@@ -1099,11 +1099,10 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
         |> constrain_owner t2 t
       | None -> ctxt''
     end
-    |> scope_out
     |> remove_var ~loc:(LLet e_id) remove_scope
   | Seq (e1, e2) ->
     let ctxt' = process_expr ctxt e1 in
-    process_expr ~scope_out ?output_type ~remove_scope ctxt' e2
+    process_expr ?output_type ~remove_scope ctxt' e2
       
   | Assign (lhs,IVar rhs,cont) ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp rhs in
@@ -1121,7 +1120,7 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
       |> update_type rhs t1
       |> update_type lhs @@ ref_of t2_eq o `NLive
     in
-    process_expr ~scope_out ?output_type ~remove_scope nxt cont
+    process_expr ?output_type ~remove_scope nxt cont
 
   | Assign (lhs,IInt i,cont) ->
     let (_,o,_) = lkp_ref lhs in
@@ -1129,7 +1128,7 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
       add_owner_con [Write o] ctxt
       |> update_type lhs @@ ref_of (Int (ConstEq i)) o `NLive
     in
-    process_expr ~scope_out ?output_type ~remove_scope ctxt' cont
+    process_expr ?output_type ~remove_scope ctxt' cont
 
   | Let (PVar v,Mkref (RVar v_ref),((cont_id,_) as exp)) when IntSet.mem e_id ctxt.iso.fold_locs ->
     (* FOLD, EVERYBODY FOLD *)
@@ -1144,7 +1143,7 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
       |> bind_var v @@ ref_of fresh_strengthened o `NLive
       |> add_owner_con [Write o]
     in
-    process_expr ~scope_out ?output_type ~remove_scope:(SS.add v remove_scope) ctxt''' exp
+    process_expr ?output_type ~remove_scope:(SS.add v remove_scope) ctxt''' exp
   
   | Let (patt,rhs,((cont_id,_) as exp)) ->
     let ctxt,assign_type = begin
@@ -1212,10 +1211,10 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
     let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
-    process_expr ~scope_out ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp    
+    process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp    
   | Assert (relation,cont) ->
     cont
-    |> process_expr ~scope_out ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation) `NUnk
+    |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation) `NUnk
 
   | Alias (v1,src_ap,((next_id,_) as cont)) ->
     let loc = LAlias e_id in
@@ -1291,7 +1290,7 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
       |> remove_sub psub1
       |> remove_sub psub2
     in
-    process_expr ~scope_out ?output_type ~remove_scope res cont
+    process_expr ?output_type ~remove_scope res cont
 
   | Cond(v,e1,e2) ->
     let add_pc_refinement cond ctxt =
@@ -1305,14 +1304,12 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
       update_type v @@ map_refinement (fun r -> And (r,Relation branch_refinement)) curr_ref
     in
     process_conditional
-      ~scope_out
       ?output_type ~remove_scope
       ~tr_path:(add_pc_refinement "=")
       ~fl_path:(add_pc_refinement "!=")
       e_id e1 e2 ctxt
   | NCond (v,e1,e2) ->
     process_conditional
-      ~scope_out
       ?output_type ~remove_scope
       ~tr_path:(fun ctxt ->
         let (ctxt',t) = make_fresh_type ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt |> ground_null in
@@ -1325,11 +1322,11 @@ let rec process_expr ?(scope_out=(fun c -> c)) ?output_type ?(remove_scope=SS.em
         StringMap.add k v acc
       ) StringMap.empty ty_env in
     next
-    |> process_expr ~scope_out ?output_type ~remove_scope { ctxt with gamma = env' }
+    |> process_expr ?output_type ~remove_scope { ctxt with gamma = env' }
 
-and process_conditional ~scope_out ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
-  let ctxt1 = process_expr ~scope_out ?output_type ~remove_scope (tr_path ctxt) e1 in
-  let ctxt2 = process_expr ~scope_out ?output_type ~remove_scope (fl_path {
+and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
+  let ctxt1 = process_expr ?output_type ~remove_scope (tr_path ctxt) e1 in
+  let ctxt2 = process_expr ?output_type ~remove_scope (fl_path {
         ctxt with
         refinements = ctxt1.refinements;
         v_counter = ctxt1.v_counter;
@@ -1494,17 +1491,14 @@ let process_function_bind ctxt fdef =
     ) SM.empty typ_template
   in
   let result_type = inst_symb ~post:false "Ret" f_typ.result_type in
+  let ctxt' = process_expr ~output_type:result_type ~remove_scope:SS.empty { ctxt with gamma = init_env } fdef.body in
   let out_typ_template = List.combine arg_names f_typ.output_types in
-  let scope_out = (fun ret_ctxt ->
-    let result_denote = ret_ctxt.gamma |> denote_gamma in
-    List.fold_left (fun acc (v,out_ty) ->
-      let out_refine_type = inst_symb ~post:true v out_ty in
-      add_var_implication result_denote acc.gamma v out_refine_type acc
-      |> constrain_owner (SM.find v acc.gamma) out_refine_type
-    ) ret_ctxt out_typ_template
-  ) in
-  let ctxt' = process_expr ~scope_out ~output_type:result_type ~remove_scope:SS.empty { ctxt with gamma = init_env } fdef.body in
-  ctxt'
+  let result_denote = ctxt'.gamma |> denote_gamma in
+  List.fold_left (fun acc (v,out_ty) ->
+    let out_refine_type = inst_symb ~post:true v out_ty in
+    add_var_implication result_denote acc.gamma v out_refine_type acc
+    |> constrain_owner (SM.find v acc.gamma) out_refine_type
+  ) ctxt' out_typ_template
 
 let process_function ctxt fdef =
   let c = process_function_bind ctxt fdef in
