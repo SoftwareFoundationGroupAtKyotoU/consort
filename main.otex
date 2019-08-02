@@ -1286,7 +1286,7 @@ The followings are key lemmas:
   We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
   $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
   From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R, Rv, T1) ]] \produces [[ [R; v/x]ph1 ]]$ and $[[ SATv(H, R, Rv, T2) ]] \produces [[ [R; v/x]ph2 ]]$.
-  also by $\cref{lem:register}$, $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R, Rv, T1+T2) ]]\produces [[ [R; v/x](ph1 /\ ph2) ]]$.
+  also $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ [R; v/x](ph1 /\ ph2) ]]$.
   It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R; v / y]ph1 ]]$ and $[[ [R; v / x]ph2 ]]$.
   We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
   Backward derivation is by reasoning similar to the forward derivation.
@@ -1295,7 +1295,7 @@ The followings are key lemmas:
   Forward derivation:
   From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R, Rv, T1) /\ r1 > 0 ==> a in H /\ SATv(H,R,H(a),T1')]] \land [[ T1 = T1' ref r1 /\ Rv = a ]]$,
   and $[[ SATv(H, R, Rv, T2) /\ r2 > 0 ==> a in H /\ SATv(H,R,H(a),T2')]] \land [[ T2 = T2' ref r2 /\ Rv = a ]]$.
-  Also by $\cref{lem:register}$, $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R, Rv, T1+T2) ]] \land (r_1+r_2) > 0 \produces[[ a in H /\ SATv(H,R,H(a),T1'+T2')]] \land [[ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
+  Also $[[ SATv(H, R, Rv, T1+T2) ]] \land (r_1+r_2) > 0 \produces[[ a in H /\ SATv(H,R,H(a),T1'+T2')]] \land [[ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
   By the induction hypothesis, we have $[[ SATv(H,R,H(a),T1'+T2') ]]\produces [[ SATv(H,R,H(a),T1') ]]\land [[ SATv(H,R,H(a),T2') ]]$.
   We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
   Backward derivation is by reasoning similar to the forward derivation.
@@ -1303,7 +1303,6 @@ The followings are key lemmas:
   \begin{rneqncase}{Tadd-Ref2}\newline
   Forward derivation:
   In this case, we have $[[ T1 + T2 = T2' ref r ]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref r ]]$, where $r>0$.
-  By $\cref{lem:register}$, we have $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1+T2) ]]$.
   From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R, Rv, T1) ]]=[[ SATv(H, R, Rv, T1' ref 0) ]]\produces 0 > 0\produces [[a in H /\ SATv(H,R,H(a),T1') /\ Rv = a ]]$.
   Then $[[ SATv(H, R, Rv, T2) ]]=[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R, Rv, T2' ref r) ]] \land r > 0 \produces[[ a in H /\ SATv(H,R,H(a),T2')]] \land [[ Rv = a ]]$.
   That is $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H,R,H(a),T1') /\ SATv(H,R,H(a),T2') ]].$
