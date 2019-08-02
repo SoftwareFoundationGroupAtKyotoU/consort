@@ -12,6 +12,7 @@ module InternalMake(K : sig
       val equal : key -> key -> bool
       type state
       val init : state
+      val weight : key -> int
     end) = struct
   type node = {
     id : K.key;
@@ -66,7 +67,14 @@ module InternalMake(K : sig
       else if n1.rank < n2.rank then
         n1.parent <- n2
       else
-        let (new_root,child) = (n1,n2) in
+        let w1 = K.weight id1 in
+        let w2 = K.weight id2 in
+        let (new_root,child) =
+          if w1 < w2 then
+            (n1,n2)
+          else
+            (n2,n1)
+        in
         child.parent <- new_root;
         new_root.rank <- new_root.rank + 1
     end
@@ -76,11 +84,13 @@ module Make(K : sig
       type t
       val hash : t -> int
       val equal : t -> t -> bool
+      val weight : t -> int
     end) = struct
   include InternalMake(struct
       type key = K.t
       let hash = K.hash
       let equal = K.equal
+      let weight = K.weight
       type state = unit
       let init = ()
     end)
@@ -98,6 +108,7 @@ include InternalMake(struct
     let equal = (=)
     type state = int
     let init = 0
+    let weight i = i
   end)
 
 let new_node uf =
