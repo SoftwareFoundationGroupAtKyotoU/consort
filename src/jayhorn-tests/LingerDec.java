@@ -1,4 +1,4 @@
-class bar {
+class LingerDec {
 	public static class Ptr {
 		public int a;
 	}
