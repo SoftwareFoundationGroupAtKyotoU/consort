@@ -14,6 +14,7 @@ module Make(K : sig
       type t
       val hash : t -> int
       val equal : t -> t -> bool
+      val weight : t -> int
     end) : sig
   type t
   include UF with type key := K.t and type t := t

@@ -15,6 +15,7 @@ module TyCons : sig
   val fresh : unit -> t
   val to_string : t -> string
   val unwrap : t -> int
+  val weight : t -> int
 end = struct
   type t = int [@@deriving sexp]
   let _ref = ref 0;;
@@ -28,6 +29,7 @@ end = struct
 
   let to_string = string_of_int
   let unwrap i = i
+  let weight = unwrap
 end
 
 let rec string_of_typ = function
