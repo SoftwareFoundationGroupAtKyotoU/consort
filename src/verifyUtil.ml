@@ -23,6 +23,7 @@ module Options = struct
     | Hoice
     | Spacer
     | Z3SMT
+    | Null
   
   type t = {
     debug_pred: bool;
@@ -117,9 +118,10 @@ module Options = struct
     ([
       ("-seq-solver", Set seq_run, "Run two inference passes; the first inferring ownership, the second inferring refinements");
       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
-      ("-solver", Symbol (["spacer";"hoice";"z3"], function
+      ("-solver", Symbol (["spacer";"hoice";"z3";"null"], function
          | "spacer" -> solver := Spacer
          | "hoice" -> solver := Hoice; seq_run := true
+         | "null" -> solver := Null
          | "z3" -> solver := Z3SMT
          | _ -> assert false), " Use solver backend <solver>. (default: spacer) NOTE: Selecting Hoice enables sequential solving")
            
@@ -281,6 +283,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
         let module M = HornBackend.Backend(struct let solve_ownership = OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts ?save_cons:None end) in M.solve
       | Z3SMT -> SmtBackend.solve
       | Hoice -> HoiceBackend.solve
+      | Null -> NullSolver.solve
     in
     let res = solver
         ~opts:opts.solver_opts
