@@ -1,0 +1,21 @@
+loop(i,n,q) {
+  if i < n then
+    let p = mkref _ in {
+      p := 1;
+	  q := p;
+	  loop((i + 1),n,q)
+	}
+  else ()
+}
+
+{
+  let n = _ in
+  let p = mkref 0 in
+  let q = mkref p in
+  if n > 0 then {
+    loop(0,n,q);
+	let d = *q in
+	let a = *d in
+	assert(a = 1)
+  } else ()
+}
