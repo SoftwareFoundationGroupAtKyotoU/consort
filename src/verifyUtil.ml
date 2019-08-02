@@ -34,7 +34,9 @@ module Options = struct
     seq_solver: bool;
     check_trivial: bool;
     dry_run : bool;
-    solver: solver
+    solver: solver;
+    solver_opts: Solver.options;
+    own_solv_opts: OwnershipSolver.options
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -49,8 +51,13 @@ module Options = struct
     seq_solver = false;
     check_trivial = false;
     dry_run = false;
-    solver = Spacer
+    solver = Spacer;
+    solver_opts = Solver.default;
+    own_solv_opts = OwnershipSolver.default
   }
+
+  let string_opt r =
+    Arg.String (fun s -> r := Some s)
 
   let debug_arg_gen () =
     let open Arg in
@@ -76,7 +83,7 @@ module Options = struct
           ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
           ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
           ("-show-model", Set show_model, "Print model produced from successful verification");
-          ("-save-cons", String (fun r -> save_cons := Some r), "Save constraints in <file>");
+          ("-save-cons", string_opt save_cons, "Save constraints in <file>");
           ("-show-all", Unit (fun () ->
              List.iter (fun r -> r := true) all_debug_flags
            ), "Show all debug output");
@@ -122,9 +129,19 @@ module Options = struct
          check_trivial = !check_trivial;
          solver = !solver;
        }))
+
+  let solver_opt_gen () =
+    let (l,g) = Solver.opt_gen () in
+    let (l2,g2) = OwnershipSolver.ownership_arg_gen () in
+    (l @ l2, (fun ?(comb=default) () ->
+       { comb with
+         solver_opts = g ~comb:comb.solver_opts ();
+         own_solv_opts = g2 ~comb:comb.own_solv_opts ()
+       }))
 end
 
 let infer opts intr simple_res ast =
+  let open Options in
   let save_types = opts.Options.annot_infr || opts.Options.check_trivial in
   if (not opts.Options.seq_solver) then
     Inference.infer ~print_pred:opts.debug_pred ~save_types ~intrinsics:intr.Intrinsics.op_interp simple_res ast
@@ -132,7 +149,7 @@ let infer opts intr simple_res ast =
   else
     let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
     let module R = Inference.Result in
-    match OwnershipSolver.solve_ownership r.R.theta r.R.ovars r.R.ownership with
+    match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts r with
     | None -> None
     | Some o_soln ->
       let open RefinementTypes in
@@ -260,11 +277,13 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
     end;
     let solver =
       match opts.solver with
-      | Spacer -> HornBackend.solve
+      | Spacer ->
+        let module M = HornBackend.Backend(struct let solve_ownership = OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts ?save_cons:None end) in M.solve
       | Z3SMT -> SmtBackend.solve
       | Hoice -> HoiceBackend.solve
     in
     let res = solver
+        ~opts:opts.solver_opts
         ~debug_cons:opts.debug_cons
         ?save_cons:opts.save_cons
         ~get_model:(opts.print_model || opts.check_trivial)

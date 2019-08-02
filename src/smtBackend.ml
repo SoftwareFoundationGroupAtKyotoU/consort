@@ -1,5 +1,5 @@
 module Backend = Z3BasedBackend.Make(struct
-    let ownership _ ovars owner_cons ff =
+    let ownership { Inference.Result.ovars; Inference.Result.ownership = owner_cons; _ } ff =
       OwnershipSolver.print_ownership_constraints ovars owner_cons ff
 
   

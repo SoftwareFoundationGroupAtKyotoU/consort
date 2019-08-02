@@ -50,7 +50,7 @@ let print_program ~o_map ~o_printer r ast =
   in
   AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast  
 
-let ownership_infr debug i_gen file =
+let ownership_infr debug i_gen o_gen file =
   let intr = i_gen () in
   let ast = AstUtil.parse_file file in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
@@ -60,9 +60,8 @@ let ownership_infr debug i_gen file =
   print_endline "<<";
   let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
   print_program ~o_map:(fun _ o -> ((),o)) ~o_printer:RefinementTypes.pp_owner r ast;
-  let open Inference.Result in
   let open PrettyPrint in
-  let o_solve = OwnershipSolver.solve_ownership ?save_cons:!debug r.theta r.ovars r.ownership in
+  let o_solve = OwnershipSolver.solve_ownership ~opts:(o_gen ()) ?save_cons:!debug r in
   match o_solve with
   | None -> print_endline "Could not solve ownership constraints"
   | Some soln ->
@@ -74,7 +73,7 @@ let ownership_infr debug i_gen file =
 
 let () =
   let (i_list, gen) = Intrinsics.option_loader () in
+  let (o_list, o_gen) = OwnershipSolver.ownership_arg_gen () in
   let debug = ref None in
-  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: i_list in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr debug gen
-      
+  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (i_list @ o_list) in
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr debug gen o_gen

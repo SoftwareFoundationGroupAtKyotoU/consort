@@ -23,7 +23,7 @@
  (modules Inference KCFA
           HornBackend OwnershipSolver SmtBackend
           Z3BasedBackend Z3Channel VerifyUtil SmtLibBackend
-          Prover SolverChannel HoiceBackend SolverBridge))
+          Solver HoiceBackend SolverBridge))
 
 (executable
  (name test)
