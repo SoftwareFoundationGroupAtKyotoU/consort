@@ -4,7 +4,7 @@ module Ch = SolverBridge.Make(struct
     let spawn i = i
     let prepare_out ~timeout ~command save_cons =
       let base_command = Printf.sprintf "%s -in -T:%d"
-          (Std.Option.value ~default:"z3" command)
+          (Option.value ~default:"z3" command)
           timeout
       in
       let cmd = 

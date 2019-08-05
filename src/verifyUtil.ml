@@ -147,7 +147,7 @@ let infer opts intr simple_res ast =
   let save_types = opts.Options.annot_infr || opts.Options.check_trivial in
   if (not opts.Options.seq_solver) then
     Inference.infer ~print_pred:opts.debug_pred ~save_types ~intrinsics:intr.Intrinsics.op_interp simple_res ast
-    |> Option.return
+    |> Option.some
   else
     let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
     let module R = Inference.Result in
@@ -182,7 +182,7 @@ let infer opts intr simple_res ast =
         ~o_solve:(o_gamma_tbl,o_theta)
         ~intrinsics:intr.Intrinsics.op_interp
         simple_res ast
-      |> Option.return
+      |> Option.some
 
 let check_triviality res ast t =
   let rec is_trivial_refinemnt ss =
@@ -231,7 +231,7 @@ let check_triviality res ast t =
           let envs = res.Inference.Result.ty_envs in
           Hashtbl.find_opt envs id
           |> Option.map @@ env_is_trivial pred_set
-          |> Option.bind (fun flg ->
+          |> Fun.flip Option.bind @@ (fun flg ->
               let open PrettyPrint in
               if flg then
                 Some (pl [ ps "// TRIVIAL"; newline ])

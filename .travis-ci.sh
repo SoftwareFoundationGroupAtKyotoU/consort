@@ -2,9 +2,9 @@
 
 set -ev
 
-opam init --yes --no-setup --comp 4.06.0
+opam init --yes --no-setup --comp 4.08.0
 eval $(opam config env)
-opam install --yes menhir ppx_sexp_conv sexplib
+opam install --yes menhir ppx_sexp_conv sexplib dune
 
 mkdir -p ~/.local/bin
 export PATH=$HOME/.local/bin:$PATH
