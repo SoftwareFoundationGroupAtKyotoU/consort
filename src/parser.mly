@@ -18,7 +18,7 @@
 // conditionals
 %token IF THEN ELSE IFNULL
 // bindings
-%token LET IN MKREF EQ
+%token LET IN MKREF EQ MKARRAY
 // BIFs
 %token ASSERT ALIAS
 // Update
@@ -137,6 +137,7 @@ let lhs :=
   | b = bin_op; { (b :> lhs) }
   | o = op; { (o :> lhs) }
   | MKREF; ~ = ref_op; <`Mkref>
+  | MKARRAY; ~ = ref_op; <`MkArray>
   | ~ = fn_call; <`Call>
   | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
 

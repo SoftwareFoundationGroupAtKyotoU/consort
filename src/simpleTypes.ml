@@ -4,7 +4,9 @@ type r_typ = [
   | `Tuple of r_typ list
   | `Ref of r_typ
   | `Mu of int * r_typ
+  | `Array of a_typ
 ]
+and a_typ = [ `Int ]
 
 type funtyp = {
   arg_types: r_typ list;
@@ -18,6 +20,9 @@ let rec type_to_string = function
   | `Tuple tl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map type_to_string tl
   | `Mu (v,t) -> Printf.sprintf "(%s '%d.%s)" Greek.mu v @@ type_to_string t
   | `TVar v -> Printf.sprintf "'%d" v
+  | `Array at -> Printf.sprintf "[%s]" @@ array_type_to_string at
+and array_type_to_string = function
+  | `Int -> "int"
 
 let fntype_to_string { arg_types; ret_type} =
   Printf.sprintf "(%s) -> %s" 

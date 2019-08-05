@@ -12,6 +12,9 @@ stdlib/lin.intr stdlib/lin-std.smt: ./genLin.ml
 	dune build ./genLin.exe
 	dune exec ./genLin.exe stdlib/lin.intr lin-std.smt
 
+%.exe: %.ml
+	dune build ./$@
+
 clean:
 	dune clean
 	rm -f stdlib/lin.intr

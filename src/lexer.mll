@@ -42,6 +42,7 @@ rule read =
   | ':' { COLON }
   | ',' { COMMA }
   | "mkref" { MKREF }
+  | "mkarray" { MKARRAY }
   | "alias" { ALIAS }
   | "assert" { ASSERT }
   | "true" { TRUE }

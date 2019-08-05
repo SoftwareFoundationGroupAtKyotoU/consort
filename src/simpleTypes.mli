@@ -4,7 +4,8 @@ type r_typ = [
   | `Tuple of r_typ list
   | `Ref of r_typ
   | `Mu of int * r_typ
-]
+  | `Array of a_typ
+] and a_typ = [ `Int ]
 
 type funtyp = {
   arg_types: r_typ list;
