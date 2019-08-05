@@ -51,6 +51,7 @@ type raw_exp =
   | NCond of string * exp * exp
   | Seq of exp * exp
   | Assign of string * imm_op * exp
+  | Update of string * imm_op * imm_op * exp
   | Let of patt * lhs * exp
   | Alias of string * src_ap * exp
   | Assert of relation * exp

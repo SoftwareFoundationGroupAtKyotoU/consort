@@ -41,6 +41,9 @@ rule read =
   | ';' { SEMI }
   | ':' { COLON }
   | ',' { COMMA }
+  | '[' { LBRACKET }
+  | ']' { RBRACKET }
+  | "<-" { LARROW }
   | "mkref" { MKREF }
   | "mkarray" { MKARRAY }
   | "alias" { ALIAS }

@@ -35,6 +35,7 @@ type exp =
   | Cond of int * [`Var of string | `BinOp of op * string * op | `Nondet] * exp * exp
   | NCond of int * string * exp * exp
   | Assign of int * string * lhs
+  | Update of int * string * lhs * lhs
   | Let of int * patt * lhs * exp
   | Alias of int * string * A.src_ap
   | Assert of int * relation
@@ -95,6 +96,13 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
     lift_to_imm count l (fun c i ->
         A.Assign (v,i,get_continuation ~ctxt:id c)
         |> tag_with id
+      )
+  | Update (id,base,ind,lhs) ->
+    lift_to_imm count ind (fun c il ->
+        lift_to_imm c lhs (fun c' ll ->
+          A.Update (base,il,ll,get_continuation ~ctxt:id c')
+          |> tag_with id
+        )
       )
   | Let (i,v,lhs,body) ->
     lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->

@@ -158,6 +158,12 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
           semi;
           pp_expr ~ip ~annot e
         ]
+    | Update (x,ind,y,e') ->
+      pl [
+          pf "%a%s[%a] <- %a" pr_id id x (ul pp_imm) ind (ul pp_imm) y;
+          semi;
+          pp_expr ~ip ~annot e'
+        ]
     | NCond (v,tr,fl) ->
       pp_cond ~ip ~annot id "ifnull" v tr fl
     | Cond (x,tr,fl) ->
@@ -212,6 +218,7 @@ and maybe_brace ~ip ~annot ?(all_seq=false) ?pre ((_,e) as tagged_e) : formatter
       | Assert _ when all_seq -> true
       | Assign _ when all_seq -> true
       | EAnnot _ when all_seq -> true
+      | Update _ when all_seq -> true
       | _ -> false
   in
   if need_block then
