@@ -18,7 +18,9 @@
 // conditionals
 %token IF THEN ELSE IFNULL
 // bindings
-%token LET IN MKREF EQ MKARRAY
+%token LET IN MKREF EQ
+// arrays
+%token MKARRAY LBRACKET RBRACKET LARROW
 // BIFs
 %token ASSERT ALIAS
 // Update
@@ -82,6 +84,7 @@ let expr :=
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
   | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
+  | lbl = pre_label; x = ID; LBRACKET; ind = lhs; RBRACKET; LARROW; y = lhs; <Update>
   | GAMMA; lbl = expr_label; LBRACE; ~ = ty_env; RBRACE; <EAnnot>
   | lbl = pre_label; ~ = lhs; <Value>
 

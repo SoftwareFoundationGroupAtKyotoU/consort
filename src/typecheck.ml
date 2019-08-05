@@ -25,6 +25,7 @@ let rec annot_let (id,e) acc =
   | Alias (_,_,e)
   | Assign (_,_,e)
   | Assert (_,e)
+  | Update (_,_,_,e)
   | EAnnot (_,e) ->
     annot_let e acc
   | EVar _ -> acc

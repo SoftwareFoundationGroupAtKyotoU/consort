@@ -267,10 +267,6 @@ let rec process_expr save_type ctxt (id,e) res_acc =
       Not_found -> failwith @@ Printf.sprintf "Undefined variable %s at expression %d" n id
   in
   let unify_var n typ = unify ctxt.sub (lkp n) typ in
-  let unify_imm c = match c with
-    | IInt _ -> ();
-    | IVar v -> unify_var v `Int
-  in
   let unify_ref v t =
     unify ctxt.sub (lkp v) @@ fresh_cons ctxt.sub t
   in
@@ -304,6 +300,11 @@ let rec process_expr save_type ctxt (id,e) res_acc =
   let (>>) (a,_) b =
     b a
   in
+  let unify_imm imm t =
+    match imm with
+    | IInt _ -> unify `Int t
+    | IVar v -> unify_var v t
+  in
   match e with
   | EVar v -> res_acc,lkp v
   | Cond (v,e1,e2) ->
@@ -324,6 +325,12 @@ let rec process_expr save_type ctxt (id,e) res_acc =
     let acc,c_id = save_assign v2 in
     unify_var v1 @@ `TyCons c_id;
     process_expr save_type ctxt e acc
+  | Update (v1,i1,i2,e) ->
+    let d = fresh_var () in
+    unify_var v1 @@ `Array d;
+    unify_imm i1 `Int;
+    unify_imm i2 @@ d;
+    process_expr save_type ctxt e res_acc
   | Alias (v, ap,e) ->
     let fresh_node () = UnionFind.new_node ctxt.sub.uf in
     let find ap =
@@ -350,8 +357,8 @@ let rec process_expr save_type ctxt (id,e) res_acc =
     unify (lkp v) ty;
     process_expr save_type ctxt e acc
   | Assert ({ rop1; rop2; _ },e) ->
-    unify_imm rop1;
-    unify_imm rop2;
+    unify_imm rop1 `Int;
+    unify_imm rop2 `Int;
     process_expr save_type ctxt e res_acc
   | EAnnot (g,e) ->
     List.iter (fun (k,t) ->
