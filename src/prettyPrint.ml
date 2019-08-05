@@ -46,9 +46,9 @@ let pf =
     | End_of_acc               -> (fun _ff -> ())
   in
   fun (Format (fmt,_)) ->
-    make_printf (fun () acc ->
+    make_printf (fun acc ->
       pprint_acc acc
-    ) () End_of_acc fmt
+    ) End_of_acc fmt
 
 
 let ps s ff = pp_print_string ff s

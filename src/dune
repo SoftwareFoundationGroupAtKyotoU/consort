@@ -6,7 +6,7 @@
  (preprocess (pps ppx_sexp_conv))
  (wrapped false)
  (libraries sexplib)
- (modules StringMap UnionFind PrettyPrint Files SexpPrinter Option))
+ (modules StringMap UnionFind PrettyPrint Files SexpPrinter Greek Std))
 
 (library
  (name lang)
@@ -19,10 +19,11 @@
  (name consort)
  (preprocess (pps ppx_sexp_conv))
  (wrapped false)
- (libraries sexplib util lang)
+ (libraries sexplib util lang str)
  (modules Inference KCFA
           HornBackend OwnershipSolver SmtBackend
-          Z3BasedBackend Z3Channel VerifyUtil))
+          Z3BasedBackend Z3Channel VerifyUtil SmtLibBackend
+          Solver HoiceBackend SolverBridge NullSolver))
 
 (executable
  (name test)
@@ -47,3 +48,15 @@
  (preprocess (pps ppx_sexp_conv))
  (libraries lang)
  (modules Typecheck))
+
+(executable
+ (name ownership)
+ (preprocess (pps ppx_sexp_conv))
+ (libraries consort)
+ (modules Ownership))
+            
+(executable
+ (name unsatCore)
+ (libraries util sexplib)
+ (preprocess (pps ppx_sexp_conv))
+ (modules UnsatCore))

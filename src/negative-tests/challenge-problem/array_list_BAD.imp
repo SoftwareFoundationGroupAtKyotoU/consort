@@ -1,0 +1,24 @@
+update(p) {
+ let (curr,len) = *p in {
+   assert(curr < len);
+   p := (curr + 1,len)
+ }
+}
+
+push(p) {
+  let (curr,len) = *p in {
+  if curr = len then
+    let dl = len * 2 in
+    p := (curr, dl)
+  else
+    ();
+  update(p);
+  push(p)
+  }
+}
+
+{
+  let k = (0, 0) in
+  let p = mkref k in
+  push(p)
+}

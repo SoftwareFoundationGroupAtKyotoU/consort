@@ -17,6 +17,7 @@ let get_bindings_for id patt e =
 
 let rec annot_let (id,e) acc =
   match e with
+  | NCond (_,e1,e2)
   | Cond (_,e1,e2)
   | Seq (e1,e2) ->
     annot_let e1 acc
@@ -30,38 +31,23 @@ let rec annot_let (id,e) acc =
   | Let (patt,_,e) ->
     annot_let e @@ (get_bindings_for id patt e)::acc
 
-let () =
-  let (intr,file) =
-    let open Arg in
-    let intr_file = ref None in
-    let input_file = ref None in
-    let spec = [
-      ("-intr", String (fun s -> intr_file := Some s), "Use intrinsic file <file>")
-    ] in
-    let () = parse spec (fun s -> input_file := Some s) "Parse and (simple) typecheck <file>" in
-    ((match !intr_file with
-    | None -> Intrinsics.empty
-    | Some s -> Intrinsics.load s), match !input_file with
-      | None -> failwith "No input file specified"
-      | Some s -> s)
-  in
+let typecheck i_gen file =
+  let intr = i_gen () in
   let (fn,prog) = AstUtil.parse_file file in
-  let acc =
+  let let_bindings =
     List.fold_left
-      (fun acc { args; body; _ } ->
-        let first_id = find_first body in
-        annot_let body @@ (first_id, first_id,args)::acc
+      (fun acc { body; _ } ->
+        annot_let body acc
       ) (annot_let prog []) fn
   in
   let print_types = Hashtbl.create 10 in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
-  let f_types = SimpleChecker.typecheck_prog ~save_types:(fun lkp ->
-      List.iter (fun (tgt_id,src_id,vars) ->
+  let f_types,lkp,_ = SimpleChecker.typecheck_prog simple_op (fn,prog) in
+  List.iter (fun (tgt_id,src_id,vars) ->
         lkp src_id
         |> Option.map @@ StringMap.filter (fun k _ -> List.mem k vars)
         |> Option.iter @@ Hashtbl.add print_types tgt_id
-      ) acc
-    ) simple_op (fn,prog) in
+  ) let_bindings;
   let open PrettyPrint in
   AstPrinter.pretty_print_program ~with_labels:false ~annot_fn:(fun f_name ff ->
     pl [
@@ -91,6 +77,7 @@ let () =
             ~body:ty_list
             ~close:(ps "*/") f
   ) stdout (fn,prog)
-          
-      
-    
+
+let () =
+  let (spec,i_gen) = Intrinsics.option_loader () in
+  Files.run_with_file spec "Parse and (simple) typecheck <file>" @@ typecheck i_gen

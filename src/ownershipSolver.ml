@@ -12,6 +12,11 @@ let ovar_name ovar = Printf.sprintf "ovar-%d" ovar
 let mult_name o_name = o_name ^ "-mult"
 let ovar_mult ovar = mult_name @@ ovar_name ovar
 
+type options = Solver.options
+let default = Solver.default
+
+let ownership_arg_gen = Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver"
+
 let pp_wf o_buf i =
   pg "assert" [
     pg "ov-wf" [
@@ -76,6 +81,13 @@ let pp_oconstraint ff ocon =
             po o2
           ]
         ]
+    | Wf (o1,o2) ->
+      pg "assert" [
+          pg "=>" [
+            pg "=" [ po o1; pl "0.0" ];
+            pg "=" [ po o2; pl "0.0" ]
+          ]
+        ]
   end ff.printer;
   break ff
 
@@ -105,7 +117,8 @@ let print_ownership o_vals sexp_buf =
     ] sexp_buf.printer;
     break sexp_buf) o_vals
       
-let solve_ownership _theta ovars ocons =
+let solve_ownership ~opts ?save_cons r =
+  let { Inference.Result.ovars; Inference.Result.ownership = ocons; _ } =  r in
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;
@@ -131,9 +144,10 @@ let solve_ownership _theta ovars ocons =
     ] o_buf.printer
   end;
   finish o_buf;
-  let (res,model) = Z3Channel.call_z3_raw ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" o_buf in
-  match res,model with
-  | "sat",Some m -> begin
+  let res = Z3Channel.call_z3_raw ~opts ?save_cons ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
+  match res with
+  | Solver.Sat Some m ->
+    begin
       let open Sexplib.Sexp in
       let s = scan_sexp @@ Lexing.from_string m in
       match s with

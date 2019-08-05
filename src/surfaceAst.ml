@@ -6,10 +6,11 @@ type op = [
   | `ODeref of string
   | `Nondet
   | `BinOp of op * string * op
+  | `Null
   | `OBool of bool
 ] 
-type call = string * int * (op list)
 
+type call = string * int * (op list)
 
 type lhs = [
   | op
@@ -31,6 +32,7 @@ type exp =
   | Unit of int
   | Value of int * lhs
   | Cond of int * [`Var of string | `BinOp of op * string * op | `Nondet] * exp * exp
+  | NCond of int * string * exp * exp
   | Assign of int * string * lhs
   | Let of int * patt * lhs * exp
   | Alias of int * string * A.src_ap
@@ -69,6 +71,8 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
     bind_in ~ctxt:i count lhs (fun _ tvar ->
         A.EVar tvar |> tag_with i
       )
+  | NCond (i,v,e1,e2) ->
+    A.NCond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
   | Cond (i,`Var v,e1,e2) ->
     A.Cond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
   | Cond (i,`Nondet,e1,e2) ->
@@ -116,6 +120,7 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
 and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
   match lhs with
+  | `Null -> k @@ A.Null
   | `OVar v -> k @@ A.Var v
   | `OInt i -> k @@ A.Const i
   | `ODeref v -> k @@ A.Deref v

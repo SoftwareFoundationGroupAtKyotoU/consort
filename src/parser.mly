@@ -13,9 +13,10 @@
 %token UNIT
 %token <int> INT
 %token <string> ID
+%token NULL
 %token TRUE FALSE
 // conditionals
-%token IF THEN ELSE
+%token IF THEN ELSE IFNULL
 // bindings
 %token LET IN MKREF EQ
 // BIFs
@@ -77,6 +78,7 @@ let expr :=
 	  }
   | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
   | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
+  | IFNULL; lbl = expr_label; ~ = ID; THEN; thenc = expr; ELSE; elsec = expr; <NCond>
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
   | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
@@ -104,6 +106,7 @@ let op :=
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
   | LPAREN; o = bin_op; RPAREN; { (o :> op) }
+  | NULL; { `Null }
 
 let tuple_rest :=
   | l = lhs; COMMA; { [l] }
@@ -151,7 +154,7 @@ let pre_label == ~ = INT; COLON; <> | { LabelManager.register () }
 
 let typ :=
   | ~ = refine; INT_T; { RefinementTypes.Int refine }
-  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ, RefinementTypes.OConst o) }
+  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ, RefinementTypes.OConst o,`NUnk) }
   | LPAREN; ~ = tup_list; RPAREN; {
 		let (m_bind,t_l) =
 		  List.mapi (fun i (b_l,t) ->
