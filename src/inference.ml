@@ -131,9 +131,9 @@ let constrain_well_formed (ctxt,t) =
     | TVar _
     | Int _ -> acc
     | Ref (t,o,_) ->
-      let c_acc' = Option.fold ~f:(fun acc last ->
+      let c_acc' = Option.fold ~some:(fun last ->
           add_owner_con [Wf (last,o)] acc
-        ) ~acc last_o in
+        ) ~none:acc last_o in
       wf_loop (Some o) c_acc' t
     | Tuple (_,tl) ->
       List.fold_left (wf_loop last_o) acc tl
@@ -799,7 +799,7 @@ let rec push_subst bind = function
 
 let sub_pdef : (string * (refine_ap list, refine_ap) refinement) list -> (typ -> typ) =
   function
-  | [] -> (fun t -> t)
+  | [] -> Fun.id
   | sub_assoc ->
     map_refinement (function
       | (Pred (i,_) as r) -> List.assoc_opt i sub_assoc |> Option.value ~default:r
@@ -1045,8 +1045,8 @@ let get_type_scheme ?(is_null=false) ~loc id v ctxt =
       (ctxt',Pred (p,fv))
     ) (`AVar v) (gamma_predicate_vars ctxt.gamma) @@
       (ctxt.type_hints id
-       |> Option.bind @@ StringMap.find_opt v
-       |> Option.unsafe_get ~msg:(Printf.sprintf "Could not infer type of %s" v))
+       |> Fun.flip Option.bind @@ StringMap.find_opt v
+       |> Option.get)
 
 let ground_null (ctxt,t) =
   let rec nullify = function
@@ -1315,7 +1315,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         let (ctxt',t) = make_fresh_type ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt |> ground_null in
         update_type v t ctxt'
       )
-      ~fl_path:(fun ctxt -> ctxt) e_id e1 e2 ctxt
+      ~fl_path:Fun.id e_id e1 e2 ctxt
   | EAnnot (ty_env,next) ->
     let env' =
       List.fold_left (fun acc (k,v) ->
@@ -1428,7 +1428,7 @@ and process_call ~e_id ~cont_id ctxt c =
                 constr
               else
                 let pre_type =
-                  match map_ap path (fun t -> t) (fun _ -> concr_arg_type) with
+                  match map_ap path Fun.id (fun _ -> concr_arg_type) with
                   | Int r -> with_pred_refl path r
                   | _ -> failwith "I've made a terrible mistake"
                 in

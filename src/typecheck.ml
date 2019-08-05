@@ -1,5 +1,4 @@
 open Ast
-open Std
 
 let rec find_first (i,e) =
   match e with

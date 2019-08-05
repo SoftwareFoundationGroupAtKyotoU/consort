@@ -1,7 +1,6 @@
 open Ast
 open SimpleTypes
 open Sexplib.Std
-open Std
     
 type funtyp_v = {
   arg_types_v: int list;
@@ -220,7 +219,7 @@ let rec resolve_with_rec sub v_set k t =
     resolve_with_rec sub v_set k t'
 
 let process_call lkp ctxt { callee; arg_names; _ } =
-  let sorted_args = List.fast_sort Pervasives.compare arg_names in
+  let sorted_args = List.fast_sort String.compare arg_names in
   let rec find_dup l = match l with
     | [_]
     | [] -> false

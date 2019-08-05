@@ -18,7 +18,6 @@ type solve_fn = opts:options -> debug_cons:bool ->  ?save_cons:string -> get_mod
 
 let opt_gen ?nm ?(solv_nm="solver") () =
   let open Arg in
-  let open Std in
   let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
   let timeout = ref default.timeout in
   let command = ref None in

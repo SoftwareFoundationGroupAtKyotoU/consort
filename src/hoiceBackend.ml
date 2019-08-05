@@ -13,7 +13,7 @@ module Ch = SolverBridge.Make(struct
           (nm,chan)
       in
       let base_command = Printf.sprintf "%s -t %d"
-          (Std.Option.value ~default:"hoice" command)
+          (Option.value ~default:"hoice" command)
           timeout
       in
       (base_command,nm),chan

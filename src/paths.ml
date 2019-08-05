@@ -47,5 +47,5 @@ let rec has_root_p p = function
 
 module PathSet = Set.Make(struct
     type t = concr_ap
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end)
