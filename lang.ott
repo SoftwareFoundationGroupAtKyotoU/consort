@@ -55,6 +55,7 @@ grammar
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
+	| omap ( a ) :: :: omap_lkp
 
   C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
     | < H , R , Es , e >         ::   :: Quad {{ tex \tuple{[[H]], [[R]], [[Es]], [[e]]} }}
@@ -64,27 +65,27 @@ grammar
   R :: R_ ::= {{ com env or register file }}
     | empty :: :: em {{ tex \emptyset }}
 	| R { x |-> Rv } :: :: fresh
-  | R1 = R2 :: :: tyenvDef
+    | R1 = R2 :: :: tyenvDef
 
   H :: H_ ::= {{ com heap }}
     | empty :: :: em {{ tex \emptyset }}
 	| H { a |-> Rv } :: :: update
 	| H { a <- Rv } :: :: destrUpdate
 
-  Rv :: Rv_ ::= {{ com runtime value forms }}
+  Rv {{ tex v }} :: Rv_ ::= {{ com runtime value forms }}
     | a :: :: addr
 	| R ( x ) :: :: var
-  | R ( y ) :: :: var_y
+    | R ( y ) :: :: var_y
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
 	| 0 :: :: z
 	| M ( x ) :: :: model_lkp
 
   E :: E_ ::=    {{ com evaluation context }}
-  | []                ::   :: hole
-	| E ; e :: :: seq {{ tex [[E]]\SEQ[[e]] }}
-	| ( E ) :: :: paren
-	| E = E' :: :: eq
+    | []                ::   :: hole
+    | E ; e :: :: seq {{ tex [[E]]\SEQ[[e]] }}
+    | ( E ) :: :: paren
+    | E = E' :: :: eq
 
   CE {{ tex E_c }} :: E_ ::=
     | E [ let x = [] l in e ] :: :: stack {{ tex [[E]][\LET [[x]] = \HOLE^[[l]] \IN [[ e ]] ]}}
@@ -199,6 +200,7 @@ grammar
     | |->                 ::   :: mapsto     {{ tex \mapsto }}
     | []                  ::   :: hole       {{ tex \HOLE }}
 	| '|'                 ::   :: bar {{ tex \mid }}
+	| INT                 ::   :: int {{ tex \mathbb{Z} }}
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
@@ -231,11 +233,14 @@ grammar
 	| CV ( B ) :: :: cv
 	| Cons ( H , R , G ) :: :: Cons
 	| SAT ( H , R , G ) :: :: SAT
-	| own ( H , Rv , T ) :: :: own
+	| SATv ( H , R , Rv , T ) :: :: satv {{ tex \mathit{SAT}_v([[H]],[[R]],[[Rv]],[[T]]) }}
 	| F ( a ) :: :: total_own_app
+	| omap :: :: omap
 
    omap :: 'OM_' ::=
     | { a |-> r } :: :: omap
+	| omap1 + omap2 :: :: omap_add
+	| own ( H , Rv , T ) :: :: own_fn
 
   model :: 'M_' ::=
     | M :: :: m {{ tex \mathcal{M} }}
@@ -280,14 +285,28 @@ grammar
 	| FVF :: :: free_var_fun
 	| dom MF :: :: dom_mf {{ tex dom([[MF]]) }}
 
+  EqT :: 'EqT_' ::= {{ com equatable terms }}
+    | e :: :: expt
+	| Gst :: :: simple_g
+	| G :: :: gamma
+	| B :: :: ctxt
+	| Rv :: :: runtime_value
+	| VS :: :: value_set
+	| functions :: :: func
+	| csub  :: :: context_sub
+	| vsub :: :: value_sub
+
   formula :: formula_ ::=
+    | logical_frag1 = logical_frag2 :: :: eq_form
+    | logical_frag :: :: frag
     | judgment :: :: judge
 	| functions :: :: func
 	| logic_judgment :: :: lj
     | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
 	| r1 = r2 :: :: own_eq
-	  | C1 != C2 :: :: conf_ineq
+    | C1 != C2 :: :: conf_ineq
+	| formula1 <=> formula2 :: :: meta_biimpl
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
 	| Th ( f ) = FT :: :: fun_typ_lkp
@@ -297,17 +316,14 @@ grammar
 	| bind in VS :: :: inFv {{ tex [[bind]] \in [[VS]] }}
 	| bind not in VS :: :: notInFv {{ tex [[bind]] \not\in [[VS]] }}
 	| VS1 sub VS2 :: :: subset {{ tex [[VS1]] \subseteq [[VS2]] }}
-	| Rv1 = Rv2 :: :: rvEq
+	| Rv is INT :: :: in_int {{ tex [[Rv]] \in [[INT]] }}
 	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
-	| csub1 = csub2 :: :: sigdef
-	| B1 = B2 :: :: equiv_ctxt
+	| EqT1 = EqT2 :: :: equate
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
 	| ( formula ) :: :: parenF
-	| e1 = e2 :: :: termDef
-	| Gst1 = Gst2 :: :: stEnvEq
-	| csub1 = csub2 :: :: csubEq
-	| vsub1 = vsub2 :: :: vsubEq
 	| T1 ~ T2 :: :: tEqual {{ tex [[T1]] \approx [[T2]] }}
+	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] \approx_[[a]] [[H2]] }}
+	| R1 < R2 :: :: reg_weak {{ tex [[R1]] \sqsubseteq [[R2]] }}

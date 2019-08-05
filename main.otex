@@ -288,7 +288,6 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   \[
     [[ T /\ y ph' ]] = \begin{cases}
       [[ { z: int | [z/x]ph /\ [z/y]ph' }]] & [[ T = { x: int | ph } /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
-      [[ { z: int | [z/x]ph /\ [z/y]ph' } ref r]] & [[ T = { x: int | ph } ref r /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
       [[ T ]] & o.w.
     \end{cases}
   \]
@@ -387,7 +386,7 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
   }
   \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- T2 ref r /\ y y = T1 x] | B |- e : T => G']] \\
+    [[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref r] | B |- e : T => G']] \\
   }{
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
@@ -885,6 +884,112 @@ The followings are key lemmas:
   $[[ |- D C ==> C != AssertFail ]]$
 \end{lemma}
 
+\begin{definition}
+  We will write $[[R < R']]$ to denote two register files such that:
+  \begin{enumerate}
+  \item $[[ dom R]] \subseteq [[ dom R' ]]$, and
+  \item $[[ forall x in R.R(x) = R'(x) ]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{lemma}[Register Weakening]
+  \label{lem:register}
+  If $[[ SATv(H, R, Rv, T) ]]$, then for any $[[R']]$ such that $[[ R < R' ]]$, $[[ SATv(H, R', Rv, T) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. If $[[ T = T' ref r ]]$, then
+  the result is trivial if $[[r = 0]]$, otherwise it follows from the
+  inductive hypothesis. We therefore consider the case where
+  $[[ T = {y: int | ph} ]]$. Without loss of generality, we consider
+  the case where $[[ dom R' ]] \setminus [[ dom R ]] = \set{x}$,
+  $x \neq y$, and $R'(y) = nn$. (If $x = y$, then the added binding
+  has no effect by the order of substitutions given by
+  $[[ [R; Rv/y]ph ]]$. Similarly, if $R'(y) = a$, the extra binding
+  also has no effect. Finally, the case where more than one binding is
+  added follows from $n$ applications of the following argument).
+
+  From $[[SATv(H,R,Rv,T)]]$, we conclude that $[[Rv is INT]]$ and that
+  $[[ [R; Rv/y]ph ]]$. If $[[x not in FPV(ph)]]$ then $[[ [R; Rv/y]ph = [R';Rv/y]ph ]]$
+  and the result holds trivially. Otherwise, if $[[x in FPV(ph)]]$ and $[[x not in R]]$
+  from the validity of $[[ [R;Rv/y]ph ]]$, $[[ph]]$ must be true for any value of $x$,
+  whence the validity of $[[ [R;Rv/y]ph ]]$ is immediate.
+\end{proof}
+
+\begin{definition}
+  Two heaps $[[H]]$ and $[[H']]$ are \emph{equivalent modulo $[[a]]$}, written $[[H ~ a H']]$ if:
+  \begin{enumerate}
+  \item $[[dom H = dom H']]$
+  \item $[[forall a' in dom H.a' != a ==> H(a) = H(a')]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{lemma}[Heap Ownership Preservation]
+  \label{lem:heapop}
+  Let $[[H]]$ and $[[H']]$ be two heaps such that $[[H ~ a H']]$ for
+  some $[[a]]$. If $[[own(H,v,T)(a) = 0]]$, then
+  $[[own(H,v,T) = own(H',v,T)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. If $[[T = {y:int |ph}]]$ then
+  the result trivially holds. Otherwise, $[[T = T' ref r]]$. We assume
+  that $[[v = a'']]$ and $[[a'' in H]]$ (otherwise the result
+  trivially holds).  Otherwise consider the case where $[[a'' =
+  a]]$. By definition
+  $[[own(H,a,T) = {a |-> r} + own(H,H(a),T')]]$, and by the
+  assumption that $[[own(H,a,T)(a) = 0]]$ we must have that
+  $[[r = 0]]$. Further, by the well-formedness of types, all
+  ownerships that appear in $[[T']]$ must be $[[0]]$, thus we have that
+  $[[own(H,H(a),T') = own(H',H'(a), T')]]$.
+
+  Finally, consider the case where $[[a'' != a]]$. Then from the
+  definition of $[[own(H,a'',T)]]$ and our assumption that
+  $[[own(H,a'',T)(a) = 0]]$, we have $[[own(H,H(a''),T')(a) = 0]]$,
+  and the result holds from the inductive hypothesis.
+\end{proof}
+
+\begin{lemma}
+  \label{lem:heapfor0}
+  Let $[[H ~ a H']]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. The base case where
+  $[[T = {y:int|ph}]]$ is trivial. We therefore consider the case
+  where $[[v = a']]$ and $[[T = T' ref r]]$. If $[[a' = a]]$, then by
+  our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
+  $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds. Otherwise, we
+  have that $[[a' != a]]$, and by definition we must have that
+  $[[own(H,H(a),T')(a) = 0]]$ hence the result follows from the
+  inductive hypothesis.
+\end{proof}
+
+
+\begin{lemma}
+  \label{lem:newaddheap}
+  If we have heap $H$, such that $[[ SATv(H,R,v,T) ]]$. For any heap $H'$,
+  $H' = H\{a\mapsto v'\} , a \notin dom(H)$, then we have $[[ SATv(H', R, v, T) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[ T ]]$.
+  The base case where $[[T = {y:int|ph}]]$ is trivial.
+  Next, we consider the case where $[[T = T' ref r]]$.
+  From the definition of $\mathbf{SAT}$,
+  if $r = 0$, then $[[SATv(H',R,v,T)]]$ trivially holds.
+  Then it remains to show $r>0\produces v \in dom(H')\land[[ SATv(H',R, H'(v),T') ]]$.
+  From $v\in dom(H)$ and $a\notin dom(H)$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
+  That is $[[ SATv(H',R, H(v),T') ]]$, which is true by the induction hypothesis.
+\end{proof}
+
+
+
+\begin{lemma}
+  \label{lem:sattosat}
+  If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
+\end{lemma}
+\begin{proof}
+  The forward case follows from straightforward induction on the shape of $[[T1]]$
+  and from the observation that if $[[ph1 <=> ph2]]$ then $[[ [R;v/x]ph1 <=> [R;v/x]ph2]]$. The
+  backwards case follows by symmetric reasoning by induction on the shape of $[[T2]]$.
+\end{proof}
 
 \paragraph{Proof of Lemma 2.}
 \begin{proof}
@@ -919,22 +1024,24 @@ The followings are key lemmas:
     We give $[[G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]$ and $[[ R'= R { x' |-> v } ]]$.\newline
     We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |-> v }, G'')]]$.
     The first is easy to obtain using $\cref{lem:substitution}.$
-    It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.\newline
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
-    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[H(R(y))]] \in \mathbb{Z} [[/\]] [[ [R;H(R(y))/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land y=x'$.
-    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-Deref}$ we have $R'(x')=H'(R'(y))=H(R(y))$. Thus $y$ satisfies the refinement that $y=x$.
-    We then have $[[ [R'; R'(x')/x]ph2 ]]$ and $[[ [R';H'(R'(y))/y]ph1 ]]\land y=x$ are satisfied.\newline
+    It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$. To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$
+    and $SAT_v(H,R',H(R'(y)),\tau_1\land_y y=x)$.
+    If $[[ T1 ]]$ is an integer, by the definition of the strengthening operator, the latter is equivalent to show that $[[ SATv(H,R',H(R'(y)),T1) ]]$
+    and that $R'(x')=H(R'(y))=H(R(y))$, which is immediate from the definition of $\rn{R-Deref}$.
+    If $[[ T1 ]]$ is not an integer, then we must only show that $[[ SATv(H,R',H(R'(y)),T1) ]]$.\newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = H(R(y))$.
+    We therefore prove that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
     $F_1=F'_1 + [[own(H',R'(y),G''(y))]] + [[own(H',R'(x'),G''(x'))]]$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
-    By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
-    We know that $x'$ is an integer, so $[[own(H',R'(x'),G''(x'))]]$ should be $\emptyset$, and $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]$,
-    so we have $[[own(H,R(y),G(y))]]=[[own(H',R'(y),G''(y))]]+ [[own(H',R'(x'),G''(x'))]]$, and conclude that $F_0=F_1$.
+    By $\cref{lem:heapop}$, $F'_0=F'_1$ holds.
+    From $\cref{lem:ownadd}$, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $v = H(R(y))$.
+    We know that $R'(x')=H(R'(y))=H(R(y))$, so $[[ own(H,R'(x'),G''(x')) ]] =[[ own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),G(y)) ]]=[[ own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) ]]=[[ own(H,H(R'(y)),T1) ]]$,
+    so we have $[[own(H,R(y),G(y))]]=[[own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Let}{
     [[ |- D <H, R, Es, E[let x = y in e]> ]]\\
@@ -946,24 +1053,21 @@ The followings are key lemmas:
     $[[ll |- T => G' \ x]]$. We give $[[G'' = G [ y <- T1 /\ y y = T1 x'  ], x' : (T2 /\ x' x' = T2 y)]]$ and $[[ R'= R { x' |->  R(y) } ]]$.\newline
     We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |->  R(y) }, G'')]]$.
     The first is easy to obtain using $\cref{lem:substitution}.$
-    It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. We proceed by case analysis on the shapes of $[[T1 + T2]]$.\newline
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2}]]$ where $[[T1 = {y:int | ph1}]]$ and $[[T2 = {x:int | ph2}]]$.
-    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; R'(x')/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]\land y=x'$.
-    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-Let}$ we know $R(y)=R'(x')=R'(y)$. Thus $y$ trivially satisfies that the refinement that $y = x'$, and $x'$ satisfies the refinement that $x'=y$.
-    Thus, $[[ [R'; R'(x')/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]\land y=x'$ are satisfied.\newline
-    Next, suppose $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ref r]]$ where $[[T1 = {y:int | ph1}ref r1]]$ and $[[T2 = {x:int | ph2}ref r2]]$.
-    The consistency of the refinements heap $H$ and $R'$ with $[[T1]]$ and $[[T2]]$ follow from a similar argument to the integer case above.
+    It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$. \newline
+    To show that the output environment is consistent, we must show that $SAT_v(H,R',R'(x'),\tau_2\land_{x'} x'=y)$ and $SAT_v(H,R',R'(y),\tau_1\land_y y=x')$.
+    By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$.
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1) ]]\land[[ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
+    We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. Define $F_0$ and $F_1$ as follows:\newline
     $F_0=F'_0 + [[own(H,R(y),G(y))]]$\newline
     $F_1=F'_1 + [[own(H',R'(y),G''(y))]] + [[own(H',R'(x'),G''(x'))]]$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y\}}[[own(H,R(z),G(z))]]$\newline
     $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x'\}}[[own(H',R'(z'),G''(z'))]]$\newline
-    By $\cref{lem:f0f1}$, $F'_0=F'_1$ holds.
-    That $[[own(H,R'(x'),T2 ref r_2)]] + [[own(H,R'(y),T1 ref r_1)]] = [[own(H,R(y),(T1+T2)ref r)]]$ follows immediately
-    from the conditions $[[T1 ref r1 + T2 ref r2 = (T1+T2)ref r]]$, $R(y)=R'(x')=R'(y)$ and $r=r_1+r_2$.
+    By $\cref{lem:heapop}$, $F'_0=F'_1$ holds.
+    That $[[own(H,R'(x'),T2)]] + [[own(H,R'(y),T1)]] = [[own(H,R(y),T1+T2)]]$ follows immediately
+    from $\cref{lem:ownadd}$ and the condition $R(y)=R'(x')=R'(y)$.
     We therefore conclude that $F_0=F_1$.
   \end{rneqncase}
   \begin{rneqncase}{R-LetInt}{
@@ -1001,12 +1105,12 @@ The followings are key lemmas:
     We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 | ll |- [x'/x]e : T => G'\ x ]]$ and $\bf{Cons}$ $(H'= H \{ a \mapsto R(y) \},R'= R\{ x' \mapsto a \},\tenv'')$.
     The first is easy to obtain using $\cref{lem:substitution}.$\newline
     It remains to show $[[Cons(H',R',G'')]]$.
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {y:int | ph1} ]]$ and $[[T2 = {x:int | ph2} ]]$.\newline
-    We then know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces  [[y in R ]] \land [[R(y)]] \in \mathbb{Z} [[/\]] [[ [R;R(y)/x](ph1/\ph2) ]]$.
-    To show that the output environment is consistent, it suffices to show that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$.
-    It is immediate that for any value $v$ such that $[[ [R; v/y](ph1 /\ ph2) ]]$, we must have $[[ [R'; v / y]ph1 ]]$ and $[[ [R'; v / x]ph2 ]]$.
-    From the definition of $\rn{R-MkRef}$ we know $R(y)=H'(R'(x'))=R'(y)$. Thus $x'$ satisfies the refinement that $x'=y$.
-    Thus, that $[[ [R'; H'(R'(x'))/x]ph2 ]]\land x'=y$ and $[[ [R';R'(y)/y]ph1 ]]$ are satisfied.\newline
+    To show that the output environment is consistent, we must show that $SAT_v(H',R',R'(x'),(\tau_2\land_{x'} x'=y )\TREF^1)$ and $[[ SATv(H',R',R'(y),T1) ]]$.
+    By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H,R',v,T1+T2) ]]$. By $\cref{lem:newaddheap}$, we have $[[ SATv(H',R',v,T1+T2) ]]$.
+    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R',v,T1) ]]\land[[ SATv(H',R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
+    We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.\newline
     We must also show that the ownership invariant is preserved.\newline
     Then, it's to show $[[forall]][[a in H]].[[F(a)]] \leq 1$. We have:\newline
     $F_1 = \sum_{z\in\textit{dom}(\tenv'')}[[own(H',R'(z'),G''(z'))]] = \sum_{z\in\textit{dom}(\tenv)}[[own(H,R(z),G(z))]] + \{a'\mapsto 1\} = F_0 + \{a'\mapsto 1\}$,
@@ -1021,21 +1125,40 @@ The followings are key lemmas:
     [[ <H, R, Es, E[y:=x;e]> --> D <H { a <- R(x)}, R, Es, E[e]> ]]\andalso a = R(y)\\
     [[ Th | G[x: T1 + T2][y : T' ref 1] | ll |- y := x; e : T => G']]
     }
-    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] | ll |- e : T => G']]$.
-    We give $[[ G'' = G[x <- T1][y <- T2 ref 1 /\ y y = T1 x] ]]$.\newline
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref 1] | ll |- e : T => G']]$.
+    We give $[[ G'' = G[x <- T1][y <- T2 /\ y y = T2 x ref 1] ]]$.\newline
     We want to show that $\bf{Cons}$ $(H'= H \{ a \hookleftarrow R(y) \},R'= R,\tenv'').$\newline
-    By definition, $[[T1 + T2]]$ is $[[{x: int | ph1 /\ ph2} ]]$ where $[[T1 = {x:int | ph1} ]]$ and $[[T2 = {y:int | ph2} ]]$.\newline
-    By reasoning similar to the $\rn{R-Mkref}$ case, $[[ [R'; H'(R'(y))/y]ph2 ]]\land y=x$ and $[[ [R';R'(x)/x]ph1 ]]$ are satisfied.\newline
-    We must also show that the ownership invariant is preserved.\newline
-    Then, it's to show $[[a in H]].[[F(a)]] \leq 1$, we focus on prove that $F_0=F_1$, defines as below:\newline
-    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x))$\newline
-    $F_1=F'_1 + \mathbf{own}(H', R'(y), \tenv''(y)) + \mathbf{own}(H', R'(x), \tenv''(x))$\newline
+    To show that the output environment is consistent, we must show that $SAT_v(H',R,R(y),(\tau_2\land_{y} y=x )\TREF^1)$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    We define $F_0$ and $F_1$ as below:\newline
+    $F_0=F'_0 + \mathbf{own}(H, R(y), \tenv(y))+\mathbf{own}(H, R(x), \tenv(x)) = F'_0 + F''_0$\newline
+    $F_1=F'_1 + \mathbf{own}(H', R(y), \tenv''(y)) + \mathbf{own}(H', R(x), \tenv''(x)) = F'_1 + F''_1$\newline
     $F'_0 = \sum_{z\in\textit{dom}(\tenv)\setminus\{y,x\}}\mathbf{own}(H,R(z),\tenv(z))$\newline
-    $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R'(z),\tenv''(z))$\newline
-    Since $F'_0=F'_1$ holds and $\mathbf{own}(H, R(y), \tenv(y))+ \mathbf{own}(H, R(x), \tenv(x))= \{a\mapsto 1\}+\mathbf{own}(H, R(x), \tau_1+\tau_2)$,
-    as $x$ is an integer, so $\mathbf{own}(H, R(x), \tau_1+\tau_2)$ is $\emptyset$.
-    We also have $[[own(H,R'(x'),T1)]] + [[own(H,R'(y),T2 ref 1)]] =  \{a\mapsto 1\}$.
-    We therefore conclude that $F_0=F_1$.
+    $F'_1 = \sum_{z\in\textit{dom}(\tenv'')\setminus\{y,x\}}\mathbf{own}(H',R(z),\tenv''(z))$\newline
+    From $[[Cons(H,R,G)]]$, we know that $[[a in H]], F_0(a)\leq 1$.\newline
+    $F_0=F'_0 +\mathbf{own}(H, H(R(y)), \tau') + \{a\mapsto 1\} + \mathbf{own}(H, R(x), \tau_1+\tau_2)$\newline
+    $F_0(a)=F'_0(a) +\mathbf{own}(H, H(R(y)), \tau')(a) + 1 + \mathbf{own}(H, R(x), \tau_1+\tau_2)(a)$\newline
+    We then have $\mathbf{own}(H, R(x), \tenv(x))(a)=\mathbf{own}(H, R(x), \tau_1+\tau_2)(a)=0$.
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[x in R /\ SATv(H,R,R(x),G(x)) ]] $.
+    By $\cref{lem:heapfor0}$ and $\mathbf{own}(H, R(x), \tau_1+\tau_2)(a)=0$, we obtain $[[ SATv(H,R,v,T1+T2) ]] \produces[[ SATv(H',R,v,T1+T2) ]]$.
+    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R,v,T1) ]]\land[[ SATv(H',R,v,T2) ]]$, where $v = R(x)$.
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.\newline
+    We must also show that the ownership invariant is preserved.\newline
+    Then, it's to show $[[a in H]].[[F(a)]] \leq 1$.
+    Since $F'_0=F'_1$ holds by pointwise application of $\cref{lem:heapop}$, and $[[a in H]], F_0(a)\leq 1$, if $\forall a'\in dom(H'), F''_1(a')\leq F''_0(a')$, we can conclude that $F_1(a')\leq F_0(a')\leq 1$.\newline
+    Suppose $a= a'$; \newline
+    $F''_1(a)=\mathbf{own}(H', H'(R(y)), \tau_2)(a) + \mathbf{own}(H', R(x), \tau_1)(a)+1$\newline
+    $F''_0(a)=\mathbf{own}(H, R(x), \tau_2+\tau_1)(a) + \mathbf{own}(H, H(R(y)), \tau')(a)+1$\newline
+    We know $F_0(a')\leq 1$, that is $\mathbf{own}(H, R(x), \tau_2+\tau_1)(a) = \mathbf{own}(H, H(R(y)), \tau')(a) =0$.
+    By $\cref{lem:heapop}$, we have $\mathbf{own}(H, R(x), \tau_2+\tau_1) = \mathbf{own}(H', R(x), \tau_2+\tau_1)$.
+    Also by $\cref{lem:ownadd}$, we have $\mathbf{own}(H', R(x), \tau_2+\tau_1) = \mathbf{own}(H', R(x), \tau_1)+\mathbf{own}(H', R(x), \tau_2)$.
+    Then we have $\mathbf{own}(H', H'(R(y)), \tau_2)(a)=\mathbf{own}(H', R(x), \tau_1)(a)=0$.
+    Therefore, $F''_1(a)=\mathbf{own}(H', H'(R(y)), \tau_2)(a) + \mathbf{own}(H', R(x), \tau_1)(a)+1 = 1\leq F''_0(a')$.\newline
+    Next, suppose $a\neq a'$;\newline
+    $F''_1(a')=\mathbf{own}(H', H'(R(y)), \tau_2)(a') + \mathbf{own}(H', R(x), \tau_1)(a')$\newline
+    $F''_0(a')=\mathbf{own}(H, R(x), \tau_2+\tau_1)(a') + \mathbf{own}(H, H(R(y)), \tau')(a')$\newline
+    By reasoning similar to the case for $a= a'$, we have $F''_1(a')\leq F''_0(a')$.
+    Finally, we conclude that $[[a' in H']] F_1(a')\leq 1$.
   \end{rneqncase}
   \begin{rneqncase}{R-Alias}{
     [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
@@ -1045,24 +1168,14 @@ The followings are key lemmas:
     Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Alias}$, we can obtain $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | ll |- e : T => G']]$ and $[[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]]$.
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$.\newline
     It remains to show $[[Cons(H, R, G'')]]$.\newline
-    We will analyze 2 cases here. Other cases are immediate or follow from symmetric reasoning to what follows.\newline
-    Suppose both additions are derived with \rn{[Tadd-Ref1]}; we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^{r_2},  r_1>0, r_2>0$.
-    After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
-    We then have $\{x\COL\TINT\mid\phi_1\}\TREF^{r_1}+\{y\COL\TINT\mid\phi_2\}\TREF^{r_2}\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, i.e., $\{x\COL\TINT\mid\phi_1\land\phi_2\}\TREF^{r_1+r_2}\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
-    $\phi_1\land\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equivalence.\newline
-    With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]\produces x\in \textit{dom}(R)\land H(R(x))\in \mathbb{Z}\land [R;H(R(x))/x]\phi_1$, we know that the refinement predicates $\phi_1$ in the previous environment holds for $R$ and also $H(R(x))$,
-    similarly the refinement predicates $\phi_2$ in the previous environment holds for $R$ and also $H(R(y))$; we write this as $\phi_1(R;H(R(x)))$ and $\phi_2(R;H(R(y)))$.
-    From above, we obtain $\phi_1(R;H(R(x)))\land \phi_2(R;H(R(y))) \produces \phi_1(R;H(R(x)))\land \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
-    which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.\newline
-    Suppose one addition is derived with \rn{[Tadd-Ref2]}; we suppose the refinements before transition are $\tenv(x)=\{x\COL\TINT\mid\phi_1\}\TREF^0, \tenv(y)=\{y\COL\TINT\mid\phi_2\}\TREF^r, r>0$.
-    After transition, the type environment becomes $\tenv''=\tenv[x\hookleftarrow \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}, y\hookleftarrow \{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}], r'_1>0, r'_2>0$.\newline
-    We then have $\{x\COL\TINT\mid\phi_1\}\TREF^0+\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\}\TREF^{r'_1}+\{y\COL\TINT\mid\phi'_2\}\TREF^{r'_2}$, i.e., $\{y\COL\TINT\mid\phi_2\}\TREF^r\approx \{x\COL\TINT\mid\phi'_1\land\phi'_2\}\TREF^{r'_1+r'_2}$, which gives that
-    $\phi_2\iff\phi'_1\land\phi'_2$ according to the rules for type equivalence.\newline
-    With aliasing, two reference share the same memory cell, we have $R(x)=R(y)$ and $H(R(x))=H(R(y))$.
-    From $[[Cons(H,R,G)]] \produces [[SAT(H,R,G)]]=y\in \textit{dom}(R)\land H(R(y))\in \mathbb{Z}\land [R;H(R(y))/y]\phi_2$, i.e., $\phi_2(R;H(R(y)))$.
-    From above, we obtain $\phi_2(R;H(R(y)))\produces \phi_2(R;H(R(x)))\produces \phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(x)))\produces\phi'_1(R;H(R(x)))\land\phi'_2(R;H(R(y)))$,
-    which means that the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition.
+    We suppose the refinements before transition are $\tenv(x)=\tau_1^a, \tenv(y)=\tau_2^a$.
+    After transition, the type environment becomes $\tenv''(x)=\tau_1^b, \tenv''(y)=\tau_2^b$.\newline
+    We know that $[[Cons(H,R,G)]]\produces [[SAT(H,R,G)]]\produces [[y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    We then have $\tau_1^a+\tau_2^a= \tau^a$, by $\cref{lem:satadd}$, $SAT_v(H,R,v,\tau^a) \iff SAT_v(H,R,v,\tau_1^a)\land SAT_v(H,R,v,\tau_2^a)$, where $v = H(R(y))=H(R(x))$, since the definition of $\rn{R-Alias}$.
+    Similarly, we also have $\tau_1^b+\tau_2^b= \tau^b$, by $\cref{lem:satadd}$, $SAT_v(H,R',v,\tau^b) \iff SAT_v(H,R',v,\tau_1^b)\land SAT_v(H,R',v,\tau_2^b)$, where $v = H(R(y))=H(R(x))$.
+    We then have $\tau^a\approx\tau^b$, according to the rules for type equivalence.
+    From $\cref{lem:sattosat}$, we have $SAT_v(H,R,v,\tau^a)\iff SAT_v(H,R',v,\tau^b)$.
+    Then the type refinements after transition still satisfy the $[[Cons(H, R, G'')]]$ condition from above.\newline
     Then, it's to show $[[a in H]].[[F(a)]] \leq 1$. Here $F_0$ represents the $[[F(a)]]$ before transition, $F_1$ represents the $[[F(a)]]$ after transition.
     To prove that $F_0=F_1$ follows from:\newline
     $\mathbf{own}(H,R(x),\tau_1\TREF^{r_1}) + \mathbf{own}(H,R(y),\tau_2\TREF^{r_2}) = \mathbf{own}(H,R(x),\tau'_1\TREF^{r'_1}) + \mathbf{own}(H,R(y),\tau'_2\TREF^{r'_2})$.
@@ -1125,14 +1238,86 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
+  \label{lem:ownadd}
+  If $[[ Tp = T1 + T2 ]]$, then we have $\mathbf{own}(H,v,\tau_p) =  \mathbf{own}(H,v,\tau_1)+\mathbf{own}(H,v,\tau_2)$.
 \end{lemma}
+\begin{proof}
+  By induction on the rules used to derive $[[ T1 + T2 = Tp]]$.
+  \begin{rneqncase}{Tadd-Int}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref1}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.\newline
+  From the definition of ownership, we have $\mathbf{own}(H,v,\tau_p)=\{a\mapsto (r_1+r_2)\}+\mathbf{own}(H,H(v),\tau'_1+\tau'_2)$,
+  $\mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2) = \{a\mapsto r_1\}+\mathbf{own}(H,H(v),\tau'_1) + \{a\mapsto r_2\}+\mathbf{own}(H,H(v),\tau'_2)$.
+  By the induction hypothesis, we conclude that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref2}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $[[ T1 + T2 = T2' ref r ]]$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.\newline
+  From the well-formedness condition states that all ownerships within the type $[[ T1 = T1' ref 0 ]]$ are $0$, we have $\mathbf{own}(H,v,\tau_1)=\emptyset.$
+  Also we know that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_2)$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref3}\newline
+  We have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1+\tau_2)$, where $\tau_1 + \tau_2 = [[ Top ]] \TREF^0$,
+  $\mathbf{own}(H,v,\tau_1)$ and $\mathbf{own}(H,v,\tau_2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.\newline
+  From the well-formedness condition states that all ownerships within the types $[[ Tp ]], [[ T1 ]]$ and $[[ T2 ]]$ are $0$, we have $\mathbf{own}(H,v,\tau_p)=\mathbf{own}(H,v,\tau_1)=\mathbf{own}(H,v,\tau_2)=\emptyset$.
+  It is trivial that $\mathbf{own}(H,v,\tau_p) = \mathbf{own}(H,v,\tau_1) + \mathbf{own}(H,v,\tau_2).$
+  \end{rneqncase}
+\end{proof}
 
 
 
 \begin{lemma}
-  \label{lem:f0f1}
-  Suppose $\textit{dom}(H') \cup \{h\} = H$ and $H'(h') = H(h)$ for every $h'\in \textit{dom}(H)\setminus \{h\}$. Let $F_0 = \mathbf{own}(H,v,\tau)$ and $F_1 = \mathbf{own}(H',v,\tau)$. If $F_0(h) = 0$, then $F_0 = F_1$.
+  \label{lem:satadd}
+  If $[[ Tp =  T1+T2 ]]$,
+  we have:\newline
+  $[[ SATv(H, R, Rv, Tp) ]] \iff [[ SATv(H, R, Rv, T1) ]]\land [[ SATv(H, R, Rv, T2) ]]$.
 \end{lemma}
+\begin{proof}
+  By induction on the rules used to derive $[[ T1 + T2 ]]$.
+  \begin{rneqncase}{Tadd-Int}\newline
+  Forward derivation:
+  We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+  $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.\newline
+  From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R, Rv, T1) ]] \produces [[ [R; v/x]ph1 ]]$ and $[[ SATv(H, R, Rv, T2) ]] \produces [[ [R; v/x]ph2 ]]$.
+  also $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ [R; v/x](ph1 /\ ph2) ]]$.
+  It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R; v / y]ph1 ]]$ and $[[ [R; v / x]ph2 ]]$.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref1}\newline
+  Forward derivation:
+  From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R, Rv, T1) /\ r1 > 0 ==> a in H /\ SATv(H,R,H(a),T1')]] \land [[ T1 = T1' ref r1 /\ Rv = a ]]$,
+  and $[[ SATv(H, R, Rv, T2) /\ r2 > 0 ==> a in H /\ SATv(H,R,H(a),T2')]] \land [[ T2 = T2' ref r2 /\ Rv = a ]]$.
+  Also $[[ SATv(H, R, Rv, T1+T2) ]] \land (r_1+r_2) > 0 \produces[[ a in H /\ SATv(H,R,H(a),T1'+T2')]] \land [[ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
+  By the induction hypothesis, we have $[[ SATv(H,R,H(a),T1'+T2') ]]\produces [[ SATv(H,R,H(a),T1') ]]\land [[ SATv(H,R,H(a),T2') ]]$.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref2}\newline
+  Forward derivation:
+  In this case, we have $[[ T1 + T2 = T2' ref r ]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref r ]]$, where $r>0$.
+  From the definition of $\mathbf{SAT}$, we have $[[ SATv(H, R, Rv, T1) ]]=[[ SATv(H, R, Rv, T1' ref 0) ]]\produces 0 > 0\produces [[a in H /\ SATv(H,R,H(a),T1') /\ Rv = a ]]$.
+  Then $[[ SATv(H, R, Rv, T2) ]]=[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H, R, Rv, T2' ref r) ]] \land r > 0 \produces[[ a in H /\ SATv(H,R,H(a),T2')]] \land [[ Rv = a ]]$.
+  That is $[[ SATv(H, R, Rv, T1+T2) ]] \produces [[ SATv(H,R,H(a),T1') /\ SATv(H,R,H(a),T2') ]].$
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
+  \end{rneqncase}
+  \begin{rneqncase}{Tadd-Ref3}\newline
+  Forward derivation:
+  In this case, we have $[[ (T1+T2) ]] =[[ Top ]] \TREF^0 $, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref 0 ]]$.
+  From the definition of $\mathbf{SAT}$, as the ownerships are 0, we have $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$ are trival true.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]\produces[[ SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
+  Backward derivation is by reasoning similar to the forward derivation.
+  \end{rneqncase}
+\end{proof}
+
 
 
 \begin{lemma} \bf{Inversion}
@@ -1559,17 +1744,17 @@ The followings are key lemmas:
 
   \begin{align*}
     [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.F(a)]] \leq 1 \\
-    [[SAT(H,R,G)]] = & [[ forall x in G.x in R]]\wedge \\
-    & \begin{cases}
-      [[R(x)]] \in \mathbb{Z} \wedge [[ [R;R(x)/y]ph ]] & [[ G(x) = {y:int | ph} ]] \\
-      [[r > 0]] \produces & [[ G(x) =  { y:int | ph } ref r ]] \\
-      \,\,\, [[H(R(x))]] \in \mathbb{Z} \wedge [[ [R; H(R(x))/y]ph]] &
+    [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
+    [[SATv(H,R,Rv,T)]] = & \begin{cases}
+      [[Rv is INT /\ [R ; Rv / y]ph ]] & [[ T = {y:int|ph} ]] \\
+      [[r > 0 ==> a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
     \end{cases} \\
     [[ [empty; v / x]ph ]] & = [[ [v/x]ph ]] \\
-    [[ [R { y |-> v' }; v / x]ph ]] & =  [[ [v'/y] [R ; v / x]ph ]] \\
+    [[ [R { y |-> nn }; v / x]ph ]] & =  [[ [nn/y] [R ; v / x]ph ]] \\
+    [[ [R { y |-> a }; v / x]ph ]] & =  [[ [R ; v / x]ph ]] \\
     F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
     [[own(H,v,T)]] &  = \begin{cases}
-      [[ { a |-> r } ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
+      [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
       \emptyset & o.w.
     \end{cases} \\
   \end{align*}
