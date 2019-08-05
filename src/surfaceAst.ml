@@ -15,6 +15,7 @@ type call = string * int * (op list)
 type lhs = [
   | op
   | `Mkref of lhs
+  | `MkArray of lhs
   | `BinOp of op * string * op
   | `Call of call
   | `Tuple of lhs list
@@ -136,6 +137,10 @@ and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `Mkref lhs ->
     lift_to_rinit ?ctxt count lhs (fun c' r ->
         rest c' @@ A.Mkref r
+      )
+  | `MkArray lhs ->
+    lift_to_var ?ctxt count lhs (fun c i1 ->
+        rest c @@ A.MkArray i1
       )
   | `Tuple tl -> lift_to_tuple ?ctxt count tl (fun c' tlist ->
                      rest c' @@ A.Tuple tlist

@@ -21,6 +21,7 @@ type lhs =
   | Var of string
   | Const of int
   | Mkref of ref_init
+  | MkArray of string
   | Call of fn_call
   | Deref of string
   | Tuple of ref_contents list

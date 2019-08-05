@@ -36,6 +36,7 @@ let rec string_of_typ = function
   | `TyCons t -> Printf.sprintf "$%s" @@ TyCons.to_string t
   | `Int -> "int"
   | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
+  | `Array t' -> Printf.sprintf "[%s]" @@ string_of_typ t'
 [@@ocaml.warning "-32"]
 
 
@@ -43,6 +44,7 @@ type 'a c_typ = [
   | `Int
   | `TyCons of TyCons.t
   | `Tuple of 'a list
+  | `Array of 'a
 ] [@@deriving sexp]
 
 type typ = [
@@ -115,6 +117,7 @@ let abstract_type sub_ctxt t =
     | `Int -> `Int
     | `Tuple tl ->
       `Tuple (List.map loop tl)
+    | `Array t -> `Array (loop (t :> SimpleTypes.r_typ))
   in
   loop t
 
@@ -145,6 +148,7 @@ let rec occurs_check sub v (t2: typ) =
   match canonicalize sub t2 with
   | `Var v' when v' = v -> failwith "Malformed recursive type"
   | `Tuple tl -> List.iter (occurs_check sub v) tl
+  | `Array t' -> occurs_check sub v t'
   | `Var _
   | `Int
   | `TyCons _ -> ()
@@ -170,6 +174,8 @@ let rec unify sub_ctxt t1 t2 =
     List.iter2 (unify sub_ctxt) tl1 tl2
   | `TyCons c1,`TyCons c2 ->
     unify_tycons sub_ctxt c1 c2
+  | `Array t1',`Array t2' ->
+    unify sub_ctxt t1' t2'
   | t1',t2' -> failwith @@ Printf.sprintf "Ill-typed; could not unify %s and %s"
         (string_of_typ t1')
         (string_of_typ t2')
@@ -217,6 +223,12 @@ let rec resolve_with_rec sub v_set k t =
   | `Var v ->
     let t' = Hashtbl.find sub.resolv v in
     resolve_with_rec sub v_set k t'
+  | `Array t' ->
+    resolve_with_rec sub v_set (fun is t_lift ->
+        match t_lift with
+        | `Int -> k is @@ `Array `Int
+        | _ -> failwith "Only integer arrays are supported"
+      ) t'
 
 let process_call lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
@@ -375,7 +387,10 @@ let rec process_expr save_type ctxt (id,e) res_acc =
           | RInt _
           | RNone -> `Int
           | RVar v -> lkp v
-          ) tl)
+            ) tl)
+      | MkArray v ->
+        unify_var v `Int;
+        same @@ `Array (fresh_var ())
     in
     let rec unify_patt acc p t =
       match p with
@@ -417,6 +432,7 @@ let is_rec_assign sub c t' =
         check_loop (IS.add c_id h_rec) @@ TyConsResolv.find sub.cons_arg c
     | `Tuple tl ->
       List.exists (check_loop h_rec) tl
+    | `Array t' -> check_loop h_rec t'
   in
   check_loop IS.empty t'
 
