@@ -1,30 +1,25 @@
 module A = Ast
 
-type op = [
+type lhs = [
   | `OVar of string
   | `OInt of int
   | `ODeref of string
   | `Nondet
-  | `BinOp of op * string * op
+  | `BinOp of lhs * string * lhs
   | `Null
   | `OBool of bool
-] 
-
-type call = string * int * (op list)
-
-type lhs = [
-  | op
   | `Mkref of lhs
   | `MkArray of lhs
-  | `BinOp of op * string * op
+  | `BinOp of lhs * string * lhs
   | `Call of call
   | `Tuple of lhs list
-]
+  | `Read of lhs * lhs
+] and call = string * int * (lhs list)
 
 type relation = {
-  op1: op;
+  op1: lhs;
   cond: string;
-  op2: op
+  op2: lhs
 }
 
 type patt = A.patt
@@ -32,10 +27,10 @@ type patt = A.patt
 type exp =
   | Unit of int
   | Value of int * lhs
-  | Cond of int * [`Var of string | `BinOp of op * string * op | `Nondet] * exp * exp
+  | Cond of int * [`Var of string | `BinOp of lhs * string * lhs | `Nondet] * exp * exp
   | NCond of int * string * exp * exp
   | Assign of int * string * lhs
-  | Update of int * string * lhs * lhs
+  | Update of int * lhs * lhs * lhs
   | Let of int * patt * lhs * exp
   | Alias of int * string * A.src_ap
   | Assert of int * relation
@@ -87,7 +82,7 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
         A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
         |> tag_with i
       )
-  | Seq (((Assign _ | Alias _ | Assert _ | EAnnot _) as ue),e1) ->
+  | Seq (((Assign _ | Alias _ | Assert _ | EAnnot _ | Update _) as ue),e1) ->
     simplify_expr ~next:e1 count ue
   | Seq (e1,e2) ->
     A.Seq (simplify_expr count e1,simplify_expr count e2)
@@ -98,10 +93,12 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
         |> tag_with id
       )
   | Update (id,base,ind,lhs) ->
-    lift_to_imm count ind (fun c il ->
-        lift_to_imm c lhs (fun c' ll ->
-          A.Update (base,il,ll,get_continuation ~ctxt:id c')
-          |> tag_with id
+    bind_in ~ctxt:id count base (fun count tvar ->
+        lift_to_imm count ind (fun c il ->
+          lift_to_imm c lhs (fun c' ll ->
+            A.Update (tvar,il,ll,get_continuation ~ctxt:id c')
+            |> tag_with id
+          )
         )
       )
   | Let (i,v,lhs,body) ->
@@ -153,6 +150,12 @@ and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `Tuple tl -> lift_to_tuple ?ctxt count tl (fun c' tlist ->
                      rest c' @@ A.Tuple tlist
                    )
+  | `Read (base,ind) ->
+    lift_to_var ?ctxt count base (fun c b ->
+        lift_to_imm ?ctxt c ind (fun c' i ->
+          rest c' @@ A.Read (b,i)
+        )
+      )
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
 
 and lift_to_rinit ?ctxt count (r: lhs) rest =

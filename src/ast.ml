@@ -26,6 +26,7 @@ type lhs =
   | Deref of string
   | Tuple of ref_contents list
   | Nondet
+  | Read of string * imm_op
   | Null
 
 type patt =

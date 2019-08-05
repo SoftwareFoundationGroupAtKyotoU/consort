@@ -47,8 +47,7 @@
 
 %left AND
 
-%type <SurfaceAst.op> op
-%type <SurfaceAst.op list> arg_list
+%type <SurfaceAst.lhs> lhs
 
 %start <SurfaceAst.prog> prog
 
@@ -71,6 +70,8 @@ let seq :=
   | RBRACE; { [] }
   | ~ = expr; SEMI; ~ = seq; { expr::seq }
 
+let array_expr :=
+  | base = op; LBRACKET; ind = op; RBRACKET; <>
 
 let expr :=
   | UNIT; ~ = expr_label; <Unit>
@@ -84,7 +85,9 @@ let expr :=
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
   | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
   | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
-  | lbl = pre_label; x = ID; LBRACKET; ind = lhs; RBRACKET; LARROW; y = lhs; <Update>
+  | lbl = pre_label; (b,i) = array_expr; LARROW; y = lhs; {
+		Update (lbl,b,i,y)
+	  }
   | GAMMA; lbl = expr_label; LBRACE; ~ = ty_env; RBRACE; <EAnnot>
   | lbl = pre_label; ~ = lhs; <Value>
 
@@ -108,8 +111,11 @@ let op :=
   | FALSE; { `OBool false }
   | STAR; ~ = ID; <`ODeref>
   | UNDERSCORE; { `Nondet }
-  | LPAREN; o = bin_op; RPAREN; { (o :> op) }
+  | LPAREN; o = lhs; RPAREN; { o }
   | NULL; { `Null }
+  | ~ = fn_call; <`Call>
+  | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
+  | ~ = array_expr; <`Read>
 
 let tuple_rest :=
   | l = lhs; COMMA; { [l] }
@@ -120,12 +126,9 @@ let tuple_contents :=
   | l = lhs; COMMA; { [l] }
   | l1 = lhs; COMMA; l2 = tuple_rest; { l1::l2 }
 
-let ref_op :=
-  | o = lhs; { (o :> lhs) }
-
 let cond_expr :=
   | ~ = ID; <`Var>
-  | b = bin_op; { (b :> [ `BinOp of (op * string * op) | `Var of string | `Nondet]) }
+  | b = bin_op; { (b :> [ `BinOp of (lhs * string * lhs) | `Var of string | `Nondet]) }
   | UNDERSCORE; { `Nondet }
 
 let bin_op :=
@@ -138,11 +141,9 @@ let operator :=
 
 let lhs :=
   | b = bin_op; { (b :> lhs) }
-  | o = op; { (o :> lhs) }
-  | MKREF; ~ = ref_op; <`Mkref>
-  | MKARRAY; ~ = ref_op; <`MkArray>
-  | ~ = fn_call; <`Call>
-  | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
+  | o = op; { o }
+  | MKREF; ~ = lhs; <`Mkref>
+  | MKARRAY; ~ = lhs; <`MkArray>
 
 let fn_call := ~ = callee; lbl = expr_label; arg_names = arg_list; <>
 let callee ==

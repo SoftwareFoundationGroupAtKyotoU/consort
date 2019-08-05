@@ -398,6 +398,11 @@ let rec process_expr save_type ctxt (id,e) res_acc =
       | MkArray v ->
         unify_var v `Int;
         same @@ `Array (fresh_var ())
+      | Read (b,i) ->
+        unify_imm i `Int;
+        let cont = fresh_var () in
+        unify_var b @@ `Array cont;
+        same cont
     in
     let rec unify_patt acc p t =
       match p with

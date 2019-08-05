@@ -32,6 +32,8 @@ let pprint_kv (k,v) =
     pp_rinit v
   ]
 
+let upp_imm = ul pp_imm
+
 let pp_lhs = function
   | Var x -> pv x
   | Const i -> pi i
@@ -53,6 +55,8 @@ let pp_lhs = function
   | Nondet -> ps "_"
   | Null -> ps "null"
   | MkArray v -> pl [ ps "mkarray "; pv v ]
+  | Read (b,i) ->
+    pf "%s[%a]" b upp_imm i
 
 let rec pp_patt = function
   | PVar v -> pv v
@@ -68,8 +72,6 @@ let pp_ap = function
   | ADeref v -> pl [ ps "*"; pv v ]
   | AProj (v,ind) -> pl [ pv v; ps "."; pi ind ]
   | APtrProj (v,ind) -> pl [ pf "(*%s)." v; pi ind ]
-
-let upp_imm = ul pp_imm
 
 let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_ap) RefinementTypes.refinement) =
   let open RefinementTypes in
