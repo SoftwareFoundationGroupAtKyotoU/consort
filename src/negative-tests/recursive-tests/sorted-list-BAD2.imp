@@ -1,0 +1,60 @@
+test_sorted_loop(p) {
+  let (v,nxt) = *p in {
+  ifnull nxt then
+    ()
+  else {
+    let (nxt_v,_) = *nxt in {
+	  assert(v <= nxt_v);
+	  test_sorted_loop(nxt)
+	}
+  };
+  alias(nxt = (*p).1);
+  }
+}
+
+test_sorted(p) {
+  let hd = *p in
+  ifnull hd then {
+    ()
+  } else {
+    test_sorted_loop(hd);
+	alias(hd = *p)
+  }
+}
+
+insert_loop(x,p) {
+  let (v,nxt) = *p in
+  if v < x then {
+    ifnull nxt then {
+      p := (x,mkref (v, null))
+    } else {
+      insert_loop(x,nxt);
+      alias(nxt = (*p).1);
+    }
+  } else {
+	p := (x, mkref (v, nxt))
+  };  
+}
+
+insert(x, p) {
+  let hd = *p in
+  ifnull hd then {
+    p := mkref (x,null)
+  } else {
+    insert_loop(x, hd);
+	alias(hd = *p)
+  }
+}
+
+fresh_list() {
+  mkref null
+}
+
+{
+ let l = fresh_list () in {
+   insert(2,l);
+   insert(3,l);
+   insert(5,l);
+   test_sorted(l)
+ }
+}

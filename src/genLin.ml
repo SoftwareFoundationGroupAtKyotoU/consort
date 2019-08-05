@@ -93,7 +93,7 @@ let () =
       nrel ">";
       nrel ">=";
       nrel "=";
-      ("!=", "not-eq")
+      ("!=", "uneq")
     ],
     Sys.argv.(2)
   ) in
@@ -113,7 +113,7 @@ let () =
   List.iter dump_sexp defn;
   let open SexpPrinter in
   dump_sexp @@ pg "define-fun" [
-    pl "not-eq";
+    pl "uneq";
     ll [
       ll [ pl "x1"; pl "Int" ];
       ll [ pl "x2"; pl "Int" ]

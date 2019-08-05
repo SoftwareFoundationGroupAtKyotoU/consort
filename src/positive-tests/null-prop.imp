@@ -1,0 +1,12 @@
+cond_set(p) {
+  ifnull p then () else {
+    p := 1
+  }
+}
+
+{
+  let x = mkref _ in {
+    cond_set(x);
+	assert(*x = 1)
+  }
+}

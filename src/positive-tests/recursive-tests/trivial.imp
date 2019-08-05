@@ -1,0 +1,22 @@
+f() {
+  if _ then {
+    let n = f () in
+    mkref (1, n)
+  } else {
+    mkref (1, null)
+  }
+}
+
+check(p) {
+  ifnull p then ()
+  else
+   let (v,nxt) = *p in {
+     assert(v = 1);
+	 check(nxt);
+   }
+}
+
+{
+  let d = f() in
+  check(d)
+}

@@ -1,9 +1,8 @@
-module IntMap : Map.S with type key = int
 
 type funenv = RefinementTypes.funtype StringMap.t
 type oante =
   | ORel of RefinementTypes.ownership * [ `Eq | `Ge | `Gt ] * float
-  | OAny of oante list
+  | OAny of oante list [@@deriving sexp]
 type tenv = RefinementTypes.typ StringMap.t
 
 type ocon =
@@ -14,17 +13,20 @@ type ocon =
   | Split of RefinementTypes.ownership *
     (RefinementTypes.ownership * RefinementTypes.ownership)
   | Eq of RefinementTypes.ownership * RefinementTypes.ownership
+  | Wf of RefinementTypes.ownership * RefinementTypes.ownership [@@deriving sexp]
 
 type tcon = {
-  env : (Paths.concr_ap * RefinementTypes.concr_refinement) list;
+  env : (Paths.concr_ap * RefinementTypes.concr_refinement * RefinementTypes.nullity) list;
   ante : RefinementTypes.concr_refinement;
   conseq : RefinementTypes.concr_refinement;
   owner_ante : oante list;
+  nullity: RefinementTypes.nullity
 }
 
 type ownership_type = (unit, float) RefinementTypes._typ
 type o_theta = ownership_type RefinementTypes._funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
+type type_hints = int -> (SimpleTypes.r_typ StringMap.t) option
 
 module Result :
   sig
@@ -33,7 +35,7 @@ module Result :
       ownership : ocon list;
       ovars : int list;
       refinements : tcon list;
-      arity : int StringMap.t;
+      arity : (bool * int) StringMap.t;
       ty_envs: (int,tenv) Hashtbl.t
     }
   end
@@ -43,4 +45,4 @@ val infer :
   save_types:bool ->
   ?o_solve:o_solution ->
   intrinsics:funenv ->
-  SimpleTypes.funtyp StringMap.t -> Ast.fn list * Ast.exp -> Result.t
+  SimpleChecker.simple_results -> Ast.fn list * Ast.exp -> Result.t
