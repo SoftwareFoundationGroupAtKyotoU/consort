@@ -21,6 +21,6 @@ NEG_DIRS=(recursive-tests challenge-problem)
 	r_test -pos -cfa 2 ./positive-tests/2cfa;
 	r_test -neg ./negative-tests
 	for i in ${NEG_DIRS[@]}; do
-		r_test -neg ./negative-tests/$i;
+		r_test -neg -seq-solver ./negative-tests/$i;
 	done
 )

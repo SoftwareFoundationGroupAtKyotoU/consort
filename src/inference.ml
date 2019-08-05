@@ -1070,7 +1070,7 @@ let rec to_unk t = match t with
 let bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
 
-let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
+let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
   let lkp v = SM.find v ctxt.gamma in
   let lkp_ref v = match lkp v with
     | Ref (r,o,n) -> (r,o,n)
@@ -1101,9 +1101,9 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     end
     |> remove_var ~loc:(LLet e_id) remove_scope
   | Seq (e1, e2) ->
-    let ctxt' = process_expr ctxt e1 in
-    process_expr ?output_type ~remove_scope ctxt' e2
-      
+    process_expr e1 ctxt
+    |> process_expr ?output_type ~remove_scope e2
+
   | Assign (lhs,IVar rhs,cont) ->
     let (ctxt',(t1,t2)) = split_type ctxt @@ lkp rhs in
     let (orig,o,_)  = lkp_ref lhs in
@@ -1116,19 +1116,15 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
         (ctxt',t2)
     in
     let t2_eq = strengthen_eq ~strengthen_type:t2_assign ~target:(`AVar rhs) in
-    let nxt = add_owner_con [Write o] ctxt''
-      |> update_type rhs t1
-      |> update_type lhs @@ ref_of t2_eq o `NLive
-    in
-    process_expr ?output_type ~remove_scope nxt cont
-
+    add_owner_con [Write o] ctxt''
+    |> update_type rhs t1
+    |> update_type lhs @@ ref_of t2_eq o `NLive
+    |> process_expr ?output_type ~remove_scope cont
   | Assign (lhs,IInt i,cont) ->
     let (_,o,_) = lkp_ref lhs in
-    let ctxt' =
-      add_owner_con [Write o] ctxt
-      |> update_type lhs @@ ref_of (Int (ConstEq i)) o `NLive
-    in
-    process_expr ?output_type ~remove_scope ctxt' cont
+    add_owner_con [Write o] ctxt
+    |> update_type lhs @@ ref_of (Int (ConstEq i)) o `NLive
+    |> process_expr ?output_type ~remove_scope cont
 
   | Let (PVar v,Mkref (RVar v_ref),((cont_id,_) as exp)) when IntSet.mem e_id ctxt.iso.fold_locs ->
     (* FOLD, EVERYBODY FOLD *)
@@ -1136,15 +1132,12 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let (fresh_cont,o,_) = unsafe_split_ref fresh_type in
     let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(`AVar v_ref) in
     let (ctxt'',(t1,t2)) = split_type ctxt' @@ lkp v_ref in
-    let ctxt''' =
-      ctxt''
-      |> constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref)
-      |> update_type v_ref t1
-      |> bind_var v @@ ref_of fresh_strengthened o `NLive
-      |> add_owner_con [Write o]
-    in
-    process_expr ?output_type ~remove_scope:(SS.add v remove_scope) ctxt''' exp
-  
+    ctxt''
+    |> constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref)
+    |> update_type v_ref t1
+    |> bind_var v @@ ref_of fresh_strengthened o `NLive
+    |> add_owner_con [Write o]
+    |> process_expr ?output_type ~remove_scope:(SS.add v remove_scope) exp
   | Let (patt,rhs,((cont_id,_) as exp)) ->
     let ctxt,assign_type = begin
       match rhs with
@@ -1211,10 +1204,9 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
     let _,assign_ctxt,close_p = assign_patt ~let_id:e_id ctxt patt assign_type in
     let str_ctxt = strengthen_let close_p rhs assign_ctxt in
     let bound_vars = collect_bound_vars SS.empty close_p in
-    process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) str_ctxt exp    
+    process_expr ?output_type ~remove_scope:(SS.union bound_vars remove_scope) exp str_ctxt
   | Assert (relation,cont) ->
-    cont
-    |> process_expr ?output_type ~remove_scope @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation) `NUnk
+    process_expr ?output_type ~remove_scope cont @@ add_constraint (denote_gamma ctxt.gamma) ctxt Top (lift_relation relation) `NUnk
 
   | Alias (v1,src_ap,((next_id,_) as cont)) ->
     let loc = LAlias e_id in
@@ -1283,15 +1275,14 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       |> (app_matrix ~force_cons:is_fold ~out_root:ap ~out_bind:subst ~out_type:t2_constr'
         >> app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
     in
-    let res = ctxt'app
-      |> shuffle_owners t1 t2_constr t1' t2_constr'
-      |> up_ap ap @@ sub_pdef psub2 t2'
-      |> update_type v1 @@ sub_pdef psub1 t1'
-      |> remove_sub psub1
-      |> remove_sub psub2
-    in
-    process_expr ?output_type ~remove_scope res cont
-
+    ctxt'app
+    |> shuffle_owners t1 t2_constr t1' t2_constr'
+    |> up_ap ap @@ sub_pdef psub2 t2'
+    |> update_type v1 @@ sub_pdef psub1 t1'
+    |> remove_sub psub1
+    |> remove_sub psub2
+    |> process_expr ?output_type ~remove_scope cont
+          
   | Cond(v,e1,e2) ->
     let add_pc_refinement cond ctxt =
       let curr_ref = lkp v in
@@ -1321,19 +1312,18 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) ctxt (e_id,e) =
       List.fold_left (fun acc (k,v) ->
         StringMap.add k v acc
       ) StringMap.empty ty_env in
-    next
-    |> process_expr ?output_type ~remove_scope { ctxt with gamma = env' }
+    process_expr ?output_type ~remove_scope next { ctxt with gamma = env' }
 
 and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
-  let ctxt1 = process_expr ?output_type ~remove_scope (tr_path ctxt) e1 in
-  let ctxt2 = process_expr ?output_type ~remove_scope (fl_path {
+  let ctxt1 = process_expr ?output_type ~remove_scope e1 @@ tr_path ctxt in
+  let ctxt2 = process_expr ?output_type ~remove_scope e2 @@ fl_path {
         ctxt with
         refinements = ctxt1.refinements;
         v_counter = ctxt1.v_counter;
         ownership = ctxt1.ownership;
         pred_arity = ctxt1.pred_arity;
         ovars = ctxt1.ovars
-      }) e2 in
+      } in
   let loc = LCond e_id in
   let u_ctxt = { ctxt2 with gamma = SM.empty } in
   let b1 = SM.bindings ctxt1.gamma in
@@ -1491,7 +1481,7 @@ let process_function_bind ctxt fdef =
     ) SM.empty typ_template
   in
   let result_type = inst_symb ~post:false "Ret" f_typ.result_type in
-  let ctxt' = process_expr ~output_type:result_type ~remove_scope:SS.empty { ctxt with gamma = init_env } fdef.body in
+  let ctxt' = process_expr ~output_type:result_type ~remove_scope:SS.empty fdef.body { ctxt with gamma = init_env } in
   let out_typ_template = List.combine arg_names f_typ.output_types in
   let result_denote = ctxt'.gamma |> denote_gamma in
   List.fold_left (fun acc (v,out_ty) ->
@@ -1596,8 +1586,10 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,
     iso
   } in
   let ctxt = List.fold_left init_fun_type initial_ctxt fns in
-  let ctxt' = List.fold_left process_function ctxt fns in
-  let { pred_detail; refinements; ownership; ovars; pred_arity; theta; _ } = process_expr ctxt' main in
+  let { pred_detail; refinements; ownership; ovars; pred_arity; theta; _ } =
+    List.fold_left process_function ctxt fns
+    |> process_expr main
+  in
   let pred_arity = propagate_grounding refinements pred_arity in
   if print_pred then print_pred_details pred_detail;
   Result.{
