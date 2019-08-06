@@ -100,10 +100,10 @@ We use an ML-like language with mutable references, assertions, and must-alias a
 Our language is much like C, but the variable bindings by let-expression are immutable.
 The declaration \texttt{int x = 1} in C is expressed as:\newline
 \centerline{$\LET y = 1 \IN (\LET x = \MKREF y \IN ...)$}\newline in our language.
-The definition of function maps to binding tuples of the arguments in the expression e, additionally functions are not higher order.
+The definition of function maps to binding tuples of the arguments in the expression $e$, additionally functions are not higher order.
 We do not allow general expressions as right hand side with let bindings.
-Our language supports a single variable $x$ as an expression and also let bindings where the right hand side is a variable $y$, or an integer.
-Also, the right hand side could be $\MKREF y$ which is to make a reference cell with value $y$, $*y$ which is to access the target of $y$ and
+Our language supports a single variable $x$ as an expression and also let bindings to variable $y$, or an integer.
+Also, we have let bindings to $\MKREF y$ which is to make a reference cell with value $y$, $*y$ which is to access the target of $y$ and
 $f^\ell(x_1,\dots,x_n)$ as function call, where $x_1,\dots,x_n$ are distinct variables and $l$ is label.
 $\IFZERO x$ judges whether $x$ equals to zero and choose the corresponding branch.
 As for expressions $x \WRITE y \SEQ \expr$, $\ALIAS(x = y) \SEQ \expr$ and $\ASSERT(\varphi) \SEQ \expr$, they must
@@ -119,19 +119,19 @@ We now introduce the operational semantics for our system.
 We have over configuration, a run-time state is represented by a set $\langle H, R,\overrightarrow{E}, e \rangle$, which represents heap(memory),
 register(environment), a sequence of return contexts as a stack, expression respectively.
 Secondly, we have evaluation context as standard, while we define the configuration containing an expression,
-the rewritting rules are defined in terms of an context $E$ as is standard and a redex $e$, which written as $E[e]$.
+the rewritting rules are defined in terms of an context $E$ as is standard and a redex $e$, which is written as $E[e]$.
 Our operational semantics are mostly standard as Figure.$\ref{fig:transitionRules}$.
 We have highlight some import points as the following paragraphs.
 
 First we introduce return contexts $[[ E[let y = [] l in e] ]]$.
 The return context means we will evaluate the let-expression after we plug the variable in the hole,
-and it’s used to identify the beginning of a function call.
+and it's used to identify the beginning of a function call.
 The return context represents an activation record in the call stack waiting for plugging in the value returned by the function call.
-We write $[[ E[let y = [] l in e] ]][x]$ to denote substitution the variable x into the hole in $\LET x=[] \IN e$.
+We write $[[ E[let y = [] l in e] ]][x]$ to denote substitution the variable $x$ into the hole in $\LET x=[] \IN e$.
 The set of evaluation contexts and return contexts are defined by Figure.$\ref{fig:eval-context-grammar}$.
 As for $\rn{R-Call}$ we have $[[ let x = f l (y1,,yn) in e' ]]$, we push return context onto the stack and do substituting with the function body itself and
 bind $x$ to the result of $[\tilde{y}/\tilde{x}]e'$ after that executes $e$.
-As for $\rn{R-Var}$, we take $x$ as an variable that contains the result of the function call and plug it on the top of the evaluation stack.
+As for $\rn{R-Var}$, we take $x$ as a variable that contains the result of the function call and plug it onto the top of the evaluation stack.
 
 In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
 any model $[[M]]$ in our underlying theory such that
@@ -142,7 +142,7 @@ $\bf{AliasFail}$ will be thrown when two references do not alias in $\rn{R-Alias
 
 When the expression is a let-binding expression, in order to better handle conflicts
 with recursive functions and duplicates with variable names in our single register file,
-we refresh every variable $x$ to $x'$ after executing expression.
+we refresh variable $x$ to $x'$ in let-expression.
 Take expression $\LET x=y \IN e$ as an example, which we refresh $x$ to $x'$ can then be used later on in the function instead of $y$, so that the
 register of $x'$ update to the $R(y)$.
 The expression $x:=y$ only update the target of $x$ to the target of $y$, which occurs in the heap.
