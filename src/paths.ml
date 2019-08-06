@@ -9,12 +9,15 @@ type 'a _const_ap = [
 
 type const_ap = const_ap _const_ap [@@deriving sexp]
 
-type concr_ap = [
-  |  concr_ap _const_ap
-  | `ADeref of concr_ap
-  | `AElem of concr_ap
-  | `AInd of concr_ap
+type 'a t_templ = [
+  |  'a _const_ap
+  | `ADeref of 'a
+  | `AElem of 'a
+  | `AInd of 'a
 ] [@@deriving sexp]
+
+
+type concr_ap = [ | concr_ap t_templ ] [@@deriving sexp]
 
 let rec to_z3_ident = function
   | `ADeref d -> Printf.sprintf "%s->*" @@ to_z3_ident d
@@ -30,26 +33,33 @@ let rec pre = function
   | `AProj (d,i) -> `AProj (pre d,i)
   | `AVar v -> `APre v
   | `APre v -> `APre v
+  | `AInd _
+  | `AElem _
+  | `ALen _ -> failwith "Not supported"
 
 let t_ind a i = `AProj (a,i)
 
 let rec is_const_ap = function
   | `APre _
   | `AVar _ -> true
+  | `ALen ap
   | `AProj (ap,_) -> is_const_ap ap
+  | `AInd _
+  | `AElem _
   | `ADeref _ -> false
-
-let rec has_root v = function
-  | `APre _ -> false
-  | `AVar v' -> v = v'
-  | `ADeref ap
-  | `AProj (ap,_) -> has_root v ap
 
 let rec has_root_p p = function
   | `AVar v -> p v
   | `APre _ -> false
+  | `ALen ap
+  | `AInd ap
+  | `AElem ap
   | `ADeref ap
   | `AProj (ap,_) -> has_root_p p ap
+
+
+let has_root v = has_root_p @@ (=) v
+
 
 module PathSet = Set.Make(struct
     type t = concr_ap
