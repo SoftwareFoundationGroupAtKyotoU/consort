@@ -2,6 +2,7 @@ open Sexplib.Std
 
 type 'a _const_ap = [
   | `AVar of string
+  | `ALen of 'a
   | `AProj of 'a * int
   | `APre of string
 ] [@@deriving sexp]
@@ -9,13 +10,18 @@ type 'a _const_ap = [
 type const_ap = const_ap _const_ap [@@deriving sexp]
 
 type concr_ap = [
-  concr_ap _const_ap
+  |  concr_ap _const_ap
   | `ADeref of concr_ap
+  | `AElem of concr_ap
+  | `AInd of concr_ap
 ] [@@deriving sexp]
-    
+
 let rec to_z3_ident = function
   | `ADeref d -> Printf.sprintf "%s->*" @@ to_z3_ident d
   | `AProj (a,i) -> Printf.sprintf "%s->%d" (to_z3_ident a) i
+  | `ALen a -> Printf.sprintf "%s!len" @@ to_z3_ident a
+  | `AInd a -> Printf.sprintf "%s?ind" @@ to_z3_ident a
+  | `AElem a -> Printf.sprintf "%s->$i" @@ to_z3_ident a
   | `AVar v -> v
   | `APre v -> Printf.sprintf "%s!old" v
 
