@@ -96,42 +96,52 @@ We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and 
 
 We now introduce the grammer of the imperative language.
 We use an ML-like language with mutable references, assertions, and must-alias annotations.
+We highlight some distinctive features as belows.
 
-Our language is much like C, but the variable bindings by let-expression are immutable.
+Our language is much like C, but like ML, the variable bindings introduced by let-expression are immutable.
 The declaration \texttt{int x = 1} in C is expressed as:\newline
 \centerline{$\LET y = 1 \IN (\LET x = \MKREF y \IN ...)$}\newline in our language.
-The definition of function maps to binding tuples of the arguments in the expression $e$, additionally functions are not higher order.
+The definition of function maps a function name to a tuple of argument names that are bound within the function body $e$; additionally functions are not higher order.
 We do not allow general expressions as right hand side with let bindings.
-Our language supports a single variable $x$ as an expression and also let bindings to variable $y$, or an integer.
-Also, we have let bindings to $\MKREF y$ which is to make a reference cell with value $y$, $*y$ which is to access the target of $y$ and
-$f^\ell(x_1,\dots,x_n)$ as function call, where $x_1,\dots,x_n$ are distinct variables and $l$ is label.
+The let-expression could bind to a variable $y$, or an integer.
+Also, we have let bindings to $\MKREF y$ which creates a reference cell with value $y$, $*y$ which is to access the contents of $y$ and
+function calls $f^\ell(x_1,\dots,x_n)$, where $x_1,\dots,x_n$ are distinct variables and $l$ is label.
 $\IFZERO x$ judges whether $x$ equals to zero and choose the corresponding branch.
-As for expressions $x \WRITE y \SEQ \expr$, $\ALIAS(x = y) \SEQ \expr$ and $\ASSERT(\varphi) \SEQ \expr$, they must
-produce a result, which could be a value or a reference.
+
+Our grammar requires that all side-effecting, result free statements, $\ASSERT(\varphi) \SEQ \expr$, $\ALIAS(x = y) \SEQ \expr$,
+and assignment $x \WRITE y \SEQ \expr$ are followed by a continuation expression. This requirement does not reduce the expressiveness
+of the language, and obviates including a unit type.
 The expression $\expr_1 \SEQ \expr_2$ is a sequence execution of $\expr_1$ and $\expr_2$.
-A program is a pair of $[[<{d1,...,dn}, e>]]$, where $d_1,\dots,d_n$ is a set of definitions of functions.
+A program is a pair of $[[<{d1,...,dn}, e>]]$, where $d_1,\dots,d_n$ is a set of function definitions.
 
 The expression $\ASSERT(\varphi) \SEQ \expr$ executes $e$ if the statement $\varphi$ holds, and aborts the program otherwise.
 We introduce $\ALIAS(x = y)$ as a specialized type of assertion for asserting a must aliasing relationship between two references $x$ and $y$.
+Our type system uses these must-alias annotations to accurately resolve aliases.
 
 \paragraph{Operational Semantics}
 We now introduce the operational semantics for our system.
-We have over configuration, a run-time state is represented by a set $\langle H, R,\overrightarrow{E}, e \rangle$, which represents heap(memory),
-register(environment), a sequence of return contexts as a stack, expression respectively.
-Secondly, we have evaluation context as standard, while we define the configuration containing an expression,
-the rewritting rules are defined in terms of an context $E$ as is standard and a redex $e$, which is written as $E[e]$.
-Our operational semantics are mostly standard as Figure.$\ref{fig:transitionRules}$.
+A runtime state is represented by a configuration $\langle H, R,\overrightarrow{E}, e \rangle$, which consists of a heap,
+register file, stack, and currently reducing expression.
+Secondly, while the final configuration component is an expression,
+the rewritting rules are defined in terms of $E[e]$, which is a context $E$ and redex $e$, as is standard.
+Our operational semantics are mostly standard.
 We have highlight some import points as the following paragraphs.
 
 First we introduce return contexts $[[ E[let y = [] l in e] ]]$.
-The return context means we will evaluate the let-expression after we plug the variable in the hole,
-and it's used to identify the beginning of a function call.
-The return context represents an activation record in the call stack waiting for plugging in the value returned by the function call.
-We write $[[ E[let y = [] l in e] ]][x]$ to denote substitution the variable $x$ into the hole in $\LET x=[] \IN e$.
+This return context represents a pending function call. The hole indicates the return value of the callee should be bound to $y$
+within the expression $e$. Our call-stack is a sequence of these return contexts, with the first such return context indicating the
+most recent function call.
+We write $[[ E[let y = [] l in e] ]][x]$ to denote substituting the variable $x$ into the hole in $\LET x=[] \IN e$.
 The set of evaluation contexts and return contexts are defined by Figure.$\ref{fig:eval-context-grammar}$.
-As for $\rn{R-Call}$ we have $[[ let x = f l (y1,,yn) in e' ]]$, we push return context onto the stack and do substituting with the function body itself and
-bind $x$ to the result of $[\tilde{y}/\tilde{x}]e'$ after that executes $e$.
-As for $\rn{R-Var}$, we take $x$ as a variable that contains the result of the function call and plug it onto the top of the evaluation stack.
+The semantics of a calls are given in $\rn{R-Call}$.
+For a function call $[[ let x = f l (y1,,yn) in e ]]$, where $f$ is defined as $(x_1,\dots, x_n)e'$,
+we first push the return context $[[ E[let y = [] l in e] ]]$ onto the stack $\overrightarrow{E}$.
+We then substitute the formal arguments for parameters in $e'$, denoted by $[\tilde{y}/\tilde{x}]e'$.
+The result of this substitution becomes the currently reducing expression.
+Function returns are handled by $\rn{R-Var}$.
+Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$,
+we substitue $x$ into the return context on the top of the stack,
+and plug it onto the top of the evaluation stack.
 
 In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
 any model $[[M]]$ in our underlying theory such that
@@ -142,12 +152,10 @@ $\bf{AliasFail}$ will be thrown when two references do not alias in $\rn{R-Alias
 
 When the expression is a let-binding expression, in order to better handle conflicts
 with recursive functions and duplicates with variable names in our single register file,
-we refresh variable $x$ to $x'$ in let-expression.
-Take expression $\LET x=y \IN e$ as an example, which we refresh $x$ to $x'$ can then be used later on in the function instead of $y$, so that the
-register of $x'$ update to the $R(y)$.
-The expression $x:=y$ only update the target of $x$ to the target of $y$, which occurs in the heap.
-It becomes a little bit complex when dealing with reference, in transition rule for $\LET x=*y \IN e$, we refresh $x$ to $x'$ and bind $x'$ to $H(R(y))$.
-Although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
+we refresh the bound variable $x$ to $x'$ in let-expression.
+Take expression $\LET x=y \IN e$ as an example, which we refresh bound variable $x$ to $x'$ in $e$, then bind $x'$ to the variable $y$.
+Finally, notice that, although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
+We consider garbage collection an orthogonal concern and do not treat it in our formalism.
 \newline\newline
 
 \begin{definition}
