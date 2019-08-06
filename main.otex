@@ -94,16 +94,15 @@ The grammar of the language is as follows.
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and a set of \emph{locations}, which is ranged over by $a,b,c,\dots$.
 \newline
 
-We now introduce the grammer of the imperative language.
-We use an ML-like language with mutable references, assertions, and must-alias annotations.
+We now introduce the grammar of the imperative language.
+We use an ML-like syntax with mutable references, assertions, and must-alias annotations.
 We highlight some distinctive features as belows.
 
-Our language is much like C, but like ML, the variable bindings introduced by let-expression are immutable.
-The declaration \texttt{int x = 1} in C is expressed as:\newline
+Like ML, the variable bindings introduced by let-expression are immutable.
+Modeling a mutable variable declaration \texttt{int x = 1} in a language like C is achieved with:\newline
 \centerline{$\LET y = 1 \IN (\LET x = \MKREF y \IN ...)$}\newline in our language.
-The definition of function maps a function name to a tuple of argument names that are bound within the function body $e$; additionally functions are not higher order.
 We do not allow general expressions as right hand side with let bindings.
-The let-expression could bind to a variable $y$, or an integer.
+The simplest right-hand forms are a variable $y$, or an integer.
 Also, we have let bindings to $\MKREF y$ which creates a reference cell with value $y$, $*y$ which is to access the contents of $y$ and
 function calls $f^\ell(x_1,\dots,x_n)$, where $x_1,\dots,x_n$ are distinct variables and $l$ is label.
 $\IFZERO x$ judges whether $x$ equals to zero and choose the corresponding branch.
@@ -113,6 +112,8 @@ and assignment $x \WRITE y \SEQ \expr$ are followed by a continuation expression
 of the language, and obviates including a unit type.
 The expression $\expr_1 \SEQ \expr_2$ is a sequence execution of $\expr_1$ and $\expr_2$.
 A program is a pair of $[[<{d1,...,dn}, e>]]$, where $d_1,\dots,d_n$ is a set of function definitions.
+The definition of function maps a function name to a tuple of argument names that are bound within the function body $e$;
+additionally functions are not higher order.
 
 The expression $\ASSERT(\varphi) \SEQ \expr$ executes $e$ if the statement $\varphi$ holds, and aborts the program otherwise.
 We introduce $\ALIAS(x = y)$ as a specialized type of assertion for asserting a must aliasing relationship between two references $x$ and $y$.
@@ -140,8 +141,7 @@ We then substitute the formal arguments for parameters in $e'$, denoted by $[\ti
 The result of this substitution becomes the currently reducing expression.
 Function returns are handled by $\rn{R-Var}$.
 Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$,
-we substitue $x$ into the return context on the top of the stack,
-and plug it onto the top of the evaluation stack.
+we substitue $x$ into the return context on the top of the stack.
 
 In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
 any model $[[M]]$ in our underlying theory such that
@@ -150,11 +150,11 @@ We introduce $\bf{AliasFail}$ and $\bf{AssertFail}$ as two special configuration
 $\bf{AssertFail}$ will be thrown if the precondition $[[R |= ph]]$ doesn't hold in the current state.
 $\bf{AliasFail}$ will be thrown when two references do not alias in $\rn{R-AliasFail}$.
 
-When the expression is a let-binding expression, in order to better handle conflicts
-with recursive functions and duplicates with variable names in our single register file,
-we refresh the bound variable $x$ to $x'$ in let-expression.
-Take expression $\LET x=y \IN e$ as an example, which we refresh bound variable $x$ to $x'$ in $e$, then bind $x'$ to the variable $y$.
-Finally, notice that, although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
+When the expression is a let-binding, in order to better handle conflicts
+with recursive functions and duplicates variable names in our single register file,
+we refresh the bound variable $x$ in a let expression to $x'$.
+Take expression $\LET x=y \IN e$ as an example; we substitute a fresh variable $x'$ for $x$ in $e$, then bind $x'$ to the variable $y$.
+Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
 We consider garbage collection an orthogonal concern and do not treat it in our formalism.
 \newline\newline
 
