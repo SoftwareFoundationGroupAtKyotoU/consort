@@ -57,12 +57,15 @@ type nullity = [
   | `NLive
 ] [@@deriving sexp]
 
+type arr_bind = {len: int; ind: int} [@@deriving sexp]
+
 type ('a,'o) _typ =
   | Int of 'a
   | Ref of ('a,'o) _typ * 'o * nullity
   | Tuple of ty_binding * (('a,'o) _typ) list
   | TVar of int
   | Mu of rec_args * int * ('a, 'o) _typ
+  | Array of arr_bind * 'a * 'o * ('a,'o) _typ
 [@@deriving sexp]
 
 type arg_refinment =
@@ -90,6 +93,8 @@ let rec map_refinement f =
   | Tuple (b,tl) -> Tuple (b,(List.map (map_refinement f) tl))
   | Mu (a,v,t) -> Mu (a,v,map_refinement f t)
   | TVar v -> TVar v
+  | Array (b,len_r,o,et) ->
+    Array (b,f len_r,o,map_refinement f et)
 
 let rec fold_refinements f a = function
   | TVar _ -> a
@@ -97,6 +102,8 @@ let rec fold_refinements f a = function
   | Mu (_,_,t)
   | Ref (t,_,_) -> fold_refinements f a t
   | Tuple (_,tl) -> List.fold_left (fold_refinements f) a tl
+  | Array (_,len_r,_,et) ->
+    f (fold_refinements f a et) len_r
 
 let rec to_simple_type = function
   | Ref (t,_,_) -> `Ref (to_simple_type t)
@@ -104,6 +111,9 @@ let rec to_simple_type = function
   | Tuple (_,t) -> `Tuple (List.map to_simple_type t)
   | Mu (_,v,t) -> `Mu (v, to_simple_type t)
   | TVar v -> `TVar v
+  | Array (_,_,_,Int _) ->
+    `Array `Int
+  | Array _ -> failwith "Non-int arrays unsupported"
 
 let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
     {
@@ -161,6 +171,22 @@ let unfold_gen ~gen ~rmap arg id t_in =
       | Ref (t,o,n) ->
         let (acc',t') = loop acc t in
         (acc', Ref (t',o,n))
+      | Array ({len;ind},len_r,o,et) ->
+        let fresh_len = gen () in
+        let fresh_ind = gen () in
+        let add_to_dom orig i acc =
+          if List.mem orig codom then
+            (orig,i)::acc
+          else
+            acc
+        in
+        let (acc',et') =
+          add_to_dom len fresh_len acc
+          |> add_to_dom ind fresh_ind
+          |> (Fun.flip loop) et
+        in
+        let len_r' = rmap len_r in
+        acc',Array ({len = fresh_len; ind = fresh_ind},len_r',o,et')
       | Tuple (b,tl) ->
         let (acc',b') =
           map_with_accum acc (fun acc (i,r) ->
@@ -190,6 +216,8 @@ let unfold_gen ~gen ~rmap arg id t_in =
       Tuple (b,tl')
     | Ref (t,o,n) -> Ref (loop t, o,n)
     | Int r -> Int r
+    | Array (b,len_r,o,et) ->
+      Array (b, len_r, o, loop et)
   in
   loop t_in
   
@@ -234,6 +262,10 @@ let compile_type_path t1 ap =
       Tuple ([],tl')
     | TVar v  -> TVar v
     | Mu (a,v,t) -> Mu (a,v, compile_loop t root bindings)
+    | Array (b,len_r,o,et) ->
+      let bindings' = bindings @ [(b.ind,`AInd root); (b.len,`ALen root)] in
+      let len_rc = compile_refinement (`ALen root) bindings len_r in
+      Array (b,len_rc,o,compile_loop et (`AElem root) bindings')
   in
   compile_loop t1 ap []
 
@@ -246,12 +278,15 @@ let subst_of_binding root = List.map (fun (i,p) ->
     | SVar v -> (i, `AVar v)
   )
 
-let update_binding path tup_b (fv_ap,sym_vals) =
+let update_binding_gen tup_b (fv_ap,sym_vals) =
   let added_bindings = List.map (fun (i,_) -> `Sym i) tup_b in
-  let b_vals = subst_of_binding path tup_b in
   let fv_ap' = fv_ap @ added_bindings in
-  let sym_vals' = sym_vals @ b_vals in
+  let sym_vals' = sym_vals @ tup_b in
   (fv_ap',sym_vals')
+
+let update_binding path tup_b binding =
+  let b_vals = subst_of_binding path tup_b in
+  update_binding_gen b_vals binding
 
 let rec walk_with_bindings_own ?(under_mu=false) ~o_map f root bindings t a =
   match t with
@@ -266,6 +301,13 @@ let rec walk_with_bindings_own ?(under_mu=false) ~o_map f root bindings t a =
     let (a',t'') = walk_with_bindings_own ~under_mu ~o_map f (`ADeref root) bindings t' a in
     let (a'',o') = o_map a' o in
     (a'',Ref (t'',o',n))
+  | Array (b,len_r,o,et) ->
+    let len_path = `ALen root in
+    let bindings' = update_binding_gen [(b.ind,`AInd root);(b.len,len_path)] bindings in
+    let (a',len_r') = f ~under_mu len_path bindings len_r a in
+    let (a'',o') = o_map a' o in
+    let (a''',et') = walk_with_bindings_own ~under_mu ~o_map f (`AElem root) bindings' et a'' in
+    (a''', Array (b,len_r',o',et'))
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
         let nm = Paths.t_ind root i in
@@ -426,50 +468,59 @@ let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : '
   let open PrettyPrint in
   let sym_var = pf "$%d" in
   let rec pp_type = function
-  | Tuple (b,tl) ->
-    let bound_vars = List.filter (fun (_,p) ->
-        match p with
-        | SProj _ -> true
-        | _ -> false
-      ) b |> List.map (fun (i,p) ->
+    | Tuple (b,tl) ->
+      let bound_vars = List.filter (fun (_,p) ->
           match p with
-          | SProj ind -> (ind,i)
-          | _ -> assert false
-        ) in
-    let pp_tl = List.mapi (fun ind t ->
-        let pp_t = pp_type t in
-        if List.mem_assoc ind bound_vars then
-          let bound_name = sym_var @@ List.assoc ind bound_vars in
-          pb [
-            bound_name; ps ":"; sbrk;
+          | SProj _ -> true
+          | _ -> false
+        ) b |> List.map (fun (i,p) ->
+            match p with
+            | SProj ind -> (ind,i)
+            | _ -> assert false
+          ) in
+      let pp_tl = List.mapi (fun ind t ->
+          let pp_t = pp_type t in
+          if List.mem_assoc ind bound_vars then
+            let bound_name = sym_var @@ List.assoc ind bound_vars in
+            pb [
+              bound_name; ps ":"; sbrk;
+              pp_t
+            ]
+          else
             pp_t
-          ]
-        else
-          pp_t
-      ) tl in
-    pb [
-      ps "(";
-      psep_gen (pf ",@ ") pp_tl;
-      ps ")"
-    ]
-  | Int r -> r_print "int" r (*pb [
-                 pf "{%s:int@ |@ " nu;
-                 simplify_ref r |> pp_ref;
-                 ps "}"
-                                ]*)
-  | Ref (t,o,_) ->
-    pb [
-        pp_type t;
-        pf "@ ref@ ";
-        o_print o
-      ]
-  | TVar v -> pf "'%d" v
-  | Mu (_,v,t) ->
-    pb [
-        pf "(%s '%d.@ " mu v;
-        pp_type t;
+        ) tl in
+      pb [
+        ps "(";
+        psep_gen (pf ",@ ") pp_tl;
         ps ")"
       ]
+    | Int r -> r_print "int" r
+    | Array (b,len_r,o,et) ->
+      pb [
+          ps "[";
+          pb [
+            ps "(";
+            pf "$%d..@ " b.ind;
+            r_print (Printf.sprintf "$%d" b.len) len_r;
+            ps ")"
+          ];
+          pf ";@ ";
+          pp_type et;
+          pf "]@ "; o_print o; ps "]"
+        ]
+    | Ref (t,o,_) ->
+      pb [
+          pp_type t;
+          pf "@ ref@ ";
+          o_print o
+        ]
+    | TVar v -> pf "'%d" v
+    | Mu (_,v,t) ->
+      pb [
+          pf "(%s '%d.@ " mu v;
+          pp_type t;
+          ps ")"
+        ]
   in
   pp_type
 
