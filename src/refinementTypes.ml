@@ -82,6 +82,8 @@ type 'a _funtype = {
   result_type: 'a
 }[@@deriving sexp]
 
+type walk_pos = {under_mu: bool; array: arr_bind list}
+
 type funtype = ftyp _funtype [@@deriving sexp]
 
 let ref_of t1 o n = Ref (t1, o, n)
@@ -288,25 +290,25 @@ let update_binding path tup_b binding =
   let b_vals = subst_of_binding path tup_b in
   update_binding_gen b_vals binding
 
-let rec walk_with_bindings_own ?(under_mu=false) ~o_map f root bindings t a =
+let rec walk_with_bindings_own ?(pos={under_mu=false;array = []}) ~o_map f root bindings t a =
   match t with
   | TVar v -> (a,TVar v)
   | Mu (ar,v,t') ->
-    let (a',t'') = walk_with_bindings_own ~under_mu:true ~o_map f root bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~pos:{pos with under_mu = true} ~o_map f root bindings t' a in
     (a', Mu (ar,v,t''))
   | Int r ->
-    let (a',r') = f ~under_mu root bindings r a in
+    let (a',r') = f ~pos root bindings r a in
     (a',Int r')
   | Ref (t',o,n) ->
-    let (a',t'') = walk_with_bindings_own ~under_mu ~o_map f (`ADeref root) bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~pos ~o_map f (`ADeref root) bindings t' a in
     let (a'',o') = o_map a' o in
     (a'',Ref (t'',o',n))
   | Array (b,len_r,o,et) ->
     let len_path = `ALen root in
     let bindings' = update_binding_gen [(b.ind,`AInd root);(b.len,len_path)] bindings in
-    let (a',len_r') = f ~under_mu len_path bindings len_r a in
+    let (a',len_r') = f ~pos len_path bindings len_r a in
     let (a'',o') = o_map a' o in
-    let (a''',et') = walk_with_bindings_own ~under_mu ~o_map f (`AElem root) bindings' et a'' in
+    let (a''',et') = walk_with_bindings_own ~pos:{pos with array = b::pos.array} ~o_map f (`AElem root) bindings' et a'' in
     (a''', Array (b,len_r',o',et'))
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
@@ -318,7 +320,7 @@ let rec walk_with_bindings_own ?(under_mu=false) ~o_map f root bindings t a =
       match l with
       | [] -> (a_accum,[])
       | (nm,t)::tl ->
-        let (acc',t') = walk_with_bindings_own ~under_mu ~o_map f nm bindings' t a_accum in
+        let (acc',t') = walk_with_bindings_own ~pos ~o_map f nm bindings' t a_accum in
         let (acc'',tl') = loop acc' tl in
         (acc'',t'::tl')
     in
@@ -329,23 +331,23 @@ let walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
   walk_with_bindings_own ~o_map f root bindings t a
 
 let walk_with_path ?o_map f root =
-  walk_with_bindings ?o_map (fun ~under_mu p _ r a' ->
-    f ~under_mu p r a'
+  walk_with_bindings ?o_map (fun ~pos p _ r a' ->
+    f ~pos p r a'
   ) root ([],[])
 
 let map_with_bindings ?o_map f root bindings t =
-  walk_with_bindings ?o_map (fun ~under_mu p b r () ->
-    ((), f ~under_mu p b r)
+  walk_with_bindings ?o_map (fun ~pos p b r () ->
+    ((), f ~pos p b r)
   ) root bindings t () |> snd
 
 let fold_with_bindings f root bindings t a =
-  walk_with_bindings (fun ~under_mu p b r a' ->
-    (f ~under_mu p b r a',r)
+  walk_with_bindings (fun ~pos p b r a' ->
+    (f ~pos p b r a',r)
   ) root bindings t a |> fst
 
 let map_with_path f root t =
-  map_with_bindings (fun ~under_mu p _ r ->
-    f ~under_mu p r) root ([],[]) t
+  map_with_bindings (fun ~pos p _ r ->
+    f ~pos p r) root ([],[]) t
 
 let rec update_nth l i v =
   match l with
