@@ -180,9 +180,8 @@ let rec denote_type ?(nullity=`NLive) path (bind: (int * Paths.concr_ap) list) a
     let len_comp = compile_refinement len_ap bind len_r in
     let ind_ap = (`AInd path) in
     let acc' = [
-      (len_ap,len_comp,`NLive);
-      (ind_ap,Relation { rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 }, `NLive);
-      (ind_ap,Relation { rel_op1 = Nu; rel_cond = "<"; rel_op2 = RAp len_ap}, `NLive)
+      (len_ap,len_comp,nullity);
+      (ind_ap, NamedPred ("valid-ind", ([ len_ap ],ind_ap)), nullity)
     ] @ acc in
     denote_type ~nullity (`AElem path) (arr_b @ bind) acc' et
   | Ref (t',_,_) -> denote_type ~nullity:`NUnk (`ADeref path) bind acc t'
@@ -343,7 +342,7 @@ let add_type_implication ?ante_ext gamma t1_ t2_ ctxt_ =
     match t1,t2 with
     | Int r1, Int r2 -> add_constraint ?ante_ext gamma r1 r2 nullity ctxt
     | Array (_,len_r1,_,et1), Array (_,len_r2,_,et2) ->
-      let ctxt' = add_constraint ?ante_ext gamma len_r1 len_r2 `NLive ctxt in
+      let ctxt' = add_constraint ?ante_ext gamma len_r1 len_r2 nullity ctxt in
       impl_loop ~nullity ctxt' et1 et2
     | Ref (t1',_,_), Ref (t2',_,_) -> impl_loop ~nullity:`NUnk ctxt t1' t2'
     | Tuple (_,tl1), Tuple (_,tl2) ->

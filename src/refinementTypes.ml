@@ -124,7 +124,12 @@ let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
     }) env
 
 let map_ap mapping : refine_ap -> Paths.concr_ap = function
-  | `Sym i -> List.assoc i mapping
+  | `Sym i -> begin
+    try
+      List.assoc_opt i mapping |> Option.get
+    with
+      Invalid_argument _ -> failwith @@ Printf.sprintf "Could not find symbol %d" i
+    end
   | #Paths.concr_ap as cp -> cp
 
 let partial_map_ap mapping : refine_ap -> refine_ap = function
@@ -165,51 +170,45 @@ let partial_subst (subst_assoc : (int * [< refine_ap]) list) : (refine_ap list, 
 
 let unfold_gen ~gen ~rmap arg id t_in =
   let codom = List.map snd arg in
+  let gen_var_for i (subst,acc) = 
+    let fresh_var = gen () in
+    fresh_var,(
+      (i,fresh_var)::subst,
+      (if List.mem i codom then
+        (i,fresh_var)::acc
+      else
+        acc))
+  in
   let do_subst t =
-    let rec loop acc = function
-      | Int r -> (acc,Int (rmap r))
+    let rec loop ((subst,_) as acc) = function
+      | Int r -> (acc,Int (rmap subst r))
       | TVar a -> (acc,TVar a)
       | Mu _ -> failwith "let's not deal with this yet"
       | Ref (t,o,n) ->
         let (acc',t') = loop acc t in
         (acc', Ref (t',o,n))
       | Array ({len;ind},len_r,o,et) ->
-        let fresh_len = gen () in
-        let fresh_ind = gen () in
-        let add_to_dom orig i acc =
-          if List.mem orig codom then
-            (orig,i)::acc
-          else
-            acc
-        in
-        let (acc',et') =
-          add_to_dom len fresh_len acc
-          |> add_to_dom ind fresh_ind
-          |> (Fun.flip loop) et
-        in
-        let len_r' = rmap len_r in
+        let (fresh_len,acc_len) = gen_var_for len acc in
+        let (fresh_ind,acc_ind) = gen_var_for ind acc_len in
+        let acc',et' = loop acc_ind et in
+        let len_r' = rmap subst len_r in
         acc',Array ({len = fresh_len; ind = fresh_ind},len_r',o,et')
       | Tuple (b,tl) ->
         let (acc',b') =
           map_with_accum acc (fun acc (i,r) ->
-            let fresh_var = gen () in
-            let acc' =
-              if List.mem i codom then
-                (i,fresh_var)::acc
-              else
-                acc
-            in
+            let (fresh_var,acc') = gen_var_for i acc in
             (acc',(fresh_var,r))
-          ) b in
+          ) b
+        in
         let (acc'',tl') = map_with_accum acc' loop tl in
         (acc'',Tuple (b',tl'))
     in
-    loop [] t
+    loop (arg,[]) t
   in
   let rec loop =
     function
     | TVar t_id when t_id = id ->
-      let (new_arg,t') = do_subst t_in in
+      let ((_,new_arg),t') = do_subst t_in in
       Mu (new_arg,id,t')
     | TVar v -> TVar v
     | Mu (arg,id,t) -> Mu (arg,id,loop t)
@@ -224,10 +223,11 @@ let unfold_gen ~gen ~rmap arg id t_in =
   loop t_in
   
 let unfold ~gen arg id t_in =
-  let subst_map = List.map (fun (v,new_v) ->
-      (v,`Sym new_v)
-    ) arg in
-  let psub = partial_subst subst_map in
+  let psub sub_arg =
+    partial_subst @@ List.map (fun (v,new_v) ->
+        (v, `Sym new_v)
+      ) sub_arg
+  in
   unfold_gen ~gen ~rmap:psub arg id t_in
 
 let compile_refinement target subst_assoc =
@@ -493,7 +493,13 @@ let rec pp_ref =
         pp_ref r2
       ]
 
-
+let pp_map () l =
+  let open PrettyPrint in
+  psep_gen (pf ",@ ") @@
+    List.map (fun (i,j) ->
+      pf "%d -> %d" i j
+    ) l
+    
 let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o) _typ -> Format.formatter -> unit =
   let open PrettyPrint in
   let sym_var = pf "$%d" in
@@ -546,9 +552,9 @@ let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : '
           o_print o
         ]
     | TVar v -> pf "'%d" v
-    | Mu (_,v,t) ->
+    | Mu (map,v,t) ->
       pb [
-          pf "(%s '%d.@ " mu v;
+          pf "(%s{%a} '%d.@ " mu pp_map map v;
           pp_type t;
           ps ")"
         ]

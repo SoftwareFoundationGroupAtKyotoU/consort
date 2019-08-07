@@ -1,6 +1,10 @@
 open Intrinsics
 open Sexplib.Std
 
+let ind_pred = "(define-fun valid-ind ((ind Int) (len Int)) Bool
+  (and (>= ind 0) (=> (> len 0) (< ind len))))
+"
+
 let binop,relop,alias_op =
   let arg1 = "x1" in
   let arg2 = "x2" in
@@ -93,7 +97,7 @@ let () =
       nrel ">";
       nrel ">=";
       nrel "=";
-      ("!=", "uneq")
+      ("!=", "uneq");
     ],
     Sys.argv.(2)
   ) in
@@ -124,7 +128,8 @@ let () =
         pl "x1"; pl "x2"
       ]
     ]
-  ];
+    ];
+  output_string smt_out ind_pred;
   flush smt_out;
   flush intr_f;
   close_out smt_out;
