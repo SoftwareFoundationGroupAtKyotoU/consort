@@ -82,7 +82,7 @@ type 'a _funtype = {
   result_type: 'a
 }[@@deriving sexp]
 
-type walk_pos = {under_mu: bool; array: arr_bind list; under_ref: bool}
+type walk_pos = {under_mu: bool; array: arr_bind list; under_ref: bool; array_ref: bool}
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
@@ -307,7 +307,7 @@ let ap_is_target target sym_vals ap =
 let filter_fv path sym_vals =
   List.filter (fun free_var -> not @@ ap_is_target path sym_vals free_var)
 
-let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false}) ~o_map f root bindings t a =
+let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false;array_ref = false}) ~o_map f root bindings t a =
   match t with
   | TVar v -> (a,TVar v)
   | Mu (ar,v,t') ->
@@ -324,9 +324,9 @@ let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false}
   | Array (b,len_r,o,et) ->
     let len_path = `ALen root in
     let bindings' = update_binding_gen (bind_of_arr b root) bindings in
-    let (a',len_r') = f ~pos len_path bindings len_r a in
+    let (a',len_r') = f ~pos:{pos with array_ref = true} len_path bindings len_r a in
     let (a'',o') = o_map a' o in
-    let (a''',et') = walk_with_bindings_own ~pos:{pos with array = b::pos.array} ~o_map f (`AElem root) bindings' et a'' in
+    let (a''',et') = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true} ~o_map f (`AElem root) bindings' et a'' in
     (a''', Array (b,len_r',o',et'))
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
@@ -530,13 +530,14 @@ let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : '
           ps "[";
           pb [
             ps "(";
-            pf "$%d..@ " b.ind;
-            r_print (Printf.sprintf "$%d" b.len) len_r;
+            pf "$%d.." b.ind;
+            pf "$%d:" b.len;
+            r_print "int" len_r;
             ps ")"
           ];
           pf ";@ ";
           pp_type et;
-          pf "]@ "; o_print o; ps "]"
+          pf "@ "; o_print o; ps "]"
         ]
     | Ref (t,o,_) ->
       pb [

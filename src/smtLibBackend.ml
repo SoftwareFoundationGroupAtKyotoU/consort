@@ -25,9 +25,9 @@ end = struct
     | Nu -> atom ff binding
     | RImm ri -> pp_imm ri ff
 
-  let refine_args o l =
-    List.filter ((<>) o) l
-    |> List.map Paths.to_z3_ident
+  let refine_args _ l = List.map Paths.to_z3_ident l
+(*    List.filter ((<>) o) l
+    |> List.map Paths.to_z3_ident*)
 
   let ctxt_var i = "CTXT" ^ (string_of_int i)
 
