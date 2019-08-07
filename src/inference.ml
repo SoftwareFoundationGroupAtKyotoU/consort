@@ -890,7 +890,7 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
           (c_out,out_r)
           ctxt
     | Array (b1,len1,o1,t1), Array (b2,len2,o2,t2), Array (b_out,len_out,o_out,t_out) ->
-      let ctxt' = shuffle_refinements ~summary (c1,len1) (c2,len2) (c_out,len_out) ctxt in
+      let ctxt' = shuffle_refinements ~summary:true (c1,len1) (c2,len2) (c_out,len_out) ctxt in
       inner_loop ~summary:true
         (step_array c1 b1 o1 t1)
         (step_array c2 b2 o2 t2)
@@ -1140,6 +1140,9 @@ let sum_ownership t1 t2 out ctxt =
     | Mu (_,_,t1'), Mu (_,_,t2'), Mu (_,_,out') ->
       loop t1' t2' out' ctxt
     | TVar _,TVar _, TVar _ -> ctxt
+    | Array (_,_,o1,et1), Array (_,_,o2,et2), Array (_,_,o3,et3) ->
+      loop et1 et2 et3
+        { ctxt with ownership = Split (o3,(o1,o2))::ctxt.ownership }
     | _ -> failwith "Mismatched types (simple checker broken?)"
   in
   loop t1 t2 out ctxt
@@ -1324,14 +1327,14 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     (* they are by virtue of denote gamma, but we REALLY need to do better with our
        generation of free variables *)
     let elem_ap = `AElem (`AVar base) in
-    let (ctxt',et') = make_fresh_type ~target_var:elem_ap ~loc:(LUpdate e_id) ~fv:(gamma_predicate_vars ctxt.gamma @ fv_of_arr b) et ctxt in
+    let arr_vars = bind_of_arr b (`AVar base) in
+    let (ctxt',et') = make_fresh_type ~target_var:elem_ap ~loc:(LUpdate e_id) ~fv:(gamma_predicate_vars ctxt.gamma @ fv_of_arr b) ~bind:(arr_vars) et ctxt in
     let (ctxt'',(t1,t2)) = split_type ctxt' @@ lkp v in
     let dg = denote_gamma ctxt''.gamma in
-    let arr_vars = bind_of_arr b (`AVar base) in
     let c_up = compile_type t1 v |> with_refl (`AVar v) in
     let orig_cont = compile_type_gen et elem_ap arr_vars in
-    let new_cont_up = compile_type_gen et (`AVar v) arr_vars in
-    let new_cont_same = compile_type_gen et elem_ap arr_vars in
+    let new_cont_up = compile_type_gen et' (`AVar v) arr_vars in
+    let new_cont_same = compile_type_gen et' elem_ap arr_vars in
     let symb_ind_ap = RImm (RAp (`AInd (`AVar base))) in
     
     let ind_ap = RAp (`AVar ind) in
@@ -1628,8 +1631,8 @@ and process_call ~e_id ~cont_id ctxt c =
   in
   let p_vars = predicate_vars @@ List.map (fun (_,k,v) -> (k,v)) arg_bindings in
   
-  let inst_symb ~add_post ~pos:{under_mu; array; _} _ (fv_raw,_) f_refinement =
-    let fv = if add_post && (not under_mu) && (array = []) then (`AVar "!pre")::fv_raw else fv_raw in
+  let inst_symb ~add_post ~pos:{under_mu; array_ref; _} _ (fv_raw,_) f_refinement =
+    let fv = if add_post && (not under_mu) && (not array_ref) then (`AVar "!pre")::fv_raw else fv_raw in
      match f_refinement with
      | InfPred p -> 
        CtxtPred (c.label,p,fv)
@@ -1686,7 +1689,8 @@ and process_call ~e_id ~cont_id ctxt c =
                 let pre_type =
                   match map_ap path Fun.id (fun _ -> concr_arg_type) with
                   | Int r -> with_pred_refl path r
-                  | _ -> failwith "I've made a terrible mistake"
+                  | _ -> failwith @@ Printf.sprintf "I've made a terrible mistake: %s"
+                        @@ Paths.to_z3_ident path
                 in
                 {constr with
                   env = (`AVar "!pre",pre_type,`NUnk)::constr.env }
@@ -1719,8 +1723,9 @@ let process_function_bind ctxt fdef =
   let typ_template = List.combine arg_names f_typ.arg_types in
   let fv = predicate_vars typ_template in
   let inst_symb ~post n t =
-    map_with_bindings (fun ~pos:{under_mu; array;_} path (base_fv,_) p ->
-      let pred_args = if post && (not under_mu) && array = []then
+    map_with_bindings (fun ~pos:{under_mu; array_ref; _} path (base_fv,_) p ->
+      let pred_args =
+        if post && (not under_mu) && (not array_ref)  then
           ((P.pre path) :> refine_ap)::base_fv
         else
           base_fv
@@ -1733,8 +1738,8 @@ let process_function_bind ctxt fdef =
   let init_env = List.fold_left (fun g (n,t) ->
       let inst = inst_symb ~post:false n t in
       let (g',inst') =
-        walk_with_path (fun ~pos:{under_mu; array;_} path p g ->
-          if under_mu || array <> [] then
+        walk_with_path (fun ~pos:{under_mu; array_ref; _} path p g ->
+          if under_mu || array_ref then
             (g,p)
           else
             let pre_var = P.to_z3_ident path in
@@ -1801,8 +1806,8 @@ let propagate_grounding refine pred =
 let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,main) =
   let init_fun_type ctxt f_def =
     let lift_simple_type ~post ~loc =
-      lift_to_refinement ~pred:(fun ~pos:{under_mu; array; _ } fv path ctxt ->
-        let (ctxt',i) = alloc_pred ~ground:under_mu ~add_post_var:(post && (not under_mu) && array = []) ~loc fv path ctxt in
+      lift_to_refinement ~pred:(fun ~pos:{under_mu; array_ref; _ } fv path ctxt ->
+        let (ctxt',i) = alloc_pred ~ground:under_mu ~add_post_var:(post && (not under_mu) && (not array_ref)) ~loc fv path ctxt in
         (ctxt',InfPred i))
     in
     let gen_arg_preds ~post ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
