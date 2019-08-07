@@ -1022,6 +1022,10 @@ let rec strengthen_let patt rhs ctxt =
     | Ref (r,o,n) -> (r,o,n)
     | _ -> failwith "not a ref"
   in
+  let lkp_array v = match SM.find v ctxt.gamma with
+    | Array (b,l,o,et) -> (b,l,o,et)
+    | _ -> failwith "not an array"
+  in
   match patt,rhs with
   | PNone,_ -> ctxt
   | _,Const _
@@ -1037,10 +1041,22 @@ let rec strengthen_let patt rhs ctxt =
   (* In the future, _maybe_ we want to explore strengthening equalities
      with array contents. I suspect it will just wreck z3 *)
   | _,Read _ -> ctxt
+
   (* Note that we can automatically strengthen the length equality
      when we generate the type for mkarray v, because that strengthening
-     is entirely within the type of the array *)
+     is entirely within the type of the array
+     
+     TODO: actually move to here for consistency sake *)
   | _,MkArray _ -> ctxt
+
+  | PVar lhs,LengthOf arr ->
+   let t' = strengthen_eq ~strengthen_type:(SM.find lhs ctxt.gamma) ~target:(`ALen (`AVar arr)) in
+   let (b,l,o,et) = lkp_array arr in
+   ctxt
+   |> update_type lhs t'
+   |> update_type arr @@ Array (b,And (l,Relation {
+             rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`AVar lhs)
+           }),o,et)
   | _,Deref v ->
     let (t,o,n) = lkp_ref v in
     let (ctxt',t') = strengthen_type t patt ctxt in
@@ -1407,6 +1423,9 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         |> add_owner_con [ Live o ]
         |> with_type res_t
 
+
+      | LengthOf _ ->
+        ctxt,Int (Relation {rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 })
       | MkArray len ->
         begin
           match patt with
@@ -1416,6 +1435,9 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
             let (ctxt,a_type) =
               ctxt
               |> add_var_implication (denote_gamma ctxt.gamma) ctxt.gamma len @@ Int (Relation { rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 })
+              |> update_type len (map_refinement (fun r ->
+                    And (r,Relation {rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`ALen (`AVar lhs)) })
+                  ) @@ lkp len)
               |> lift_to_refinement ~pred:(fun ~pos:{under_ref; under_mu; _} fv path c ->
                   match path with
                   | `ALen (`AVar v) when v = lhs ->
