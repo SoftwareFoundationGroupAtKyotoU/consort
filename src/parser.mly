@@ -20,7 +20,7 @@
 // bindings
 %token LET IN MKREF EQ
 // arrays
-%token MKARRAY LBRACKET RBRACKET LARROW
+%token MKARRAY LBRACKET RBRACKET LARROW LENGTH
 // BIFs
 %token ASSERT ALIAS
 // Update
@@ -116,6 +116,7 @@ let op :=
   | ~ = fn_call; <`Call>
   | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
   | ~ = array_expr; <`Read>
+  | ~ = op; DOT; LENGTH; <`LengthOf>
 
 let tuple_rest :=
   | l = lhs; COMMA; { [l] }

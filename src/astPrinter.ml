@@ -57,6 +57,8 @@ let pp_lhs = function
   | MkArray v -> pl [ ps "mkarray "; pv v ]
   | Read (b,i) ->
     pf "%s[%s]" b i
+  | LengthOf v ->
+    pf "%s.length" v
 
 let rec pp_patt = function
   | PVar v -> pv v

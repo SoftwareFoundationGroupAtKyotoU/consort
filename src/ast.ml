@@ -27,6 +27,7 @@ type lhs =
   | Tuple of ref_contents list
   | Nondet
   | Read of string * string
+  | LengthOf of string
   | Null
 
 type patt =
