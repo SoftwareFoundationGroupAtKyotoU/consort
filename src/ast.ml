@@ -26,7 +26,7 @@ type lhs =
   | Deref of string
   | Tuple of ref_contents list
   | Nondet
-  | Read of string * imm_op
+  | Read of string * string
   | Null
 
 type patt =
@@ -52,7 +52,7 @@ type raw_exp =
   | NCond of string * exp * exp
   | Seq of exp * exp
   | Assign of string * imm_op * exp
-  | Update of string * imm_op * imm_op * exp
+  | Update of string * string * string * exp
   | Let of patt * lhs * exp
   | Alias of string * src_ap * exp
   | Assert of relation * exp

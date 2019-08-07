@@ -1,5 +1,9 @@
-type 'a _const_ap =
-  [ `ALen of 'a | `APre of string | `AProj of 'a * int | `AVar of string ] [@@deriving sexp]
+type 'a _const_ap = [
+    `ALen of 'a
+  | `APre of string
+  | `AProj of 'a * int
+  | `AVar of string
+] [@@deriving sexp]
 type const_ap = const_ap _const_ap [@@deriving sexp]
 
 type 'a t_templ = [
@@ -7,7 +11,7 @@ type 'a t_templ = [
 | `ADeref of 'a
 | `AElem of 'a
 | `AInd of 'a
-]
+] [@@deriving sexp]
 
 
 type concr_ap = [

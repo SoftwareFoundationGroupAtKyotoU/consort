@@ -82,7 +82,7 @@ type 'a _funtype = {
   result_type: 'a
 }[@@deriving sexp]
 
-type walk_pos = {under_mu: bool; array: arr_bind list}
+type walk_pos = {under_mu: bool; array: arr_bind list; under_ref: bool}
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
@@ -148,7 +148,7 @@ let map_relation (map_fn: 'a -> 'b) ({ rel_op1; rel_cond; rel_op2 }: 'a refineme
   let r2 = map_rel_imm map_fn rel_op2 in
   ({ rel_op1 = r1; rel_cond; rel_op2 = r2 }: 'b refinement_rel)
 
-let partial_subst subst_assoc : (refine_ap list, refine_ap) refinement -> (refine_ap list, refine_ap) refinement =
+let partial_subst (subst_assoc : (int * [< refine_ap]) list) : (refine_ap list, refine_ap) refinement -> (refine_ap list, refine_ap) refinement =
   let subst_fn = partial_map_ap subst_assoc in
   let subst = List.map subst_fn in
   let rec loop r =
@@ -251,7 +251,7 @@ let compile_bindings blist root =
     | SProj i -> (k,`AProj (root,i))
   ) blist
 
-let compile_type_path t1 ap =
+let compile_type_gen =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)
@@ -269,7 +269,9 @@ let compile_type_path t1 ap =
       let len_rc = compile_refinement (`ALen root) bindings len_r in
       Array (b,len_rc,o,compile_loop et (`AElem root) bindings')
   in
-  compile_loop t1 ap []
+  compile_loop
+
+let compile_type_path t1 ap = compile_type_gen t1 ap []
 
 let compile_type t1 root =
   compile_type_path t1 @@ `AVar root
@@ -280,7 +282,7 @@ let subst_of_binding root = List.map (fun (i,p) ->
     | SVar v -> (i, `AVar v)
   )
 
-let update_binding_gen tup_b (fv_ap,sym_vals) =
+let update_binding_gen tup_b (fv_ap,sym_vals) : ('a * (int * Paths.concr_ap) list) =
   let added_bindings = List.map (fun (i,_) -> `Sym i) tup_b in
   let fv_ap' = fv_ap @ added_bindings in
   let sym_vals' = sym_vals @ tup_b in
@@ -290,22 +292,38 @@ let update_binding path tup_b binding =
   let b_vals = subst_of_binding path tup_b in
   update_binding_gen b_vals binding
 
-let rec walk_with_bindings_own ?(pos={under_mu=false;array = []}) ~o_map f root bindings t a =
+let bind_of_arr b root =
+  [(b.ind,`AInd root);(b.len,`ALen root)]
+
+let fv_of_arr b =
+  [ `Sym b.ind; `Sym b.len ]
+
+
+let ap_is_target target sym_vals ap =
+  match ap with
+  | #Paths.concr_ap as cr_ap -> cr_ap = target
+  | `Sym i -> (List.assoc i sym_vals) = target
+
+let filter_fv path sym_vals =
+  List.filter (fun free_var -> not @@ ap_is_target path sym_vals free_var)
+
+let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false}) ~o_map f root bindings t a =
   match t with
   | TVar v -> (a,TVar v)
   | Mu (ar,v,t') ->
     let (a',t'') = walk_with_bindings_own ~pos:{pos with under_mu = true} ~o_map f root bindings t' a in
     (a', Mu (ar,v,t''))
   | Int r ->
-    let (a',r') = f ~pos root bindings r a in
+    let (sym_fv,sym_vals) = bindings in
+    let (a',r') = f ~pos root (filter_fv root sym_vals sym_fv,sym_vals) r a in
     (a',Int r')
   | Ref (t',o,n) ->
-    let (a',t'') = walk_with_bindings_own ~pos ~o_map f (`ADeref root) bindings t' a in
+    let (a',t'') = walk_with_bindings_own ~pos:{pos with under_ref = true} ~o_map f (`ADeref root) bindings t' a in
     let (a'',o') = o_map a' o in
     (a'',Ref (t'',o',n))
   | Array (b,len_r,o,et) ->
     let len_path = `ALen root in
-    let bindings' = update_binding_gen [(b.ind,`AInd root);(b.len,len_path)] bindings in
+    let bindings' = update_binding_gen (bind_of_arr b root) bindings in
     let (a',len_r') = f ~pos len_path bindings len_r a in
     let (a'',o') = o_map a' o in
     let (a''',et') = walk_with_bindings_own ~pos:{pos with array = b::pos.array} ~o_map f (`AElem root) bindings' et a'' in
@@ -358,10 +376,20 @@ let rec update_nth l i v =
       h::(update_nth t (i - 1) v)
   | [] -> raise @@ Invalid_argument "Bad index"
 
-let map_ap_with_bindings ap fvs f gen =
+let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
   let rec inner_loop ap' c =
     match ap' with
+    | `ALen _
+    | `AInd _
     | `APre _ -> failwith "V illegal"
+    | `AElem ap ->
+      inner_loop ap (fun b t' ->
+          match t' with
+          | Array (ba,l,o,t) ->
+            let (a',mapped) = c (update_binding_gen (bind_of_arr ba ap) b) t in
+            (a',Array (ba,l,o,mapped))
+          | _ -> failwith "Invalid type for Elem"
+        )
     | `AVar v -> c (fvs,[]) (gen v)
     | `ADeref ap ->
       inner_loop ap (fun b t' ->

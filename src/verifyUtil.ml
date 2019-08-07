@@ -157,14 +157,19 @@ let infer opts intr simple_res ast =
       let open RefinementTypes in
       let module IM = Map.Make(struct type t = int let compare = (-) end) in
       let o_map = List.fold_left (fun acc (k,v) -> IM.add k v acc) IM.empty o_soln in
+      let map_own = function
+        | OConst o -> o
+        | OVar ov -> IM.find ov o_map
+      in
       let rec map_type =
         function
         | Int _ -> Int ()
-        | Ref (t,OConst o,n) -> Ref (map_type t, o,n)
-        | Ref (t,OVar ov,n) -> Ref (map_type t,IM.find ov o_map,n)
+        | Ref (t,o,n) -> Ref (map_type t,map_own o,n)
         | Tuple (_,tl) -> Tuple ([],List.map map_type tl)
         | TVar id -> TVar id
         | Mu (a,i,t) -> Mu (a,i,map_type t)
+        | Array (b,_,o,t) ->
+          Array (b,(),map_own o,map_type t)
       in
       let o_gamma_tbl = Hashtbl.create 10 in
       Hashtbl.iter (fun i g ->

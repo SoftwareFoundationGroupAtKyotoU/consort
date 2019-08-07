@@ -94,9 +94,9 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
       )
   | Update (id,base,ind,lhs) ->
     bind_in ~ctxt:id count base (fun count tvar ->
-        lift_to_imm count ind (fun c il ->
-          lift_to_imm c lhs (fun c' ll ->
-            A.Update (tvar,il,ll,get_continuation ~ctxt:id c')
+        bind_in ~ctxt:id count ind (fun c ivar ->
+          bind_in ~ctxt:id c lhs (fun c' lvar ->
+            A.Update (tvar,ivar,lvar,get_continuation ~ctxt:id c')
             |> tag_with id
           )
         )
@@ -152,7 +152,7 @@ and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
                    )
   | `Read (base,ind) ->
     lift_to_var ?ctxt count base (fun c b ->
-        lift_to_imm ?ctxt c ind (fun c' i ->
+        lift_to_var ?ctxt c ind (fun c' i ->
           rest c' @@ A.Read (b,i)
         )
       )
