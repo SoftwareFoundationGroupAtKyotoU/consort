@@ -383,6 +383,10 @@ let rec process_expr save_type ctxt (id,e) res_acc =
         end
       | Call c -> same @@ process_call lkp ctxt c
       | Nondet -> same `Int
+      | LengthOf v ->
+        let tv = fresh_var () in
+        unify_var v @@ `Array tv;
+        same @@ `Int
       | Deref p ->
         let tv = fresh_var () in
         let acc',c_id = record_read tv in

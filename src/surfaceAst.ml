@@ -14,6 +14,7 @@ type lhs = [
   | `Call of call
   | `Tuple of lhs list
   | `Read of lhs * lhs
+  | `LengthOf of lhs
 ] and call = string * int * (lhs list)
 
 type relation = {
@@ -93,9 +94,9 @@ let rec simplify_expr ?next count e : int * A.raw_exp =
         |> tag_with id
       )
   | Update (id,base,ind,lhs) ->
-    bind_in ~ctxt:id count base (fun count tvar ->
-        bind_in ~ctxt:id count ind (fun c ivar ->
-          bind_in ~ctxt:id c lhs (fun c' lvar ->
+    lift_to_var ~ctxt:id count base (fun count tvar ->
+        lift_to_var ~ctxt:id count ind (fun c ivar ->
+          lift_to_var ~ctxt:id c lhs (fun c' lvar ->
             A.Update (tvar,ivar,lvar,get_continuation ~ctxt:id c')
             |> tag_with id
           )
@@ -131,6 +132,10 @@ and lift_to_lhs ?ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `OInt i -> k @@ A.Const i
   | `ODeref v -> k @@ A.Deref v
   | `Nondet -> k @@ A.Nondet
+  | `LengthOf lhs ->
+    lift_to_var ?ctxt count lhs (fun c' r ->
+        rest c' @@ A.LengthOf r
+      )
   | `Call c ->
     lift_to_call count c (fun c' l -> rest c' @@ A.Call l)
   | `BinOp (o1,op_name,o2) ->

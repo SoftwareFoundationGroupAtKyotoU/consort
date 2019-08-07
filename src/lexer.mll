@@ -37,6 +37,7 @@ rule read =
   | "else" { ELSE }
   | "let" { LET }
   | "in" { IN }
+  | "length" { LENGTH }
   | '*' { STAR }
   | ';' { SEMI }
   | ':' { COLON }
