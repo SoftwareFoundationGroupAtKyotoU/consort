@@ -8,7 +8,10 @@ let run_test v_opts intr expect file =
 
 let () =
   let expect = ref true in
-  let (a_list,gen) = VerifyUtil.Options.solver_arg_gen () in
+  let (a_list,gen) =
+    VerifyUtil.Options.solver_arg_gen ()
+    |> VerifyUtil.Options.seq VerifyUtil.Options.solver_opt_gen
+  in
   let (i_list,i_gen) = Intrinsics.option_loader () in
   let args = [
     ("-neg", Arg.Clear expect, "Expect typing failures");
