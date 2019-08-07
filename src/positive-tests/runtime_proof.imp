@@ -1,0 +1,13 @@
+proof(a,b) {
+  if a < b then () else proof(a,b)
+}
+
+{
+  let a = _ in
+  let b = _ in {
+    {
+       proof(a,b)
+    };
+    assert(a < b)
+  }
+}
