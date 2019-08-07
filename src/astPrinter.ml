@@ -56,7 +56,7 @@ let pp_lhs = function
   | Null -> ps "null"
   | MkArray v -> pl [ ps "mkarray "; pv v ]
   | Read (b,i) ->
-    pf "%s[%a]" b upp_imm i
+    pf "%s[%s]" b i
 
 let rec pp_patt = function
   | PVar v -> pv v
@@ -162,7 +162,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
         ]
     | Update (x,ind,y,e') ->
       pl [
-          pf "%a%s[%a] <- %a" pr_id id x (ul pp_imm) ind (ul pp_imm) y;
+          pf "%a%s[%s] <- %s" pr_id id x ind y;
           semi;
           pp_expr ~ip ~annot e'
         ]

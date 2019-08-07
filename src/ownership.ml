@@ -2,7 +2,7 @@ let print_program ~o_map ~o_printer r ast =
   let open PrettyPrint in
   let print_type (k,t) = 
     let owner_type =
-      RefinementTypes.walk_with_bindings_own ~o_map (fun ~under_mu:_ _ _ _ () ->
+      RefinementTypes.walk_with_bindings_own ~o_map (fun ~pos:_ _ _ _ () ->
         ((), ())
       ) (`AVar k) ([],[]) t () |> snd
     in

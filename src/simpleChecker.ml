@@ -325,11 +325,11 @@ let rec process_expr save_type ctxt (id,e) res_acc =
     let acc,c_id = save_assign v2 in
     unify_var v1 @@ `TyCons c_id;
     process_expr save_type ctxt e acc
-  | Update (v1,i1,i2,e) ->
+  | Update (v1,ind,u,e) ->
     let d = fresh_var () in
     unify_var v1 @@ `Array d;
-    unify_imm i1 `Int;
-    unify_imm i2 @@ d;
+    unify_var ind `Int;
+    unify_var u @@ d;
     process_expr save_type ctxt e res_acc
   | Alias (v, ap,e) ->
     let fresh_node () = UnionFind.new_node ctxt.sub.uf in
@@ -399,7 +399,7 @@ let rec process_expr save_type ctxt (id,e) res_acc =
         unify_var v `Int;
         same @@ `Array (fresh_var ())
       | Read (b,i) ->
-        unify_imm i `Int;
+        unify_var i `Int;
         let cont = fresh_var () in
         unify_var b @@ `Array cont;
         same cont
