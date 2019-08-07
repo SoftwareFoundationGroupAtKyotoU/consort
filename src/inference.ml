@@ -21,6 +21,7 @@ type pred_loc =
   | LRead of int
   | LUpdate of int
   | LNull of int
+  | LMkArray of int
   | LFold of int
 
 let loc_to_string =
@@ -38,6 +39,7 @@ let loc_to_string =
   | LNull i -> labeled_expr "ifnull" i
   | LFold i -> labeled_expr "fold" i
   | LRead i -> labeled_expr "read" i
+  | LMkArray i -> labeled_expr "mkarray" i
   | LUpdate i -> labeled_expr "update" i
 
 let _ = LRead 3;;
@@ -381,6 +383,7 @@ let mk_pred_name n target_var loc =
     | LFold i -> Printf.sprintf "fold-%d" i
     | LRead i -> Printf.sprintf "read-%d" i
     | LUpdate i -> Printf.sprintf "update-%d" i
+    | LMkArray i -> Printf.sprintf "mkarray-%d" i
   in
   if ext_names then
     c ^ "-" ^ (Paths.to_z3_ident target_var)
@@ -799,6 +802,13 @@ let generalize_pred root out_type combined_pred =
   in
   gen_loop combined_pred
 
+let step_array wc b o t =
+  {
+    path = `AElem wc.path;
+    o_stack = o::wc.o_stack;
+    binding = (bind_of_arr b wc.path) @ wc.binding
+  },t
+
 (* apply_matrix walks t1, t2 and out_type in parallel. At each leaf
    node, it generates a constrain on out_type's refinements based
    on the ownerships along the paths from the roots of t1 and t2 to the leaf.
@@ -806,23 +816,65 @@ let generalize_pred root out_type combined_pred =
 let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[]) ~out_type ctxt =
   let g = denote_gamma ctxt.gamma in
   let pp = match pp_constr with
-    | None -> (fun ~under_mu:_ _ p -> p)
+    | None -> (fun ~summary:_ _ p -> p)
     | Some f -> f in
-  let rec inner_loop ~under_mu (c1,t1) (c2,t2) (c_out,out_t) ctxt =
+
+  let shuffle_refinements ~summary (c1,r1) (c2,r2) (c_out,out_r) ctxt =
+    let gen_constraint =
+      (force_cons) ||
+      (not @@ List.for_all all_const_o [c1; c2; c_out])
+    in
+    let c_out_r = ctxt_compile_ref c_out out_r in
+    let c_r1 = ctxt_compile_ref c1 r1 in
+    let c_r2 = ctxt_compile_ref c2 r2 in
+    if gen_constraint then
+      let mk_constraint oante ante =
+        pp ~summary c1.path @@ {
+          env = g;
+          ante = ante;
+          conseq = c_out_r;
+          owner_ante = (ctxt_gt c_out) @ oante;
+          nullity = `NUnk
+        }
+      in
+      let cons = [
+        mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
+        mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
+        mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1;
+        pp ~summary c1.path @@ {
+          env = g;
+          ante = Top;
+          conseq = c_out_r;
+          owner_ante = ctxt_any_eq c_out;
+          nullity = `NUnk
+        }
+      ] in
+      let (ctxt',d_list) = ctxt in
+      ({ ctxt' with refinements =
+           cons @ ctxt'.refinements },d_list)
+    else
+      let (i,_) = unsafe_extract_pred c_out_r in
+      let comb_pred = combine_concr_preds (c1,c_r1) (c2,c_r2) c_out in
+      let gen_pred = generalize_pred out_root out_type comb_pred in
+      let (ctxt',d_list) = ctxt in
+      (ctxt',(i,gen_pred)::d_list)
+  in
+
+  let rec inner_loop ~summary (c1,t1) (c2,t2) (c_out,out_t) ctxt =
     match t1,t2,out_t with
     | Tuple (b1,tl1), Tuple (b2,tl2), Tuple (b_out,tl_out) ->
       let st1 = step_tup c1 b1 in
       let st2 = step_tup c2 b2 in
       let st3 = step_tup c_out b_out in
       fold_left3i (fun c ind t1' t2' t_out' ->
-        inner_loop ~under_mu
+        inner_loop ~summary
           (st1 ind t1')
           (st2 ind t2')
           (st3 ind t_out')
           c
       ) ctxt tl1 tl2 tl_out
     | Ref (t1',o1,_), Ref (t2',o2,_), Ref (t_out',o_out,_) ->
-      inner_loop ~under_mu
+      inner_loop ~summary
         (step_ref c1 o1 t1')
         (step_ref c2 o2 t2')
         (step_ref c_out o_out t_out')
@@ -830,47 +882,20 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
     | TVar _,TVar _,TVar _ ->
       ctxt
     | Mu (_,_,t1'), Mu (_,_,t2'), Mu (_,_,out_t') ->
-      inner_loop ~under_mu:true (c1,t1') (c2,t2') (c_out,out_t') ctxt
+      inner_loop ~summary:true (c1,t1') (c2,t2') (c_out,out_t') ctxt
     | Int r1,Int r2,Int out_r ->
-      let gen_constraint =
-        (force_cons) ||
-        (not @@ List.for_all all_const_o [c1; c2; c_out])
-      in
-      let c_out_r = ctxt_compile_ref c_out out_r in
-      let c_r1 = ctxt_compile_ref c1 r1 in
-      let c_r2 = ctxt_compile_ref c2 r2 in
-      if gen_constraint then
-        let mk_constraint oante ante =
-          pp ~under_mu c1.path @@ {
-            env = g;
-            ante = ante;
-            conseq = c_out_r;
-            owner_ante = (ctxt_gt c_out) @ oante;
-            nullity = `NUnk
-          }
-        in
-        let cons = [
-          mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
-          mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
-          mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1;
-          pp ~under_mu c1.path @@ {
-            env = g;
-            ante = Top;
-            conseq = c_out_r;
-            owner_ante = ctxt_any_eq c_out;
-            nullity = `NUnk
-          }
-        ] in
-        let (ctxt',d_list) = ctxt in
-        ({ ctxt' with refinements =
-             cons @ ctxt'.refinements },d_list)
-      else
-        let (i,_) = unsafe_extract_pred c_out_r in
-        let comb_pred = combine_concr_preds (c1,c_r1) (c2,c_r2) c_out in
-        let gen_pred = generalize_pred out_root out_type comb_pred in
-        let (ctxt',d_list) = ctxt in
-        (ctxt',(i,gen_pred)::d_list)
-
+      shuffle_refinements ~summary
+          (c1,r1)
+          (c2,r2)
+          (c_out,out_r)
+          ctxt
+    | Array (b1,len1,o1,t1), Array (b2,len2,o2,t2), Array (b_out,len_out,o_out,t_out) ->
+      let ctxt' = shuffle_refinements ~summary (c1,len1) (c2,len2) (c_out,len_out) ctxt in
+      inner_loop ~summary:true
+        (step_array c1 b1 o1 t1)
+        (step_array c2 b2 o2 t2)
+        (step_array c_out b_out o_out t_out)
+        ctxt'
     | _ -> failwith @@ Printf.sprintf "Mismatched types %s + %s = %s"
           (string_of_type t1)
           (string_of_type t2)
@@ -883,7 +908,7 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
       o_stack = []
     },t)
   in
-  inner_loop ~under_mu:false
+  inner_loop ~summary:false
     (mk_ctxt [] t1)
     (mk_ctxt t2_bind t2)
     (mk_ctxt out_bind out_type)
@@ -1165,16 +1190,18 @@ let constrain_fold  ~unfolded:(unfolded_t,unfolded_v) ~folded:(folded_t,_) ctxt 
   |> add_type_implication (denote_gamma ctxt.gamma) (compile_type unfolded_t unfolded_v) folded_c
   |> constrain_owner unfolded_t folded_unfold
 
+let simple_type_at id v ctxt = 
+  ctxt.type_hints id
+  |> Fun.flip Option.bind @@ StringMap.find_opt v
+  |> Option.get
+
 let get_type_scheme ?(is_null=false) ~loc id v ctxt =
   ctxt
   |> 
     lift_to_refinement ~pred:(fun ~pos:{under_mu; _} fv p ctxt ->
       let (ctxt',p) = alloc_pred ~ground:(under_mu || is_null) ~loc fv p ctxt in
       (ctxt',Pred (p,fv))
-    ) (`AVar v) (gamma_predicate_vars ctxt.gamma) @@
-      (ctxt.type_hints id
-       |> Fun.flip Option.bind @@ StringMap.find_opt v
-       |> Option.get)
+    ) (`AVar v) (gamma_predicate_vars ctxt.gamma) @@ simple_type_at id v ctxt
 
 (* TODO: remove this *)
 let ground_null (ctxt,t) =
@@ -1201,6 +1228,16 @@ let rec to_unk t = match t with
 
 let bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
+
+let add_bounds_constraint dg arr_var ind_var ctxt =
+  let len_ap = RAp (`ALen (`AVar arr_var)) in
+  let index_constr = And (Relation {
+        rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0
+      }, Relation {
+        rel_op1 = Nu; rel_cond = "<"; rel_op2 = len_ap
+      })
+  in
+  add_var_implication dg ctxt.gamma ind_var (Int index_constr) ctxt
 
 let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
   let lkp v = SM.find v ctxt.gamma in
@@ -1267,29 +1304,27 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
 
   | Update (base,ind,v,cont) ->
     let (b,l,o,et) = lkp_array base in
+    (* we are being a little sloppy by happily assuming that len and index are in scope *)
+    (* they are by virtue of denote gamma, but we REALLY need to do better with our
+       generation of free variables *)
     let elem_ap = `AElem (`AVar base) in
     let (ctxt',et') = make_fresh_type ~target_var:elem_ap ~loc:(LUpdate e_id) ~fv:(gamma_predicate_vars ctxt.gamma @ fv_of_arr b) et ctxt in
     let (ctxt'',(t1,t2)) = split_type ctxt' @@ lkp v in
     let dg = denote_gamma ctxt''.gamma in
     let arr_vars = bind_of_arr b (`AVar base) in
-    let c_up = compile_type t1 v in
-    let c_ind_type = compile_type (lkp ind) ind in
+    let c_up = compile_type t1 v |> with_refl (`AVar v) in
     let orig_cont = compile_type_gen et elem_ap arr_vars in
-    let new_cont = compile_type_gen et elem_ap arr_vars in
+    let new_cont_up = compile_type_gen et (`AVar v) arr_vars in
+    let new_cont_same = compile_type_gen et elem_ap arr_vars in
     let symb_ind_ap = RImm (RAp (`AInd (`AVar base))) in
-    let len_ap = RAp (`ALen (`AVar base)) in
+    
     let ind_ap = RAp (`AVar ind) in
-    let index_constr = And (Relation {
-          rel_op1 = Nu; rel_cond = "<="; rel_op2 = len_ap
-        }, Relation {
-          rel_op1 = Nu; rel_cond = "<"; rel_op2 = len_ap
-        })
-    in
+    
     ctxt''
-    |> add_type_implication ~ante_ext:(Relation { rel_op1 = symb_ind_ap; rel_cond = "="; rel_op2 = ind_ap }) dg c_up new_cont
-    |> add_type_implication ~ante_ext:(Relation { rel_op1 = symb_ind_ap; rel_cond = "!="; rel_op2 = ind_ap }) dg orig_cont new_cont
+    |> add_type_implication ~ante_ext:(Relation { rel_op1 = symb_ind_ap; rel_cond = "="; rel_op2 = ind_ap }) dg c_up new_cont_up
+    |> add_type_implication ~ante_ext:(Relation { rel_op1 = symb_ind_ap; rel_cond = "!="; rel_op2 = ind_ap }) dg orig_cont new_cont_same
     |> add_owner_con [Write o]
-    |> add_type_implication dg c_ind_type @@ Int index_constr
+    |> add_bounds_constraint dg base ind
     |> update_type v t2
     |> update_type base @@ Array (b,l,o,et')
     |> process_expr ?output_type ~remove_scope cont
@@ -1358,15 +1393,46 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         in
         let (c',ty_list,t_binding) = make_tuple ctxt 0 tl in
         c',Tuple (t_binding,ty_list)
-      | Read _ -> assert false
-      | MkArray _ ->
-        let t =
+
+      | Read (base,ind) ->
+        let dg = denote_gamma ctxt.gamma in
+        let (b,_,o,et) = lkp_array base in
+        (* TODO: no splitting because, uh, what would that look like? *)
+        let (ctxt',res_t) = make_fresh_type ~loc:(LRead e_id) ~target_var:(`AElem (`AVar base)) ~fv:(gamma_predicate_vars ctxt.gamma) et ctxt in
+        let comp_res_t = compile_type_path res_t (`AElem (`AVar base)) in
+        let comp_cont = compile_type_gen et (`AElem (`AVar base)) [ (b.ind, (`AVar ind)); (b.len,(`ALen (`AVar base))) ] in
+        ctxt'
+        |> add_type_implication dg comp_cont comp_res_t
+        |> add_bounds_constraint dg base ind
+        |> add_owner_con [ Live o ]
+        |> with_type res_t
+
+      | MkArray len ->
+        begin
           match patt with
           | PTuple _ -> assert false
           | PNone -> raise @@ Incompleteness "Stahp"
-          | PVar _ -> assert false
-        in
-        (ctxt,t)
+          | PVar lhs ->
+            let (ctxt,a_type) =
+              ctxt
+              |> add_var_implication (denote_gamma ctxt.gamma) ctxt.gamma len @@ Int (Relation { rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 })
+              |> lift_to_refinement ~pred:(fun ~pos:{under_ref; under_mu; _} fv path c ->
+                  match path with
+                  | `ALen (`AVar v) when v = lhs ->
+                    (c,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`AVar len) })
+                  | `ALen _ -> unsupported "Nested arrays"
+                  | _ -> if under_ref || under_mu then
+                      make_fresh_pred ~ground:true ~pred_vars:(fv,path) ~loc:(LMkArray e_id) c
+                    else
+                      c,ConstEq 0
+                ) (`AVar lhs) (gamma_predicate_vars ctxt.gamma) @@ simple_type_at cont_id lhs ctxt
+            in
+            match a_type with
+            | Array (_,_,o,_) ->
+              (add_owner_con [Eq (o,OConst 1.0)] ctxt, a_type)
+            | _ -> assert false
+        end
+
       | Mkref init' ->
         match init' with
         | RNone -> (ctxt,Ref (Int Top,OConst 1.0,`NLive))
@@ -1591,8 +1657,8 @@ and process_call ~e_id ~cont_id ctxt c =
         let concr_arg_type = concretize_arg_t arg_t in
         
         let (ctxt''',psub) = apply_matrix
-            ~pp_constr:(fun ~under_mu path constr  ->
-              if under_mu then
+            ~pp_constr:(fun ~summary path constr  ->
+              if summary then
                 constr
               else
                 let pre_type =
