@@ -1,0 +1,6 @@
+{
+  let y = mkarray _ in {
+  	y[0] <- 4;
+	assert(y[0] = 4)
+  }
+}

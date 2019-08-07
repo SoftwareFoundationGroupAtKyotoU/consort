@@ -1,0 +1,24 @@
+do_up(i,a) {
+  if i = (a.length + 1) then
+    ()
+   else {
+     a[i] <- i;
+	 do_up((i + 1),a)
+   }
+}
+
+check_up(i,a) {
+  if i = a.length then
+    ()
+  else {
+    assert(a[i] = i);
+	check_up((i + 1),a)
+  }
+}
+
+{
+  let x = mkarray 7 in {
+    do_up(0,x);
+	check_up(0,x)
+  }
+}

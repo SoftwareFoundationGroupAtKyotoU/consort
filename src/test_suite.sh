@@ -7,8 +7,8 @@ function r_test {
 }
 
 declare -a POS_DIRS
-POS_DIRS=(pre-relation challenge-problem jayhorn recursive-tests)
-NEG_DIRS=(recursive-tests challenge-problem)
+POS_DIRS=(pre-relation challenge-problem jayhorn recursive-tests arrays)
+NEG_DIRS=(recursive-tests challenge-problem arrays)
 
 (
 	cd $THIS_DIR;
@@ -16,7 +16,7 @@ NEG_DIRS=(recursive-tests challenge-problem)
 	r_test -seq-solver -pos ./positive-tests;
 	r_test -pos ./positive-tests;
 	for i in ${POS_DIRS[@]}; do
-		r_test -pos -seq-solver ./positive-tests/$i;
+		r_test -timeout 60 -pos -seq-solver ./positive-tests/$i;
 	done
 	r_test -pos -cfa 2 ./positive-tests/2cfa;
 	r_test -neg ./negative-tests
