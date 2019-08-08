@@ -20,7 +20,7 @@ module Backend = SmtLibBackend.Make(struct
       Option.map open_out save_cons
       |> Option.map output_string
       |> Option.iter (fun f -> f cons');
-      Solver.Unhandled "null"
+      Solver.Unhandled "dummy solver"
   end)
 
 let solve = Backend.solve

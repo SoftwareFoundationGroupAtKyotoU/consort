@@ -29,4 +29,17 @@ module Options :
     val default : t
   end
 
-val check_file : ?opts:Options.t -> ?intrinsic_defn:Intrinsics.interp_t -> string -> bool
+type reason =
+  | Timeout
+  | Unsafe
+  | SolverError of string
+  | Aliasing
+
+type check_result =
+  | Verified
+  | Unverified of reason
+
+val result_to_string : check_result -> string
+val reason_to_string : reason -> string
+
+val check_file : ?opts:Options.t -> ?intrinsic_defn:Intrinsics.interp_t -> string -> check_result

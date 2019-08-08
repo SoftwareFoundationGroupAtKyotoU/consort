@@ -18,6 +18,27 @@ let pprint_ty_env =
       in
       pblock ~nl:true ~op:(ps "/*") ~body:pp_ty_env ~close:(ps "*/")
 
+
+type reason =
+  | Timeout
+  | Unsafe
+  | SolverError of string
+  | Aliasing
+
+type check_result =
+  | Verified
+  | Unverified of reason
+
+let reason_to_string = function
+  | Aliasing -> "ownership"
+  | Timeout -> "timeout"
+  | Unsafe -> "unsafe"
+  | SolverError s ->  "solver: \"" ^ s ^ "\""
+
+let result_to_string = function
+  | Verified -> "VERIFIED"
+  | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
+
 module Options = struct
   type solver =
     | Hoice
@@ -275,7 +296,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
   end;
   let r_opt = infer opts intr simple_res ast in
   match r_opt with
-  | None -> false
+  | None -> Unverified Aliasing
   | Some r ->
     if opts.annot_infr then begin
       let ty_envs = r.Inference.Result.ty_envs in
@@ -301,5 +322,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
     | Sat m ->
       check_triviality r ast opts.check_trivial m;
       print_model opts.print_model m;
-      true
-    | _ -> false
+      Verified
+    | Unsat -> Unverified Unsafe
+    | Timeout -> Unverified Timeout
+    | Unhandled msg -> Unverified (SolverError msg)

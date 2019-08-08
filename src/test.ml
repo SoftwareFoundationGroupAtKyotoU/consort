@@ -16,4 +16,4 @@ let () =
   | Some in_name -> 
     let res = Consort.check_file ~opts:(to_opts()) ~intrinsic_defn:(loader ()) in_name
     in
-    print_endline @@ if res then "VERIFIED" else "UNVERIFIED"
+    print_endline @@ Consort.result_to_string res
