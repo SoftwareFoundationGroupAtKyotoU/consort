@@ -353,8 +353,7 @@ let add_type_implication ?ante_ext gamma t1_ t2_ ctxt_ =
   in
   impl_loop ~nullity:`NLive ctxt_ t1_ t2_
 
-(* TODO: remove this *)
-let add_folded_var_implication dg var t1 t2 ctxt =
+let add_var_type_implication dg var t1 t2 ctxt =
   let type_compile t : (concr_refinement,ownership) _typ = compile_type t var in
   let v_t =
     type_compile t1
@@ -1221,29 +1220,6 @@ let get_type_scheme ?(is_null=false) ~loc id v ctxt =
       (ctxt',Pred (p,fv))
     ) (`AVar v) (gamma_predicate_vars ctxt.gamma) @@ simple_type_at id v ctxt
 
-(* TODO: remove this *)
-let ground_null (ctxt,t) =
-  let rec nullify = function
-    | Mu (a,i,t) -> Mu (a,i,nullify t)
-    | TVar v -> TVar v
-    | Tuple (b,tl) -> map_tuple nullify b tl
-    | Ref (t,o,_) -> Ref (nullify t,o,`NNull)
-    | Array (b,l,o,t) -> Array (b,l,o,nullify t)
-    | Int r -> Int r
-  in
-  let nulled = nullify t in
-  (ctxt,nulled)
-
-(* TODO: remove this too *)
-let rec to_unk t = match t with
-  | Int _
-  | TVar _ -> t
-  | Tuple (b,tl) ->
-    map_tuple to_unk b tl
-  | Mu (a,i,t) -> Mu (a,i,to_unk t)
-  | Ref (t,o,_) -> map_ref to_unk t o `NUnk
-  | Array (b,l,o,t) -> Array (b,l,o,to_unk t)
-
 let bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
 
@@ -1378,7 +1354,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         match patt with
         | PNone -> (ctxt,Int Top (* what *))
         | PTuple _ -> assert false
-        | PVar v -> get_type_scheme ~is_null:true ~loc:(LNull e_id) cont_id v ctxt |> ground_null
+        | PVar v -> get_type_scheme ~is_null:true ~loc:(LNull e_id) cont_id v ctxt
         end
       | Deref ptr ->
         let (target_type,o,_) = lkp_ref ptr in
@@ -1570,7 +1546,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     process_conditional
       ?output_type ~remove_scope
       ~tr_path:(fun ctxt ->
-        let (ctxt',t) = make_fresh_type ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt |> ground_null in
+        let (ctxt',t) = make_fresh_type ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt in
         update_type v t ctxt'
       )
       ~fl_path:Fun.id e_id e1 e2 ctxt
@@ -1601,10 +1577,10 @@ and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 
   let dg2 = denote_gamma ctxt2.gamma in
   let subsume_types ctxt ~target_var t1 t2 =
     let (ctxt',t'fresh) = make_fresh_type ~loc ~target_var:(`AVar target_var) ~fv:predicate_vars t1 ctxt in
-    let t' = to_unk t'fresh in
+    let t' =t'fresh in
     let c_up =
-      add_folded_var_implication dg1 target_var t1 t' ctxt'
-      |> add_folded_var_implication dg2 target_var t2 t'
+      add_var_type_implication dg1 target_var t1 t' ctxt'
+      |> add_var_type_implication dg2 target_var t2 t'
       |> constrain_owner t1 t'
       |> constrain_owner t2 t'
     in
