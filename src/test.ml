@@ -1,6 +1,6 @@
 let () =
   let (flags,to_opts) =
-    let open VerifyUtil.Options in
+    let open Consort.Options in
     debug_arg_gen ()
     |> seq solver_arg_gen
     |> seq solver_opt_gen
@@ -14,6 +14,6 @@ let () =
   match !target_name with
   | None -> print_endline "No file provided"
   | Some in_name -> 
-    let res = VerifyUtil.check_file ~opts:(to_opts()) ~intrinsic_defn:(loader ()) in_name
+    let res = Consort.check_file ~opts:(to_opts()) ~intrinsic_defn:(loader ()) in_name
     in
     print_endline @@ if res then "VERIFIED" else "UNVERIFIED"

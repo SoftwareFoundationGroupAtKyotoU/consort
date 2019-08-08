@@ -22,7 +22,7 @@
  (libraries sexplib util lang str)
  (modules Inference KCFA
           HornBackend OwnershipSolver SmtBackend
-          Z3BasedBackend Z3Channel VerifyUtil SmtLibBackend
+          Z3BasedBackend Z3Channel Consort SmtLibBackend
           Solver HoiceBackend SolverBridge NullSolver))
 
 (executable
