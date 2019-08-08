@@ -1,5 +1,5 @@
 let run_test v_opts intr expect file =
-  if expect <> (VerifyUtil.check_file ~opts:v_opts ~intrinsic_defn:intr file) then
+  if expect <> (Consort.check_file ~opts:v_opts ~intrinsic_defn:intr file) then
     failwith @@
       if expect then file ^ " did not verify as expected"
       else file ^ " incorrectly verified"
@@ -9,8 +9,8 @@ let run_test v_opts intr expect file =
 let () =
   let expect = ref true in
   let (a_list,gen) =
-    VerifyUtil.Options.solver_arg_gen ()
-    |> VerifyUtil.Options.seq VerifyUtil.Options.solver_opt_gen
+    Consort.Options.solver_arg_gen ()
+    |> Consort.Options.seq Consort.Options.solver_opt_gen
   in
   let (i_list,i_gen) = Intrinsics.option_loader () in
   let args = [
