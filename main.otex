@@ -65,6 +65,11 @@
 
 \subsection{Language}
 
+This section describes a simple imperative  language that contains memory cells for ownership access.
+For language extensions and type systems, see the following sections dealing with other language structures.
+The grammar of the language is as follows.
+
+
 \[
   \begin{array}{rcl}
   [[d]] &::=& [[f |-> (x1,...,xn)e ]] \\
@@ -87,8 +92,72 @@
 
 \(\varphi\) stands for a logical formula over integers and paths $\pps$).
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and a set of \emph{locations}, which is ranged over by $a,b,c,\dots$.
+\newline
 
-\subsection{Type system}
+We now introduce the grammar of the imperative language.
+We use an ML-like syntax with mutable references, assertions, and must-alias annotations.
+We highlight some distinctive features as belows.
+
+Like ML, the variable bindings introduced by let-expression are immutable.
+Modeling a mutable variable declaration \texttt{int x = 1} in a language like C is achieved with:\newline
+\centerline{$\LET y = 1 \IN (\LET x = \MKREF y \IN ...)$}\newline in our language.
+We do not allow general expressions as right hand side with let bindings.
+The simplest right-hand forms are a variable $y$, or an integer.
+Also, we have let bindings to $\MKREF y$ which creates a reference cell with value $y$, $*y$ which is to access the contents of $y$ and
+function calls $f^\ell(x_1,\dots,x_n)$, where $x_1,\dots,x_n$ are distinct variables and $l$ is label.
+$\IFZERO x$ judges whether $x$ equals to zero and choose the corresponding branch.
+
+Our grammar requires that all side-effecting, result free statements, $\ASSERT(\varphi) \SEQ \expr$, $\ALIAS(x = y) \SEQ \expr$,
+and assignment $x \WRITE y \SEQ \expr$ are followed by a continuation expression. This requirement does not reduce the expressiveness
+of the language, and obviates including a unit type.
+The expression $\expr_1 \SEQ \expr_2$ is a sequence execution of $\expr_1$ and $\expr_2$.
+A program is a pair of $[[<{d1,...,dn}, e>]]$, where $d_1,\dots,d_n$ is a set of function definitions.
+The definition of function maps a function name to a tuple of argument names that are bound within the function body $e$;
+additionally functions are not higher order.
+
+The expression $\ASSERT(\varphi) \SEQ \expr$ executes $e$ if the statement $\varphi$ holds, and aborts the program otherwise.
+We introduce $\ALIAS(x = y)$ as a specialized type of assertion for asserting a must aliasing relationship between two references $x$ and $y$.
+Our type system uses these must-alias annotations to accurately resolve aliases.
+
+\paragraph{Operational Semantics}
+We now introduce the operational semantics for our system.
+A runtime state is represented by a configuration $\langle H, R,\overrightarrow{E}, e \rangle$, which consists of a heap,
+register file, stack, and currently reducing expression.
+Secondly, while the final configuration component is an expression,
+the rewritting rules are defined in terms of $E[e]$, which is a context $E$ and redex $e$, as is standard.
+Our operational semantics are mostly standard.
+We have highlight some import points as the following paragraphs.
+
+First we introduce return contexts $[[ E[let y = [] l in e] ]]$.
+This return context represents a pending function call. The hole indicates the return value of the callee should be bound to $y$
+within the expression $e$. Our call-stack is a sequence of these return contexts, with the first such return context indicating the
+most recent function call.
+We write $[[ E[let y = [] l in e] ]][x]$ to denote substituting the variable $x$ into the hole in $\LET x=[] \IN e$.
+The set of evaluation contexts and return contexts are defined by Figure.$\ref{fig:eval-context-grammar}$.
+The semantics of a calls are given in $\rn{R-Call}$.
+For a function call $[[ let x = f l (y1,,yn) in e ]]$, where $f$ is defined as $(x_1,\dots, x_n)e'$,
+we first push the return context $[[ E[let y = [] l in e] ]]$ onto the stack $\overrightarrow{E}$.
+We then substitute the formal arguments for parameters in $e'$, denoted by $[\tilde{y}/\tilde{x}]e'$.
+The result of this substitution becomes the currently reducing expression.
+Function returns are handled by $\rn{R-Var}$.
+Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$,
+we substitue $x$ into the return context on the top of the stack.
+
+In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
+any model $[[M]]$ in our underlying theory such that
+$[[ forall x in R.M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
+We introduce $\bf{AliasFail}$ and $\bf{AssertFail}$ as two special configurations.
+$\bf{AssertFail}$ will be thrown if the precondition $[[R |= ph]]$ doesn't hold in the current state.
+$\bf{AliasFail}$ will be thrown when two references do not alias in $\rn{R-AliasFail}$.
+
+When the expression is a let-binding, in order to better handle conflicts
+with recursive functions and duplicates variable names in our single register file,
+we refresh the bound variable $x$ in a let expression to $x'$.
+Take expression $\LET x=y \IN e$ as an example; we substitute a fresh variable $x'$ for $x$ in $e$, then bind $x'$ to the variable $y$.
+Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
+We consider garbage collection an orthogonal concern and do not treat it in our formalism.
+\newline\newline
+
 \begin{definition}
   Context strings $[[B]]$ are defined as follows:
   \[
@@ -453,41 +522,7 @@ In \cref{fig:typingRules} $[[ G[x: T] ]]$ denotes an environment
 $[[G]]$ such that $[[G(x) = T]]$. $[[ G[x <- T] ]]$ denotes the functional update of the type
 of $[[x]]$ to $[[T]]$ in $[[G]]$.
 
-%edit by shiki
-\subsection{Transition rules}
-For each language expression occurs, we accomplish writing the rules for transition. In order to deal with function, we introduce the stack in the system. Here, $\langle H, R,\overrightarrow{E}, E \rangle$ represent heap(memory),
-register(environment), a sequence of return contexts, program respectively.
-It's obvious when $e$ is an integer $n$, when it's a variable $x$, in order to better handle with recursive types,
-we refresh every variable $x$ to $x'$ after executing expression.
-Define a named local expression $\LET x=y \IN e$, which $x$ can then be used later on in the function instead of $y$, so that the
-register of $x$ update to the $R(y)$.
-The expression $x:=y$ only update the register of $x$ to $y$.
-The same changes happen when $\LET x=n \IN e$, the only difference is that now we use an integer instead of a variable.
-It becomes a little bit complex when dealing with reference, in transition rule for $\LET x=*y \IN e$, we update the register of $x$ to $H(R(y))$,
-which means the memory address of the variable $y$.
-If you want to $\MKREF$, first it should satisfies that the variable $y$ doesn't used in memory before, after executing, heap
-turns to $H(y\ra v)$, here $v$ represents a new memory cell.
-We divide the expression $\IFZERO x\THEN e_1 \ELSE e_2$ into two parts, $e_1$ will be given if $x\ra 0$ in the initial register,
-otherwise we will get $e_2$.
-When handling with $\ALIAS$ and $\ASSERT$, we introduce $\bf{AliasFail}$ and $\bf{AssertFail}$ to the rules. They will be thrown if the memory cell or
-the environment can't hold for some states.
-The expression about function definition, we replace it by the function body itself and we also need to remember to bind $x$ to
-the result of $[\tilde{y}/\tilde{x}]e'$ and then calculate $e$, which is written by $\LET x=[] \IN e$.
 
-In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
-any model $[[M]]$ in our underlying theory such that
-$[[ forall x in R.M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
-
-\begin{figure}
-\[
-  \begin{array}{rcl}
-    [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
-    [[ CE ]] & ::= & [[ E[let y = [] l in e] ]]
-  \end{array}
-\]
-\label{fig:eval-context-grammar}
-\caption{Grammar of evaluation and return contexts}
-\end{figure}
 
 \subsection{Examples}
 For examples, consider the following programs, written in an ML-like language.
@@ -864,7 +899,7 @@ That is $\overrightarrow{E}\COL \LET y=[ ] \IN\dots, D(f)[a/x]$.
 
 \section{Proof of Type Soundness(Theorem 1)}
 To prove the safety of typing, we need to show that the total owership for each heap is always 1.
-A triple $(\Gamma, H, R)$ is consistent, written as $[[Cons(H,R,G)]]$, and defined as $\bf{Fig.5}$.
+A triple $(\Gamma, H, R)$ is consistent, written as $[[Cons(H,R,G)]]$, and defined as $\ref{fig:state-typing}$.
 $\newline\bf{Theorem.}$
 $\forall D, e, \bf{C}$ $\newline \vdash \langle D, e\rangle$ and $\langle \varnothing, \varnothing, \cdot, e \rangle \ra^* \bf{C}$, which imply
 $\bf{C} \neq \bf{AssertFail}.\newline$
@@ -1697,6 +1732,19 @@ The followings are key lemmas:
 
 \newcommand\DOM{\textit{dom}}
 \newcommand\EXTEND[1]{\{{#1}\}}
+
+
+\begin{figure}
+\[
+  \begin{array}{rcl}
+    [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
+    [[ CE ]] & ::= & [[ E[let y = [] l in e] ]]
+  \end{array}
+\]
+\caption{Grammar of evaluation and return contexts}
+\label{fig:eval-context-grammar}
+\end{figure}
+
 
 \begin{figure}
   \leavevmode
