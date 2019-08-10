@@ -28,7 +28,7 @@ val pre :
   'a
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
 val is_const_ap :
-  ([< 'a t_templ ] as 'a) ->
+  ([< 'a t_templ > `APre `AProj `ADeref ] as 'a) ->
   bool
 val has_root :
   string ->
@@ -38,5 +38,10 @@ val has_root_p :
   (string -> bool) ->
   ([< 'b t_templ ] as 'b) ->
   bool
-    
+
+val unsafe_get_root : ([< 'b t_templ > `AVar] as 'b) -> string
+
+val compare : concr_ap -> concr_ap -> int
+  
 module PathSet : Set.S with type elt = concr_ap
+module PathMap : Map.S with type key = concr_ap
