@@ -285,7 +285,7 @@ let subst_of_binding root = List.map (fun (i,p) ->
 let update_binding_gen tup_b (fv_ap,sym_vals) : ('a * (int * Paths.concr_ap) list) =
   let added_bindings = List.map (fun (i,_) -> `Sym i) tup_b in
   let fv_ap' = fv_ap @ added_bindings in
-  let sym_vals' = sym_vals @ tup_b in
+  let sym_vals' = tup_b @ sym_vals in
   (fv_ap',sym_vals')
 
 let update_binding path tup_b binding =

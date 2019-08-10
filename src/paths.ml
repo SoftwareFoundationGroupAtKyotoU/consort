@@ -39,14 +39,20 @@ let rec pre = function
 
 let t_ind a i = `AProj (a,i)
 
-let rec is_const_ap = function
+let rec is_pre : ([< 'b t_templ] as 'b) -> bool = function
+  | `APre _ -> true
+  | `AProj (ap,_)
+  | `ADeref ap -> is_pre ap
+  | _ -> false
+
+let rec is_const_ap : ([< 'b t_templ] as 'b) -> bool = function
   | `APre _
   | `AVar _ -> true
   | `ALen ap
   | `AProj (ap,_) -> is_const_ap ap
   | `AInd _
-  | `AElem _
-  | `ADeref _ -> false
+  | `AElem _ -> false
+  | `ADeref ap -> is_pre (ap :> 'b)
 
 let rec has_root_p p = function
   | `AVar v -> p v
@@ -60,8 +66,50 @@ let rec has_root_p p = function
 
 let has_root v = has_root_p @@ (=) v
 
+let rec compare =
+  let constr_code : ([< 'b t_templ] as 'b) -> int = function
+    | `APre _ -> 1
+    | `AVar _ -> 2
+    | `AProj _ -> 3
+    | `ADeref _ -> 4
+    | `AElem _ -> 5
+    | `AInd _ -> 6
+    | `ALen _ -> 7
+  in
+  fun (a : [< 'b t_templ]) (b: 'b) ->
+    let code_cmp = (constr_code a) - (constr_code b) in
+    if code_cmp <> 0 then
+      code_cmp
+    else
+      match a,b with
+      | `APre a_nm,`APre b_nm
+      | `AVar a_nm,`AVar b_nm ->
+        String.compare a_nm b_nm
+      | `ADeref sub1,`ADeref sub2
+      | `AElem sub1, `AElem sub2
+      | `AInd sub1, `AInd sub2
+      | `ALen sub1, `ALen sub2 ->
+        compare (sub1 :> 'b) (sub2 :> 'b)
+      | `AProj (sub1,ind1),`AProj (sub2,ind2) ->
+        let cmp = compare (sub1 :> 'b) (sub2 :> 'b) in
+        if cmp <> 0 then cmp else ind1 - ind2
+      | _,_ -> assert false
+
+let rec unsafe_get_root = function
+  | `APre _ -> raise @@ Invalid_argument "not rooted in var"
+  | `AVar v -> v
+  | `AProj (ap,_)
+  | `ADeref ap
+  | `ALen ap
+  | `AInd ap
+  | `AElem ap -> unsafe_get_root ap
 
 module PathSet = Set.Make(struct
+    type t = concr_ap
+    let compare = compare
+  end)
+
+module PathMap = Map.Make(struct
     type t = concr_ap
     let compare = Stdlib.compare
   end)

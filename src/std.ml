@@ -24,3 +24,7 @@ let map_with_accum acc f l =
     let (acc'',e') = f acc' e in
     (acc'',e'::tl)
   ) l acc []
+
+let fold_left_fst f = function
+  | [] -> None
+  | h::l -> Option.some @@ List.fold_left f h l

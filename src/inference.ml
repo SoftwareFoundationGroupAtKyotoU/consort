@@ -135,6 +135,8 @@ let (>>) f g = fun st ->
   let (st'', v2) = g st' in
   (st'',(v1, v2))
 
+let do_with f l = ignore (f l); l
+
 let alloc_split o ctxt =
   let (ctxt',sp) = (alloc_ovar >> alloc_ovar) ctxt in
   { ctxt' with ownership = Split (o,sp)::ctxt'.ownership },sp
@@ -554,19 +556,20 @@ let lift_src_ap = function
   | AProj (v,i) -> `AProj (`AVar v,i)
   | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
 
-let remove_var_from_pred ~loc ~curr_te ~oracle ~pos:{under_mu=ground; _} path (sym_vars,sym_val) r context =
+let remove_var_from_pred ~loc ~curr_te ~mk_fv ~oracle ~pos:{under_mu=ground; _} path (sym_vars,sym_val) r context =
   let curr_comp = compile_refinement path sym_val r in
   if oracle curr_comp path then
-    let (ctxt',new_pred) = make_fresh_pred ~ground ~loc ~pred_vars:(sym_vars,path) context in
+    let fv : refine_ap list = (mk_fv path curr_comp) @ sym_vars in
+    let (ctxt',new_pred) = make_fresh_pred ~ground ~loc ~pred_vars:(fv,path) context in
     let new_comp = compile_refinement path sym_val new_pred in
     let ctxt'' = add_constraint curr_te  (curr_comp |> with_pred_refl path) new_comp `NUnk ctxt' in
     (ctxt'',new_pred)
   else
     (context,r)
 
-let remove_var_from_type ~loc ~curr_te ~oracle root_var in_scope t context =
-  let staged = remove_var_from_pred ~loc ~curr_te ~oracle in
-  walk_with_bindings staged root_var (in_scope,[]) t context
+let remove_var_from_type ~loc ~curr_te ~oracle ~mk_fv root_var t context =
+  let staged = remove_var_from_pred ~mk_fv ~loc ~curr_te ~oracle in
+  walk_with_bindings staged root_var ([],[]) t context
 
 let rec get_ref_aps = function
   | And (r1,r2) -> get_ref_aps r1 @ get_ref_aps r2
@@ -586,29 +589,105 @@ let rec get_ref_aps = function
 
 let remove_var ~loc to_remove ctxt =
   let curr_te = denote_gamma ctxt.gamma in
-  let in_scope = SM.bindings ctxt.gamma |> List.filter (fun (k,_) -> not (SS.mem k to_remove)) |> predicate_vars in
-  let ref_vars = SS.fold (fun var acc ->
-      walk_with_bindings (fun ~pos:_ root (_,sym_vals) r a ->
-        let a' =
+  let module StrUF = UnionFind.Make(UnionFind.MakeHashed(struct
+        type t = Paths.concr_ap
+        let equal = (=)
+      end)) in
+  let eq_ref = StrUF.mk () in
+  let has_remove_root = Paths.has_root_p @@ Fun.flip SS.mem @@ to_remove in
+  let by_ref,ref_vars = SS.fold (fun var (by_var,all_ref) ->
+      let ref_in = fold_with_bindings (fun ~pos:_ root (_,sym_vals) r a ->
           compile_refinement root sym_vals r
           |> get_ref_aps
-          |> List.filter (fun p -> not (Paths.has_root var p))
-          |> List.map Paths.to_z3_ident
-          |> List.fold_left (fun acc nm -> SS.add nm acc) a
-        in
-        (a',r)
-      ) (`AVar var) ([],[]) (SM.find var ctxt.gamma) acc |> fst) to_remove SS.empty
+          |> List.filter @@ Fun.negate has_remove_root
+          (* this is very important because it implies that any free variables not
+             rooted in predicate being removed can be safely referred to in the
+             refinements of other predicates *)
+          |> do_with @@ List.iter (fun l ->
+                if not (Paths.is_const_ap l) then
+                  failwith @@ Printf.sprintf "Invariant broken: %s %s (%s)"
+                      (Paths.to_z3_ident l)
+                      (Paths.to_z3_ident root)
+                      (PrettyPrint.pretty_print_gen_rev pp_ref r)
+                else ()
+              )
+          |> do_with @@ List.iter @@ StrUF.register eq_ref
+          |> do_with @@ Std.fold_left_fst (fun a ->
+                do_with @@ StrUF.union eq_ref a)
+          |> List.fold_left (Fun.flip Paths.PathSet.add) a
+        ) (`AVar var) ([],[]) (SM.find var ctxt.gamma) Paths.PathSet.empty
+      in
+      (SM.add var ref_in by_var, Paths.PathSet.union all_ref ref_in)
+    ) to_remove (StringMap.empty,Paths.PathSet.empty)
+  in
+  let add_vars = Paths.PathSet.fold (fun p ->
+      let key = StrUF.find eq_ref p in
+      Paths.PathMap.update
+        key (fun v -> Option.some @@ Option.fold
+            ~none:(Paths.PathSet.singleton p)
+            ~some:(Paths.PathSet.add p) v)
+    ) ref_vars Paths.PathMap.empty
   in
   let removal_oracle = (fun r path ->
-    (SS.mem (Paths.to_z3_ident path) ref_vars) || (free_vars_contains r to_remove)
+    (Paths.PathSet.mem path ref_vars) || (free_vars_contains r to_remove)
   ) in
+(*  let merge_free_vars l1 l2 =
+    ((List.sort_uniq Paths.compare @@ l1 @ l2) :> refine_ap list)
+   in*)
+  let free_var_manager root_var path curr_ref =
+    let outer_var_p = Fun.negate @@ Paths.has_root root_var in
+    let all_free_vars = get_ref_aps curr_ref in
+    (* The free variables of THIS refinement,
+       NOT bound by dependent tuples, and
+       NOT rooted in to remove variables *)
+    let curr_live_free_vars =
+      List.filter (fun p ->
+        (not @@ has_remove_root p) && outer_var_p p
+      ) all_free_vars
+      |> Paths.PathSet.of_list
+    in
+    (* Retrieve the set of paths in the same
+       refinement equivalence as v *)
+    let get_var_group v =
+      StrUF.maybe_find eq_ref v
+      |> Fun.flip Paths.PathMap.find_opt @@ add_vars
+      |> Option.value ~default:Paths.PathSet.empty
+    in
+    (* The set of variables collectively referenced by the removed
+       variables referenced by THIS assignment *)
+    let induced_by_ref : Paths.PathSet.t =
+      all_free_vars
+      |> List.filter has_remove_root
+      (* the roots of all variables to remove *)
+      |> List.map Paths.unsafe_get_root
+      (* (Optional) sets of paths referenced in all refinements in that root *)
+      |> List.map @@ (Fun.flip SM.find_opt) by_ref
+      (* Fold over these sets, accumulating them with the current live vars *)
+      |> List.fold_left (fun path_set ref_by_removed_o ->
+          match ref_by_removed_o with
+          | None -> path_set
+          (* This is a set of referenced variables, inner fold *)
+          | Some ref_by_removed ->
+            Paths.PathSet.fold (fun v acc' ->
+                Paths.PathSet.union acc' @@ get_var_group v
+              ) path_set ref_by_removed
+        ) curr_live_free_vars
+    in
+    (* Now get the variables in THIS refinements, refinement equivalence, merge
+       with the above as necessary, and return *)
+    get_var_group path
+    |> Paths.PathSet.union induced_by_ref
+    |> Paths.PathSet.elements
+    (* "defensive" programming *)
+    |> List.filter outer_var_p |> List.map (fun l -> (l :> refine_ap))
+  in
   let remove_fn = remove_var_from_type ~loc ~curr_te ~oracle:removal_oracle in
   let updated =
     SM.fold (fun v_name t c ->
       if SS.mem v_name to_remove then
         c
       else
-        let (c',t') = remove_fn (`AVar v_name) in_scope t c in
+        let (c',t') = remove_fn ~mk_fv:(free_var_manager v_name) (`AVar v_name) t c in
         { c' with gamma = SM.add v_name t' c'.gamma }
     ) ctxt.gamma { ctxt with gamma = SM.empty }
   in
@@ -1216,8 +1295,9 @@ let get_type_scheme ?(is_null=false) ~loc id v ctxt =
   ctxt
   |> 
     lift_to_refinement ~pred:(fun ~pos:{under_mu; _} fv p ctxt ->
-      let (ctxt',p) = alloc_pred ~ground:(under_mu || is_null) ~loc fv p ctxt in
-      (ctxt',Pred (p,fv))
+      let fv' = (if is_null then [] else fv) in
+      let (ctxt',p) = alloc_pred ~ground:(under_mu || is_null) ~loc fv' p ctxt in
+      (ctxt',Pred (p,fv'))
     ) (`AVar v) (gamma_predicate_vars ctxt.gamma) @@ simple_type_at id v ctxt
 
 let bind_var v t ctxt =
@@ -1497,7 +1577,13 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
        tranformed into foo->1 as appropriate) *)
     let t1' =
       meet_ownership next_id ctxt.o_info (`AVar v1) t1_sym'
-      |> map_refinement @@ partial_subst subst
+      |> map_with_bindings (fun ~pos:_ _ (_,sym_vals) r ->
+          let subst' = List.filter (fun (k,_) ->
+            not (List.mem_assoc k sym_vals)
+            ) subst
+          in
+          partial_subst subst' r
+        ) (`AVar v1) ([],[])
     in
     (* now t1' and t2' refer to the same sets of free variables: any symbolic variables
        appearing in t1' and t2' are bound by tuple types

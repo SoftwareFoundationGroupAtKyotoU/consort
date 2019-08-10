@@ -2,6 +2,7 @@ module type UF = sig
   type t
   type key
   val find: t -> key -> key
+  val maybe_find : t -> key -> key
   val union: t -> key -> key -> unit
   val mk: unit -> t
 end
@@ -56,6 +57,12 @@ module InternalMake(K : sig
   let find uf id1 =
     (find_internal uf id1).id
 
+  let maybe_find uf id1 =
+    if KeyHash.mem uf.table id1 then
+      find uf id1
+    else
+      id1
+
   let union uf id1 id2 =
     let n1 = find_internal uf id1 in
     let n2 = find_internal uf id2 in
@@ -80,12 +87,15 @@ module InternalMake(K : sig
     end
 end
 
-module Make(K : sig
-      type t
-      val hash : t -> int
-      val equal : t -> t -> bool
-      val weight : t -> int
-    end) = struct
+
+module type UnionKey = sig
+  type t
+  val hash : t -> int
+  val equal : t -> t -> bool
+  val weight : t -> int
+end
+
+module Make(K : UnionKey) = struct
   include InternalMake(struct
       type key = K.t
       let hash = K.hash
@@ -115,3 +125,12 @@ let new_node uf =
   let id = uf.state in
   make_and_add uf id;
   uf.state <- id + 1; id
+
+module MakeHashed(K : sig
+      type t
+      val equal : t -> t -> bool
+    end) = struct
+  include K
+  let weight _ = 0
+  let hash = Hashtbl.hash
+end
