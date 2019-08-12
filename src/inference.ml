@@ -556,6 +556,102 @@ let lift_src_ap = function
   | AProj (v,i) -> `AProj (`AVar v,i)
   | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
 
+
+let rec get_ref_aps_gen proj = function
+  | And (r1,r2) -> get_ref_aps_gen proj r1 @ get_ref_aps_gen proj r2
+  | NamedPred (_,arg)
+  | Pred (_,arg)
+  | CtxtPred (_,_,arg) -> proj arg
+  | ConstEq _
+  | Top -> []
+  | Relation { rel_op1; rel_op2; _ } ->
+    let get_imm = function
+      | RAp r -> [r]
+      | RConst _ -> []
+    in
+    (get_imm rel_op2) @ (match rel_op1 with
+    | Nu -> []
+    | RImm i -> get_imm i)
+    
+let get_ref_aps = get_ref_aps_gen fst
+
+(* t2 is the type to be copied w.r.t mu, tuple binding, etc. *)
+let merge_types ~loc ~path ?(e1_expl=[]) ?(fv_seed=[]) t1 t2 ctxt =
+  (* 
+     At each step, we must track:
+     - The tuple variables bound by enclosing dependent tuples (for use as free vars)
+     - The free variables inherited by dependent tuples enclosing t2 (to either filter out/explicitly bind or use as necessary)
+  *)
+  let rec inner_loop path under_mu expl1 expl2 (bound_fv : refine_ap list) t1 t2 ctxt =
+    let filter_expl em = List.filter_map (function
+      | `Sym i -> if List.mem_assoc i em then
+          Some (List.assoc i em)
+        else None
+      | #Paths.concr_ap as c -> Some c)
+    in
+    let merge_refinement p r1 r2 c =
+      let v1 = get_ref_aps_gen Fun.id r1 |> filter_expl expl1 in
+      let outer_fv =
+        get_ref_aps_gen Fun.id r2
+        |> filter_expl expl2
+        |> List.fold_left
+            (Fun.flip Paths.PathSet.add) @@ Paths.PathSet.of_list v1
+        |> Paths.PathSet.elements
+      in
+      let fv = (outer_fv :> refine_ap list) @ bound_fv in
+      make_fresh_pred ~ground:under_mu ~pred_vars:(fv,p) ~loc c
+    in
+    match t1,t2 with
+    | Int r1,Int r2 -> 
+      let (c',p) = merge_refinement path r1 r2 ctxt in
+      (c',Int p)
+    | Ref (t1',_,_), Ref (t2',_,n2) ->
+      let (c',o) = alloc_ovar ctxt in
+      let (c'',t_m) = inner_loop (`ADeref path) under_mu expl1 expl2 bound_fv t1' t2' c' in
+      c'',Ref (t_m,o,n2)
+    | Tuple (b1,tl1), Tuple (b2,tl2) ->
+      let up_expl = List.fold_left (fun acc (i,p) ->
+          match p with
+          | SProj _ -> acc
+          | SVar v -> (i,`AVar v)::acc
+        )
+      in
+      let ex1' = up_expl expl1 b1 in
+      let ex2' = up_expl expl2 b2 in
+      let b2' = List.filter (fun (_,p) -> match p with
+        | SVar _ -> false
+        | SProj _ -> true
+        ) b2 in
+      let c',tl2' =
+        List.combine tl1 tl2
+        |> List.mapi (fun i (e1,e2) -> (i,e1,e2))
+        |> Std.map_with_accum ctxt (fun acc (i,e1,e2) ->
+            let bound' =
+              List.filter (function
+              | (_,SVar _) -> false
+              | (_,SProj j) -> j <> i
+              ) b2
+              |> List.map (fun (j,_) -> `Sym j)
+              |> (@) bound_fv
+            in
+            inner_loop (`AProj (path,i)) under_mu ex1' ex2' bound' e1 e2 acc
+          )
+      in
+      c', Tuple (b2',tl2')
+    | TVar _,TVar t1 -> ctxt, TVar t1
+    | Mu (_,_,t1_sub), Mu (a,i,t2_sub) ->
+      let (c',t2_sub') = inner_loop path true expl1 expl2 bound_fv t1_sub t2_sub ctxt in
+      c',Mu (a,i,t2_sub')
+    | Array (_,len1,_,te1), Array (b,len2,_,te2) ->
+      let (c1,len') = merge_refinement (`ALen path) len1 len2 ctxt in
+      let (c2,te2') = inner_loop (`AElem path) under_mu expl1 expl2 (bound_fv @ fv_of_arr b) te1 te2 c1 in
+      let c3,o = alloc_ovar c2 in
+      c3,Array (b,len',o,te2')
+    | t1,t2 -> type_mismatch t1 t2
+  in
+  inner_loop path false e1_expl [] fv_seed t1 t2 ctxt
+
+
 let remove_var_from_pred ~loc ~curr_te ~mk_fv ~oracle ~pos:{under_mu=ground; _} path (sym_vars,sym_val) r context =
   let curr_comp = compile_refinement path sym_val r in
   if oracle curr_comp path then
@@ -570,23 +666,7 @@ let remove_var_from_pred ~loc ~curr_te ~mk_fv ~oracle ~pos:{under_mu=ground; _} 
 let remove_var_from_type ~loc ~curr_te ~oracle ~mk_fv root_var t context =
   let staged = remove_var_from_pred ~mk_fv ~loc ~curr_te ~oracle in
   walk_with_bindings staged root_var ([],[]) t context
-
-let rec get_ref_aps = function
-  | And (r1,r2) -> get_ref_aps r1 @ get_ref_aps r2
-  | NamedPred (_,(fv,_))
-  | Pred (_,(fv,_))
-  | CtxtPred (_,_,(fv,_)) -> fv
-  | ConstEq _
-  | Top -> []
-  | Relation { rel_op1; rel_op2; _ } ->
-    let get_imm = function
-      | RAp r -> [r]
-      | RConst _ -> []
-    in
-    (get_imm rel_op2) @ (match rel_op1 with
-    | Nu -> []
-    | RImm i -> get_imm i)
-
+    
 let remove_var ~loc to_remove ctxt =
   let curr_te = denote_gamma ctxt.gamma in
   let module StrUF = UnionFind.Make(UnionFind.MakeHashed(struct
@@ -631,9 +711,6 @@ let remove_var ~loc to_remove ctxt =
   let removal_oracle = (fun r path ->
     (Paths.PathSet.mem path ref_vars) || (free_vars_contains r to_remove)
   ) in
-(*  let merge_free_vars l1 l2 =
-    ((List.sort_uniq Paths.compare @@ l1 @ l2) :> refine_ap list)
-   in*)
   let free_var_manager root_var path curr_ref =
     let outer_var_p = Fun.negate @@ Paths.has_root root_var in
     let all_free_vars = get_ref_aps curr_ref in
