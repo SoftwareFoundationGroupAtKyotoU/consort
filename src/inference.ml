@@ -437,6 +437,19 @@ let map_tuple f b tl =
 let map_ref f t o n =
   Ref (f t, o,n)
 
+let rec unfold_once_gen unfolder = function
+  | Int r -> Int r
+  | Array (b,len_p,o,t) ->
+    Array (b,len_p,o,unfold_once_gen unfolder t)
+  | Ref (r, o,n) -> map_ref (unfold_once_gen unfolder) r o n
+  | Tuple (b,tl) ->
+    map_tuple (unfold_once_gen unfolder) b tl
+  | Mu (a,i,t) -> unfolder a i t
+  | TVar _ -> assert false
+
+
+let unfold_once = unfold_once_gen (unfold ~gen:fresh_tvar)
+
 let lift_to_refinement ~pred path fv t ctxt =
   let rec lift_loop t =
     match t with
@@ -576,81 +589,76 @@ let rec get_ref_aps_gen proj = function
 let get_ref_aps = get_ref_aps_gen fst
 
 (* t2 is the type to be copied w.r.t mu, tuple binding, etc. *)
-let merge_types ~loc ~path ?(e1_expl=[]) ?(fv_seed=[]) t1 t2 ctxt =
-  (* 
-     At each step, we must track:
-     - The tuple variables bound by enclosing dependent tuples (for use as free vars)
-     - The free variables inherited by dependent tuples enclosing t2 (to either filter out/explicitly bind or use as necessary)
-  *)
-  let rec inner_loop path under_mu expl1 expl2 (bound_fv : refine_ap list) t1 t2 ctxt =
-    let filter_expl em = List.filter_map (function
-      | `Sym i -> if List.mem_assoc i em then
-          Some (List.assoc i em)
-        else None
-      | #Paths.concr_ap as c -> Some c)
-    in
-    let merge_refinement p r1 r2 c =
-      let v1 = get_ref_aps_gen Fun.id r1 |> filter_expl expl1 in
-      let outer_fv =
-        get_ref_aps_gen Fun.id r2
-        |> filter_expl expl2
-        |> List.fold_left
-            (Fun.flip Paths.PathSet.add) @@ Paths.PathSet.of_list v1
-        |> Paths.PathSet.elements
-      in
-      let fv = (outer_fv :> refine_ap list) @ bound_fv in
-      make_fresh_pred ~ground:under_mu ~pred_vars:(fv,p) ~loc c
-    in
-    match t1,t2 with
-    | Int r1,Int r2 -> 
-      let (c',p) = merge_refinement path r1 r2 ctxt in
-      (c',Int p)
-    | Ref (t1',_,_), Ref (t2',_,n2) ->
-      let (c',o) = alloc_ovar ctxt in
-      let (c'',t_m) = inner_loop (`ADeref path) under_mu expl1 expl2 bound_fv t1' t2' c' in
-      c'',Ref (t_m,o,n2)
-    | Tuple (b1,tl1), Tuple (b2,tl2) ->
-      let up_expl = List.fold_left (fun acc (i,p) ->
+let merge_types ~loc ~path ?(e1_expl=[]) ?(bind_seed=([],[])) ?(unfold_t1=false) ?(unfold_t2=false) ~t1 ~t2 ctxt =
+  let filter_expl em = List.filter_map (function
+    | `Sym i -> if List.mem_assoc i em then
+        Some (List.assoc i em)
+      else None
+    | #Paths.concr_ap as c -> Some c)
+  in
+  let counter = ref 0 in
+  let gen_ref expl r =
+    let fv_set = get_ref_aps_gen Fun.id r |> filter_expl expl |> Paths.PathSet.of_list in
+    let id = !counter in
+    incr counter;
+    (id,fv_set)
+  in
+  let rec to_type_template expl = function
+    | Int r ->
+      Int (gen_ref expl r)
+    | Ref (r,_,n) ->
+      Ref (to_type_template expl r, (), n)
+    | Mu (a,i,t) -> Mu (a,i,to_type_template expl t)
+    | TVar id -> TVar id
+    | Tuple (b,tl) ->
+      let expl' = List.fold_left (fun acc (i,p) ->
           match p with
           | SProj _ -> acc
           | SVar v -> (i,`AVar v)::acc
-        )
-      in
-      let ex1' = up_expl expl1 b1 in
-      let ex2' = up_expl expl2 b2 in
-      let b2' = List.filter (fun (_,p) -> match p with
-        | SVar _ -> false
-        | SProj _ -> true
-        ) b2 in
-      let c',tl2' =
-        List.combine tl1 tl2
-        |> List.mapi (fun i (e1,e2) -> (i,e1,e2))
-        |> Std.map_with_accum ctxt (fun acc (i,e1,e2) ->
-            let bound' =
-              List.filter (function
-              | (_,SVar _) -> false
-              | (_,SProj j) -> j <> i
-              ) b2
-              |> List.map (fun (j,_) -> `Sym j)
-              |> (@) bound_fv
-            in
-            inner_loop (`AProj (path,i)) under_mu ex1' ex2' bound' e1 e2 acc
-          )
-      in
-      c', Tuple (b2',tl2')
-    | TVar _,TVar t1 -> ctxt, TVar t1
-    | Mu (_,_,t1_sub), Mu (a,i,t2_sub) ->
-      let (c',t2_sub') = inner_loop path true expl1 expl2 bound_fv t1_sub t2_sub ctxt in
-      c',Mu (a,i,t2_sub')
-    | Array (_,len1,_,te1), Array (b,len2,_,te2) ->
-      let (c1,len') = merge_refinement (`ALen path) len1 len2 ctxt in
-      let (c2,te2') = inner_loop (`AElem path) under_mu expl1 expl2 (bound_fv @ fv_of_arr b) te1 te2 c1 in
-      let c3,o = alloc_ovar c2 in
-      c3,Array (b,len',o,te2')
-    | t1,t2 -> type_mismatch t1 t2
+        ) expl b in
+      Tuple (b,List.map (to_type_template expl') tl)
+    | Array (b,l,_,t) ->
+      Array (b,gen_ref expl l,(),to_type_template expl t)
+      
   in
-  inner_loop path false e1_expl [] fv_seed t1 t2 ctxt
-
+  let t1_fv_templ = to_type_template e1_expl t1 in
+  let t2_fv_templ = to_type_template [] t2 in
+  let merge_fvs (_,r1) (id,r2) map =
+    IntMap.update id (fun bind ->
+      Option.value ~default:(Paths.PathSet.empty) bind
+      |> Paths.PathSet.union @@ Paths.PathSet.union r1 r2
+      |> Option.some) map
+  in
+  let rec merge_loop t1_templ t2_templ map =
+    match t1_templ, t2_templ with
+    | Int r1,Int r2 -> merge_fvs r1 r2 map
+    | Mu (_,_,t1), Mu (_,_,t2)
+    | Ref (t1,_,_), Ref (t2,_,_) -> merge_loop t1 t2 map
+    | Array (_,l1,_,t1), Array (_,l2,_,t2) ->
+      merge_loop t1 t2 @@ merge_fvs l1 l2 map
+    | Tuple (_,tl1), Tuple (_,tl2) ->
+      List.fold_left2 (fun acc t1 t2 ->
+          merge_loop t1 t2 acc
+        ) map tl1 tl2
+    | TVar _,TVar _ -> map
+    | _,_ -> type_mismatch t1_templ t2_templ
+  in
+  let maybe_unfold f t =
+    if f then
+      unfold_once_gen (unfold_gen ~gen:fresh_tvar ~rmap:(fun _ r -> r)) t
+    else
+      t
+  in
+  let merge_map =
+    merge_loop
+      (maybe_unfold unfold_t1 t1_fv_templ)
+      (maybe_unfold unfold_t2 t2_fv_templ)
+      IntMap.empty
+  in
+  walk_with_bindings_own ~o_map:(fun c () -> alloc_ovar c) (fun ~pos p (sym_fv,_) (id,_) ctxt ->
+    let fv_sum = ((Paths.PathSet.elements @@ (IntMap.find id merge_map)) :> refine_ap list) @ sym_fv in
+    make_fresh_pred ~ground:pos.under_mu ~loc ~pred_vars:(fv_sum,p) ctxt
+  ) path bind_seed t2_fv_templ ctxt
 
 let remove_var_from_pred ~loc ~curr_te ~mk_fv ~oracle ~pos:{under_mu=ground; _} path (sym_vars,sym_val) r context =
   let curr_comp = compile_refinement path sym_val r in
@@ -1346,16 +1354,6 @@ let meet_out i callee ctxt t =
     )
   |> Option.value ~default:t
 
-let rec unfold_once = function
-  | Int r -> Int r
-  | Array (b,len_p,o,t) ->
-    Array (b,len_p,o,unfold_once t)
-  | Ref (r, o,n) -> map_ref unfold_once r o n
-  | Tuple (b,tl) ->
-    map_tuple unfold_once b tl
-  | Mu (a,i,t) -> unfold ~gen:fresh_tvar a i t
-  | TVar _ -> assert false
-
 let constrain_fold  ~unfolded:(unfolded_t,unfolded_v) ~folded:(folded_t,_) ctxt =
   let folded_unfold = unfold_once folded_t in
   let folded_c = compile_type_path folded_unfold (`AVar unfolded_v) in
@@ -1558,7 +1556,6 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         |> add_owner_con [ Live o ]
         |> with_type res_t
 
-
       | LengthOf _ ->
         ctxt,Int (Relation {rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 })
       | MkArray len ->
@@ -1613,8 +1610,6 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     let t1 = lkp v1 |> meet_ownership e_id ctxt.o_info @@ (`AVar v1) in
     (* silly *)
     let ap = lift_src_ap src_ap in
-    (* compute the free vars *)
-    let free_vars = predicate_vars @@ SM.bindings ctxt.gamma in
     (* Why are we checking unfold_locs here?
        Great question! Short answer: I can't design APIs.
        Long answer: in the simple checker it is much easier to treat
@@ -1622,45 +1617,24 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
        flagged as an unfold (instead of a write, which is an fold). So we allow
        this strangeness until I inevitably mix this up *)
     let is_fold = IntSet.mem e_id ctxt.iso.unfold_locs in
-    (* now make a fresh type for the location referred to by ap *)
-    (* return back the context, substitution, free vars, old type (o met), and new type (o met) *)
-    let (ctxt',subst,ap_fv,t2_sub,t2_sub'),t2' = map_ap_with_bindings ap free_vars (fun (fv,subst) t ->
-        (* make the fresh type *)
-        let (c_fresh,t') = make_fresh_type ~loc ~target_var:ap ~fv ~bind:subst t ctxt in
-        (* pre alias ownership *)
-        let t2_sub = meet_ownership e_id ctxt.o_info ap t in
-        (* post alias ownership *)
-        let t2_sub' = meet_ownership next_id ctxt.o_info ap t' in
-        (c_fresh,subst,fv,t2_sub,t2_sub'),t2_sub'
+    (* now make a fresh type for the location referred to by ap and rooted at v1 *)
+    (* We generate the type for v1 within this map so as to use merge_types, which ensures our
+       free variables are tighter.
+       We return back:
+       fresh context, old ap type (ownership met), fresh ap type (ownership met), substitution
+       for variables in the types, fresh v1 types (ownership met), and a flag indicating
+       we must force predicate generation
+    *)
+    let (ctxt',t2_sub,t2_sub',subst,t1',force_v1_cons),t2' = map_ap_with_bindings ap [] (fun (fv,subst) t ->
+        let (c1,t') = merge_types ~loc ~path:ap ~bind_seed:(fv,subst) ~unfold_t2:is_fold ~t1:t1 ~t2:t ctxt in
+        let const_subst = List.filter (fun (_,c) -> Paths.is_const_ap c) subst in
+        let force_v1_cons = List.length const_subst <> List.length subst in
+        let (c2,t1') = merge_types ~loc ~path:(`AVar v1) ~e1_expl:const_subst ~unfold_t1:is_fold ~t1:t ~t2:t1 c1 in
+        let pre_t2_sub = meet_ownership e_id ctxt.o_info ap t in
+        let post_t2_sub = meet_ownership next_id ctxt.o_info ap t' in
+        let post_t1 = meet_ownership next_id ctxt.o_info (`AVar v1) t1' in
+        (c2,pre_t2_sub,post_t2_sub,subst,post_t1,force_v1_cons),post_t2_sub
       ) lkp
-    in
-    (* get all free variables referred to in the predicate of t2 that are also
-       addressable from t1 (i.e., not memory locations *)
-    let ap_fv_const = List.filter (function
-      | #Paths.concr_ap as cr -> Paths.is_const_ap cr
-      | `Sym i -> List.assoc i subst |> Paths.is_const_ap
-      ) ap_fv
-    in
-    (* If the sets of FV are not equal, then we have to force the
-       generation of new predicates for T1 that do not have free
-       variables referring to memory locations *)
-    let force_v1_cons = List.length ap_fv_const <> List.length ap_fv in
-    (* Generate a fresh type for t1 with these free variables *)
-    let (ctxt'',t1_sym') = make_fresh_type ~loc ~target_var:(`AVar v1) ~fv:ap_fv_const ~bind:subst t1 ctxt' in
-    (* now t1' is a fresh type with the same shape at t1, but with
-       fresh predicates potentially referring to (unbound!) to
-       symbolic variables bound by t2's dependent type. We now push
-       the substitution for t2 into t1'sym (so a tuple var $2 is
-       tranformed into foo->1 as appropriate) *)
-    let t1' =
-      meet_ownership next_id ctxt.o_info (`AVar v1) t1_sym'
-      |> map_with_bindings (fun ~pos:_ _ (_,sym_vals) r ->
-          let subst' = List.filter (fun (k,_) ->
-            not (List.mem_assoc k sym_vals)
-            ) subst
-          in
-          partial_subst subst' r
-        ) (`AVar v1) ([],[])
     in
     (* now t1' and t2' refer to the same sets of free variables: any symbolic variables
        appearing in t1' and t2' are bound by tuple types
@@ -1675,12 +1649,12 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
       | `ADeref ap
       | `AProj (ap,_) -> up_ap ap t2_base' ctxt
     in
-    let (ctxt'app,(psub2,psub1)) =
-      ctxt''
+    let (ctxt'',(psub2,psub1)) =
+      ctxt'
       |> (app_matrix ~force_cons:is_fold ~out_root:ap ~out_bind:subst ~out_type:t2_constr'
         >> app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1')
     in
-    ctxt'app
+    ctxt''
     |> shuffle_owners t1 t2_constr t1' t2_constr'
     |> up_ap ap @@ sub_pdef psub2 t2'
     |> update_type v1 @@ sub_pdef psub1 t1'
