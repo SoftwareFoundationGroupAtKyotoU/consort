@@ -88,6 +88,26 @@ type funtype = ftyp _funtype [@@deriving sexp]
 
 let ref_of t1 o n = Ref (t1, o, n)
 
+let rec fold_refinement_args ~rel_arg ~pred_arg a = function
+  | And (r1,r2) ->
+      let fold = fold_refinement_args ~rel_arg ~pred_arg in
+      fold (fold a r1) r2
+  | Top -> a
+  | ConstEq _ -> a
+  | Pred (_,arg)
+  | NamedPred (_,arg)
+  | CtxtPred (_,_,arg) ->
+    pred_arg a arg
+  | Relation { rel_op1; rel_op2; _ } ->
+    let get_imm a = function
+      | RAp r -> rel_arg a r
+      | RConst _ -> a
+    in
+    let a' = get_imm a rel_op2 in
+    match rel_op1 with
+    | Nu -> a'
+    | RImm i -> get_imm a' i
+
 let rec map_refinement f =
   function
   | Int r -> Int (f r)

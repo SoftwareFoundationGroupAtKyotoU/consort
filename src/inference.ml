@@ -42,8 +42,6 @@ let loc_to_string =
   | LMkArray i -> labeled_expr "mkarray" i
   | LUpdate i -> labeled_expr "update" i
 
-let _ = LRead 3;;
-
 type pred_context = {
   fv: refine_ap list;
   loc: pred_loc;
@@ -406,6 +404,14 @@ let make_fresh_pred ~ground ~pred_vars:(fv,target) ~loc ctxt =
   let (ctxt',p) = alloc_pred ~ground ~loc fv target ctxt in
   (ctxt',Pred (p,fv))
 
+let make_fresh_type ?(ground=false) ~target_var ~loc ~fv ?(bind=[]) t ctxt =
+  walk_with_bindings ~o_map:(fun c _ ->
+    alloc_ovar c
+  ) (fun ~pos:{under_mu; _} p (sym_vars,_) _ context ->
+    make_fresh_pred ~ground:(under_mu || ground) ~loc ~pred_vars:(sym_vars,p) context
+  ) target_var (fv,bind) t ctxt
+  |> constrain_well_formed
+  
 let rec free_vars_contains (r: concr_refinement) v_set =
   let root_pred ap = Paths.has_root_p (fun root -> SS.mem root v_set) ap in
   let imm_is_var ri = match ri with RConst _ -> false | RAp ap -> root_pred ap in
@@ -418,6 +424,14 @@ let rec free_vars_contains (r: concr_refinement) v_set =
       RImm v -> imm_is_var v | Nu -> false)
   | And (r1, r2) -> free_vars_contains r1 v_set || free_vars_contains r2 v_set
   | _ -> false
+
+let dump_env ?(msg) tev =
+  (match msg with
+  | Some m -> print_endline m;
+  | None -> ());
+  sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline;
+  flush stdout
+[@@ocaml.warning "-32"] 
 
 let predicate_vars kv =
   List.fold_left (fun acc (k, t) ->
@@ -570,22 +584,11 @@ let lift_src_ap = function
   | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
 
 
-let rec get_ref_aps_gen proj = function
-  | And (r1,r2) -> get_ref_aps_gen proj r1 @ get_ref_aps_gen proj r2
-  | NamedPred (_,arg)
-  | Pred (_,arg)
-  | CtxtPred (_,_,arg) -> proj arg
-  | ConstEq _
-  | Top -> []
-  | Relation { rel_op1; rel_op2; _ } ->
-    let get_imm = function
-      | RAp r -> [r]
-      | RConst _ -> []
-    in
-    (get_imm rel_op2) @ (match rel_op1 with
-    | Nu -> []
-    | RImm i -> get_imm i)
-    
+let get_ref_aps_gen proj =
+  fold_refinement_args
+    ~rel_arg:(fun l ap -> ap::l)
+    ~pred_arg:(fun l ap -> proj ap @ l) []
+   
 let get_ref_aps = get_ref_aps_gen fst
 
 (* t2 is the type to be copied w.r.t mu, tuple binding, etc. *)
@@ -784,14 +787,6 @@ let lift_imm_op_to_rel = function
 
 let lift_relation { rop1; cond; rop2 } =
   Relation { rel_op1 = RImm (lift_imm_op_to_rel rop1); rel_cond = cond; rel_op2 = lift_imm_op_to_rel rop2 }
-
-let dump_env ?(msg) tev =
-  (match msg with
-  | Some m -> print_endline m;
-  | None -> ());
-  sexp_of_tenv tev |> Sexplib.Sexp.to_string_hum |> print_endline;
-  flush stdout
-[@@ocaml.warning "-32"] 
 
 (* Strengthen the type strengthen_type to be equal to target t *)
 (* at the moment, this ONLY propagates equalities along constant paths,
@@ -1280,7 +1275,6 @@ let shuffle_owners t1 t2 t1' t2' =
     | _ -> failwith "Type mismatch (simple checker broken?)"
   in
   loop t1 t2 t1' t2'
-      
 
 let rec post_update_type = function
   | Int _ -> false
@@ -1673,7 +1667,9 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
       ctxt |>
       update_type v @@ map_refinement (fun r -> And (r,Relation branch_refinement)) curr_ref
     in
+    let fv_seed = if SS.mem v remove_scope then [] else [`AVar v] in
     process_conditional
+      ~fv_seed
       ?output_type ~remove_scope
       ~tr_path:(add_pc_refinement "=")
       ~fl_path:(add_pc_refinement "!=")
@@ -1683,7 +1679,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     process_conditional
       ?output_type ~remove_scope
       ~tr_path:(fun ctxt ->
-        let (ctxt',t) = make_fresh_type ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:(gamma_predicate_vars ctxt.gamma) (lkp v) ctxt in
+        let (ctxt',t) = make_fresh_type ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:[] (lkp v) ctxt in
         update_type v t ctxt'
       )
       ~fl_path:Fun.id e_id e1 e2 ctxt
@@ -1695,7 +1691,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
       ) StringMap.empty ty_env in
     process_expr ?output_type ~remove_scope next { ctxt with gamma = env' }
 
-and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
+and process_conditional ?output_type ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
   let ctxt1 = process_expr ?output_type ~remove_scope e1 @@ tr_path ctxt in
   let ctxt2 = process_expr ?output_type ~remove_scope e2 @@ fl_path {
         ctxt with
@@ -1709,12 +1705,11 @@ and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 
   let u_ctxt = { ctxt2 with gamma = SM.empty } in
   let b1 = SM.bindings ctxt1.gamma in
   let b2 = SM.bindings ctxt2.gamma in
-  let predicate_vars = predicate_vars @@ b1 in
   let dg1 = denote_gamma ctxt1.gamma in
   let dg2 = denote_gamma ctxt2.gamma in
   let subsume_types ctxt ~target_var t1 t2 =
-    let (ctxt',t'fresh) = make_fresh_type ~loc ~target_var:(`AVar target_var) ~fv:predicate_vars t1 ctxt in
-    let t' =t'fresh in
+    let ctxt',t'fresh = merge_types ~bind_seed:(fv_seed,[]) ~loc ~path:(`AVar target_var) ~t1 ~t2 ctxt in
+    let t' = t'fresh in
     let c_up =
       add_var_type_implication dg1 target_var t1 t' ctxt'
       |> add_var_type_implication dg2 target_var t2 t'
@@ -1728,14 +1723,6 @@ and process_conditional ?output_type ~remove_scope ~tr_path ~fl_path e_id e1 e2 
     let (ctxt',t) = subsume_types ctxt ~target_var:k1 t1 t2 in
     add_type k1 t ctxt'
   ) u_ctxt b1 b2
-
-and make_fresh_type ?(ground=false) ~target_var ~loc ~fv ?(bind=[]) t ctxt =
-  walk_with_bindings ~o_map:(fun c _ ->
-    alloc_ovar c
-  ) (fun ~pos:{under_mu; _} p (sym_vars,_) _ context ->
-    make_fresh_pred ~ground:(under_mu || ground) ~loc ~pred_vars:(sym_vars,p) context
-  ) target_var (fv,bind) t ctxt
-  |> constrain_well_formed
     
 and process_call ~e_id ~cont_id ctxt c =
   let arg_bindings = List.mapi (fun i k ->
