@@ -17,7 +17,7 @@
 
 (library
  (name consort)
- (preprocess (pps ppx_sexp_conv ppx_let))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad))
  (wrapped false)
  (libraries sexplib util lang str)
  (modules Inference KCFA
