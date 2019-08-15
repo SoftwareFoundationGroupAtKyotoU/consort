@@ -63,13 +63,44 @@ end = struct
 
   let pp_owner_ante = S.ownership_ante
 
-  let close_env env _ _ =
-    (* this is a cheap hack to get our current tests to pass *)
-    (* TODO: do this properly ... *)
+  let close_env env ante conseq =
+    let debug = match conseq with
+      | Pred ("check_up-a-out-a!len",_) -> true
+      | _ -> false
+    [@@ocaml.warning "-26"] 
+    in
+    let module SS = Std.StringSet in
+    let update acc =
+      fold_refinement_args ~rel_arg:(fun ss a ->
+        SS.add (Paths.to_z3_ident a) ss
+      ) ~pred_arg:(fun acc (a,_) ->
+        List.fold_left (fun acc p ->
+          SS.add (Paths.to_z3_ident p) acc
+        ) acc a
+      ) acc
+    in
+    let const_paths = List.fold_left (fun acc (p,_,_) ->
+        if Paths.is_const_ap p then
+          SS.add (Paths.to_z3_ident p) acc
+        else acc) SS.empty env
+    in
+    let seed = update (update const_paths ante) conseq in
+    let rec fixpoint acc =
+      let acc' = List.fold_left (fun acc (a,p,_) ->
+          let id = Paths.to_z3_ident a in
+          if SS.mem id acc then
+            update acc p
+          else
+            acc
+        ) acc env in
+      if (SS.cardinal acc) = (SS.cardinal acc') then
+        acc'
+      else
+        fixpoint acc'
+    in
+    let closed_names = fixpoint seed in
     List.filter (fun (k,_,_) ->
-      match k with
-      | `ADeref _ -> false
-      | _ -> true
+      SS.mem (Paths.to_z3_ident k) closed_names
     ) env
 
   let simplify sexpr =
