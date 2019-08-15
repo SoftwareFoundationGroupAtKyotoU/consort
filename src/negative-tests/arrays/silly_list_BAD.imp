@@ -1,0 +1,43 @@
+fill_array(i,d,arr) {
+  if i = d then ()
+  else {
+    arr[i] <- d;
+	fill_array((i + 1),d,arr)
+  }
+}
+
+check_all(i,d,arr) {
+  if i = d then ()
+  else {
+    assert((arr[i] + 1) = d);
+	check_all((i + 1),d,arr)
+  }
+}
+
+check_list(l) {
+  ifnull l then {
+    ()
+  } else {
+    let (d,arr,nxt) = *l in {
+	  check_all(0,d,arr);
+	  check_list(nxt)
+	}
+  }
+}
+
+mk_list(d) {
+  if _ then {
+    null
+  } else {
+      let arr = mkarray d in {
+      fill_array(0,d,arr);
+	  let nxt = mk_list((d + 1)) in
+      mkref (d,arr,nxt)
+    }
+  }
+}
+
+{
+
+ let l = mk_list(0) in check_list(l)
+}

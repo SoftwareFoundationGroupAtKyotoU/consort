@@ -13,6 +13,8 @@ let run_test v_opts intr expect file =
 
 let () =
   let expect = ref true in
+  let verbose = ref false in
+  let maybe_print s = if !verbose then print_string s else () in
   let (a_list,gen) =
     Consort.Options.solver_arg_gen ()
     |> Consort.Options.seq Consort.Options.solver_opt_gen
@@ -21,14 +23,17 @@ let () =
   let args = [
     ("-neg", Arg.Clear expect, "Expect typing failures");
     ("-pos", Arg.Set expect, "Expect typing success (default)");
-    ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference")
+    ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");
+    ("-verbose", Arg.Set verbose, "Provide more output")
   ] @ i_list @ a_list in
   let dir_list = ref [] in
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let v_opts = gen () in
   let intr = i_gen () in
   let n_tests = ref 0 in
-  List.iter (fun dir -> 
+  maybe_print "Testing ";
+  List.iter (fun dir ->
+    maybe_print @@ dir ^ "... ";
     let test_files = Sys.readdir dir in
     Array.iter (fun f_name ->
       if Filename.check_suffix f_name ".imp" then
