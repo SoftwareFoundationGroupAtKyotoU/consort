@@ -16,5 +16,4 @@ proof_ind(a,b) {
    proof_ind(a,b);
    assert(a < b);
  }
- 
 }

@@ -3,7 +3,7 @@
 THIS_DIR=$(cd $(dirname $0) && pwd)
 
 function r_test {
-	./_build/default/test_suite.exe -intrinsics ./stdlib/lin.intr "$@"
+	./_build/default/test_suite.exe -verbose -intrinsics ./stdlib/lin.intr "$@"
 }
 
 declare -a POS_DIRS
