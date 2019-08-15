@@ -8,7 +8,7 @@ let run_test v_opts intr expect file =
   | Unverified (SolverError msg),_ -> failwith @@ "Solver failed with message: " ^ msg
   | Unverified Timeout,_ -> raise TestTimeout
   | Unverified _,false -> ()
-  | _,true -> failwith @@ Printf.sprintf "%s did not verify as expected" file
+  | s,true -> failwith @@ Printf.sprintf "%s did not verify as expected (%s)" file @@ result_to_string s
   | _,false -> failwith @@ Printf.sprintf "%s incorrectly verified" file 
 
 let () =
