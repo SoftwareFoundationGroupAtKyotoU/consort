@@ -1328,6 +1328,9 @@ let meet_loop t_ref t_own =
   in
   loop t_ref t_own
 
+let add_post_type_p pos path =
+  (not pos.under_mu) && (not pos.array_ref) && not @@ Paths.is_const_ap path
+
 let meet_ownership st_id (o_envs,_) ap t =
   Hashtbl.find_opt o_envs st_id
   |> Option.map (fun o_env -> 
@@ -1730,8 +1733,8 @@ and process_call ~e_id ~cont_id ctxt c =
   in
   let p_vars = predicate_vars @@ List.map (fun (_,k,v) -> (k,v)) arg_bindings in
   
-  let inst_symb ~add_post ~pos:{under_mu; array_ref; _} _ (fv_raw,_) f_refinement =
-    let fv = if add_post && (not under_mu) && (not array_ref) then (`AVar "!pre")::fv_raw else fv_raw in
+  let inst_symb ~add_post ~pos p (fv_raw,_) f_refinement =
+    let fv = if add_post && add_post_type_p pos p then (`AVar "!pre")::fv_raw else fv_raw in
      match f_refinement with
      | InfPred p -> 
        CtxtPred (c.label,p,fv)
@@ -1770,47 +1773,49 @@ and process_call ~e_id ~cont_id ctxt c =
         |> constrain_owner concr_arg_type in_t
       in
       
-      if post_update_type arg_t then
-        let ap = `AVar k in
-        let arg_t_o = meet_ownership e_id acc.o_info ap arg_t in
-        let (ctxt',resid,formal) = split_arg acc arg_t_o in_t in
-        let out_owner = meet_out i c.callee ctxt' out_t in
-        (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
-        let (ctxt'',fresh_type_) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars resid ctxt' in
-        let fresh_type_own = meet_ownership cont_id ctxt''.o_info ap fresh_type_ in
-        let concr_arg_type = concretize_arg_t arg_t in
-        
-        let (ctxt''',psub) = apply_matrix
-            ~pp_constr:(fun ~summary path constr  ->
-              if summary then
-                constr
-              else
-                let pre_type =
-                  match map_ap path Fun.id (fun _ -> concr_arg_type) with
-                  | Int r -> with_pred_refl path r
-                  | _ -> failwith @@ Printf.sprintf "I've made a terrible mistake: %s"
-                        @@ Paths.to_z3_ident path
-                in
-                {constr with
-                  env = (`AVar "!pre",pre_type,`NUnk)::constr.env }
-            )
-            ~t1:resid
-            ~t2:out_owner
-            ~force_cons:true
-            ~out_root:ap
-            ~out_type:fresh_type_own
-            ctxt''
-        in
-        
-        (* now the magic *)
-        ctxt'''
-        (* constrain the formal half of the arg type *)
-        |> constrain_in formal
-        |> sum_ownership resid out_owner fresh_type_own
-        |> update_type k @@ sub_pdef psub fresh_type_own
-        |> remove_sub psub
-      else
-        constrain_in arg_t acc
+      let ap = `AVar k in
+      let arg_t_o = meet_ownership e_id acc.o_info ap arg_t in
+      let (ctxt',resid,formal) = split_arg acc arg_t_o in_t in
+      let out_owner = meet_out i c.callee ctxt' out_t in
+      (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
+      let (ctxt'',fresh_type_) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars resid ctxt' in
+      let fresh_type_own = meet_ownership cont_id ctxt''.o_info ap fresh_type_ in
+      let concr_arg_type = concretize_arg_t arg_t in
+
+      let force_cons = post_update_type arg_t in
+
+      let (ctxt''',psub) = apply_matrix
+          ~pp_constr:(fun ~summary path constr  ->
+            if summary then
+              constr
+            else begin
+              assert (not @@ Paths.is_const_ap path);
+              let pre_type =
+                match map_ap path Fun.id (fun _ -> concr_arg_type) with
+                | Int r -> with_pred_refl path r
+                | _ -> failwith @@ Printf.sprintf "I've made a terrible mistake: %s"
+                  @@ Paths.to_z3_ident path
+              in
+              {constr with
+                env = (`AVar "!pre",pre_type,`NUnk)::constr.env }
+            end
+          )
+          ~t1:resid
+          ~t2:out_owner
+          ~force_cons
+          ~out_root:ap
+          ~out_type:fresh_type_own
+          ctxt''
+      in
+
+      (* now the magic *)
+      ctxt'''
+      (* constrain the formal half of the arg type *)
+      |> constrain_in formal
+      |> sum_ownership resid out_owner fresh_type_own
+      |> update_type k @@ sub_pdef psub fresh_type_own
+      |> remove_sub psub
+
     ) ctxt arg_bindings in_out_types
   in
   let result = map_with_bindings (inst_symb ~add_post:false) (`AVar "dummy") (p_vars,[]) callee_type.result_type in
@@ -1822,9 +1827,9 @@ let process_function_bind ctxt fdef =
   let typ_template = List.combine arg_names f_typ.arg_types in
   let fv = predicate_vars typ_template in
   let inst_symb ~post n t =
-    map_with_bindings (fun ~pos:{under_mu; array_ref; _} path (base_fv,_) p ->
+    map_with_bindings (fun ~pos path (base_fv,_) p ->
       let pred_args =
-        if post && (not under_mu) && (not array_ref)  then
+        if post && add_post_type_p pos path then
           ((P.pre path) :> refine_ap)::base_fv
         else
           base_fv
@@ -1837,14 +1842,15 @@ let process_function_bind ctxt fdef =
   let init_env = List.fold_left (fun g (n,t) ->
       let inst = inst_symb ~post:false n t in
       let (g',inst') =
-        walk_with_path (fun ~pos:{under_mu; array_ref; _} path p g ->
-          if under_mu || array_ref then
+        walk_with_path (fun ~pos path p g ->
+          if not (add_post_type_p pos path) then
             (g,p)
           else
-            let pre_var = P.to_z3_ident path in
-            (SM.add pre_var (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (path :> refine_ap) }))
+            let pre_path = P.pre path in
+            let pre_var = P.to_z3_ident pre_path in
+            (SM.add pre_var (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (pre_path :> refine_ap) }))
             
-        ) (`APre n) inst g
+        ) (`AVar n) inst g
       in
       SM.add n inst' g'
     ) SM.empty typ_template
@@ -1905,8 +1911,8 @@ let propagate_grounding refine pred =
 let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,main) =
   let init_fun_type ctxt f_def =
     let lift_simple_type ~post ~loc =
-      lift_to_refinement ~pred:(fun ~pos:{under_mu; array_ref; _ } fv path ctxt ->
-        let (ctxt',i) = alloc_pred ~ground:under_mu ~add_post_var:(post && (not under_mu) && (not array_ref)) ~loc fv path ctxt in
+      lift_to_refinement ~pred:(fun ~pos fv path ctxt ->
+        let (ctxt',i) = alloc_pred ~ground:pos.under_mu ~add_post_var:(post && add_post_type_p pos path) ~loc fv path ctxt in
         (ctxt',InfPred i))
     in
     let gen_arg_preds ~post ~loc fv arg_templ ctxt = List.fold_right (fun (k,t) (acc_c,acc_ty) ->
