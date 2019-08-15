@@ -592,7 +592,7 @@ let get_ref_aps_gen proj =
 let get_ref_aps = get_ref_aps_gen fst
 
 (* t2 is the type to be copied w.r.t mu, tuple binding, etc. *)
-let merge_types ~loc ~path ?(e1_expl=[]) ?(bind_seed=([],[])) ?(unfold_t1=false) ?(unfold_t2=false) ~t1 ~t2 ctxt =
+let merge_types ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bind_seed=([],[])) ?(unfold_t1=false) ?(unfold_t2=false) ~t1 ~t2 ctxt =
   let filter_expl em = List.filter_map (function
     | `Sym i -> if List.mem_assoc i em then
         Some (List.assoc i em)
@@ -601,7 +601,7 @@ let merge_types ~loc ~path ?(e1_expl=[]) ?(bind_seed=([],[])) ?(unfold_t1=false)
   in
   let counter = ref 0 in
   let gen_ref expl r =
-    let fv_set = get_ref_aps_gen Fun.id r |> filter_expl expl |> Paths.PathSet.of_list in
+    let fv_set = get_ref_aps_gen Fun.id r |> filter_expl expl |> List.filter fv_filter |> Paths.PathSet.of_list in
     let id = !counter in
     incr counter;
     (id,fv_set)
@@ -1762,8 +1762,6 @@ and process_call ~e_id ~cont_id ctxt c =
     |> inst_fn_type @@ inst_symb ~add_post:true in
   
   let in_out_types = List.combine concr_in_t symb_out_t in
-  (* TODO: consistently use this function *)
-  let post_type_vars = gamma_predicate_vars ctxt.gamma in
   let updated_ctxt = List.fold_left2 (fun acc (i,k,arg_t) (in_t,out_t) ->
       let loc = LCall (c.label,k) in
       let concretize_arg_t t = compile_type t k |> with_refl (`AVar k) in
@@ -1775,10 +1773,12 @@ and process_call ~e_id ~cont_id ctxt c =
       
       let ap = `AVar k in
       let arg_t_o = meet_ownership e_id acc.o_info ap arg_t in
-      let (ctxt',resid,formal) = split_arg acc arg_t_o in_t in
+      let (ctxt',resid,formal) = split_arg acc arg_t_o in_t  in
       let out_owner = meet_out i c.callee ctxt' out_t in
       (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
-      let (ctxt'',fresh_type_) = make_fresh_type ~target_var:ap ~loc ~fv:post_type_vars resid ctxt' in
+      let (ctxt'',fresh_type_) = merge_types ~fv_filter:(fun p ->
+          p <> (`AVar "!pre")
+        ) ~loc ~path:ap ~t1:out_owner ~t2:resid ctxt' in
       let fresh_type_own = meet_ownership cont_id ctxt''.o_info ap fresh_type_ in
       let concr_arg_type = concretize_arg_t arg_t in
 
@@ -1786,10 +1786,9 @@ and process_call ~e_id ~cont_id ctxt c =
 
       let (ctxt''',psub) = apply_matrix
           ~pp_constr:(fun ~summary path constr  ->
-            if summary then
+            if summary || (Paths.is_const_ap path) then
               constr
             else begin
-              assert (not @@ Paths.is_const_ap path);
               let pre_type =
                 match map_ap path Fun.id (fun _ -> concr_arg_type) with
                 | Int r -> with_pred_refl path r
