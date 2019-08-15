@@ -50,6 +50,10 @@ module StateMonad = struct
         (c2,(a_res,b_res)))
 
     let return g = (fun ctxt -> (ctxt,g))
+
+    let mwith o ~(f : ('d -> ('a,'b,'c) context_monad)) : ('a,'b,'c) context_monad = (fun ctxt ->
+      let v = o ctxt in
+      f v ctxt)
   end
 
   let return = Let_syntax.return
@@ -66,9 +70,9 @@ module StateMonad = struct
     (c'',r)
 
   (* sequencing and the dual of the above.
-     Produce a computation that transforms a state according to d1
-     and then produces a state and value according to d2 *)
-  let (>>) d1 d2 = (fun ctxt -> let c = d1 ctxt in d2 c);;
+     Produce a computation that transforms the state according to d1
+     and then produces a state and value according to d2 in the new state *)
+  let (>>) d1 d2 = (fun ctxt -> let c = d1 ctxt in d2 c)
 
   (* sugar *)
   let map_state f ctxt = f ctxt

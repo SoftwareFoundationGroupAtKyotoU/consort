@@ -1341,7 +1341,7 @@ let meet_loop t_ref t_own =
 let add_post_type_p pos path =
   (not pos.under_mu) && (not pos.array_ref) && not @@ Paths.is_const_ap path
 
-let meet_ownership st_id (o_envs,_) ap t =
+let meet_ownership st_id ap t { o_info = (o_envs,_); _ } =
   Hashtbl.find_opt o_envs st_id
   |> Option.map (fun o_env -> 
       map_ap ap (fun o_typ ->
@@ -1349,9 +1349,9 @@ let meet_ownership st_id (o_envs,_) ap t =
     )
   |> Option.value ~default:t
 
-let meet_gamma st_id o_info =
+let meet_gamma st_id g ctxt =
   SM.mapi (fun v t ->
-    meet_ownership st_id o_info (`AVar v) t)
+    meet_ownership st_id (`AVar v) t ctxt) g
 
 let meet_out i callee t ctxt =
   let (_,o_th) = ctxt.o_info in
@@ -1374,7 +1374,7 @@ let simple_type_at id v ctxt =
   |> Option.get
 
 let get_type_scheme ?(is_null=false) ~loc id v =
-  let%bind st = mwith @@ simple_type_at id v in
+  let%with st = simple_type_at id v in
   let%bind fv = predicate_vars_m in
   lift_to_refinement ~pred:(fun ~pos:{under_mu; _} fv p ->
       let fv' = (if is_null then [] else fv) in
@@ -1412,7 +1412,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
       ctxt,t
   in
   let ctxt = { ctxt with
-    gamma = meet_gamma e_id ctxt.o_info ctxt.gamma;
+    gamma = meet_gamma e_id ctxt.gamma ctxt;
   } in
   ctxt.store_env e_id @@ ctxt.gamma;
 
@@ -1577,8 +1577,8 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
           | PNone -> raise @@ Incompleteness "Stahp"
           | PVar lhs ->
             let%bind dg = denote_gamma_m
-            and st = mwith @@ simple_type_at cont_id lhs
             and fv = predicate_vars_m in
+            let%with st = simple_type_at cont_id lhs in
             let%bind a_type =
               lift_to_refinement ~pred:(fun ~pos:{under_ref; under_mu; _} fv path c ->
                   match path with
@@ -1591,16 +1591,15 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
                       c,ConstEq 0
               ) (`AVar lhs) fv st
             in
-            let%bind () = match a_type with
-              | Array (_,_,o,_) ->
-                mutate @@ add_owner_con [Eq (o,OConst 1.0)]
-              | _ -> assert false
-            in
-            return_after a_type
-             <|> add_var_implication dg ctxt.gamma len @@ Int (Relation { rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 })
-             <|> update_type len (map_refinement (fun r ->
-                    And (r,Relation {rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`ALen (`AVar lhs)) })
-                 ) @@ lkp len)
+            (match a_type with
+            | Array (_,_,o,_) ->
+              add_owner_con [Eq (o,OConst 1.0)]
+            | _ -> assert false)
+            >> add_var_implication dg ctxt.gamma len @@ Int (Relation { rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 })
+            >> update_type len (map_refinement (fun r ->
+                And (r,Relation {rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`ALen (`AVar lhs)) })
+              ) @@ lkp len)
+            >> return a_type
         end
 
       | Mkref init' ->
@@ -1626,7 +1625,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     
     let loc = LAlias e_id in
     (* get the variable type *)
-    let t1 = lkp v1 |> meet_ownership e_id ctxt.o_info @@ (`AVar v1) in
+    let t1 = ctxt |> meet_ownership e_id (`AVar v1) @@ lkp v1 in
     (* silly *)
     let ap = lift_src_ap src_ap in
     (* Why are we checking unfold_locs here?
@@ -1649,9 +1648,9 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         let const_subst = List.filter (fun (_,c) -> Paths.is_const_ap c) subst in
         let force_v1_cons = List.length const_subst <> List.length subst in
         let (c2,t1') = merge_types ~loc ~path:(`AVar v1) ~e1_expl:const_subst ~unfold_t1:is_fold ~t1:t ~t2:t1 c1 in
-        let pre_t2_sub = meet_ownership e_id ctxt.o_info ap t in
-        let post_t2_sub = meet_ownership next_id ctxt.o_info ap t' in
-        let post_t1 = meet_ownership next_id ctxt.o_info (`AVar v1) t1' in
+        let pre_t2_sub = meet_ownership e_id ap t ctxt in
+        let post_t2_sub = meet_ownership next_id ap t' ctxt in
+        let post_t1 = meet_ownership next_id (`AVar v1) t1' ctxt in
         (c2,pre_t2_sub,post_t2_sub,subst,post_t1,force_v1_cons),post_t2_sub
       ) lkp
     in
@@ -1793,14 +1792,14 @@ and process_call ~e_id ~cont_id ctxt c =
         in
 
         let ap = `AVar k in
-        let arg_t_o = meet_ownership e_id acc.o_info ap arg_t in
+        let%with arg_t_o = meet_ownership e_id ap arg_t in
         let%bind (resid,formal) = split_arg arg_t_o in_t in
-        let%bind out_owner = mwith @@ meet_out i c.callee out_t in
+        let%with out_owner = meet_out i c.callee out_t in
         (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
         let%bind fresh_type_ = merge_types ~fv_filter:(fun p ->
             p <> (`AVar "!pre")
           ) ~loc ~path:ap ~t1:out_owner ~t2:resid in
-        let%bind fresh_type_own = mwith @@ (fun ctxt'' -> meet_ownership cont_id ctxt''.o_info ap fresh_type_) in
+        let%with fresh_type_own = meet_ownership cont_id ap fresh_type_ in
         let concr_arg_type = concretize_arg_t arg_t in
 
         let force_cons = post_update_type arg_t in
