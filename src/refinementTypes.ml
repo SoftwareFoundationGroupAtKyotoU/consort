@@ -1,6 +1,7 @@
 open Sexplib.Std
 open Greek
 open Std
+open Std.StateMonad
 
 type 'r rel_imm =
   | RAp of 'r
@@ -192,38 +193,39 @@ let unfold_gen ~gen ~rmap arg id t_in =
   let codom = List.map snd arg in
   let gen_var_for i (subst,acc) = 
     let fresh_var = gen () in
-    fresh_var,(
-      (i,fresh_var)::subst,
+    ((i,fresh_var)::subst,
       (if List.mem i codom then
         (i,fresh_var)::acc
       else
-        acc))
+        acc)),fresh_var
   in
   let do_subst t =
-    let rec loop ((subst,_) as acc) = function
-      | Int r -> (acc,Int (rmap subst r))
-      | TVar a -> (acc,TVar a)
+    let rec loop = function
+      | Int r ->
+        let%bind r' = mwith (fun (subst,_) -> rmap subst r) in
+        return @@ Int r'
+      | TVar a -> return @@ TVar a
       | Mu _ -> failwith "let's not deal with this yet"
       | Ref (t,o,n) ->
-        let (acc',t') = loop acc t in
-        (acc', Ref (t',o,n))
+        let%bind t' = loop t in
+        return @@ Ref (t',o,n)
       | Array ({len;ind},len_r,o,et) ->
-        let (fresh_len,acc_len) = gen_var_for len acc in
-        let (fresh_ind,acc_ind) = gen_var_for ind acc_len in
-        let acc',et' = loop acc_ind et in
-        let len_r' = rmap subst len_r in
-        acc',Array ({len = fresh_len; ind = fresh_ind},len_r',o,et')
+        let%bind fresh_len = gen_var_for len in
+        let%bind fresh_ind = gen_var_for ind in
+        let%bind et' = loop et in
+        let%bind len_r' = mwith (fun (subst,_) -> rmap subst len_r) in
+        return @@ Array ({len = fresh_len; ind = fresh_ind},len_r',o,et')
       | Tuple (b,tl) ->
-        let (acc',b') =
-          map_with_accum acc (fun acc (i,r) ->
-            let (fresh_var,acc') = gen_var_for i acc in
-            (acc',(fresh_var,r))
+        let%bind b' =
+          map_with_accum (fun (i,r) ->
+            let%bind fresh_var = gen_var_for i in
+            return (fresh_var,r)
           ) b
         in
-        let (acc'',tl') = map_with_accum acc' loop tl in
-        (acc'',Tuple (b',tl'))
+        let%bind tl' = map_with_accum loop tl in
+        return @@ Tuple (b',tl')
     in
-    loop (arg,[]) t
+    loop t (arg,[])
   in
   let rec loop =
     function
@@ -327,45 +329,45 @@ let ap_is_target target sym_vals ap =
 let filter_fv path sym_vals =
   List.filter (fun free_var -> not @@ ap_is_target path sym_vals free_var)
 
-let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false;array_ref = false}) ~o_map f root bindings t a =
+let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false;array_ref = false}) ~o_map f root bindings t =
   match t with
-  | TVar v -> (a,TVar v)
+  | TVar v -> return @@ TVar v
   | Mu (ar,v,t') ->
-    let (a',t'') = walk_with_bindings_own ~pos:{pos with under_mu = true} ~o_map f root bindings t' a in
-    (a', Mu (ar,v,t''))
+    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_mu = true} ~o_map f root bindings t' in
+    return @@ Mu (ar,v,t'')
   | Int r ->
     let (sym_fv,sym_vals) = bindings in
-    let (a',r') = f ~pos root (filter_fv root sym_vals sym_fv,sym_vals) r a in
-    (a',Int r')
+    let%bind r' = f ~pos root (filter_fv root sym_vals sym_fv,sym_vals) r in
+    return @@ Int r'
   | Ref (t',o,n) ->
-    let (a',t'') = walk_with_bindings_own ~pos:{pos with under_ref = true} ~o_map f (`ADeref root) bindings t' a in
-    let (a'',o') = o_map a' o in
-    (a'',Ref (t'',o',n))
+    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true} ~o_map f (`ADeref root) bindings t' in
+    let%bind o' = o_map o in
+    return @@ Ref (t'',o',n)
   | Array (b,len_r,o,et) ->
     let len_path = `ALen root in
     let bindings' = update_binding_gen (bind_of_arr b root) bindings in
-    let (a',len_r') = f ~pos:{pos with array_ref = true} len_path bindings len_r a in
-    let (a'',o') = o_map a' o in
-    let (a''',et') = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true} ~o_map f (`AElem root) bindings' et a'' in
-    (a''', Array (b,len_r',o',et'))
+    let%bind len_r' = f ~pos:{pos with array_ref = true} len_path bindings len_r in
+    let%bind o' = o_map o in
+    let%bind et' = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true} ~o_map f (`AElem root) bindings' et in
+    return @@ Array (b,len_r',o',et')
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
         let nm = Paths.t_ind root i in
         (nm,t)
       ) tl in
     let bindings' = update_binding root b bindings in
-    let rec loop a_accum l =
+    let rec loop l =
       match l with
-      | [] -> (a_accum,[])
+      | [] -> return []
       | (nm,t)::tl ->
-        let (acc',t') = walk_with_bindings_own ~pos ~o_map f nm bindings' t a_accum in
-        let (acc'',tl') = loop acc' tl in
-        (acc'',t'::tl')
+        let%bind t' = walk_with_bindings_own ~pos ~o_map f nm bindings' t in
+        let%bind tl' = loop tl in
+        return @@ t'::tl'
     in
-    let (a',tl') = loop a tl_named in
-    (a',Tuple (b,tl'))
+    let%bind tl' = loop tl_named in
+    return @@ Tuple (b,tl')
 
-let walk_with_bindings ?(o_map=(fun c o -> (c,o))) f root bindings t a =
+let walk_with_bindings ?(o_map=(fun o c -> (c,o))) f root bindings t a =
   walk_with_bindings_own ~o_map f root bindings t a
 
 let walk_with_path ?o_map f root =
