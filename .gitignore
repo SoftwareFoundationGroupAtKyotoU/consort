@@ -11,5 +11,5 @@ auto/
 *.out
 *.synctex.gz
 *~
-src/.merlin
+**/.merlin
 _build/
