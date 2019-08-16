@@ -20,29 +20,46 @@ grammar
 
   e :: 'e_' ::=                                         {{ com exp }}
     | x                   ::   :: Var                     {{ com variable }}
-    | let x = y in e      ::   :: Let {{ tex \LET [[x]] = [[y]] \IN [[e]] }}
-    | let x = v in e      ::   :: LetV {{ tex \LET [[x]] = [[v]] \IN [[e]] }}
+    | let x = rhs in e      ::   :: Let {{ tex \LET [[x]] = [[rhs]] \IN [[e]] }}
     | ifz x then e1 else e2 ::   :: Ifz {{ tex \IFZERO [[x]] \THEN [[e1]] \ELSE [[e2]] }}
-    | let x = mkref y in e :: :: MkRef {{ tex \LET [[x]] = \MKREF [[y]] \IN [[e]] }}
-    | let x = * y in e    ::   :: Deref {{ tex \LET [[x]] = * [[y]] \IN [[e]] }}
-    | let x = f l ( y1 ,, yn ) in e :: :: Call {{ tex \LET [[x]] = [[f]]^[[l]]([[y1]],\ldots,[[yn]]) \IN [[e]] }}
     | x := y ; e          ::   :: Assign {{ tex [[x]] \WRITE [[y]] \SEQ [[e]] }}
     | alias ( x = y ) ; e ::   :: Alias  {{ tex \ALIAS([[x]] = [[y]]) \SEQ [[e]] }}
     | assert ( ph ) ; e  ::   :: Assert {{ tex \ASSERT([[ph]]) \SEQ [[e]] }}
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
     | vsub e :: :: subst_mult {{ tex [[vsub]] [[e]] }}
     | ( e )               :: S :: paren
-	  | CE [ x ]  :: M:: ret
-	  | E [ e ] :: M:: ctxt
-	  | e1 = e2 :: :: eq
+    | CE [ x ]  :: M:: ret
+    | E [ e ] :: M:: ctxt
+    | e1 = e2 :: :: eq
+	| etc :: :: etc {{ tex \ldots }}
 
+  return_hole :: 'RH_' ::=
+    | [] l :: :: LabeledHole {{ tex \HOLE^[[l]] }}
+
+  rhs :: 'rhs_' ::= 
+    | mkref y :: :: MkRef {{ tex \MKREF [[y]] }}
+	| * y :: :: Deref {{ tex * [[y]] }}
+	| x :: :: Var {{ com variable }}
+	| v :: :: Val {{ com value }}
+	| return_hole :: :: Return
+	| f l ( arg_list ) :: :: Call {{ com function call }} {{ tex [[f]]^[[l]]([[arg_list]]) }}
+
+  arg_list :: 'alist_' ::=
+    | y1 ,, yn :: :: Abbrv {{ tex [[y1]],\ldots,[[yn]] }}
+	| y1 , ... , yn :: :: Explicit
+  
   A {{ tex \alpha }} :: 'A_' ::=
 
   v :: 'v_' ::=                                         {{ com  value }}
     | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
+	| 0 :: :: Zero {{ com zero }}
+	| 1 :: :: One {{ com one }}
+
+  fun_body :: FB_ ::=
+    | ( x1 , ... , xi ) e :: :: f_body
 
   d :: d_ ::=
-    | f |-> ( x1 , .. , xi ) e  ::  :: def
+    | f |-> fun_body  ::  :: def
 
   D :: D_ ::=
     | { d1 , ... , di }     ::   :: set
@@ -88,7 +105,7 @@ grammar
     | E = E' :: :: eq
 
   CE {{ tex E_c }} :: E_ ::=
-    | E [ let x = [] l in e ] :: :: stack {{ tex [[E]][\LET [[x]] = \HOLE^[[l]] \IN [[ e ]] ]}}
+    | E [ let x = return_hole in e ] :: :: stack {{ tex [[E]][\LET [[x]] = [[return_hole]] \IN [[ e ]] ]}}
 
   Es {{ tex \overrightarrow{E} }} :: Es_ ::=                  {{ com  stack }}
     | .                  ::   :: empty {{ tex \cdot }}
@@ -182,7 +199,7 @@ grammar
 	| [ B / A ] G :: :: cxtSubst
 	| ( G ) :: :: paren
 	| G1 = G2 :: :: tyenvDef
-  | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
+    | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -201,6 +218,7 @@ grammar
     | []                  ::   :: hole       {{ tex \HOLE }}
 	| '|'                 ::   :: bar {{ tex \mid }}
 	| INT                 ::   :: int {{ tex \mathbb{Z} }}
+	| ifz                 ::   :: ifz
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
