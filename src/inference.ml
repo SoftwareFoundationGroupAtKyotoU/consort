@@ -214,34 +214,34 @@ let denote_gamma gamma =
 
 let denote_gamma_m ctxt = (ctxt,denote_gamma ctxt.gamma)
 
-let rec split_ref_type ctxt (t,o,n) =
-  let (ctxt,(o1,o2)) = alloc_split o ctxt in
-  let (ctxt',(t1,t2)) = split_type ctxt t in
+let rec split_ref_type (t,o,n) =
+  let%bind (o1,o2) = alloc_split o in
+  let%bind (t1,t2) = split_type t in
   let t1' = Ref (t1,o1,n) in
   let t2' = Ref (t2,o2,n) in
-  (ctxt', (t1', t2'))
-and split_type ctxt t =
+  return (t1', t2')
+and split_type t =
   match t with
-  | Int _ -> (ctxt, (t,t))
+  | Int _ -> return (t,t)
   | Ref (t,o,n) ->
-    split_ref_type ctxt (t,o,n)
+    split_ref_type (t,o,n)
   | Array (b,len_r,o,et) ->
-    let (ctxt',(et1,et2)) = split_type ctxt et in
-    let (ctxt'',(o1,o2)) = alloc_split o ctxt' in
+    let%bind (et1,et2) = split_type et in
+    let%bind (o1,o2) = alloc_split o in
     let t1 = Array (b,len_r,o1,et1) in
     let t2 = Array (b,len_r,o2,et2) in
-    (ctxt'',(t1,t2))
+    return (t1,t2)
   | Tuple (b,tl) ->
-    let (ctxt',tl1,tl2) = List.fold_right (fun t' (ctxt',tl1,tl2) ->
-        let (ctxt'',(t'1,t'2)) = split_type ctxt' t' in
-        (ctxt'', t'1::tl1,t'2::tl2)
-      ) tl (ctxt,[],[])
+    let%bind (tl1,tl2) = mfold_right (fun t' (tl1,tl2) ->
+        let%bind (t'1,t'2) = split_type t' in
+        return (t'1::tl1,t'2::tl2)
+      ) tl ([],[])
     in
-    (ctxt',(Tuple (b,tl1),Tuple (b,tl2)))
-  | TVar id -> ctxt,(TVar id,TVar id)
+    return (Tuple (b,tl1),Tuple (b,tl2))
+  | TVar id -> return (TVar id,TVar id)
   | Mu (a,i,t) ->
-    let (ctxt',(t1,t2)) = split_type ctxt t in
-    ctxt',(Mu (a,i,t1), Mu (a,i,t2))
+    let%bind (t1,t2) = split_type t in
+    return (Mu (a,i,t1), Mu (a,i,t2))
 
 let rec unsafe_meet tr town =
   match tr,town with
@@ -1418,18 +1418,21 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
 
   match e with
   | EVar v ->
-    let (ctxt',(t1,t2)) = split_type ctxt @@ lkp v in
-    let ctxt'' = update_type v t1 ctxt' in
-    begin
-      let c_type t = compile_type t "<ret>" in
-      match output_type with
-      | Some t ->
-        let dg = denote_type (`AVar "<ret>") [] (denote_gamma ctxt''.gamma) t2 in
-        add_type_implication dg (c_type t2) (c_type t) ctxt''
-        |> constrain_owner t2 t
-      | None -> ctxt''
-    end
-    |> remove_var ~loc:(LLet e_id) remove_scope
+    do_with_context ctxt @@
+      let%bind (t1,t2) = split_type @@ lkp v in
+      let%bind () = mutate @@ update_type v t1 in
+      begin
+        let c_type t = compile_type t "<ret>" in
+        match output_type with
+        | Some t ->
+          let%bind d = denote_gamma_m in
+          let dg = denote_type (`AVar "<ret>") [] d t2 in
+          return_mut
+          <|> add_type_implication dg (c_type t2) (c_type t)
+          <|> constrain_owner t2 t
+        | None -> return_mut
+      end
+      <|> remove_var ~loc:(LLet e_id) remove_scope
 
   | Seq (e1, e2) ->
     process_expr e1 ctxt
@@ -1437,7 +1440,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
 
   | Assign (lhs,IVar rhs,cont) ->
     do_with_context ctxt @@
-      let%bind (t1,t2) = split_type @> lkp rhs in
+      let%bind (t1,t2) = split_type @@ lkp rhs in
       let (orig,o,_)  = lkp_ref lhs in
       let%bind t2_assign =
         if IntSet.mem e_id ctxt.iso.fold_locs then
@@ -1471,7 +1474,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     
     do_with_context ctxt @@
       let%bind et' = make_fresh_type ~target_var:elem_ap ~loc:(LUpdate e_id) ~fv:(gamma_predicate_vars ctxt.gamma @ fv_of_arr b) ~bind:(arr_vars) et in
-      let%bind (t1,t2) = split_type @> lkp v in
+      let%bind (t1,t2) = split_type @@ lkp v in
       let%bind dg = denote_gamma_m in
       let c_up = compile_type t1 v |> with_refl (`AVar v) in
       let orig_cont = compile_type_gen et elem_ap arr_vars in
@@ -1495,7 +1498,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
       let%bind fresh_type = get_type_scheme ~loc:(LFold e_id) cont_id v in
       let (fresh_cont,o,_) = unsafe_split_ref fresh_type in
       let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(`AVar v_ref) in
-      let%bind (t1,t2) = split_type @> lkp v_ref in
+      let%bind (t1,t2) = split_type @@ lkp v_ref in
       return_mut
       <|> constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref)
       <|> update_type v_ref t1
@@ -1508,7 +1511,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
     let%bind assign_type = begin
       match rhs with
       | Var left_v ->
-        let%bind (t1,t2) = split_type @> lkp left_v in
+        let%bind (t1,t2) = split_type @@ lkp left_v in
         return_after t2 <|> update_type left_v t1
             
       | Const n -> return @@ Int (ConstEq n)
@@ -1525,7 +1528,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         end
       | Deref ptr ->
         let (target_type,o,_) = lkp_ref ptr in
-        let%bind (t1,t2) = split_type @> target_type in
+        let%bind (t1,t2) = split_type @@ target_type in
         let%bind t2_unfold = maybe_unfold @> t2 in
         return_after t2_unfold
         <|> update_type ptr @@ (ref_of t1 o `NLive)
@@ -1542,7 +1545,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
               | RNone -> return (Int Top,true)
               | RInt n -> return (Int (ConstEq n), true)
               | RVar v ->
-                let%bind (t1,t2) = split_type @> lkp v in
+                let%bind (t1,t2) = split_type @@ lkp v in
                 update_type v t2
                 >> return (t1, match t1 with Int _ -> true | _ -> false)
             in
@@ -1607,7 +1610,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         | RNone -> return @@ Ref (Int Top,OConst 1.0,`NLive)
         | RInt n -> return @@ Ref (Int (ConstEq n),OConst 1.0,`NLive)
         | RVar r_var ->
-          let%bind (t1,t2) = split_type @> lkp r_var in
+          let%bind (t1,t2) = split_type @@ lkp r_var in
           return_after (Ref (t2,OConst 1.0,`NLive)) <|> update_type r_var t1
     end in
     map_state (fun x -> (0,x)) >>
