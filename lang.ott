@@ -7,10 +7,13 @@ metavar funvar, f, g ::=
 metavar l::=
   {{ tex \ell }}  {{ com  label }}
 
+metavar F ::=
+  {{ tex \mathbf{[[F]]} }} {{ com ownership_fun }}
+
 metavar ll ::=
   {{ tex \overrightarrow{\ell} }}
 
-indexvar index, i, n, p ::=   {{ com index }}
+indexvar index, i, n, p, q ::=   {{ com index }}
 
 metavar a ::= {{ com addresses }}
 
@@ -54,6 +57,7 @@ grammar
     | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
 	| 0 :: :: Zero {{ com zero }}
 	| 1 :: :: One {{ com one }}
+	| a :: :: address
 
   fun_body :: FB_ ::=
     | ( x1 , ... , xi ) e :: :: f_body
@@ -76,8 +80,8 @@ grammar
 
   C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
     | < H , R , Es , e >         ::   :: Quad {{ tex \tuple{[[H]], [[R]], [[Es]], [[e]]} }}
-    | AssertFail                ::   :: AFail {{ tex \textbf{AssertFail} }}
-	| AliasFail :: :: AliasFail {{ tex \textbf{AliasFail} }}
+    | AssertFail                ::   :: AFail {{ tex \mathbf{AssertFail} }}
+	| AliasFail :: :: AliasFail {{ tex \mathbf{AliasFail} }}
 
   R :: R_ ::= {{ com env or register file }}
     | empty :: :: em {{ tex \emptyset }}
@@ -88,6 +92,7 @@ grammar
     | empty :: :: em {{ tex \emptyset }}
 	| H { a |-> Rv } :: :: update
 	| H { a <- Rv } :: :: destrUpdate
+	| H1 = H2 :: :: inlineDef
 
   Rv {{ tex v }} :: Rv_ ::= {{ com runtime value forms }}
     | a :: :: addr
@@ -157,7 +162,8 @@ grammar
 	| vsub T :: M :: subst_var
 	| T1 /\ x ph :: :: strength {{ tex [[T1]] \wedge_{[[x]]} [[ph]] }}
 	| T1 = T2 :: :: eq
-  | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
+    | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
+	| Top :: :: top_type {{ tex \top }}
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
@@ -204,6 +210,7 @@ grammar
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
     | -->                 ::   :: red        {{ tex \longrightarrow }}
+	| -->*                ::   :: trans_red {{ tex \longrightarrow^* }}
     |  ->                 ::   :: arrow      {{ tex \rightarrow }}
     | |-                  ::   :: turnstile  {{ tex \vdash }}
     | |-e                  ::   :: e_turnstile  {{ tex \vdash_{E} }}
@@ -219,11 +226,20 @@ grammar
 	| '|'                 ::   :: bar {{ tex \mid }}
 	| INT                 ::   :: int {{ tex \mathbb{Z} }}
 	| ifz                 ::   :: ifz
+	| SAT                 ::   :: sat_pred
+	| SATv                ::   :: satv_pred
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
 	| /\ :: :: and {{ tex \wedge }}
 	| M :: :: model {{ tex \mathcal{M} }}
+	| '|<' :: :: sum {{ tex \Sigma }}
+	| <= :: :: leq {{ tex \le }}
+
+  reduction :: '' ::=
+    | --> :: :: step
+	| -->* :: :: step_tr
+	| ! reduction :: :: cant_step {{ tex \not[[reduction]] }}
 
   logical_frag :: '' ::=
     | ph :: :: phi
@@ -259,6 +275,9 @@ grammar
     | { a |-> r } :: :: omap
 	| omap1 + omap2 :: :: omap_add
 	| own ( H , Rv , T ) :: :: own_fn
+	| F :: :: fmap
+	| empty :: :: empty {{ tex \emptyset }}
+	| |< { x in VS } omap :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[omap]] }}
 
   model :: 'M_' ::=
     | M :: :: m {{ tex \mathcal{M} }}
@@ -268,7 +287,8 @@ grammar
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{WF} [[T]] [[=>]] [[G]] }}
     | G1 <: G2            ::   :: subG
     | Th | G1 | B |- e : T => G2   ::   :: exp
-    | C1 --> D C2         ::   :: red        {{ tex [[C1]] [[-->]]_[[D]] [[C2]] }}
+    | C1 reduction D C2         ::   :: red        {{ tex [[C1]] [[reduction]]_[[D]] [[C2]] }}
+	
 	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{WF} [[ G ]] }}
 	| G | B |- T :: :: twf {{ tex [[G]] [[|]] [[B]] [[|-]]_{WF} [[T]] }}
 	| Gst | B |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[B]] [[|-]]_{WF} [[ph]] }}
@@ -288,6 +308,7 @@ grammar
 	| A :: :: cvar
 	| a  :: :: addr
 	| f :: :: fname
+	| v :: :: value
 
   MF :: 'MF_' ::=
     | G :: :: tyenv
@@ -295,24 +316,32 @@ grammar
 	| Gst :: :: stTenv
 	| H :: :: heap
 	| Th :: :: funenv
+	| omap :: :: ownership_map
 
   VS :: 'VS_' ::=
     | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}
 	| { bind } :: :: singleton {{ tex \set{[[bind]]} }}
 	| { bind1 ,, bindn } :: :: count {{ tex \set{[[bind1]],\ldots,[[bindn]]} }}
+	| { bind1 , ... , bindn } :: :: concr
 	| FVF :: :: free_var_fun
 	| dom MF :: :: dom_mf {{ tex dom([[MF]]) }}
+	| VS1 '\' VS2 :: :: minus {{ tex [[VS1]] \setminus [[VS2]] }}
 
   EqT :: 'EqT_' ::= {{ com equatable terms }}
     | e :: :: expt
 	| Gst :: :: simple_g
 	| G :: :: gamma
-	| B :: :: ctxt
+	| B :: :: ctxt_string
 	| Rv :: :: runtime_value
 	| VS :: :: value_set
 	| functions :: :: func
 	| csub  :: :: context_sub
 	| vsub :: :: value_sub
+	| C :: :: config
+	| termvar :: :: var
+	| H :: :: heap
+	| E :: :: ctxt
+	| r :: :: own
 
   formula :: formula_ ::=
     | logical_frag1 = logical_frag2 :: :: eq_form
@@ -322,8 +351,8 @@ grammar
 	| logic_judgment :: :: lj
     | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
     | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
+	| r1 <= r2 :: :: own_le {{ tex [[r1]] [[<=]] [[r2]] }}
 	| r1 = r2 :: :: own_eq
-    | C1 != C2 :: :: conf_ineq
 	| formula1 <=> formula2 :: :: meta_biimpl
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
@@ -335,13 +364,16 @@ grammar
 	| bind not in VS :: :: notInFv {{ tex [[bind]] \not\in [[VS]] }}
 	| VS1 sub VS2 :: :: subset {{ tex [[VS1]] \subseteq [[VS2]] }}
 	| Rv is INT :: :: in_int {{ tex [[Rv]] \in [[INT]] }}
-	| Rv1 != Rv2 :: :: rvNotEq {{ tex [[Rv1]] \neq [[Rv2]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
 	| EqT1 = EqT2 :: :: equate
+	| EqT1 = EqT2 ... = EqT3 :: :: eq_list 
+	| EqT1 != EqT2 :: :: ineq {{ tex [[EqT1]] \neq [[EqT2]] }}
+	| r1 <= r2 .. <= r3 :: :: rel_list
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
 	| ( formula ) :: :: parenF
 	| T1 ~ T2 :: :: tEqual {{ tex [[T1]] \approx [[T2]] }}
 	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] \approx_[[a]] [[H2]] }}
 	| R1 < R2 :: :: reg_weak {{ tex [[R1]] \sqsubseteq [[R2]] }}
+
