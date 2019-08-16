@@ -1373,9 +1373,8 @@ let simple_type_at id v ctxt =
   |> Fun.flip Option.bind @@ StringMap.find_opt v
   |> Option.get
 
-let get_type_scheme ?(is_null=false) ~loc id v =
+let get_type_scheme ?(is_null=false) ~loc ~fv id v =
   let%with st = simple_type_at id v in
-  let%bind fv = predicate_vars_m in
   lift_to_refinement ~pred:(fun ~pos:{under_mu; _} fv p ->
       let fv' = (if is_null then [] else fv) in
       let%bind p = alloc_pred ~ground:(under_mu || is_null) ~loc fv' p in
@@ -1495,7 +1494,8 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
   | Let (PVar v,Mkref (RVar v_ref),((cont_id,_) as exp)) when IntSet.mem e_id ctxt.iso.fold_locs ->
     (* FOLD, EVERYBODY FOLD *)
     do_with_context ctxt @@
-      let%bind fresh_type = get_type_scheme ~loc:(LFold e_id) cont_id v in
+      let%bind fv = predicate_vars_m in
+      let%bind fresh_type = get_type_scheme ~loc:(LFold e_id) ~fv cont_id v in
       let (fresh_cont,o,_) = unsafe_split_ref fresh_type in
       let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(`AVar v_ref) in
       let%bind (t1,t2) = split_type @@ lkp v_ref in
@@ -1524,7 +1524,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
         match patt with
         | PNone -> return @@ Int Top
         | PTuple _ -> assert false
-        | PVar v -> get_type_scheme ~is_null:true ~loc:(LNull e_id) cont_id v
+        | PVar v -> get_type_scheme ~is_null:true ~fv:[] ~loc:(LNull e_id) cont_id v
         end
       | Deref ptr ->
         let (target_type,o,_) = lkp_ref ptr in
