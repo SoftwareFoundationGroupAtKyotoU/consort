@@ -1,10 +1,12 @@
 .PHONY: all src/all clean
 
 OTTNAME=lang
+TEX=intro.tex preliminaries.tex typesystem.tex appendix.tex	\
+	related_work.tex impl.tex experiments.tex conclusion.tex
 
 all: main.pdf src/all
 
-main.pdf: main.tex
+main.pdf: main.tex $(TEX)
 	latexmk $<
 
 %.tex: %.otex $(OTTNAME).ott

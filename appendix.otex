@@ -1,0 +1,933 @@
+\appendix
+\section{Proof of Soundness}
+\label{sec:app}
+
+\section{Proof of Type Soundness(Theorem 1)}
+To prove the safety of typing, we need to show that the total owership for each heap is always 1.
+A triple $( [[H]],[[R]],[[G]] )$ is consistent, written as $[[Cons(H,R,G)]]$, and defined as $\ref{fig:state-typing}$.
+
+\begin{theorem}\label{thm:soundness}
+  $\forall [[D]], [[e]], [[C]].[[ |- D C ==> <empty, empty, ., e> !-->* D AssertFail]]$
+\end{theorem}
+
+The followings are key lemmas:
+\begin{lemma}
+  \label{lem:initial}
+  $[[ |- D <empty,empty,.,e> ]]$
+\end{lemma}
+
+\begin{lemma}
+  \label{lem:preservation}
+  $[[ |- D <H,R,Es,e> /\ <H,R,Es,e> --> D C ==> |- D C ]]$
+\end{lemma}
+
+\begin{lemma}
+  \label{lem:assertfail}
+  $[[ |- D C ==> C != AssertFail ]]$
+\end{lemma}
+
+\begin{definition}
+  We will write $[[R < R']]$ to denote two register files such that:
+  \begin{enumerate}
+  \item $[[ dom R]] \subseteq [[ dom R' ]]$, and
+  \item $[[ forall x in R.R(x) = R'(x) ]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{lemma}[Register Weakening]
+  \label{lem:register}
+  If $[[ SATv(H, R, Rv, T) ]]$, then for any $[[R']]$ such that $[[ R < R' ]]$, $[[ SATv(H, R', Rv, T) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. If $[[ T = T' ref r ]]$, then
+  the result is trivial if $[[r = 0]]$, otherwise it follows from the
+  inductive hypothesis. We therefore consider the case where
+  $[[ T = {y: int | ph} ]]$. Without loss of generality, we consider
+  the case where $[[ dom R' ]] \setminus [[ dom R ]] = \set{x}$,
+  $[[x != y]]$, and $[[R'(y) = nn]]$. (If $[[x = y]]$, then the added binding
+  has no effect by the order of substitutions given by
+  $[[ [R; Rv/y]ph ]]$. Similarly, if $[[R'(y) = a]]$, the extra binding
+  also has no effect. Finally, the case where more than one binding is
+  added follows from $n$ applications of the following argument).
+
+  From $[[SATv(H,R,Rv,T)]]$, we conclude that $[[Rv is INT]]$ and that
+  $[[ [R; Rv/y]ph ]]$. If $[[x not in FPV(ph)]]$ then $[[ [R; Rv/y]ph = [R';Rv/y]ph ]]$
+  and the result holds trivially. Otherwise, if $[[x in FPV(ph)]]$ and $[[x not in R]]$
+  from the validity of $[[ [R;Rv/y]ph ]]$, $[[ph]]$ must be true for any value of $[[x]]$,
+  whence the validity of $[[ [R;Rv/y]ph ]]$ is immediate.
+\end{proof}
+
+\begin{definition}
+  Two heaps $[[H]]$ and $[[H']]$ are \emph{equivalent modulo $[[a]]$}, written $[[H ~ a H']]$ if:
+  \begin{enumerate}
+  \item $[[dom H = dom H']]$
+  \item $[[forall a' in dom H.a' != a ==> H(a) = H(a')]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{lemma}[Heap Ownership Preservation]
+  \label{lem:heapop}
+  Let $[[H]]$ and $[[H']]$ be two heaps such that $[[H ~ a H']]$ for
+  some $[[a]]$. If $[[own(H,v,T)(a) = 0]]$, then
+  $[[own(H,v,T) = own(H',v,T)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. If $[[T = {y:int |ph}]]$ then
+  the result trivially holds. Otherwise, $[[T = T' ref r]]$. We assume
+  that $[[v = a'']]$ and $[[a'' in H]]$ (otherwise the result
+  trivially holds). Consider the case where $[[a'' =
+  a]]$. By definition
+  $[[own(H,a,T) = {a |-> r} + own(H,H(a),T')]]$, and by the
+  assumption that $[[own(H,a,T)(a) = 0]]$ we must have that
+  $[[r = 0]]$. Further, by the well-formedness of types, all
+  ownerships that appear in $[[T']]$ must be $[[0]]$, thus we have that
+  $[[own(H,H(a),T') = own(H',H'(a), T')]]$.
+
+  Finally, consider the case where $[[a'' != a]]$. Then from the
+  definition of $[[own(H,a'',T)]]$ and our assumption that
+  $[[own(H,a'',T)(a) = 0]]$, we have $[[own(H,H(a''),T')(a) = 0]]$,
+  and the result holds from the inductive hypothesis.
+\end{proof}
+
+\begin{lemma}
+  \label{lem:heapfor0}
+  Let $[[H ~ a H']]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[T]]$. The base case where
+  $[[T = {y:int|ph}]]$ is trivial. We therefore consider the case
+  where $[[v = a']]$ and $[[T = T' ref r]]$. If $[[a' = a]]$, then by
+  our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
+  $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds. Otherwise, we
+  have that $[[a' != a]]$, and by definition we must have that
+  $[[own(H,H(a),T')(a) = 0]]$ hence the result follows from the
+  inductive hypothesis.
+\end{proof}
+
+
+\begin{lemma}
+  \label{lem:newaddheap}
+  If we have heap $H$, such that $[[ SATv(H,R,v,T) ]]$. For any heap $H'$,
+  $[[ H' = H{a |-> v'}]], [[a not in H]]$, then we have $[[ SATv(H', R, v, T) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the shape of $[[ T ]]$.
+  The base case where $[[T = {y:int|ph}]]$ is trivial.
+  Next, we consider the case where $[[T = T' ref r]]$.
+  From the definition of $[[SAT]]$,
+  if $[[r = 0]]$, then $[[SATv(H',R,v,T)]]$ trivially holds.
+  Then it remains to show $[[r>0 ==> v in dom H' /\ SATv(H',R, H'(v),T') ]]$.
+  From $v\in dom(H)$ (by inversion on $[[SATv(H,R,v,T)]]$) and $a\notin dom(H)$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
+  That is $[[ SATv(H',R, H(v),T') ]]$, which is true by the induction hypothesis.
+\end{proof}
+
+
+
+\begin{lemma}
+  \label{lem:sattosat}
+  If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
+\end{lemma}
+\begin{proof}
+  The forward case follows from straightforward induction on the shape of $[[T1]]$
+  and from the observation that if $[[ph1 <=> ph2]]$ then $[[ [R;v/x]ph1 <=> [R;v/x]ph2]]$. The
+  backwards case follows by symmetric reasoning by induction on the shape of $[[T2]]$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{lem:preservation}]
+  The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
+  $[[ |-D ]]$, and for that we must find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
+  the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
+  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .F(a) <= 1]]$.
+  We give that $[[a in H]]$ and $[[F0]]$ represents the $[[F(a)]]$ before transition, $[[F1]]$ represents the $[[F(a)]]$ after transition.
+  We know that $[[forall a in H.F0(a) <= 1]]$ since the configuration is well typed before transition, and to prove $[[F0=F1]]$ in each case.
+  
+  \begin{rneqncase}{R-Var}{
+    [[ |- D <H, R, En-1 : Es, x>]], [[<H, R, En-1 : Es, x> --> D <H, R, Es, En-1[x]> ]] \\
+  }  
+  By \cref{lem:inversion} we have
+  \begin{align*}
+    [[ Th | G [ x : Tn + T'] | ll |- x : Tn => G[ x <- T' ] ]] \\
+    [[ Gn = G [ x <- T' ] ]]
+  \end{align*}
+    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ and $[[E[e] = x /\ E = [] /\ e = x ]]$
+    we can obtain
+    \begin{align*}
+      & [[ Th | [] : Tn => Gn | ll |-e E : Tn => Gn ]] \\
+      & \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]
+    \end{align*}
+    
+    Also using $\cref{lem:stack-well-typed}$, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]]$.
+    
+    By $\cref{lem:stack_var}$ and $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[En-1 [x] ]]$
+    into a context $[[E']]$ and expression $[[e']]$ will be well-typed with respect to the types expected by the hole type of $E_{n-2}$.
+    
+    It remains to show that $[[Cons(H,R,Gn=G[x : Tn + T'])]]$,
+    which follows immediately from $[[Cons(H,R,G)]]$ (note that $[[Gn=G]]$).
+  \end{rneqncase}
+  
+  \begin{rneqncase}{R-Deref}{
+    [[ |- D <H, R, Es, E[let x = *y in e]>]]\\
+    [[<H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]\\
+    [[ ll |- T => G' \ x ]] \andalso [[ H(a) = v ]] \andalso [[ R(y) = a ]]\\
+    [[ Th | G[y: (T1 + T2) ref r] | ll |- let x = *y in e : T => G' \ x ]]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Deref}$, we can obtain $[[ Th | G[y <- (T1 /\ y y = x) ref r], x : T2 | ll |- e : T => G'\ x ]]$.
+    We give $[[G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]$ and $[[ R'= R { x' |-> v } ]]$.
+
+    We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |-> v }, G'')]]$.
+    The first is easy to obtain using $\cref{lem:substitution}.$
+    It remains to show $[[Cons(H,R { x' |-> v }, G'')]]$. To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$
+    and $[[SATv(H,R',H(R'(y)),T1 /\ y y = x) ]]$.
+    If $[[ T1 ]]$ is an integer, by the definition of the strengthening operator, the latter is equivalent to show that $[[ SATv(H,R',H(R'(y)),T1) ]]$
+    and that $[[R'(x')=H(R'(y))=H(R(y))]]$, which is immediate from the definition of $\rn{R-Deref}$.
+    If $[[ T1 ]]$ is not an integer, then we must only show that $[[ SATv(H,R',H(R'(y)),T1) ]]$.
+    
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ==> SATv(H,R',v,T1) /\ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $[[v = H(R(y))]]$.
+    We therefore prove that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.
+    
+    We must also show that the ownership invariant is preserved.
+    Then, it's to show $[[forall a in H.F(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
+    \begin{align*}
+      [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\
+      [[F1]] & =[[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
+      [[F0']] &  = [[ |< {z in dom G \ {y}} own(H,R(z),G(z))]] \\
+      [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H',R'(z'),G''(z')) ]]
+    \end{align*}
+    By $\cref{lem:heapop}$, $[[F0' = F1']]$ holds.
+    From $\cref{lem:ownadd}$, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $[[v = H(R(y))]]$.
+    We know that $[[R'(x')=H(R'(y))=H(R(y))]]$, so $[[ own(H,R'(x'),G''(x'))  = own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),G(y)) = own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) = own(H,H(R'(y)),T1) ]]$,
+    so we have $[[own(H,R(y),G(y))=own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $[[F0=F1]]$.
+  \end{rneqncase}
+  
+  \begin{rneqncase}{R-Let}{
+    [[ |- D <H, R, Es, E[let x = y in e]> ]]\\
+    [[<H, R, Es, E[let x = y in e]> --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]\\
+    [[ x' fresh in R ]]\\
+    [[ Th | G[y: T1 + T2] | ll |- let x = y in e : T => G' \ x]]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Let}$, we can obtain $[[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | ll |- e : T => G']]$ and
+    $[[ll |- T => G' \ x]]$. We give $[[G'' = G [ y <- T1 /\ y y = T1 x'  ], x' : (T2 /\ x' x' = T2 y)]]$ and $[[ R'= R { x' |->  R(y) } ]]$.
+    
+    We want to show $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x ]]$ and $[[Cons(H,R { x' |->  R(y) }, G'')]]$.
+    The first is easy to obtain using $\cref{lem:substitution}.$
+    It remains to show $[[Cons(H,R{ x' |-> R(y) },G'')]]$.
+    
+    To show that the output environment is consistent, we must show that $[[SATv(H,R',R'(x'),T2 /\ x' x' = y)]]$ and $[[SATv(H,R',R'(y),T1 /\ y y=x')]]$.
+    By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$.
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:satadd}$ and $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ==>  SATv(H,R',v,T1) /\ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $v = R(y)$.
+    We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.
+    
+    We must also show that the ownership invariant is preserved.
+    Then, it's to show $[[forall a in H.F(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
+    \begin{align*}
+    [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\ 
+    [[F1]] & = [[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
+    [[F0']] & = [[ |< {z in dom G \ {y}} own(H,R(z),G(z)) ]] \\
+    [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H',R'(z'),G''(z'))]]
+    \end{align*}
+    By $\cref{lem:heapop}$, $[[F0' = F1']]$ holds.
+    That $[[own(H,R'(x'),T2) + own(H,R'(y),T1) = own(H,R(y),T1+T2)]]$ follows immediately
+    from $\cref{lem:ownadd}$ and the condition $[[R(y)=R'(x')=R'(y)]]$.
+    We therefore conclude that $[[F0=F1]]$.
+  \end{rneqncase}
+  
+  \begin{rneqncase}{R-LetInt}{
+    [[ |- D <H, R, Es, E[let x = nn in e]>]]\\
+    [[ <H, R, Es, E[let x = nn in e]> --> D <H, R { x' |-> nn }, Es, E[ [x'/x]e]> ]]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-LetInt}$, we can obtain $[[ Th | G, x:{x : int | x = nn } | ll |- e : T => G']]$.
+    We give that $[[ G''= G,x':{x':int | x' = nn}]]$.
+    We want to show that $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x]]$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$.
+    The first one is easy to obtain using the $\cref{lem:substitution}$ and $[[ Cons(H, R { x' |-> nn }, G'') ]]$ is trivial.
+  \end{rneqncase}
+  
+  \begin{rneqncase}{R-IfTrue}{
+    [[ |- D <H, R, Es, E[ifz x then e1 else e2]>]]\\
+    [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]\\
+    [[ Th | G[x : {y:int|ph}] | ll |- ifz y then e1 else e2 : T => G' ]]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-If}$, we can obtain $[[ Th | G[x <- {y:int | ph /\ y = 0 }] | ll |- e1 : T => G' ]]$.
+    We take $[[ G'' = G[x <- {y:int | ph /\ y = 0 }] ]]$, and want to show that $[[ Cons(H, R, G'') ]]$.
+    
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> x in R /\ R(x) is INT /\  [R;R(x)/y]ph]]$, here $[[ G(x) = {y:int | ph}]]$.
+    The refinement predicates $[[ph]]$ still holds in the output environment, since nothing changes in the heap and the register after transition.
+    Also from precondition of $\rn{R-IfTrue}$, we have $[[R(x)=0]]$, thus $[[y]]$ satisfies the refinement that $[[y=0]]$.
+    Thus $[[ [R;R(x)/y]ph /\ y = 0]]$ is trivially satisfied.
+  \end{rneqncase}
+  
+  \begin{rncase}{R-IfFalse}
+    Similar to the case for $\rn{R-IfTrue}$.
+  \end{rncase}
+  
+  \begin{rneqncase}{R-MkRef}{
+    [[ |- D <H, R, Es, E[let x = mkref y in e]>]]\\
+    [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]\\
+    [[ Th | G[y : T1 + T2] | ll |- let x = mkref y in e : T => G' \ x ]]
+    }
+    Using the Inversion on the typing rule on $\rn{T-MkRef}$, we can obtain $[[ Th | G[y <- T1],x : (T2 /\ x x = y) ref 1 | ll |- e : T => G' /\
+    ll |- T => G' \ x ]]$. We give $[[ G'' = G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 ]]$.
+    By the Inversion on the transition rule $\rn{R-MkRef}$, we can obtain $[[a not in H]]$.
+    
+    We want to show that $[[ Th | G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 | ll |- [x'/x]e : T => G'\ x ]]$ and $[[Cons(H'= H { a |-> R(y) },R'= R { x' |-> a },G'')]]$.
+    The first is easy to obtain using $\cref{lem:substitution}.$
+    It remains to show $[[Cons(H',R',G'')]]$.
+    To show that the output environment is consistent, we must show that $[[SATv(H',R',R'(x'),T2 /\ x' x'=y ref 1)]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
+    By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
+    From $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ==> SATv(H,R',v,T1+T2) ]]$. By $\cref{lem:newaddheap}$, we have $[[ SATv(H',R',v,T1+T2) ]]$.
+    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R',v,T1) /\ SATv(H',R',v,T2) ]]$, where $[[ R' < R ]]$ and $[[v = R(y)]]$.
+    We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.
+    
+    We must also show that the ownership invariant is preserved.
+    Then, it's to show $[[forall a in H.F(a) <= 1]]$. We have:
+    \begin{align*}
+      [[F1]] & = [[|< {z in dom G''} own(H',R'(z'),G''(z'))]] \\
+             & = [[ |< {z in dom G} own(H,R(z),G(z)) + {a' |->  1}]] \\
+             & = [[F0 + {a' |-> 1}]]
+    \end{align*}
+    with $[[a' not in H]]$.
+    
+    We want to show that $[[forall]][[a in H']].F_1(a) \leq 1$.
+    Suppose $[[a != a']]$ (that is $[[a in H]]$): we have $[[F1(a)= F0(a)]]$ and thus $[[F1(a) <= 1]]$ by $[[Cons(H,R,G)]].$
+    Next, suppose $a=a'$; we have $[[F1(a)=1]]$ only if $[[a' not in F0]]$, where $[[F0= |< {z in dom G} own(H,R(z),G(z))]]$. This requirement immediately holds from $[[a' not in H]]$ by the definition of $[[own(H,v,T)]]$.
+  \end{rneqncase}
+  
+  \begin{rneqncase}{R-Assign}{
+    [[ |- D <H, R, Es, E[y:=x;e]>]]\\
+    [[ <H, R, Es, E[y:=x;e]> --> D <H { a <- R(x)}, R, Es, E[e]> ]]\andalso a = R(y)\\
+    [[ Th | G[x: T1 + T2][y : T' ref 1] | ll |- y := x; e : T => G']]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assign}$, we can obtain $[[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref 1] | ll |- e : T => G']]$.
+    We give $[[ G'' = G[x <- T1][y <- T2 /\ y y = T2 x ref 1] ]]$.
+    
+    We want to show that $[[ Cons(H'= H { a <- R(y) },R'= R,G'')]]$.
+    To show that the output environment is consistent, we must show that $[[SATv(H',R,R(y),T1 /\ y y = x ref 1)]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    We define $[[F0]]$ and $[[F1]]$ as below:
+    \begin{align*}
+      [[F0]] & = [[F0' + own(H, R(y), G(y)) + own(H, R(x), G(x)) = F0' + F0'']] \\
+      [[F1]] & = [[F1' + own(H', R(y), G''(y)) + own(H', R(x), G''(x))= F1' + F1'' ]] \\
+      [[F0']] & = [[ |< {z in dom G \ {y,x} } own(H,R(z),G(z)) ]] \\
+      [[F1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]] \\
+    \end{align*}
+    By the definition of the ownership function and $[[G(y) = T' ref 1 /\ G(x) = T1 + T2]]$ we have:
+    \begin{align*}
+      [[F0'']] & = [[own(H, H(R(y)), T') + {a |-> 1} + own(H, R(x), T1 + T2)]] \\
+      [[F1'']] & = [[own(H', H'(R(y)), T2) + {a |-> 1} + own(H',R(x), T1)]]
+    \end{align*}
+    As $[[ F0(a) <= 1 ]]$ (from $[[Cons(H,R,G)]]$) and from
+    \[
+      [[F0(a)=F0'(a) + F''0(a) = F0'(a) + own(H, H(R(y)), T')(a) + 1 + own(H, R(x), T1 + T2)(a)]]
+    \]
+    we have $[[own(H, R(x), G(x))(a)=own(H, R(x), T1 + T2)(a)=0]]$.
+    
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> x in R /\ SATv(H,R,R(x),G(x)) ]] $.
+    By $\cref{lem:heapfor0}$ and $[[own(H, R(x), T1 + T2)(a)=0]]$, we obtain
+    $[[ SATv(H',R,v,T1+T2) ]]$.
+    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R,v,T1) /\ SATv(H',R,v,T2) ]]$, where $[[v = R(x)]]$.
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.
+    
+    We must also show that the ownership invariant is preserved.
+    Then, it's to show $[[forall a in H.F(a) <= 1]]$.
+    As $[[F0'=F1']]$ holds by pointwise application of $\cref{lem:heapop}$, and $[[forall a in H.F0(a) <= 1]]$, if $[[forall a' in H'. F1''(a') <= F0''(a')]]$, we can conclude that $[[F1(a') <= F0(a') <= 1]]$.
+    
+    Suppose for some arbitrary $[[a in H]]$, $[[a= a']]$, then:
+    \begin{align*}
+      [[F1''(a)]] & = [[own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1]] \\
+      [[F0''(a)]] & = [[own(H, R(x), T1 + T2)(a) + own(H, H(R(y)), T')(a)+1]]
+    \end{align*}
+    We know $[[F0(a') <= 1]]$, hence $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
+    By $\cref{lem:heapop}$, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
+    Also by $\cref{lem:ownadd}$, we have $[[own(H', R(x), T2+T1) = own(H', R(x), T1)+own(H', R(x), T2)]]$.
+    Then we have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$.
+    Therefore, \[
+      [[F1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = F0''(a')]]
+    \]  
+    Next, suppose $a\neq a'$;
+    \begin{align*}
+      [[F1''(a')]] & = [[own(H', H'(R(y)), T2)(a') + own(H', R(x), T1)(a') ]] \\
+      [[F0''(a')]] & = [[own(H, R(x), T2 + T1)(a') + own(H, H(R(y)), T')(a') ]]
+    \end{align*}
+    By reasoning similar to the case for $a= a'$, we have $[[F1''(a') <= own(H, R(x), T2 + T1)(a') <= F0''(a')]]$.
+    Finally, we conclude that $[[forall a' in H'.F1(a') <= 1]]$.
+  \end{rneqncase}
+  \begin{rneqncase}{R-Alias}{
+    [[ |- D <H, R, Es, E[alias(x = y); e]>]]\\
+    [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]\\
+    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | ll |- alias(x = y); e : T => G']]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Alias}$, we can obtain $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | ll |- e : T => G']]$ and $[[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]]$.
+    We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$.
+    It remains to show $[[Cons(H, R, G'')]]$.
+    We suppose the type before transition are $[[G(x)=Tp1 = T1 ref r1]], [[G(y)=Tp2 = T2 ref r2]]$.
+    After transition, the type environment becomes $[[G''(x)=Tq1 = T1' ref r1']], [[G''(y)=Tp2 = T2' ref r2']]$.
+    Let $[[ Tp = Tp1 + Tp2]]$ and $[[Tq = Tq1 + Tq2]]$; we thus have $[[Tq ~ Tp]]$ by from the typing rule $\rn{T-Alias}$.
+    
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]]$.
+    From $[[Tp1 + Tp2 = Tp]]$ and $\cref{lem:satadd}$, we have
+    $[[SATv(H,R,v,Tp1) /\ SATv(H,R,v,Tp2) ==> SATv(H,R,v,Tp)]]$, where $[[v = H(R(y))=H(R(x))]]$.
+    Similarly, we also have $[[SATv(H,R',v,Tq) ==> SATv(H,R',v,Tq1) /\ SATv(H,R',v,Tq2)]]$, where $[[v = H(R(y))=H(R(x))]]$.
+    From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we then have $[[SATv(H,R,v,Tp) ==> SATv(H,R,v,Tq)]]$.
+    Then from the reasoning above, the refinements of $[[Tq1]]$ and $[[Tq2]]$ are valid and $[[Cons(H, R, G'')]]$ holds.
+    
+    Then, it's to show $[[forall a in H.F(a) <= 1]]$. Here $[[F0]]$ represents the $[[F(a)]]$ before transition, $[[F1]]$ represents the $[[F(a)]]$ after transition.
+    To prove that $[[F0=F1]]$ follows from:
+    \begin{align*}
+      &[[own(H,R(x),T1 ref r1) + own(H,R(y),T2 ref r2) ]] =  \\
+      &\,\,\,\,[[ own(H,R(x),T1' ref r1') + own(H,R(y),T2' ref r2')]]
+    \end{align*}
+    which follows immediately from the conditions $[[ T1 ref r1 + T2 ref r2 = T1' ref r1' + T2' ref r2']]$ and $[[R(x) = R(y)]]$.
+  \end{rneqncase}
+  
+  \begin{rncase}{R-AliasFail}
+    The result configuration $[[AliasFail]]$ is trivially well-typed.
+  \end{rncase}
+  
+  \begin{rneqncase}{R-Assert}{
+    [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ G |= ph ]]\\
+    [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]\\
+    [[ Th | G | ll |- assert(ph); e : T => G']]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | ll |- e : T => G' ]]$.
+    $[[Cons(H',R',G')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $[[G = G']], [[H'=H]], [[R'=R]]$.)
+  \end{rneqncase}
+  \begin{rneqncase}{R-AssertFail}{
+    [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ R !|= ph ]]\\
+    [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]\\
+    [[ Th | G | ll |- assert(ph); e : T => G']]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Assert}$, we can obtain $[[ Th | G | ll |- e : T => G' ]]$ and $[[ G |= ph ]]$.
+    $[[ G |= ph ]]$ is defined as $[[ |= [G] ==> ph ]]$, which means under any model $[[M]]$ that satisfy the refinements in $[[G]]$, $[[ph]]$ will be true, that is $[[ M |= ph ]]$.
+    By inversion on $[[ |- D <H, R, Es, E[assert(ph); e]>]]$, we have $[[Cons(H, R,G) ==> SAT(H,R,G)]]$, which will give
+    that every concrete value in the register must satisfy the refinement predicates in the type environment.
+    Thus, $[[ph]]$ must be satisfied under any model $[[ M ]]$ such that $[[forall x in R.M(x) = R(x) ]]$.
+    Thus $[[R |= ph]]$ must be true.
+    But in the case for $\rn{AssertFail}$, we have precondition as $[[ R !|= ph ]]$, which is contradictory with what we have been
+    derived, which shows the case is impossible.
+  \end{rneqncase}
+  \begin{rneqncase}{R-Call}{
+    [[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]\\
+    [[ Th | G[yi: csub vsub Ti] | ll |- let x = f l (y1,,yn) in e' : T' => G' \ x]]\\
+    [[f |-> (x1, .., xn) e in D]] \\
+    [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]
+    }
+    Using the Inversion $\cref{lem:inversion}$ of the typing rule on $\rn{T-Call}$, we can obtain:
+    \begin{align*}
+    & [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
+    & [[csub = [l:ll/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
+    & [[ ll |- T' => G' \ x]] \\
+      & [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | ll |- e' : T' => G' \ x]] \\
+    \end{align*}
+    By the Inversion on configuration typing $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$, we can obtain
+    $[[ Th | [] : T' => G' \ x | ll |-e E : Tn => Gn ]].$
+    
+    We want to show that: \begin{align*}
+    & [[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : csub vsub T => G[yi <- csub vsub Ti'] ]] \\
+    & [[ Th | [] : csub vsub T => G[yi <- csub vsub Ti'] | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
+    \end{align*}
+    To prove these, we can look at $\cref{lem:callfunc}$.
+    
+    We need to prove that $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$  where $[[ E'n = E[let x = [] l in e'] ]]$ and $[[ E'i = Ei ]] (0 \leq i < n)$,
+    which can be divided into proving
+    $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$. The first follows by inversion on $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$.
+
+    We define $[[Gn+1 = G[yi <- csub vsub Ti'] ]]$ and $[[Tn+1 = csub vsub T ]]$.
+    It remains to show $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$.
+    
+    As $[[En']]$ is $[[ E[let x = [] l in e'] ]]$,
+    from above we obtain $[[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]$.
+    Finally, by $\cref{lem:stack_var}$ and $[[ Th | G[yi: csub vsub Ti] | l:ll |- vsub e : Tn+1 => Gn+1 ]]$, any decomposition of $[[vsub e]]$ into a context $E'$
+    and expression $[[e']]$ will be well-typed as $[[Tn+1]]$ and $[[Gn+1]]$, which are the return type and environment expected by the hole of return context $E'_n$.
+    $[[Cons(H',R',G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ (note that $[[G''=G]], [[H'=H]], [[R'=R]]$).
+  \end{rneqncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:ownadd}
+  If $[[ Tp = T1 + T2 ]]$, then $[[own(H,v,Tp) = own(H,v,T1)+own(H,v,T2)]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the rules used to derive $[[ T1 + T2 = Tp]]$.
+  \begin{rncase}{Tadd-Int}
+    We have $[[own(H,v,Tp)=own(H,v,T1 + T2)]]$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+    $[[own(H,v,T1)]]$ and $[[own(H,v,T2)]]$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.
+  
+    From the definition of ownership, we have $[[own(H,v,Tp)=own(H,v,T1)=own(H,v,T2)=empty]]$.
+    It is thus trivial that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
+  \end{rncase}
+
+  \begin{rncase}{Tadd-Ref1}
+    We have $[[own(H,v,Tp)=own(H,v,T1 + T1)]]$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
+    $[[own(H,v,T1)]]$ and $[[own(H,v,T2)]]$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.
+    
+    From the definition of ownership, we have $[[own(H,v,Tp)={a |-> r1+r2 } + own(H,H(v),T1' + T2')]]$ and:
+    \begin{align*}
+      [[own(H,v,T1) + own(H,v,T2)]] & = [[{a |-> r1}+own(H,H(v),T1') + {a |-> r2}+own(H,H(v),T2') ]] \\
+                                    & = [[{ a |-> r1 + r2 } + own(H,H(v),T1') + own(H,H(v),T2')]]
+    \end{align*}
+    By the induction hypothesis, have that $[[own(H,H(v),T1' + T2') = own(H,H(v),T1') + own(H,H(v),T2')]]$ and can conclude that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
+  \end{rncase}
+  
+  \begin{rncase}{Tadd-Ref2}
+    We have $[[own(H,v,Tp)=own(H,v,T1 + T2)]]$, where $[[ T1 + T2 = T2' ref r ]]$,
+    $\mathbf{own}(H,v,T1)$ and $\mathbf{own}(H,v,T2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.
+    
+    From the well-formedness condition which states that all ownerships within the type $[[ T1 = T1' ref 0 ]]$ are $0$, we have $[[own(H,v,T1)= empty]]$.
+    
+    Also we know that $[[own(H,v,Tp) = own(H,v,T2)]]$, thus
+    it is trivial that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
+  \end{rncase}
+
+  \begin{rncase}{Tadd-Ref3}
+  We have $[[own(H,v,Tp)=own(H,v,T1+T2)]]$, where $[[T1 + T2 =  Top ref 0]]$,
+  $[[own(H,v,T1)]]$ and $[[own(H,v,T2)]]$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.
+  
+  From the well-formedness condition which states that all ownerships within the types $[[ Tp ]], [[ T1 ]]$ and $[[ T2 ]]$ are $0$, we have $[[own(H,v,Tp)=own(H,v,T1)=own(H,v,T2)=empty]]$.
+  It is thus trivial that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
+  \end{rncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:satadd}
+  If $[[ Tp =  T1+T2 ]]$, we have:
+  \[
+    [[ SATv(H, R, Rv, Tp) <=> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]]
+  \]
+\end{lemma}
+\begin{proof}
+  By induction on the rules used to derive $[[ T1 + T2 ]]$. In the following
+  we only prove the forward direction of the implication; the backwards
+  direction is symmetric.
+  \begin{rncase}{Tadd-Int}
+    We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {x:int | ph1/\ph2} ]]$,
+    $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$, where $[[ T1= {x:int | ph1} ]], [[ T2 = {x:int | ph2} ]]$.
+    
+    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) ==> [R; v/x]ph1 ]]$ and $[[ SATv(H, R, Rv, T2) ==> [R; v/x]ph2 ]]$, and 
+    $[[ SATv(H, R, Rv, T1+T2) ==> [R; v/x](ph1 /\ ph2) ]]$.
+    It is immediate that for any value $v$ such that $[[ [R; v/x](ph1 /\ ph2) ]]$, we must have $[[ [R; v / y]ph1 ]]$ and $[[ [R; v / x]ph2 ]]$.
+    We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) ]]\land[[ SATv(H, R, Rv, T2) ]].$
+  \end{rncase}
+
+  \begin{rncase}{Tadd-Ref1}
+    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) /\ r1 > 0 ==> a in H /\ SATv(H,R,H(a),T1') /\ T1 = T1' ref r1 /\ Rv = a ]]$,
+    and $[[ SATv(H, R, Rv, T2) /\ r2 > 0 ==> a in H /\ SATv(H,R,H(a),T2') /\ T2 = T2' ref r2 /\ Rv = a ]]$.
+    Also $[[ SATv(H, R, Rv, T1+T2) /\ r1+r2 > 0 ==> a in H /\ SATv(H,R,H(a),T1'+T2') /\ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
+    By the induction hypothesis, we have $[[ SATv(H,R,H(a),T1'+T2') SATv(H,R,H(a),T1') /\  SATv(H,R,H(a),T2') ]]$.
+    We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]].$
+  \end{rncase}
+
+  \begin{rncase}{Tadd-Ref2}
+    In this case, we have $[[ T1 + T2 = T2' ref r ]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref r ]]$, where $[[r>0]]$.
+    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) ==> SATv(H, R, Rv, T1' ref 0) ==> (0 > 0 ==> a in H /\ SATv(H,R,H(a),T1') /\ Rv = a) ]]$ which is trivially true.
+    From the above $[[T2 = Tp]]$, from which it is immediate that $[[ SATv(H,R,Rv,Tp) ==> SATv(H,R,Rv,T2) ]]$.
+    We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]].$
+  \end{rncase}
+  
+  \begin{rncase}{Tadd-Ref3}
+  In this case, we have $[[ T1+T2 = Top ref 0]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref 0 ]]$.
+  From the definition of $[[SAT]]$, as the ownerships are 0, we have $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$ are both trivally true.
+  We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]]$.
+  \end{rncase}
+\end{proof}
+
+\begin{lemma}[Inversion]
+  \label{lem:inversion}
+  In the following cases, we assume the existence of some $[[Gp]]$, $[[Tp]]$, and $[[Gp']]$ such that $[[G <: Gp]]$ and for any $[[x not in dom Gp']]$ $[[Gp',x: Tp <: G',x:T]]$. Further, to reduce notational clutter, any other free variables in the following are assumed to be existentially quantified.
+  \begin{enumerate}
+  \item If $[[ Th | G | B |- x : T => G']]$ then $[[ Gp(x) = Tp + T']]$ and $[[Gp' = Gp[x <- T'] ]]$.
+  \item If $[[ Th | G | B |- let x = y in e : T => G']]$, then $[[ Th | Gp [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : Tp => Gp0  /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x]]$ where $[[Gp(y) = T1 + T2]]$.
+  \item If $[[ Th | G | B |- let x = nn in e : T => G']]$ then $[[ Th | Gp, x : {x: int | x = nn } | B |- e : Tp => Gp0 /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x ]]$
+  \item If $[[ Th | G | B |- ifz x then e1 else e2 : T => G' ]]$ then:
+    \begin{itemize}
+    \item $[[ Gp(x) = { y : int | ph } ]]$
+    \item $[[ Th | Gp[ x <- {y:int| ph /\ y = 0}] | B |- e1 : Tp => Gp' ]]$
+    \item $[[ Th | Gp[ x <- {y:int| ph /\ y != 0}] | B |- e2 : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- let x = mkref y in e : T => G' ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp0 /\ B |- T => Gp0 \ x /\ Gp' = Gp0 \ x ]]$.
+  \item If $[[ Th | G | B |- let x = *y in e : T => G' ]]$, then $[[Gp(y) = T1 + T1 ref r /\ Th | Gp[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : Tp => Gp0 r > 0 /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x ]]$.
+  \item If $[[ Th | G | B |- let x = f l (y1,,yn) in e : T' => G']]$ then:
+    \begin{itemize}
+    \item $[[ Gp(yi) = csub vsub Ti ]]$ for each $i \in \set{1,\ldots,n}$
+    \item $[[ Th | Gp[yi <- csub vsub Ti'], x : csub vsub T | B |- e : Tp => Gp0 ]]$
+    \item $[[ B |- Tp => Gp0 \ x]]$
+    \item $[[ Gp' = Gp0 \ x ]]$
+    \item $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$
+    \item $[[csub = [l:B/A] ]]$
+    \item $[[ vsub = [y1/x1] ,, [yn/xn] ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- y := x; e : T => G' ]]$ then:
+    \begin{itemize}
+    \item $[[ Gp(x) = T1 + T2 ]]$
+    \item $[[ Gp(y) = T' ref 1 ]]$
+    \item $[[ Th | Gp[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- alias(x = y); e : T => G' ]]$ then there exist some $[[T1]], [[T2]], [[T1']], [[T2']]$ such that:
+    \begin{itemize}
+    \item $[[ T1 + T2 ~ T1' = T2' ]]$
+    \item $[[ Gp(x) = T1 ]]$ and $[[Gp(y) = T2 ]]$
+    \item $[[ Th | G[x <- T1'][y <- T2'] | B |- e : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- e1; e2 : T => G' ]]$ then $[[ Th | Gp | B |- e1 : T1 => Gp0 ]]$ and $[[ Th | Gp0 | B |- e2 : Tp => Gp' ]]$
+  \item If $[[ Th | G | B |- assert(ph); e : T => G' ]]$ then $[[ Gp |= ph ]]$ and $[[ Th | Gp | B |- e : Tp => Gp' ]]$
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  By straightforward induction on the typing relation and the
+  transitivity of the subtyping relation.
+\end{proof}
+
+\begin{lemma}
+  \label{lem:subtyp-preserves-satv}
+  If $[[SAT(H,R,G)]]$, $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$.
+\end{lemma}
+\begin{proof}
+  We first observe that if $[[ |= [R;nn/x]ph ]]$ then $[[R |= [nn/x]ph]]$ for
+  any $[[x]], [[nn]], [[ph]], [[R]]$.
+  It then follows that $[[SAT(H,R,G)]]$ implies $[[ R |= [G] ]]$.
+  
+  We now proceed by induction on the shape of $[[T]]$.
+  \begin{eqncase}{
+      [[T = {x:int |ph}]] & [[T' = {x:int|ph'}]] \\
+      [[|= [G] /\ ph ==> ph']] & [[ R |= [v/x]ph ]]
+    }
+    We must show that $[[ [R;v/x]ph' ]]$, i.e., $[[ R |= [v/x]ph' ]]$.
+    From $[[ |= [G] /\ ph ==> ph' ]]$ we must have
+    $[[ R |= [G] /\ [v/x]ph ==> [v/x]ph' ]]$, whence the result is immediate.
+  \end{eqncase}
+
+  \begin{eqncase}{
+      [[T = Tp ref r]] & [[T' = Tp' ref r]]
+    }
+    If $[[r = 0]]$ then the result is immediate, otherwise
+    the result follows from the induction hypothesis.
+  \end{eqncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:subtyp-preserves-sat}
+  If $[[SAT(H,R,G)]]$ and $[[ G <: G' ]]$, then $[[SAT(H,R,G')]]$.
+\end{lemma}
+\begin{proof}
+  Immediate consequence of \cref{lem:subtyp-preserves-satv} and that
+  $[[ G <: G' ]]$ implies that $[[G |- G(x) <: G'(x)]]$ for any $[[x in G']]$.\end{proof}
+
+\begin{lemma}[Substitution]
+  \label{lem:substitution}
+  If $\funenv \mid \tenv\mid \beta\vdash e \COL \tau  \produces \tenv'$, we can obtain
+  $\funenv \mid [x'/x]\tenv \mid \beta \vdash [x'/x]e \COL [x'/x]\tau \produces [x'/x]\tenv'$.
+\end{lemma}
+\begin{proof}
+  By straightforward induction of typing rules.
+\end{proof}
+
+\begin{lemma}\label{lem:ctxt-sub-distribute}
+  $[[ T3 = T1 + T2  ==> [B/A]T3 = [B/A]T1 + [B/A]T2 ]]$
+\end{lemma}
+\begin{proof}
+  By straightforward cases analysis on the definition of $[[ T1 + T2 ]]$.
+\end{proof}
+
+\begin{lemma}\label{lem:ctxt-sub-wf}
+  For any $[[ B ]]$:
+  \begin{enumerate}
+  \item $[[ A |- G ==> B |- [B / A]G]]$
+  \item $[[ G | A |- T ==> [B/A]G | B |- [B/A]T]]$
+  \item $[[ A |- T => G ==> B |- [B/A] T => [B/A]G ]]$
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  Observe that for any substitution $[[ [B/A] ]]$, $[[ST([B/A]G) = ST(G)]]$, whence it suffices
+  to show that $[[ FPCV ( [B/A]ph ) ]] \subseteq [[CV(B)]]$ for any refinement $[[ph]]$
+  appearing in of $[[T]]$ or a type in $[[G]]$.
+
+  By the assumed well-formedness of $[[T]]$ with respect to context
+  variable $[[A]]$ (resp. $[[G]]$), after substitution all free
+  context variables in $[[T]]$ (resp. the types in $[[G]]$) will be
+  replaced with $[[B]]$. Thus, post-substitution any free context
+  variables in the refinement of $[[ [B/A] T]]$ (resp. refinements of
+  types in $[[ [B/A] G]]$) will be the context variables that appear
+  in $[[B]]$, trivially satisfying our requirement.
+\end{proof}
+
+\begin{lemma}
+  \label{lem:ctxt-sub-subtype}
+  For any $[[G]]$, $[[T1]]$, $[[T2]]$, $[[A]]$ and $[[B]]$, $[[ G |- T1 <: T2 ==> [B/A]G |- [B/A]T1 <: [B/A]T2 ]]$.
+\end{lemma}
+\begin{proof}
+  If $[[A]]$ does not appear free in $[[T1]]$, $[[T2]]$ or $[[G]]$, then the result trivially holds. Let us then assume
+  $[[A]]$ appear free. We prove the result by induction on the subtyping derivation.
+
+  \begin{rneqncase}{Sub-Ref}{
+      [[ T1 = T1' ref r1 ]] & [[ T2 = T2' ref r2 ]] \\
+      [[ [B/A] T1 = ([B/A]T1') ref r2 ]] & [[ [B/A]T2 = ([B/A]T2') ref r2 ]] \\
+      [[  r2 > 0 ==> G |- T1' <: T2' ]]
+    }
+    If $[[ r2 = 0 ]]$ then the result trivially holds. If not, we must show that $[[ [B/A]G |- [B/A]T1' <: [B/A]T2' ]]$
+    which holds immediately from the induction hypothesis.
+  \end{rneqncase}
+
+  \begin{rneqncase}{Sub-Int}{
+      [[ T1 = {x:int|ph1} ]] & [[ T2 = {y:int|ph2} ]] \\
+      [[ [B/A]T1 = {x:int|[B/A]ph1 } ]] & [[ [B/A]T2 = {y:int|[B/A]ph2 } ]] \\
+      [[ G |= ph1 ==> ph2 ]]
+    }
+    We must show that $[[ [B/A]G |= [B/A]ph1 ==> [B/A]ph2 ]]$, i.e. $[[ |= [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$.
+    From our assumption that $[[ G |= ph1 ==> ph2 ]]$ we have that $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ is valid,
+    whence the formula $[[ [ G ] /\ ph1 ==> ph2 ]]$ is true for any possible valuation of the free context
+    variable $[[A]]$. Thus the formula $[[ [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$ must also be valid.
+  \end{rneqncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:ctxt-subst-well-typed}
+  \begin{align*}
+    & [[ Th | G | A |- e : T => G' ]] \Longrightarrow\\
+    & [[ Th | [ ll / A ] G | ll |- e : [ ll / A ] T => [ ll / A ] G' ]]
+  \end{align*}
+\end{lemma}
+\begin{proof}
+  By induction on the typing derivation $[[ Th | G | A |- e : T => G' ]]$. In the following
+  analysis, we will freely use the identity $[[([B/A]G) \ x = [B/A](G \ x)]]$.
+  \begin{rneqncase}{T-Var}{
+      [[e = x]] & [[T = T2]] \\
+      [[G = G0[x : T1 + T2] ]] & [[ G' = G0[x <- T2] ]]
+    }
+    By application of \cref{lem:ctxt-sub-distribute}.
+  \end{rneqncase}
+  \begin{rneqncase}{T-LetInt}{
+      [[e = let x = nn in e']] & [[ Th | G, x:{x:int|x = nn} | A |- e' : T => G'' ]] \\
+      [[ G' = G'' \ x ]] &
+    }
+    The induction hypothesis gives
+    \[
+      [[ Th | [ll/A]G, x:{x:int|x=nn} | ll |- e : [ll/A]T => [ll/A]G'' ]]
+    \]
+    \cref{lem:ctxt-sub-wf} gives $[[ ll |- [ll/A]T => [ll/A](G'' \ x) ]]$, from which we
+    conclude $[[ Th | [ll/A]G | ll |- let x = nn in e : [ll/A]T => [ll/A](G'' \ x) ]]$
+    as required.
+  \end{rneqncase}
+
+  \begin{rneqncase}{T-Let}{
+      & [[e = let x = y in e']] & [[ G' = G'' \ x ]] \\
+      & [[ Th | G1 | A |- e' : T => G'' ]] & [[ G1 = G[y <- (T1 /\ y y = T1 x)], x:(T2 /\ x x = T2 y)]] \\
+      & [[ G = G0[y: T1 + T2]  ]]
+    }
+    By \cref{lem:ctxt-sub-distribute},
+    $[[ ([ll/A]G)(y) = [ll/A](T1 + T2) = ([ll/A]T1 + [ll/A]T2) ]]$. We must then
+    show that $[[ Th | G1' | ll |- e : [ll/A]T => [ll/A]G'' ]]$
+    where
+    \[
+      [[ G1' = ([ll/A]G)[y <- [ll/A]T1 /\ y y = x ],x:([ll/A]T2 /\ x x = y) ]]
+    \]
+    As $[[G1' = [ll/A]G1]]$ the induction hypothesis gives the required typing judgment.
+    That $[[ll |- [ll/A]T => [ll/A]G'' ]]$ follows from \cref{lem:ctxt-sub-wf} as in the \rn{T-LetInt}
+    case.
+  \end{rneqncase}
+
+  \begin{rncase}{T-If,T-Seq}
+    By trivial application of the inductive hypothesis.
+  \end{rncase}
+
+  \begin{rncase}{T-MkRef,T-Deref}
+    By reasoning similar to \rn{T-Let}.
+  \end{rncase}
+
+  \begin{rneqncase}{T-Call}{
+      [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
+      [[ csub = [l:A/A'] ]] \\
+      [[ Th | G1 | A |- e : T => G2 ]] \\ [[ G' = G2 \ y ]] \\
+      [[ A |- T => G2 \ y  ]] \\
+      [[ Th(f) = A' < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T' > ]]  \\
+      [[ G1 = G[yi <- csub vsub Ti'], x : csub vsub T' ]]
+    }
+    We must first show that for $[[ csub' = [l:ll/A'] ]]$:
+    \[
+      [[  Th | G3 | ll |- e : [ll/A]T => [ll/A]G2 ]]
+    \]
+    where $[[ G3 = ([ll/A]G)[yi <- csub' vsub Ti'], x: csub' vsub T']]$.
+
+    We first observe that $[[ G3 = [ll/A]G1 ]]$ (this follows from the
+    equivalence of $[[ [ll/A][l:A/A'] ]]$ and
+    $[[ [l:ll / A'] ]]$) whence the induction hypothesis
+    gives the required typing derivation.
+
+    We must also show that
+    $\forall i \in \set{1..n}.[[([l:ll/A]G)(yi) = csub' vsub Ti]]$.
+    From the assumed well-typing of the term under $[[A]]$ we have
+    that $\forall i \in\set{1..n}.[[csub G(yi) = csub vsub Ti]]$. Recall
+    that $[[csub']]$ is equivalent to $[[ [ll/A] csub ]]$, whence we have
+    $[[ [ll/A] csub G(yi) = [ll/A] csub vsub Ti]]$ for any $[[i]]$ as
+    equality is preserved by consistent substitution.
+
+    That $[[ ll |- [ll/A]T => [ll/A](G2 \ y) ]]$ holds from application of
+    \cref{lem:ctxt-sub-wf}.
+  \end{rneqncase}
+
+  \begin{rncase}{T-Assign,T-Alias}
+    By the inductive hypothesis and application of \cref{lem:ctxt-sub-distribute}.
+  \end{rncase}
+
+  \begin{rneqncase}{T-Sub}{
+      [[ Th | G1 | A |- e : T1 => G2 ]] & [[ G <: G1 ]] \\
+      [[ G2, x : T1 <: G',x : T ]] & [[ Th | G | A |- e : T => G' ]]
+    }
+    By the induction hypothesis we have that: $[[ Th | [ll/A]G1 | ll |- e : [ll/A]T1 => [ll/A]G2 ]]$.
+    If we show that $[[ [ll/A]G <: [ll/A]G1 ]]$ and $[[ [ll/A]G2, x : [ll/A]T1 <: [ll/A]G', x : [ll/A]T ]]$
+    ($[[ x not in G ]]$)
+    we will have the required result. To show the first requirement, for any $[[ x in G ]]$ we have that
+    $[[ [ll/A]G |- [ll/A]G(x) <: [ll/A]G1(x) ]]$ from \cref{lem:ctxt-sub-subtype} whence we have $[[ [ll/A]G <: [ll/A]G1 ]]$.
+    To show the latter requirement, we observe that $[[ [ll/A]G2, x : [ll/A]T1 ]]$ is equivalent to $[[ [ll/A](G2, x : T1) ]]$ and
+    similarly for $[[G']]$ and $[[T]]$ whence we have the required subtyping relationship from the application of \cref{lem:ctxt-sub-subtype}.
+  \end{rneqncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:ectxt-sub-well-typed}
+  If, for some $[[G]]$,
+  $[[ Th | [] : T => G' | B |-e E : T'' => G'']]$ and $[[Th | G | B |- e : T => G' ]]$
+  then
+  $[[ Th | G | B |- E[e] : T'' => G'' ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the typing derivation of $[[E]]$.
+  \begin{rneqncase}{TE-Seq}{
+      [[ E ]] = [[ E'; e' ]] \\ [[ E[e] = E'[e]; e' ]] \\
+      [[ Th | [] : T => G' | B |-e E' : T0 => G0 ]] & [[ Th | G0 | B |- e' : T'' => G'' ]]
+    }
+    By the induction hypothesis we have $[[ Th | G | B |- E'[e] : T0 => G0 ]]$. Combined
+    with the assumption $[[ Th | G0 | B |- e' : T'' => G'' ]]$ the result holds
+    via application of the proof rule \rn{T-Seq}.
+  \end{rneqncase}
+  \begin{rncase}{TE-Hole}
+    Trivial.
+  \end{rncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:stack-well-typed}
+  For any $[[G0]]$ such that $[[Th | G0 | l:ll |- x: T => G]]$ and $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ then
+  $[[ Th | G0 | ll |- E[let y = [] l in e][x] : T' => G' ]]$
+\end{lemma}
+\begin{proof}
+  It suffices to show that $[[ Th | G0 | ll |- let y = x in e : T1 => G1]]$
+  and $[[ Th | [] : T1 => G1 | ll |-e E : T' => G']]$
+  whence the result will hold from \cref{lem:ectxt-sub-well-typed}.
+
+  By inversion on
+  $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ and
+  $[[ Th | G0 | l:ll |- x : T => G]]$ we have that:
+  \begin{align}
+    & [[ Th | G, y: T | ll |- e : T2 => G2 ]] \\
+    & [[ Th | []: T2 => G2 \ y | B |-e E : T' => G' ]] \\
+    & [[ ll |- T2 => G2 \ y ]] \\
+    & [[ G0(x) = T + T' ]] \\
+    & [[ G = G0[x <- T'] ]]
+  \end{align}
+  We take $[[ G1 = G2 \ y ]]$, $[[ T2 = T1 ]]$. To show that
+  $[[ Th | G0[x : T + T'] | ll |- let y = x in e : T1 => G1 ]]$ it
+  remains to show that
+  $[[Th | G0[x <- T' /\ x x = y],y : T /\ y y = x | ll |- e : T2 =>
+  G2]]$ and that $[[ ll |- T2 => G2 \ y]]$.
+  The former follows from first weakening the types of $[[x]]$ and $[[y]]$ with \rn{T-Sub}
+  and from assumption (1), and the latter follows from (3).
+\end{proof}
+
+\begin{lemma}
+  \label{lem:stack_var}
+  For any $[[E]]$ and $[[e']]$ such that $[[E[e'] = e]]$ where
+  $[[Th | G | B |- e : T => G']]$ there exists some $[[T0]]$, $[[G0]]$ such that
+  $[[Th | []: T0 => G0 | B |-e E : T => G' ]]$ and
+  $[[Th | G | B |- e' : T0 => G0]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the structure of $[[E]]$.
+  \begin{rncase}{E-Hole}
+    Trivial, by taking $[[T1 = T]]$ and $[[G' = G1]]$.
+  \end{rncase}
+  \begin{rncase}{E-Seq}
+    Then $[[E = E'; e'']]$ and $[[E[e'] = E'[e']; e'' = e]]$, whence
+    $[[e = e1; e2]]$ where $[[E'[e'] = e1]]$ and $[[e'' = e2]]$. By
+    inversion on the typing derivation of $[[e]]$ we have
+    $[[ Th | G | B |- e1 : T1 => G1]]$,
+    $[[Th | G1 | B |- e2: T => G']]$. By the induction hypothesis
+    we then have $[[ Th | G | B |- e' : T0 => G0 ]]$ and
+    $[[ Th | []: T0 => G0 | B |-e E' : T1 => G1 ]]$. Exploiting the equality
+    between $[[e2 = e'']]$, we use the proof rule \rn{TE-Seq}
+    to conclude $[[ Th | []: T0 => G0 | B |-e E'; e'' : T => G']]$.
+  \end{rncase}
+\end{proof}
+
+\begin{lemma}[Environment Weakening]
+  \label{lem:tyenv-weaken}
+  For any $[[G]]$ and $[[ G'' ]]$ such that $[[dom G sub dom G'']]$ and $[[ forall x in dom G.G(x) = G''(x)]]$.
+  \begin{enumerate}
+  \item $[[ G |- T1 <: T2 ==> G'' |- T1 <: T2 ]]$
+  \item $[[G <: G' ==> G'' <: G''']]$ where $[[forall x in dom G'.G'''(x) = G'(x) /\ forall x not in dom G'.G'''(x) = G''(x)]]$.
+  \item Let $[[ Th | G | B |- e : T => G' ]]$. Then $[[ Th | G'' | B |- e : T => G''']]$ where
+    $[[G''' = G''[xi <- G'(xi)] ]]$ ($[[xi in G']]$).
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  \begin{enumerate}
+  \item As in the proof of \cref{lem:ctxt-sub-subtype}, at the root of
+    the subtyping derivation is a logical judgment of the form
+    $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ which can be shown to be valid. We
+    must then show that $[[ |= [ G'' ] /\ ph1 ==> ph2 ]]$ is valid. As
+    $[[ [ G'' ] /\ ph1 ]]$ only strengthens the pre-condition
+    $[[ [ G ] /\ ph1 ]]$, the $[[ |= [ G'' ] /\ ph1 ==> ph2 ]]$ must
+    also be valid.
+  \item It suffices to show that $[[G'' |- G''(x) <: G'''(x)]]$ for
+    any arbitrary $[[x]]$. If $[[x in G']]$ then by we must have
+    $[[ G |- G(x) = G''(x) <: G'''(x) = G'(x) ]]$, whence $[[ G'' |- G''(x) <: G'''(x) ]]$ from
+    part 1.
+
+    If $[[ x not in G' ]]$, then $[[empty |- G''(x) <: G'''(x)]]$ and the result holds
+    again from part 1.
+  \item By straightforward induction on the typing derivation of
+    $[[ Th | G | B |- e : T => G' ]]$. The only interesting cases are
+    \rn{T-Sub} and \rn{T-Assert}. \rn{T-Sub} follows from using parts
+    1 and 2.  \rn{T-Assert} requires showing that
+    $[[ |= [G''] ==> ph ]]$. As the source term was well typed,
+    $[[ |= [G] ==> ph ]]$ is valid, and as $[[ [G''] ]]$ only
+    strengthens the hypothesis $[[ [G] ]]$, $[[ |= [G''] ==> ph]]$ must
+    also be valid.
+  \end{enumerate}
+\end{proof}
+
+\begin{lemma}
+  Let $[[ E[let x = f l (y1,,yn) in e'] ]]$ be a term in a program
+  $[[ <D, e> ]]$ such that:
+  \label{lem:callfunc}
+  \begin{bcpcasearray}
+    [[ Th | G0 | ll |- let x = f l (y1,,yn) in e' : T1 => G1 ]] &  [[ csub = [l:ll/A] ]] \\
+    [[ Th | [] : T1 => G1 | ll |-e E : T2 => G2 ]] & [[ vsub = [y1/x1],,[yn/xn] ]] \\
+    [[ f |-> ( x1, .. ,xn) e' in D]] & [[ Th |- f |-> (x1,..,xn) e ]] \\
+  \end{bcpcasearray}
+
+  where $[[Th(f) = A < x1 : T1 ,, xn: Tn> -> <x1: T1',,xn:Tn' | Tp >]]$.
+
+  Then: \begin{align*}
+    & [[ Th | G0 | l:ll |- vsub e : csub vsub Tp => G0[yi <- csub vsub Ti'] ]] \\
+    & [[ Th | [] : csub vsub Tp => G0[yi <- csub vsub Ti] | ll |-e E[let x = [] l in e] : T2 => G2 ]]
+  \end{align*}
+\end{lemma}
+\begin{proof}
+  To prove the first part, from the well-typing of the function body, we have
+  $[[ Th | x1:T1,,xn:Tn | A |- e : Tp => x1:T1',,xn:Tn' ]]$.
+  By $n$ applications of the substitution lemma we have:
+  $[[ Th | y1:vsub T1,,yn:vsub Tn | A |- vsub e : vsub Tp => y1:vsub T1',,yn:vsub Tn']]$.
+  By \cref{lem:ctxt-subst-well-typed} we then have
+  $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tp => y1:csub vsub T1',,yn:csub vsub Tn']]$.
+  By \cref{lem:tyenv-weaken} and the well-typing of the function call we have
+  $[[ Th | G0 | l:ll |- vsub e : csub vsub Tp => G0[yi <- csub vsub Ti ] ]]$ as required.
+
+  The second part follows immeidately by inversion on the typing of
+  $[[E]]$ and $[[let x = f l (y1,,yn) in e' ]]$.
+\end{proof}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

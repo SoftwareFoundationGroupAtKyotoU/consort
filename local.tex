@@ -75,6 +75,19 @@
 
 \newcommand\TUNIT{\mathbf{unit}}
 
+\newif\ifdraftComments
+\draftCommentstrue
+\def\mkDraftFn#1{%
+  \expandafter\def\csname #1\endcsname##1{\ifdraftComments\textcolor{blue}{[#1: ##1]}\marginpar[$\longrightarrow$]{$\longleftarrow$}\fi}%
+}
+\mkDraftFn{JT}
+\mkDraftFn{AI}
+\mkDraftFn{KS}
+\mkDraftFn{KS}
+\mkDraftFn{NK}
+\mkDraftFn{RS}
+
+
 %%% Local Variables:
 %%% mode: latex
 %%% TeX-master: "main.tex"

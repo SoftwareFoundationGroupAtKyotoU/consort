@@ -324,7 +324,7 @@ grammar
 	| { bind1 ,, bindn } :: :: count {{ tex \set{[[bind1]],\ldots,[[bindn]]} }}
 	| { bind1 , ... , bindn } :: :: concr
 	| FVF :: :: free_var_fun
-	| dom MF :: :: dom_mf {{ tex dom([[MF]]) }}
+	| dom MF :: :: dom_mf {{ tex \textit{dom}([[MF]]) }}
 	| VS1 '\' VS2 :: :: minus {{ tex [[VS1]] \setminus [[VS2]] }}
 
   EqT :: 'EqT_' ::= {{ com equatable terms }}

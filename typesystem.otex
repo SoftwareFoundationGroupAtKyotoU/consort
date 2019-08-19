@@ -1,0 +1,9 @@
+\section{Type System}
+\label{sec:typesystem}
+\subsection{Background: Fractional Ownership Types}
+\subsection{Soundness}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
