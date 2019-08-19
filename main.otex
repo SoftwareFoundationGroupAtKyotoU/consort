@@ -151,7 +151,7 @@ we substitue $x$ into the return context on the top of the stack.
 
 In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
 any model $[[M]]$ in our underlying theory such that
-$[[ forall x in R.M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
+$[[ forall x in R.R(x) is INT ==> M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
 We introduce $[[AliasFail]]$ and $[[AssertFail]]$ as two special configurations.
 $[[AssertFail]]$ will be thrown if the precondition $[[R |= ph]]$ doesn't hold in the current state.
 $[[AliasFail]]$ will be thrown when two references do not alias in $\rn{R-AliasFail}$.
@@ -1156,9 +1156,9 @@ The followings are key lemmas:
     Thus $[[ [R;R(x)/y]ph /\ y = 0]]$ is trivially satisfied.
   \end{rneqncase}
   
-  \begin{rneqncase}{R-IfFalse}\newline
+  \begin{rncase}{R-IfFalse}
     Similar to the case for $\rn{R-IfTrue}$.
-  \end{rneqncase}
+  \end{rncase}
   
   \begin{rneqncase}{R-MkRef}{
     [[ |- D <H, R, Es, E[let x = mkref y in e]>]]\\
@@ -1243,12 +1243,11 @@ The followings are key lemmas:
     Then we have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$.
     Therefore, \[
       [[F1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = F0''(a')]]
-    \]
-    
+    \]  
     Next, suppose $a\neq a'$;
     \begin{align*}
       [[F1''(a')]] & = [[own(H', H'(R(y)), T2)(a') + own(H', R(x), T1)(a') ]] \\
-      [[F0''(a')]] & = [[own(H, R(x), T2 + T1)(a') + own(H, H(R(y)), T')(a') ]] \\
+      [[F0''(a')]] & = [[own(H, R(x), T2 + T1)(a') + own(H, H(R(y)), T')(a') ]]
     \end{align*}
     By reasoning similar to the case for $a= a'$, we have $[[F1''(a') <= own(H, R(x), T2 + T1)(a') <= F0''(a')]]$.
     Finally, we conclude that $[[forall a' in H'.F1(a') <= 1]]$.
@@ -1271,7 +1270,6 @@ The followings are key lemmas:
     Similarly, we also have $[[SATv(H,R',v,Tq) ==> SATv(H,R',v,Tq1) /\ SATv(H,R',v,Tq2)]]$, where $[[v = H(R(y))=H(R(x))]]$.
     From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we then have $[[SATv(H,R,v,Tp) ==> SATv(H,R,v,Tq)]]$.
     Then from the reasoning above, the refinements of $[[Tq1]]$ and $[[Tq2]]$ are valid and $[[Cons(H, R, G'')]]$ holds.
-
     
     Then, it's to show $[[forall a in H.F(a) <= 1]]$. Here $[[F0]]$ represents the $[[F(a)]]$ before transition, $[[F1]]$ represents the $[[F(a)]]$ after transition.
     To prove that $[[F0=F1]]$ follows from:
@@ -1279,8 +1277,6 @@ The followings are key lemmas:
       &[[own(H,R(x),T1 ref r1) + own(H,R(y),T2 ref r2) ]] =  \\
       &\,\,\,\,[[ own(H,R(x),T1' ref r1') + own(H,R(y),T2' ref r2')]]
     \end{align*}
-      
-
     which follows immediately from the conditions $[[ T1 ref r1 + T2 ref r2 = T1' ref r1' + T2' ref r2']]$ and $[[R(x) = R(y)]]$.
   \end{rneqncase}
   
@@ -1373,7 +1369,7 @@ The followings are key lemmas:
     By the induction hypothesis, have that $[[own(H,H(v),T1' + T2') = own(H,H(v),T1') + own(H,H(v),T2')]]$ and can conclude that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
   \end{rncase}
   
-  \begin{rncase}{Tadd-Ref2}\newline
+  \begin{rncase}{Tadd-Ref2}
     We have $[[own(H,v,Tp)=own(H,v,T1 + T2)]]$, where $[[ T1 + T2 = T2' ref r ]]$,
     $\mathbf{own}(H,v,T1)$ and $\mathbf{own}(H,v,T2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.
     
@@ -1435,54 +1431,88 @@ The followings are key lemmas:
   \end{rncase}
 \end{proof}
 
-\begin{lemma} \bf{Inversion}
+\begin{lemma}[Inversion]
   \label{lem:inversion}
-  \begin{rneqncase}{T-Let}\newline
-  If $[[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]$, then $[[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \land
-  [[B |- T => G' \ x]]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-LetInt}\newline
-  If $[[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \land
-  [[B |- T => G' \ x]]$, then $[[ Th | G | B |- e : T => G' \ x]]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-If}\newline
-  If $[[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]$, then $[[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]]$ or
-  $[[ Th | G[x <- {y:int | ph /\ y != 0}] | B |- e2 : T => G' ]]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-MkRef}\newline
-  If $[[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]$, then $[[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \land
-  [[ B |- T => G' \ x ]]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-Deref}\newline
-  If $[[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]$, then $[[r > 0]] \land
-  [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : T => G']] \land
-  [[ B |- T => G' \ x ]]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-Call}\newline
-  If $[[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]$, then $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \land\\
-  [[csub = [l:B/A] ]] \land [[ vsub = [y1/x1] ,, [yn/xn] ]] \land\\
-  [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \land\\
-  [[ B |- T' => G' \ x]]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-Assign}\newline
-  If $[[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]$, then $(\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \land\\
-  [[ Th | G[x <- T1][y <- T2 ref r /\ y y = T1 x] | B |- e : T => G']]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-Alias}\newline
-  If $[[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]$, then $[[(T1 ref r1 + T2 ref r2) = (T1' ref r1' + T2' ref r2')]] \land\\
-  [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]$.
-  \end{rneqncase}
-  \begin{rneqncase}{T-Assert}\newline
-  If $[[ Th | G | B |- assert(ph); e : T => G']]$, then $[[ G |= ph ]] \land
-  [[ Th | G | B |- e : T => G' ]]$.
-  \end{rneqncase}
+  In the following cases, we assume the existence of some $[[Gp]]$, $[[Tp]]$, and $[[Gp']]$ such that $[[G <: Gp]]$ and for any $[[x not in dom Gp']]$ $[[Gp',x: Tp <: G',x:T]]$. Further, to reduce notational clutter, any other free variables in the following are assumed to be existentially quantified.
+  \begin{enumerate}
+  \item If $[[ Th | G | B |- x : T => G']]$ then $[[ Gp(x) = Tp + T']]$ and $[[Gp' = Gp[x <- T'] ]]$.
+  \item If $[[ Th | G | B |- let x = y in e : T => G']]$, then $[[ Th | Gp [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : Tp => Gp0  /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x]]$ where $[[Gp(y) = T1 + T2]]$.
+  \item If $[[ Th | G | B |- let x = nn in e : T => G']]$ then $[[ Th | Gp, x : {x: int | x = nn } | B |- e : Tp => Gp0 /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x ]]$
+  \item If $[[ Th | G | B |- ifz x then e1 else e2 : T => G' ]]$ then:
+    \begin{itemize}
+    \item $[[ Gp(x) = { y : int | ph } ]]$
+    \item $[[ Th | Gp[ x <- {y:int| ph /\ y = 0}] | B |- e1 : Tp => Gp' ]]$
+    \item $[[ Th | Gp[ x <- {y:int| ph /\ y != 0}] | B |- e2 : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- let x = mkref y in e : T => G' ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp0 /\ B |- T => Gp0 \ x /\ Gp' = Gp0 \ x ]]$.
+  \item If $[[ Th | G | B |- let x = *y in e : T => G' ]]$, then $[[Gp(y) = T1 + T1 ref r /\ Th | Gp[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : Tp => Gp0 r > 0 /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x ]]$.
+  \item If $[[ Th | G | B |- let x = f l (y1,,yn) in e : T' => G']]$ then:
+    \begin{itemize}
+    \item $[[ Gp(yi) = csub vsub Ti ]]$ for each $i \in \set{1,\ldots,n}$
+    \item $[[ Th | Gp[yi <- csub vsub Ti'], x : csub vsub T | B |- e : Tp => Gp0 ]]$
+    \item $[[ B |- Tp => Gp0 \ x]]$
+    \item $[[ Gp' = Gp0 \ x ]]$
+    \item $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$
+    \item $[[csub = [l:B/A] ]]$
+    \item $[[ vsub = [y1/x1] ,, [yn/xn] ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- y := x; e : T => G' ]]$ then:
+    \begin{itemize}
+    \item $[[ Gp(x) = T1 + T2 ]]$
+    \item $[[ Gp(y) = T' ref 1 ]]$
+    \item $[[ Th | Gp[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- alias(x = y); e : T => G' ]]$ then there exist some $[[T1]], [[T2]], [[T1']], [[T2']]$ such that:
+    \begin{itemize}
+    \item $[[ T1 + T2 ~ T1' = T2' ]]$
+    \item $[[ Gp(x) = T1 ]]$ and $[[Gp(y) = T2 ]]$
+    \item $[[ Th | G[x <- T1'][y <- T2'] | B |- e : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ Th | G | B |- e1; e2 : T => G' ]]$ then $[[ Th | Gp | B |- e1 : T1 => Gp0 ]]$ and $[[ Th | Gp0 | B |- e2 : Tp => Gp' ]]$
+  \item If $[[ Th | G | B |- assert(ph); e : T => G' ]]$ then $[[ Gp |= ph ]]$ and $[[ Th | Gp | B |- e : Tp => Gp' ]]$
+  \end{enumerate}
 \end{lemma}
 \begin{proof}
-  By induction of the typing relation.
+  By straightforward induction on the typing relation and the
+  transitivity of the subtyping relation.
 \end{proof}
 
+\begin{lemma}
+  \label{lem:subtyp-preserves-satv}
+  If $[[SAT(H,R,G)]]$, $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$.
+\end{lemma}
+\begin{proof}
+  We first observe that if $[[ |= [R;nn/x]ph ]]$ then $[[R |= [nn/x]ph]]$ for
+  any $[[x]], [[nn]], [[ph]], [[R]]$.
+  It then follows that $[[SAT(H,R,G)]]$ implies $[[ R |= [G] ]]$.
+  
+  We now proceed by induction on the shape of $[[T]]$.
+  \begin{eqncase}{
+      [[T = {x:int |ph}]] & [[T' = {x:int|ph'}]] \\
+      [[|= [G] /\ ph ==> ph']] & [[ R |= [v/x]ph ]]
+    }
+    We must show that $[[ [R;v/x]ph' ]]$, i.e., $[[ R |= [v/x]ph' ]]$.
+    From $[[ |= [G] /\ ph ==> ph' ]]$ we must have
+    $[[ R |= [G] /\ [v/x]ph ==> [v/x]ph' ]]$, whence the result is immediate.
+  \end{eqncase}
 
-\begin{lemma} \bf{Substitution}
+  \begin{eqncase}{
+      [[T = Tp ref r]] & [[T' = Tp' ref r]]
+    }
+    If $[[r = 0]]$ then the result is immediate, otherwise
+    the result follows from the induction hypothesis.
+  \end{eqncase}
+\end{proof}
+
+\begin{lemma}
+  \label{lem:subtyp-preserves-sat}
+  If $[[SAT(H,R,G)]]$ and $[[ G <: G' ]]$, then $[[SAT(H,R,G')]]$.
+\end{lemma}
+\begin{proof}
+  Immediate consequence of \cref{lem:subtyp-preserves-satv} and that
+  $[[ G <: G' ]]$ implies that $[[G |- G(x) <: G'(x)]]$ for any $[[x in G']]$.\end{proof}
+
+\begin{lemma}[Substitution]
   \label{lem:substitution}
   If $\funenv \mid \tenv\mid \beta\vdash e \COL \tau  \produces \tenv'$, we can obtain
   $\funenv \mid [x'/x]\tenv \mid \beta \vdash [x'/x]e \COL [x'/x]\tau \produces [x'/x]\tenv'$.
@@ -1490,9 +1520,6 @@ The followings are key lemmas:
 \begin{proof}
   By straightforward induction of typing rules.
 \end{proof}
-
-
-
 
 \begin{lemma}\label{lem:ctxt-sub-distribute}
   $[[ T3 = T1 + T2  ==> [B/A]T3 = [B/A]T1 + [B/A]T2 ]]$
