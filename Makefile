@@ -2,7 +2,7 @@
 
 OTTNAME=lang
 TEX=intro.tex preliminaries.tex typesystem.tex appendix.tex	\
-	related_work.tex impl.tex experiments.tex conclusion.tex
+	related_work.tex impl.tex experiments.tex conclusion.tex semantics.tex
 
 all: main.pdf src/all
 
@@ -21,4 +21,4 @@ src/all:
 clean:
 	make -C src/ clean
 	latexmk -f -C main.tex
-	@rm -rf main.tex
+	@rm -rf main.tex $(TEX)
