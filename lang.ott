@@ -4,15 +4,6 @@ metavar termvar, x, y, z ::=
 metavar funvar, f, g ::=
   {{ tex \mathit{[[funvar]]} }} {{ com  function name }}
 
-metavar l::=
-  {{ tex \ell }}  {{ com  label }}
-
-metavar F ::=
-  {{ tex \mathbf{[[F]]} }} {{ com ownership_fun }}
-
-metavar ll ::=
-  {{ tex \overrightarrow{\ell} }}
-
 indexvar index, i, n, p, q ::=   {{ com index }}
 
 metavar a ::= {{ com addresses }}
@@ -76,7 +67,37 @@ grammar
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
-	| omap ( a ) :: :: omap_lkp
+	| F ( a ) :: :: omap_lkp
+	| float :: :: float
+
+  top {{ tex \top }} :: t ::=
+    | Top :: :: top
+
+  float :: 'F_' ::=
+    | 0 . DL :: :: zero_point
+
+  DL :: 'DL_' ::=
+    | digit :: :: end
+	| digit DL :: :: seq
+
+  concr_int :: I_ ::=
+    | DL :: :: I
+
+   
+  l {{ tex \ell}} :: 'L' ::=
+    | DL :: :: conr
+
+  digit :: 'D_' ::=
+    | 0 :: :: zero
+	| 1 :: :: one
+	| 2 :: :: two
+	| 3 :: :: three
+	| 4 :: :: four
+	| 5 :: :: five
+	| 6 :: :: six
+	| 7 :: :: seven
+	| 8 :: :: eight
+	| 9 :: :: nine
 
   C {{ tex \mathbf{C} }} :: C_ ::=    {{ com configuration }}
     | < H , R , Es , e >         ::   :: Quad {{ tex \tuple{[[H]], [[R]], [[Es]], [[e]]} }}
@@ -100,7 +121,7 @@ grammar
     | R ( y ) :: :: var_y
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
-	| 0 :: :: z
+	| concr_int :: :: z
 	| M ( x ) :: :: model_lkp
 
   E :: E_ ::=    {{ com evaluation context }}
@@ -117,20 +138,51 @@ grammar
     | CE : Es             ::   :: cons
     | En-1 : Es             ::    :: cons_new
 
+  ineq :: 'IE_' ::=
+    | = :: :: eq
+	| != :: :: ineq
+
+  plhs {{ tex \mathcal{C} }} :: 'PLhs_' ::=
+    | A :: :: var
+	| ll A :: :: param_pref
+	| csub plhs :: :: sub
+	| ll :: :: concr
+
+  prhs :: 'PRhs_' ::=
+    | ll ? :: :: prefix
+
+  prefix_query :: 'PQ_' ::=
+    | plhs ineq prhs :: :: query
+
+  ll {{ tex \overrightarrow{\ell} }} :: 'LL_' ::=
+    | . :: :: empty {{ tex \epsilon }}
+	| l :: :: singleton
+	| l : ll :: :: cons
+	| l1 .. ln :: :: inline
+
+  B {{ tex \mathcal{L}^{\alpha} }} :: B_ ::=
+    | . :: :: empty {{ tex \epsilon }}
+	| l : B :: :: l_cons
+	| l1 : ,..., : ln : B :: :: multi_cons {{ tex [[l1]] : \cdots : [[ln]] : [[B]] }}
+	| ll :: :: concrete
+	| A :: :: svar
+	| Trace ( Es ) :: :: trace_fun
+	| csub B :: :: string_sub
+
   ph {{ tex \varphi }} :: 'P_' ::= {{ com refinement predicates }}
-    | pfun ( x1 , .. , xn ) :: :: pred_sym {{ com predicate in underlying logic }}
+    | pfun ( lvar1 , .. , lvarn ) :: :: pred_sym {{ com predicate in underlying logic }}
 	| ph1 /\ ph2 :: :: pred_conj {{ tex [[ph1]] \wedge [[ph2]] }} {{ com conjunction }}
-	| lvar = V2 :: :: pred_const {{ com equality }}
-	| lvar != V2 :: :: pred_ineq {{ com inequality }} {{ tex [[lvar]] \neq [[V2]] }}
+	| lvar rel_op V2 :: :: pred_const {{ com equality }}
 	| Top :: :: pred_top {{ tex \top }}
 	| ph1 ==> ph2 :: :: entail
 	| [ V1 / lvar ] ph :: :: subst_var
 	| vsub ph :: :: sub_v
 	| [ R ; V1 / lvar ] ph :: :: subst_env
 	| csub ph :: :: subst_ctxt
-	| B1 = B2 ? :: :: prefix_query {{ tex [[B1]] = [[B2]]? }}
+	| prefix_query :: :: prefix_query
 	| ( ph ) :: :: paren
 	| x = T y :: :: typed_eq {{ tex [[x]] =_{[[T]]} [[y]] }}
+	| Bot :: :: bot {{ tex \bot }}
 
   lvar {{ tex V }} :: 'LV_' ::=
   	| nu :: :: nu {{ tex \nu }}
@@ -163,7 +215,7 @@ grammar
 	| T1 /\ x ph :: :: strength {{ tex [[T1]] \wedge_{[[x]]} [[ph]] }}
 	| T1 = T2 :: :: eq
     | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
-	| Top :: :: top_type {{ tex \top }}
+	| top :: :: top_type
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
@@ -175,18 +227,13 @@ grammar
 	| Gst , x : ST :: :: append
 	| ST ( G ) :: :: lift_G {{ tex \mathit{ST}([[G]]) }}
 
-  B {{ tex \beta }} :: B_ ::=
-    | . :: :: empty {{ tex \epsilon }}
-	| l : B :: :: l_cons
-	| l1 : ,..., : ln : B :: :: multi_cons {{ tex [[l1]] : \cdots : [[ln]] : [[B]] }}
-	| A :: :: svar
-	| ll :: :: list_var
-	| Trace ( Es ) :: :: trace_fun
-	| csub B :: :: string_sub
+  tyarg_list :: 'AL_' ::=
+    | x1 : T1 , .. , xn : Tn :: :: list
 
   FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
     | A < x1 : T1 ,, xn : Tn > -> < y1 : T1' ,, yi : Ti' | T >  :: :: sig
           {{ tex \forall [[A]].\tuple{[[x1]]\COL[[T1]],\dots,[[xn]]\COL[[Tn]]}\ra\tuple{[[y1]]\COL\[[T1']],\dots,[[yi]]\COL[[Ti']] \mid [[T]]} }}
+     | A < tyarg_list1 > -> < tyarg_list2 | T > :: :: concr_sig {{ tex \forall [[A]].\tuple{[[tyarg_list1]]}\ra\tuple{[[tyarg_list2]]\mid[[T]]} }}
      | Th ( f ) :: :: fenvLkp
 
   Th {{ tex \Theta }} :: Th_ ::=
@@ -199,6 +246,7 @@ grammar
 	| G \ x :: :: sub {{ tex [[G]] \setminus [[x]] }}
 	| G , x1 : T1 ,, xn : Tn :: :: append {{ tex [[G]],[[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
 	| x1 : T1 ,, xn : Tn :: :: mk {{ tex [[x1]]\COL[[T1]],\ldots,[[xn]]\COL[[Tn]] }}
+	| x : T :: :: singleton {{ tex [[x]]\COL[[T]] }}
 	| G [ x : T ] :: :: type_in
 	| G [ x1 <- T1 ] :: :: type_update
 	| G [ x1 <- T1 ] ,, [ x2 <- T2 ] :: :: ty_update_2 {{ tex [[G]] \left[ [[x1]][[<-]][[T1]] \right]\cdots[ [[x2]][[<-]][[T2]]] }}
@@ -206,6 +254,14 @@ grammar
 	| ( G ) :: :: paren
 	| G1 = G2 :: :: tyenvDef
     | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
+
+  rel_op :: Rel ::=
+    | <= :: :: ge
+	| < :: :: lt
+	| = :: :: eq
+	| != :: :: neq
+	| >= :: :: geq
+    | > :: :: gt
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -232,9 +288,17 @@ grammar
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
 	| /\ :: :: and {{ tex \wedge }}
+	| \/ :: :: or {{ tex \vee }}
 	| M :: :: model {{ tex \mathcal{M} }}
 	| '|<' :: :: sum {{ tex \Sigma }}
 	| <= :: :: leq {{ tex \le }}
+	| >= :: :: geq {{ tex \ge }}
+	| != :: :: neq {{ tex \neq }}
+	| = :: :: eq
+	| < :: :: lt
+	| > :: :: gt
+	| Top :: :: top {{ tex \top }}
+	| ~ :: :: squiggle {{ tex \approx }}
 
   reduction :: '' ::=
     | --> :: :: step
@@ -246,6 +310,9 @@ grammar
     | [ T ] x :: :: denote_type {{ tex \sem{[[T]]}_{[[x]]} }}
 	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
 	| logical_frag1 /\ logical_frag2 :: :: conj
+	| ! logical_frag :: :: not {{ tex \neg [[logical_frag]]}}
+	| ( logical_frag ) :: :: paren
+	| logical_frag1 \/ logical_frag2 :: :: disj
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
 	| logical_frag1 <=> logical_frag2 :: :: logical_equiv
 
@@ -268,16 +335,14 @@ grammar
 	| Cons ( H , R , G ) :: :: Cons
 	| SAT ( H , R , G ) :: :: SAT
 	| SATv ( H , R , Rv , T ) :: :: satv {{ tex \mathit{SAT}_v([[H]],[[R]],[[Rv]],[[T]]) }}
-	| F ( a ) :: :: total_own_app
-	| omap :: :: omap
+	| F :: :: omap
 
-   omap :: 'OM_' ::=
+   F :: 'OM_' ::=
     | { a |-> r } :: :: omap
-	| omap1 + omap2 :: :: omap_add
+	| F1 + F2 :: :: omap_add
 	| own ( H , Rv , T ) :: :: own_fn
-	| F :: :: fmap
 	| empty :: :: empty {{ tex \emptyset }}
-	| |< { x in VS } omap :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[omap]] }}
+	| |< { x in VS } F :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[F]] }}
 
   model :: 'M_' ::=
     | M :: :: m {{ tex \mathcal{M} }}
@@ -316,7 +381,7 @@ grammar
 	| Gst :: :: stTenv
 	| H :: :: heap
 	| Th :: :: funenv
-	| omap :: :: ownership_map
+	| F :: :: ownership_map
 
   VS :: 'VS_' ::=
     | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}
@@ -349,10 +414,7 @@ grammar
     | judgment :: :: judge
 	| functions :: :: func
 	| logic_judgment :: :: lj
-    | r1 >= r2 :: :: own_ge {{ tex [[r1]] \ge [[r2]] }}
-    | r1 > r2 :: :: own_gt {{ tex [[r1]] > [[r2]] }}
-	| r1 <= r2 :: :: own_le {{ tex [[r1]] [[<=]] [[r2]] }}
-	| r1 = r2 :: :: own_eq
+    | r1 rel_op r2 :: :: own_ge {{ tex [[r1]] [[rel_op]] [[r2]] }}
 	| formula1 <=> formula2 :: :: meta_biimpl
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in dom([[G]])) }}
@@ -373,7 +435,7 @@ grammar
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
 	| ( formula ) :: :: parenF
-	| T1 ~ T2 :: :: tEqual {{ tex [[T1]] \approx [[T2]] }}
-	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] \approx_[[a]] [[H2]] }}
+	| T1 ~ T2 :: :: tEqual
+	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] [[~]]_[[a]] [[H2]] }}
 	| R1 < R2 :: :: reg_weak {{ tex [[R1]] \sqsubseteq [[R2]] }}
 

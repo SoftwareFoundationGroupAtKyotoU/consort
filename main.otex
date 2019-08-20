@@ -21,9 +21,19 @@
 \usepackage{cases}
 \usepackage[capitalize,nameinlink,noabbrev]{cleveref}
 \usepackage{listings}% http://ctan.org/pkg/listings
+
+\lstdefinelanguage{Imp}{
+  keywords=[0]{ifz,then,else,alias,assert,mkref,let,in},
+  morecomment=[l]{//},
+}
+\definecolor{comment-green}{rgb}{0,0.6,0}
 \lstset{
   basicstyle=\ttfamily,
-  mathescape
+  language=Imp,
+  columns=flexible,
+  keywordstyle=[0]{\normalfont\bfseries},
+  commentstyle=\color{comment-green},
+  mathescape,
 }
 
 \input{local}
@@ -55,6 +65,7 @@
 %
 %
 %
+
 \input{intro}
 \input{preliminaries}
 \input{typesystem}
@@ -64,131 +75,6 @@
 \input{conclusion}
 
 \section{Simple setting without indirection of pointers and without subtyping}
-
-\newcommand\val{v}
-
-\subsection{Language}
-
-This section describes a simple imperative  language that contains memory cells for ownership access.
-For language extensions and type systems, see the following sections dealing with other language structures.
-The grammar of the language is as follows.
-
-
-\[
-  \begin{array}{rcl}
-  [[d]] &::=& [[f |-> (x1,...,xn)e ]] \\
-  [[e]] &::= &
-               [[ x ]] \mid
-               [[ let x = y in e]] \mid
-               [[ let x = v in e ]] \mid
-               [[ ifz x then e1 else e2 ]] \\
-        &\mid& [[ let x = mkref y in e ]] \mid
-               [[ let x = *y in e ]] \mid
-               [[ let x = f l (y1 ,, yn) in e ]] \\
-        &\mid& [[ x := y ; e ]] \mid
-               [[ alias(x = y); e ]] \mid
-               [[ assert(ph); e ]] \mid
-               [[ e1;e2 ]] \\
-    [[v]] &::=& [[nn]] \\
-    [[P]] &::=& [[<{d1,...,dn}, e>]] \\
-    [[l]] &\in& \textbf{Labels}\\
-  \end{array}
-\]
-
-\(\varphi\) stands for a logical formula over integers and paths $\pps$).
-We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$, and a set of \emph{locations}, which is ranged over by $a,b,c,\dots$.
-
-
-We now introduce the grammar of the imperative language.
-We use an ML-like syntax with mutable references, assertions, and must-alias annotations.
-We highlight some distinctive features as belows.
-
-Like ML, the variable bindings introduced by let-expression are immutable.
-Modeling a mutable variable declaration \texttt{int x = 1} in a language like C is achieved with
-
-\[
-  [[ let y = 1 in (let x = mkref y in etc) ]]
-\]
-in our language.
-
-We do not allow general expressions as right hand side with let bindings.
-The simplest right-hand forms are a variable $[[y]]$, or an integer.
-Also, we have let bindings to $[[mkref y]]$ which creates a reference cell with value $[[y]]$, $[[*y]]$ which is to access the contents of $[[y]]$ and
-function calls $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $l$ is label.
-$[[ifz]]$ judges whether $[[x]]$ equals to zero and choose the corresponding branch.
-
-Our grammar requires that all side-effecting, result free statements, $[[ assert(ph); e ]]$, $[[alias(x = y);e]]$,
-and assignment $[[x := y;e]]$ are followed by a continuation expression. This requirement does not reduce the expressiveness
-of the language, and obviates including a unit type.
-The expression $[[e1 ; e2]]$ is a sequence execution of $[[e1]]$ and $[[e2]]$.
-A program is a pair of $[[<{d1,...,dn}, e>]]$, where $[[ {d1,...,dn} ]]$ is a set of function definitions.
-The definition of function maps a function name to a tuple of argument names that are bound within the function body $[[e]]$;
-additionally functions are not higher order.
-
-The expression $[[assert(ph) ; e]]$ executes $[[e]]$ if the predicate $[[ph]]$ holds, and aborts the program otherwise.
-We introduce $[[alias(x = y); e]]$ as a specialized type of assertion for asserting a must aliasing relationship between two references $x$ and $y$.
-Our type system uses these must-alias annotations to accurately resolve aliases.
-
-\paragraph{Operational Semantics}
-We now introduce the operational semantics for our system.
-A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consists of a heap,
-register file, stack, and currently reducing expression.
-Secondly, while the final configuration component is an expression,
-the rewritting rules are defined in terms of $[[ E[e] ]]$, which is a context $[[E]]$ and redex $[[e]]$, as is standard.
-Our operational semantics are mostly standard.
-We have highlight some import points as the following paragraphs.
-
-First we introduce return contexts $[[ E[let y = [] l in e] ]]$.
-This return context represents a pending function call. The hole indicates the return value of the callee should be bound to $[[y]]$
-within the expression $[[e]]$. Our call-stack is a sequence of these return contexts, with the first such return context indicating the
-most recent function call.
-We write $[[ E[let y = [] l in e] ]][x]$ to denote substituting the variable $x$ into the hole in $[[ let y=[] l in e]]$.
-The set of evaluation contexts and return contexts are defined by Figure.$\ref{fig:eval-context-grammar}$.
-The semantics of a calls are given in $\rn{R-Call}$.
-For a function call $[[ let x = f l (y1,,yn) in e ]]$, where $f$ is defined as $[[(x1,..., xn)e']]$,
-we first push the return context $[[ E[let y = [] l in e] ]]$ onto the stack $[[Es]]$.
-We then substitute the formal arguments for parameters in $e'$, denoted by $[[ [y1/x1],,[yn/xn]e' ]]$.
-The result of this substitution becomes the currently reducing expression.
-Function returns are handled by $\rn{R-Var}$.
-Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$,
-we substitue $x$ into the return context on the top of the stack.
-
-In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
-any model $[[M]]$ in our underlying theory such that
-$[[ forall x in R.R(x) is INT ==> M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
-We introduce $[[AliasFail]]$ and $[[AssertFail]]$ as two special configurations.
-$[[AssertFail]]$ will be thrown if the precondition $[[R |= ph]]$ doesn't hold in the current state.
-$[[AliasFail]]$ will be thrown when two references do not alias in $\rn{R-AliasFail}$.
-
-When the expression is a let-binding, in order to better handle conflicts
-with recursive functions and duplicates variable names in our single register file,
-we refresh the bound variable $[[x]]$ in a let expression to $[[x']]$.
-Take expression $[[let x=y in e]]$ as an example;
-we substitute a fresh variable $[[x']]$ for $[[x]]$ in $[[e]]$, then bind $[[x']]$ to the value
-of variable $[[y]]$.
-Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
-We consider garbage collection an orthogonal concern and do not treat it in our formalism.
-
-\begin{definition}
-  Context strings $[[B]]$ are defined as follows:
-  \[
-    \begin{array}{rcl}
-      [[ B ]] & ::= & [[ . ]] \mid [[ l ]] : [[ B ]] \mid [[A]]
-    \end{array}
-  \]
-  $[[A]]$ is a context string variable. Let $[[CV(B)]]$ be $\set{[[A]]}$ for
-  context strings whose final element is $[[A]]$ and $\emptyset$ otherwise.
-\end{definition}
-
-\begin{definition}
-  $\sem{[[T]]}_y$ is defined as follows:
-  \[
-    \begin{array}{rcl}
-      \sem{[[{x:int | ph}]]}_y &=& [[ [y/x]ph ]]\\
-      \sem{[[{x:int | ph} ref r]]} &=& [[ Top ]]
-    \end{array}
-  \]
-\end{definition}
 
 \begin{definition}
   The refinement predicates $[[ph]]$ are defined as follows:
@@ -286,91 +172,7 @@ We consider garbage collection an orthogonal concern and do not treat it in our 
   The well-typedness of types and type environments are shown in \cref{fig:type-wf}.
 \end{definition}
 
-\begin{definition}
-  $[[ [G] ]]$ is defined as follows:
-  \[
-    \begin{array}{rcl}
-      [[ [empty] ]] &=& [[ Top ]]\\
-      [[ [G,x: T] ]] &=& [[ [G] /\ [T] x ]] \\
-    \end{array}
-  \]
-\end{definition}
-
-\begin{definition}
-  We write $[[G |= ph]]$ if $[[ |= [G] ==> ph]]$ is valid.
-\end{definition}
-
 \paragraph{Operations on types.}
-
-\begin{figure}[t]
-  \leavevmode
-  \infax[Tadd-Int]{
-    [[{x:int|ph1} + {x:int|ph2} = {x:int|ph1 /\ ph2}]]
-  }
-  \infrule[Tadd-Ref1]{
-    [[r1]] \ne 0 \andalso
-    [[r2]] \ne 0
-  }{
-    [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
-  }
-  \infrule[Tadd-Ref2]{
-    [[r]] > 0
-  }{
-    [[ T1 ref 0 + T2 ref r = T2 ref r]]
-  }
-  \infax[Tadd-Ref3]{
-    [[T1 ref 0 + T2 ref 0 = { x: int | Top } ref 0]]
-  }
-  \caption{Rules for $[[ T1 + T2 ]]$.}
-  \label{fig:addition}
-\end{figure}
-
-\begin{figure}
-  \leavevmode
-  \infrule[TEq-Ref]{
-    [[T1 ~ T2]] \andalso [[r1]] = [[r2]]
-  }{
-    [[T1 ref r1 ~ T2 ref r2]]
-  }
-
-  \infrule[TEq-Int]{
-    [[|= ph1 <=> ph2]]
-  }{
-    [[ {x:int | ph1} ~ {y:int | ph2} ]]
-  }
-  \caption{Rules for type equality}
-  \label{fig:equality}
-\end{figure}
-
-\begin{definition}
-  $[[ T1 + T2 ]]$ is the least commutative partial operation that satisfies the rules in Figure~\ref{fig:addition}.
-\end{definition}
-
-\begin{definition}
-  We define equalilty modulo logical
-  equivalence (or just ``equality'') between two types, written as $[[ T1 ~ T2 ]]$,
-  as the least binary relation closed under the rules shown \cref{fig:equality}.
-\end{definition}
-
-
-\begin{definition}
-  The typed equality proposition $[[ x = T y ]]$ is defined as
-  \[
-    [[ x = T y ]] \equiv \begin{cases}
-      [[ x = y ]] & [[ T = {z:int|ph} ]] \\
-      [[ Top ]] & o.w.
-      \end{cases}
-  \]
-\end{definition}
-\begin{definition}
-  $[[T /\ y ph]]$ is the strengthening operation defined as:
-  \[
-    [[ T /\ y ph' ]] = \begin{cases}
-      [[ { z: int | [z/x]ph /\ [z/y]ph' }]] & [[ T = { x: int | ph } /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
-      [[ T ]] & o.w.
-    \end{cases}
-  \]
-\end{definition}
 
 \begin{definition}{Context Substitution}
   Define context substitution operation $[[ [B/A] ]]$ over predicates $[[ph]]$, types $[[T]]$, and type environments $[[G]]$, as:
@@ -391,134 +193,9 @@ We consider garbage collection an orthogonal concern and do not treat it in our 
 
 \paragraph{Subtyping.}
 
-\begin{figure}[t]
-\leavevmode
-\infrule[Sub-Int]{
-  [[G |= ph1 ==> ph2]]
-  }{
-   [[G |- {x:int|ph1} <: {y:int|ph2}]]
-  }
-  \infrule[Sub-Ref]{
-    [[r1 >= r2]]
-    \andalso
-    [[r2 > 0 ==> G |- T1 <: T2 ]]
-  }{
-    [[ G |- T1 ref r1 <: T2 ref r2 ]]
-  }
-  \infrule[Sub-TyEnv]{
-    [[ forall x in G'.G|- G(x) <: G'(x) ]]
-  }{
-    [[ G <: G' ]]
-  }
-  \caption{Rules for subtyping.}
-  \label{fig:subtyping}
-\end{figure}
-
 \paragraph{Type judgment.}
 
 \AI{\rn{T-Let} loses information that $x$ is equal to $y$ (unlike \rn{T-LetInt}).}
-
-\begin{figure}[t]
-  \leavevmode
-  \infrule[T-Var]{
-  }{
-    [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
-  }
-  \infrule[T-Let]{
-    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \andalso
-    [[B |- T => G' \ x]]
-  }{
-    [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
-  }
-  \infrule[T-LetInt]{
-    [[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso
-    [[B |- T => G' \ x]]
-  }{
-    [[ Th | G | B |- e : T => G' \ x]]
-  }
-  \infrule[T-If]{
-    [[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]] \\
-    [[ Th | G[x <- {y:int | ph /\ y != 0}] | B |- e2 : T => G' ]]
-  }{
-    [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
-  }
-  \infrule[T-MkRef]{
-    [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \andalso
-    [[ B |- T => G' \ x ]]
-  }{
-    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
-  }
-  \infrule[T-Deref]{
-    [[r > 0]] \andalso
-    [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : T => G']] \andalso
-    [[ B |- T => G' \ x ]]
-  }{
-    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
-  }
-  \infrule[T-Call]{
-    [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
-    [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
-    [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \\
-    [[ B |- T' => G' \ x]]
-  }{
-    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
-  }
-  \infrule[T-Assign]{
-    (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref r] | B |- e : T => G']] \\
-  }{
-    [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
-  }
-  \infrule[T-Alias]{
-    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
-    [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
-  }{
-    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
-  }
-  \infrule[T-Seq]{
-    [[ Th | G | B |- e1 : T' => G' ]] \andalso
-    [[ Th | G' | B |- e2 : T'' => G'' ]]
-  }{
-    [[ Th | G | B |- e1 ; e2 : T'' => G'' ]]
-  }
-  \infrule[T-Assert]{
-    [[ G |= ph ]] \andalso
-    [[ Th | G | B |- e : T => G' ]]
-  }{
-    [[ Th | G | B |- assert(ph); e : T => G']]
-  }
-  \infrule[T-Sub]{
-    [[ G <: G' ]] \andalso
-    [[ Th | G' | B |- e : T => G'' ]] \andalso
-    [[ x not in G ]] \andalso
-    [[ G'', x:T <: G''',x:T' ]]
-  }{
-    [[ Th | G | B |- e : T' => G''' ]]
-  }
-  \caption{Expression typing rules.}
-  \label{fig:typingRules}
-\end{figure}
-\begin{figure}
-  \infrule[T-FunDef]{
-    [[ Th (f) = A <x1 : T1 ,, xn : Tn > -> < x1: T1' ,, xn : Tn' | T> ]] \\
-    [[ Th | x1:T1 ,, xn:Tn | A |- e : T => x1: T1' ,, xn : Tn' ]]
-  }{
-    [[ Th |- f |-> (x1,..,xn) e ]]
-  }
-  \infrule[T-Funs]{
-    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]]
-  }{
-    [[ Th |-  D ]]
-  }
-  \infrule[T-Prog]{
-    [[ Th |- D ]] \andalso
-    [[ Th | empty | . |- e : T => G ]]
-  }{
-    [[ |- < D, e > ]]
-  }
-\caption{Program typing rules}
-\label{fig:progTyping}
-\end{figure}
 
 \AI{\rn{T-Let} discards all the refinement on \(x\).  Probably we should propagate it to $\tenv'$.}
 
@@ -527,12 +204,6 @@ We consider garbage collection an orthogonal concern and do not treat it in our 
 \AI{\rn{T-Call} requires actual arguments to be variables introduced at the end of the type environment.  This is not a restriction because one can introduce let-expressions before a function call and alias-expressions after the call.}
 
 \AI{$\varepsilon$ in \rn{T-Prog} stands for the empty string.}
-
-In \cref{fig:typingRules} $[[ G[x: T] ]]$ denotes an environment
-$[[G]]$ such that $[[G(x) = T]]$. $[[ G[x <- T] ]]$ denotes the functional update of the type
-of $[[x]]$ to $[[T]]$ in $[[G]]$.
-
-
 
 \subsection{Examples}
 For examples, consider the following programs, written in an ML-like language.
@@ -922,19 +593,6 @@ That is $\overrightarrow{E}\COL \LET y=[ ] \IN\dots, D(f)[a/x]$.
 
 \newcommand\EXTEND[1]{\{{#1}\}}
 
-
-\begin{figure}
-\[
-  \begin{array}{rcl}
-    [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
-    [[ CE ]] & ::= & [[ E[let y = [] l in e] ]]
-  \end{array}
-\]
-\caption{Grammar of evaluation and return contexts}
-\label{fig:eval-context-grammar}
-\end{figure}
-
-
 \begin{figure}
   \leavevmode
   \infrule[TE-Seq]{
@@ -999,82 +657,7 @@ That is $\overrightarrow{E}\COL \LET y=[ ] \IN\dots, D(f)[a/x]$.
 \label{fig:state-typing}
 \end{figure}
 
-%edit by shiki
-\begin{figure}[t]
-  \leavevmode
-  \infrule[R-Var]{
-  }{
-    [[ <H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]]
-   }
-   \infrule[R-Seq]{
-   }{
-     [[ <H, R, CE : Es, E[x; e]> --> D <H, R, Es, E[e]> ]]
-  }
-  \infrule[R-Let]{
-    [[ x' fresh in R ]]
-  }{
-    [[<H, R, Es, E[let x = y in e]> --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]
-  }
-  \infrule[R-LetInt]{
-    [[ x' fresh in R ]]
-  }{
-    [[ <H,R,Es,E[let x = nn in e]> --> D <H,R { x' |-> nn},Es, E[ [x'/x]e]>]]
-  }
-  \infrule[R-IfTrue]{
-    [[ R(x) = 0 ]]
-  }{
-    [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]
-  }
-  \infrule[R-IfFalse]{
-    [[ R(x) != 0 ]]
-  }{
-    [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e2]> ]]
-  }
-  \infrule[R-MkRef]{
-    [[ a fresh in H ]] \andalso [[ x' fresh in R ]]
-  }{
-    [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]
-  }
-  \infrule[R-Deref]{
-    [[ R(y) = a ]] \andalso [[ H(a) = v ]] \andalso [[ x' fresh in R ]]
-  }{
-    [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]
-  }
-  \infrule[R-Call]{
-    [[ f |-> (x1,..,xn) e in D ]]
-  }{
-    [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]
-  }
-  \infrule[R-Assign]{
-    [[ R(x) = a ]] \andalso [[ a in H ]]
-  }{
-    [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y) }, R, Es, E[e]> ]]
-  }
-  \infrule[R-Alias]{
-    R(x) = R(y)
-  }{
-    [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]
-  }
-  \infrule[R-AliasFail]{
-    [[R(x) != R(y)]]
-  }{
-    [[ <H, R, Es, E[alias(x = y); e]> --> D AliasFail ]]
-  }
-  \infrule[R-Assert]{
-    [[ R |= ph ]]
-  }{
-    [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]
-  }
-  \infrule[R-AssertFail]{
-    [[ R !|= ph ]]
-  }{
-    [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]
-  }
-\caption{Transition Rules.}
-\label{fig:transitionRules}
-\end{figure}
-
-
+\input{semantics}
 
 \bibliographystyle{plain}
 \bibliography{main.bib}

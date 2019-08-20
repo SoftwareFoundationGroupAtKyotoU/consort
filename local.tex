@@ -17,10 +17,13 @@
 \newcommand\HOLE{[]}
 \newcommand\UNIT{\mathbf{()}}
 
+\let\imp\lstinline
+
 \newcommand\seq[1]{\overrightarrow{#1}}
 
 \newcommand\decl{d}
 \newcommand\prog{P}
+\newcommand\theory{\ensuremath{\mathcal{T}}}
 
 \newcommand\pp{\ell}
 \newcommand{\pps}{\beta}
@@ -86,6 +89,12 @@
 \mkDraftFn{KS}
 \mkDraftFn{NK}
 \mkDraftFn{RS}
+\ifdraftComments
+\usepackage{xspace}
+\def\needcite{\textcolor{blue}{[citation needed]}\xspace}
+\else
+\def\needcite{\xspace}
+\fi
 
 
 %%% Local Variables:

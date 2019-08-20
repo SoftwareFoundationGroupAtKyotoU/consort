@@ -1,5 +1,150 @@
 \section{Preliminaries}
 \label{sec:prelim}
+This sections describes a simple imperative language with mutable memory. Unlike
+our prior work on fractional ownerships, we explicitly include integers as base
+values in the language definition.
+
+\subsection{Language}
+The grammar of the language is as follows.
+\[
+  \begin{array}{rcl}
+  [[d]] &::=& [[f |-> (x1,...,xn)e ]] \\
+  [[e]] &::= &
+               [[ x ]] \mid
+               [[ let x = y in e]] \mid
+               [[ let x = v in e ]] \mid
+               [[ ifz x then e1 else e2 ]] \\
+        &\mid& [[ let x = mkref y in e ]] \mid
+               [[ let x = *y in e ]] \mid
+               [[ let x = f l (y1 ,, yn) in e ]] \\
+        &\mid& [[ x := y ; e ]] \mid
+               [[ alias(x = y); e ]] \mid
+               [[ assert(ph); e ]] \mid
+               [[ e1;e2 ]] \\
+    [[v]] &::=& [[nn]] \\
+    [[P]] &::=& [[<{d1,...,dn}, e>]] \\
+    [[l]] &\in& \textbf{Labels}\\
+  \end{array}
+\]
+$[[ph]]$ stands for a logical formula over variables, integers and context strings;
+we discuss these formulas later in section \cref{...}.
+We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$ and
+a set of lables ranged over by $[[l1]], [[l2]], \dots$.
+
+Variables are introduced by function parameters or let bindings.
+Like ML, the variable bindings introduced by let-expression and parameters
+are immutable.
+Modeling a mutable variable declaration \texttt{int x = 1} in a language like C is achieved with
+\[
+  [[ let y = 1 in (let x = mkref y in etc) ]]
+\]
+in our language.
+
+Unlike ML (and like C or Java) we do not allow general expressions as right hand side of
+let bindings. The simplest right-hand forms are a variable $[[y]]$, or an integer value.
+To access or allocate memory, $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
+$[[*y]]$ accesses the contents of $[[y]]$.
+Function calls must occur on the right hand side of a variable binding,
+and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $l$ is
+(unqiue) label. These labels are used to make our type system context sensitive, as
+discussed in \cref{...}.
+
+The two base cases for expressions are variables and if statements. If $[[ifz]]$ judges whether $[[x]]$ equals to zero and choose the corresponding branch. A single
+variable may also be treated as an expression. If variable
+expression is executed in a tail position of a function
+then the value of that variable is the return value of the function,
+otherwise the value is ignored.
+
+Our grammar requires that all side-effecting, result free statements, $[[ assert(ph); e ]]$,
+$[[alias(x = y);e]]$,
+and assignment $[[x := y;e]]$ are followed by a continuation expression.
+This requirement does not reduce the expressiveness
+of the language, and obviates including a unit type.
+The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
+$[[ph]]$ holds in the current state, and aborts the program otherwise.
+$[[alias(x = y); e]]$ is a specialized type of assertion for asserting
+must-aliasing relationship between two references $x$ and $y$. Our
+type system uses these must-alias annotations to accurately resolve
+aliases.
+$[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$
+with the contents of $[[y]]$. For simplicity, we do not include an explicit
+null value in our formalism.
+In addition to the above continuations, our language supports general sequencing with
+$[[e1 ; e2]]$. In the remainder of this paper we will rely on context to disambiguate
+between continuations and general sequencing.
+
+A program is a pair of $[[<{d1,...,dn}, e>]]$, where
+$[[ {d1,...,dn} ]]$ is a set of function definitions.  The definition
+of function maps a function name to a tuple of argument names that are
+bound within the function body $[[e]]$. Unlike ML, functions are not
+higher order, nor do we allow pointers to functions.
+\begin{figure}
+\[
+  \begin{array}{rcl}
+    [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
+    [[ CE ]] & ::= & [[ E[let y = [] l in e] ]]
+  \end{array}
+\]
+\caption{Grammar of evaluation and return contexts}
+\label{fig:eval-context-grammar}
+\end{figure}
+
+\subsection{Logical Formula}
+Our language defintion, semantics, or type system does not assume
+any particular logic. We assume all logical formulae are built
+using the standard logical connectives
+using primitive relations and functions whose interpretation
+given is given by some underlying
+theory \theory. Although we do not fix a particular logic or theory,
+we do impose the following requirements:
+\begin{enumerate}
+\item Any \theory-model treats the symbol $[[nn]]$ as a constant denoting the mathematical
+  integer $[[nn]]$.
+\item The signature for the theory must include all program variables as constants,
+  and any \theory-model must assign a mathematical integer to each variable symbol
+\end{enumerate}
+
+\subsection{Operational Semantics}
+We now introduce the operational semantics for our language.
+A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consists of a heap,
+register file, stack, and currently reducing expression.
+While the final configuration component is an expression,
+the rewritting rules are defined in terms of $[[ E[e] ]]$, which is
+a context $[[E]]$ and redex $[[e]]$, as is standard.
+Our operational semantics are mostly standard.
+We highlight some import points in the following paragraphs.
+
+First we introduce return contexts $[[ E[let y = [] l in e] ]]$.
+This return context represents a pending function call. The hole indicates the return value of the callee should be bound to $[[y]]$
+within the expression $[[e]]$. Our call-stack is a sequence of these return contexts, with the first such return context indicating the
+most recent function call.
+We write $[[ E[let y = [] l in e] ]][x]$ to denote substituting the variable $x$ into the hole in $[[ let y=[] l in e]]$.
+The grammar for evaluation contexts and return contexts are defined in \cref{fig:eval-context-grammar}.
+The semantics of a calls are given in $\rn{R-Call}$.
+For a function call $[[ let x = f l (y1,,yn) in e ]]$, where $f$ is defined as $[[(x1,..., xn)e']]$,
+we first push the return context $[[ E[let y = [] l in e] ]]$ onto the stack $[[Es]]$.
+We then substitute the formal arguments for parameters in $e'$, denoted by $[[ [y1/x1],,[yn/xn]e' ]]$.
+The result of this substitution becomes the currently reducing expression.
+Function returns are handled by $\rn{R-Var}$.
+Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$,
+we substitue $x$ into the return context on the top of the stack.
+
+In the rules $\rn{R-Assert}$ we write $[[R |= ph]]$ to mean that for
+any model $[[M]]$ in our underlying theory such that
+$[[ forall x in R.R(x) is INT ==> M(x) = R(x) ]]$ $[[ M |= ph ]]$ holds.
+We introduce $[[AliasFail]]$ and $[[AssertFail]]$ as two special configurations.
+$[[AssertFail]]$ will be thrown if the precondition $[[R |= ph]]$ doesn't hold in the current state.
+$[[AliasFail]]$ will be thrown when two references do not alias in $\rn{R-AliasFail}$.
+
+When the expression is a let-binding, in order to better handle conflicts
+with recursive functions and duplicates variable names in our single register file,
+we refresh the bound variable $[[x]]$ in a let expression to $[[x']]$.
+Take expression $[[let x=y in e]]$ as an example;
+we substitute a fresh variable $[[x']]$ for $[[x]]$ in $[[e]]$, then bind $[[x']]$ to the value
+of variable $[[y]]$.
+Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not reclaim memory.
+We consider garbage collection an orthogonal concern and do not support it in our
+language or formalism.
 
 %%% Local Variables:
 %%% mode: latex

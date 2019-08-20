@@ -1,7 +1,587 @@
-\section{Type System}
+\section{Typing}
 \label{sec:typesystem}
 \subsection{Background: Fractional Ownership Types}
+\label{sec:ownership}
+\subsection{Types}
+The grammar of types is given by:
+\[
+  \begin{array}{rcl}
+    [[ T ]] &:=& [[ {x:int|ph} ]] \mid [[ T ref r ]] \\
+    [[ph]] & ::= & [[ph1 ==> ph2]] \mid [[ ph1 \/ ph2 ]] \mid [[ !ph1 ]] \mid
+                     [[ ph1 /\ ph2 ]] \mid
+                     [[ pfun(lvar1,..,lvar2) ]] \mid
+                     [[ lvar = V' ]] \mid [[ lvar != V' ]] \mid [[ Top ]] \\
+            & \mid & [[ B1 = B2? ]] \\
+    [[ V ]] & ::= & [[ x ]] \mid [[ v ]] \\
+    [[ r ]] &:=& [0,1]
+  \end{array}
+\]
+We support two kinds of types: references and integers. $[[ T ref r ]]$ is the
+type of a (non-null) reference to a value of type $[[ T ]]$.
+$[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a pointer
+that cannot be read or written, to $[[1]]$  indicating a pointer with exclusive
+ownership that can be read and written. Ownership values between these two
+extremes indicate a pointer that is readable but not writable \emph{and} for which
+there exists no mutable, aliased pointer.
+
+The base types of our type system are integers that are refined with a
+predicate $[[ph]]$.  The language of predicates is built using the
+standard logical connectives, with (in)equality and atomic predicate
+symbols $[[pfun]]$ as the basic atoms. Our language of predicates also
+includes \emph{context predicates} of the form $[[ B1 = B2? ]]$; we
+will return to this feature in \cref{sec:cs}.
+
+\begin{example}
+  $[[{x:int | x > 0}]]$ is the type of integers that are strictly
+  positive.  $[[{x:int | x = 3} ref 0.5]]$ is the type of immutable,
+  readable references to integers that are exactly equal to $3$.
+\end{example}
+
+We impose the following well-formedness condition on types: type
+$[[ T ]]$ is well-formed if $[[ T = T' ref 0 ]]$ implies
+$[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
+of a chain of $[[i]]$ references, and is defined inductively as
+$[[top0 = {x:int|Top}]], [[topi = topi-1 ref 0]]$. The ownership of a
+reference drops to 0 when the reference is about to fall out of scope
+or when a mutable alias to its referent is created. In the former case
+the (now useless) refinement will never be observed, and in the latter
+any mutations through the alias may be inconsistent with $p$'s existing refinement.
+However, our language can exploit aliasing information to restore the read/write
+capabilities to a pointer while simultaneously updating its refinement to reflect
+any mutations.
+
+Notice that type system for program values does not include function
+types; as mentioned in \cref{sec:prelim} our language does not support
+higher order functions. We use a separate type scheme for function
+types: as this scheme is closely related to our handling of context
+sensitivity, we defer its introduction to \cref{sec:cs}.
+
+
+\begin{figure}[t]
+  \leavevmode
+  \infrule[T-Var]{
+  }{
+    [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
+  }
+  \infrule[T-Let]{
+    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \andalso
+    [[B |- T => G' \ x]]
+  }{
+    [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
+  }
+  \infrule[T-LetInt]{
+    [[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso
+    [[B |- T => G' \ x]]
+  }{
+    [[ Th | G | B |- e : T => G' \ x]]
+  }
+  \infrule[T-If]{
+    [[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]] \\
+    [[ Th | G[x <- {y:int | ph /\ y != 0}] | B |- e2 : T => G' ]]
+  }{
+    [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
+  }
+  \infrule[T-MkRef]{
+    [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \andalso
+    [[ B |- T => G' \ x ]]
+  }{
+    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
+  }
+  \infrule[T-Deref]{
+    [[r > 0]] \andalso
+    [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : T => G']] \andalso
+    [[ B |- T => G' \ x ]]
+  }{
+    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
+  }
+  \infrule[T-Seq]{
+    [[ Th | G | B |- e1 : T' => G' ]] \andalso
+    [[ Th | G' | B |- e2 : T'' => G'' ]]
+  }{
+    [[ Th | G | B |- e1 ; e2 : T'' => G'' ]]
+  }
+  \infrule[T-Assert]{
+    [[ G |= ph ]] \andalso
+    [[ Th | G | B |- e : T => G' ]]
+  }{
+    [[ Th | G | B |- assert(ph); e : T => G']]
+  }
+  \caption{Expression typing rules.}
+  \label{fig:intra-type}
+\end{figure}
+
+\begin{figure}
+  \leavevmode
+    \infrule[T-Assign]{
+    (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
+    [[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref r] | B |- e : T => G']] \\
+  }{
+    [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
+  }
+  \infrule[T-Alias]{
+    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
+    [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
+  }{
+    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
+  }
+  \infrule[T-Sub]{
+    [[ G <: G' ]] \andalso
+    [[ Th | G' | B |- e : T => G'' ]] \andalso
+    [[ x not in G ]] \andalso
+    [[ G'', x:T <: G''',x:T' ]]
+  }{
+    [[ Th | G | B |- e : T' => G''' ]]
+  }
+  \caption{Pointer manipulation and subtyping}
+  \label{fig:pointer-typing}
+\end{figure}
+
+\subsection{Intraprocedural Type System}
+We now introduce the type system for the intra-procedural fragment of
+our language. Accordingly, this section focuses on interplay of
+mutability and refinement types. The typing rules are given in
+\cref{fig:intra-type,fig:pointer-typing}.  A typing judgment takes the
+form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
+is well-typed under a type environment $[[G]]$, function type
+environment $[[Th]]$, and typing context $[[B]]$ and evalutes to a
+type $[[T]]$ and modifies the input environment to produce $[[G']]$.
+Intuitively, $[[G]]$ describes the refinements on program values before
+execution of $[[e]]$, whereas $[[G']]$ describes the refinements that
+hold after executing $[[e']]$.
+
+\begin{figure}[t]
+  \leavevmode
+  \infax[Tadd-Int]{
+    [[{x:int|ph1} + {x:int|ph2} = {x:int|ph1 /\ ph2}]]
+  }
+  \infrule[Tadd-Ref1]{
+    [[r1]] \ne 0 \andalso
+    [[r2]] \ne 0
+  }{
+    [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
+  }
+  \infrule[Tadd-Ref2]{
+    [[r]] > 0
+  }{
+    [[ T1 ref 0 + T2 ref r = T2 ref r]]
+  }
+  \infax[Tadd-Ref3]{
+    [[T1 ref 0 + T2 ref 0 = { x: int | Top } ref 0]]
+  }
+  \caption{Rules for $[[ T1 + T2 ]]$.}
+  \label{fig:addition}
+\end{figure}
+
+The typing rules in \cref{fig:intra-type} handle the relatively
+standard features in our language. The most noteworthy feature is the
+type addition operator used in \rn{T-Let}, \rn{T-MkRef}, and
+\rn{T-Deref} forms. Intuitively, the type addition operator
+``split'' the ownership \emph{and} refinement information
+between the assigned value and the newly bound value. 
+Formally, it is defined as the least commutative partial
+operation that satisfies the rules in \cref{fig:addition}.  Notice
+that if \rn{Tadd-Ref2} is chosen when ``splitting'' the type, a
+binding may transfer \emph{all} ownership from the bound value to
+the newly created binding (whereby the well-formedness condition ensures
+the assigned value is given the maximal top type).
+
+The rule for dereferencing requires that the ownership on the
+dereferenced pointer is non-zero. This requirement guarantees that
+there are no live, mutable pointers that alias with the dereferenced
+pointer (by the invariant of the ownership type system).
+As a consequence, we are guaranteed that any refinement and
+ownership information on the base pointer has not been invalidated by
+a write through a mutable alias.
+
+Our type system also tracks path information. Specifically, In the \rn{T-If}
+rule, we update the refinement on the condition variable in the respective
+branches to indicate whether said variable must be zero. By requiring
+both branches produce the same output type environment, we guarantee
+that these conflicting refinements are rectified within the
+type derivations of the two branches. Further, when creating bindings our
+type system can track equalities between integer values. We use the
+strengthening operation $[[ T /\ x ph ]]$ and typed equality
+proposition $[[ x = T y]]$, defined respectively as:
+\begin{align*}
+  [[ T /\ y ph' ]] & = \begin{cases}
+    [[ { z: int | [z/x]ph /\ [z/y]ph' }]] & [[ T = { x: int | ph } /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
+    [[ T ]] & o.w.
+    \end{cases} \\
+  [[ x = T y ]] & = \begin{cases}
+    [[ x = y ]] & [[ T = {z:int|ph} ]] \\
+    [[ Top ]] & o.w.
+  \end{cases}
+\end{align*}
+Where $[[FPV(ph)]]$ are the free variables that appear in predicate
+$[[ph]]$.  We do not track equalities between references, nor
+do we allow refinements to refer to the contents of memory, as
+detecting which refinements to invalidate on heap writes
+becomes extremely complicated.
+\JT{This should not be the first time we mention this}
+
+The rule for type checking assert statements has the precondition
+$[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
+lifts the refinements on the integer valued variables into a proposition
+in the deciable logic used for verification. This denotation
+operation is defined as:
+\begin{align*}
+  [[ [{x:int|ph}] y ]] & = [[ [y/x]ph ]] \\
+  [[ [T' ref r] y ]] & = [[ Top ]] \\
+  [[ [empty] ]] &= [[ Top ]]\\
+  [[ [G,x: T] ]] &= [[ [G] /\ [T] x ]] \\
+\end{align*}
+\JT{We never say that $[[ph]]$ has to mention only program variables, or
+  even just integer variables} If the formula $[[ [G] ==> ph]]$
+is valid, then under any valuation of program variables that satisfy
+the refinements in $[[ [G] ]]$, the predicate $[[ph]]$ must be true and the
+assertion may not fail. This intuition forms the foundation of our
+soundness claim (\cref{sec:soundness}).
+
+\paragraph{Destructive Updates, Aliasing, and Subtyping}
+We now discuss the handling of assignment, aliasing annotations,
+and subtyping as described in \cref{fig:pointer-typing}.
+Although apparently unrelated, all three program forms concern
+updating the refinements of (potentially) aliased reference cells.
+
+Like the binding forms discussed above, \rn{T-Assign} splits the assigned
+value's type into two types via the type addition operator,
+and distributes these types between the right hand side of the
+assignment and the reference contents.
+Notice that refinement information in the fresh
+contents are \emph{not} required to be consistent with
+any previous refinement information.
+In a system with unrestricted aliasing, this
+typing rule would be unsound, as it could invalidate the refinements on
+references that alias with the left hand side. However, the assignment rule
+requires that the updated reference has an ownership of $1$,
+which by the ownership system invariant guarantees any pointers
+that alias with the updated reference have $0$ ownership, and
+thus by the typing rules, unreadable \JT{or resp. by the well-formedness
+  condition, have $\top$ refinement??}.
+In other words, although update via assignment may invalidate
+refinements on aliased references, the ownership type system guarantees
+those references are unreadable, and thus the program can never
+\emph{observe} said mismatch.
+
+\begin{example}
+  We can type the program as follows:
+  \begin{lstlisting}
+    let x = mkref 5 in // $\color{comment-green}{[[x:{x:int|x=5} ref 1]]}$
+    let y = x in // $\color{comment-green}{[[x:top1,y:{x:int|x=5} ref 1]]}$
+    y := 4; assert(*y = 4) // $\color{comment-green}{[[x:top1,y:{x:int|x=4} ref 1]]}$
+  \end{lstlisting}
+\end{example}
+
+\begin{figure}
+  \leavevmode
+  \infrule[TEq-Ref]{
+    [[T1 ~ T2]] \andalso [[r1]] = [[r2]]
+  }{
+    [[T1 ref r1 ~ T2 ref r2]]
+  }
+
+  \infrule[TEq-Int]{
+    [[|= ph1 <=> ph2]]
+  }{
+    [[ {x:int | ph1} ~ {y:int | ph2} ]]
+  }
+  \caption{Rules for type equality}
+  \label{fig:equality}
+\end{figure}
+
+As described thus far, the type system is quite strict: if ownership
+has been completely transferred from one location to another, the
+original location is effectively unusable. Additionally, once
+a mutable pointer has been split through an assignment, there is no
+way to recover a mutable pointer. The typing rule for
+must alias assertions, \rn{T-Alias}, overcomes this restriction
+by exploting the aliasing information to
+``shuffle'' ownerships \emph{and refinements} between two
+aliased pointers. The typing rule assigns
+two fresh types $[[T1']]$ and $[[T2']]$ to the two operand pointers;
+the sum $[[T1' + T2']]$ must be equal modulo logical equivalence
+(denoted $[[~]]$) to the sum of the original types. Formally, $[[~]]$
+is defined as the least relation closed under the rules show in
+\cref{fig:equality}.
+The definition of $[[~]]$ ensures the total ownerships between
+the two types are equal, and as the two operands are assumed
+to alias, the type system may therefore freely redistribute
+ownerships of the two references withou violating the
+ownership invariant. This shuffling operation can also be used to
+propagate refinement updates caused by destructive updates.
+If only one of the operands has non-zero ownership,
+then by applying \rn{Tadd-Ref2} for the left sum and \rn{Tadd-Ref1}
+for the right sum, the refinements of the two new types
+may split the refinement information in the
+non-zero ownership reference.
+
+\begin{example}[Shuffling ownerships and refinements]
+  \begin{lstlisting}
+    let x = mkref 5 in // $\color{comment-green}{[[x:{x:int|x=5} ref 1]]}$
+    let y = x in // $\color{comment-green}{[[x:top1,y:{x:int|x=5} ref 1]]}$
+    y := 4; alias(x = y) // $\color{comment-green}{[[x:{x:int|x=4} ref 0.5,y:{x:int|x=4} ref 0.5]]}$    
+  \end{lstlisting}
+  Taking $[[ph]]$ to be $[[x = 4]]$, the final type assignment for $[[x]]$ and $[[y]]$ is justified by
+  \begin{align*}
+    &[[top1 + {x:int|ph} ref 1 = {x:int|ph} ref 1]][[~]]\\
+    \,\,\,\,&[[{x:int|ph/\ph} ref 1 = {x:int|ph} ref 0.5 + {x:int|ph} ref 0.5 ]]
+  \end{align*}
+\end{example}
+
+\begin{figure}
+\leavevmode
+\infrule[Sub-Int]{
+  [[G |= ph1 ==> ph2]]
+  }{
+   [[G |- {x:int|ph1} <: {y:int|ph2}]]
+  }
+  \infrule[Sub-Ref]{
+    [[r1 >= r2]]
+    \andalso
+    [[r2 > 0 ==> G |- T1 <: T2 ]]
+  }{
+    [[ G |- T1 ref r1 <: T2 ref r2 ]]
+  }
+  \infrule[Sub-TyEnv]{
+    [[ forall x in G'.G|- G(x) <: G'(x) ]]
+  }{
+    [[ G <: G' ]]
+  }
+  \caption{Rules for subtyping.}
+  \label{fig:subtyping}
+\end{figure}
+
+Finally, we describe the subtyping rule. The rules for subtyping types
+and environments are shown in \cref{fig:subtyping}. For base integer types,
+the rules require the refinement of a supertype is a logical consequence of
+the subtype's refinement; i.e., the subtyping rule allows weakening the refinement
+on integer types. The subtype rule for references is \emph{covariant} in the type
+of reference contents. It is widely known that in a type system with unrestricted aliasing
+and mutable references such a rule is unsound: after coercing to a supertype,
+a write into the coerced pointer may cause a later read through an aliased pointer to
+yield a value that does not match the type of reference contents. However, as in
+the assign case, the ownership type system prevents this scenario; a write to the
+coerced pointer requires the pointer to have ownership 1, which guarantees
+any aliased pointers are unreadble and will remain so until the refinement
+information has been updated via an aliasing annotation.
+
+\begin{figure}
+  \leavevmode
+    \infrule[T-Call]{
+    [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
+    [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
+    [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \\
+    [[ B |- T' => G' \ x]]
+  }{
+    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
+  }
+  \infrule[T-FunDef]{
+    [[ Th (f) = A <x1 : T1 ,, xn : Tn > -> < x1: T1' ,, xn : Tn' | T> ]] \\
+    [[ Th | x1:T1 ,, xn:Tn | A |- e : T => x1: T1' ,, xn : Tn' ]]
+  }{
+    [[ Th |- f |-> (x1,..,xn) e ]]
+  }
+  \infrule[T-Funs]{
+    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]]
+  }{
+    [[ Th |-  D ]]
+  }
+  \infrule[T-Prog]{
+    [[ Th |- D ]] \andalso
+    [[ Th | empty | . |- e : T => G ]]
+  }{
+    [[ |- < D, e > ]]
+  }
+\caption{Program typing rules}
+\label{fig:progTyping}
+\end{figure}
+
+\subsection{Interprocedural Fragment and Context-Sensitivity}
+\label{sec:cs}
+We now turn to a discussion of the interprocedural fragment of our
+language, and how our type system supports context sensitivity. The remaining
+typing rules for our language are shown in \cref{fig:progTyping}.
+These rules concern the typing of function calls, function bodies, and
+entire programs.
+
+Before explaining these rules in detail,
+we first describe our context sensitivity strategy. Our system distinguishes
+between calling contexts with strings of call site labels, or simply call strings.
+The refinements on function inputs and outputs may be conditional on the calling context
+information, expressed using the context prefix query mentioned above. Formally, we define
+call strings as $[[ ll ]] ::= [[ . ]] \mid [[ l : ll ]]$.
+As is standard, the string $[[ l : ll ]]$ represents an execution
+context where the most recent, active function invocation occured at call site $[[ l ]]$
+which itself was executed in a context described by $[[ ll ]]$.
+
+The refinements of our system are made context sensitive by including
+parameterized context prefix queries. A context
+prefix query takes the form $[[ ll1 = ll2? ]]$ or
+$[[ ll1 != ll2? ]]$ and is true if $[[ll2]]$ is (resp. is not) a prefix
+of $[[ll1]]$. A paramterized context prefix query admits a
+context variable $[[A]]$ as the tail of the call string on the left-hand
+side, i.e. $[[ ll1 A = ll2 ? ]]$. Note that $[[ ll1 ]]$ may be $[[.]]$, and thus
+$[[ A = ll2 ]]$ is a valid paramterized context prefix query. In fact, every paramterized
+context query of the form $[[ ll1 A = ll2 ? ]]$ may be simplified to $[[ Top ]]$, $[[ Bot ]]$, or
+$[[ A = ll2' ? ]]$ using the following equivalences:
+\begin{align*}
+  [[ A = .? <=> Top ]] && [[ l1 : ll1' A = l1 : ll2' ? <=> ll1' A = ll2' ? ]] && [[ l1 : ll1' A = l2 : ll2' ? <=> Bot ]]
+\end{align*}
+Intuitively, a context variable $[[A]]$ represents the many possible
+execution contexts in which the type occurs;
+thus a refinement type conditional on a paramterized context prefix query
+represents the different types a value may take depending on the concrete
+execution context.
+\begin{example}
+  The type $[[ {x:int| (A = l1? ==> x > 0) /\ (A != l1? ==> x < 0)} ]]$ represents
+  an integer that is strict positive if the most recent active
+  function call site is $[[l1]]$, or is strictly negative otherwise.
+\end{example}
+We are now ready to explain how we type function bodies and function calls,
+and the role of $[[Th]]$ and $[[B]]$ in the typing judgment.
+As mentioned in the previous section, $[[Th]]$ is a function type
+environment which maps every function name to a function type
+$[[FT]]$ generated by the following grammar:
+\[
+  \begin{array}{rcl}
+    [[FT]] &::=& [[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]]
+  \end{array}
+\]
+The universal quantification over the context variable $[[A]]$ indicates
+that the types of paramter and return values are parameterized by the context
+variables $[[A]]$, which stands for the calling context of the function.
+The return type of the function includes potentially updated types $[[Ti']]$
+to reflect any side effects that occur during execution. The value
+directly returned by the function is given type $[[T]]$. The parameters are given
+explicit names in the function type, and the types $[[Ti]], [[Ti']], \text{and} [[T]]$
+type may reference these names in refinements (modulo our restriction on refinements
+that mention references).
+
+The final, unexplained element of the typing judgment is the typing
+context $[[B]]$. Intuitively, $[[B]]$ represents the possible
+execution context(s) under which an expression may be executed;
+it may be a call string $[[ll]]$ or a context variable $[[A]]$.
+In the latter case, the exact context is unknown, refinement types
+in the typing judgment must be parametric over $[[A]]$ to describe
+the different refinements that may hold in all possible concrete
+contexts. Accordingly, function bodies, which may be executed under many possible
+execution contexts, are typed under the context variable
+$[[A]]$ that appears in the corresponding function type (\rn{T-FunDef}).
+Conversely, the program expression $[[e]]$ always execute in the empty context,
+and thus is is typed in the empty context $[[.]]$ (\rn{T-Prog}).
+
+We now explain the \rn{T-Call} rule. The rule uses two substitution
+maps. $[[vsub]]$ translates between the parameter names used in the
+function type and actual argument names at the call-site. $[[csub]]$
+instantiates all occurrences of $[[A]]$ with $[[ l : B ]]$, where $[[l]]$
+is the label of the callsite. If $[[B]]$
+is itself a context variable $[[A']]$, this substitution effectively
+transforms any parametric context prefix queries over $[[A]]$ into a
+query parametric over $[[A']]$, which may be simplified using the
+equivalences described above.  If $[[B]]$ is concrete, then any prefix
+queries can be immediately simplified to $[[Top]]$ or $[[Bot]]$. In
+either case, the formal arguments are required to match the parameter
+types (post substitution), and then the body of the let binding is
+checked with the argument types updated to reflect the changes in the
+function call (again, post substitution).
+\begin{example}[Simple 1-CFA]
+  \label{exmp:1cfa}
+  Consider the following simple program:
+  \begin{lstlisting}
+    get(z) { *z }
+    
+    let y = mkref 1 in
+    let x = mkref -1 in
+    assert(get$^1$(y) > 0);
+    assert(get$^2$(x) < 0)
+  \end{lstlisting}
+  Taking $[[T]]$ to be the type:
+  \[
+    [[{x:int|(A = 1? ==> x > 0) /\ (A = 2? ==> x < 0)}]]
+  \]
+  we can give \lstinline{set} the type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$
+
+  Assuming \lstinline{x} is given the type $[[ {x:int|x < 0} ref 1]]$
+  then after substitution the function call
+  with label 2 requires an argument of type \[
+    [[ {x:int|1 = 2? ==> x > 0 /\ 2 = 2? ==> x < 0} ref 1 ~ {x:int|x < 0} ref 1]]
+  \]
+  which is exactly the type of \imp{x}. Further, after substitution the
+  function's type indicates it returns a strictly negative integer, which is
+  sufficient to prove the assertion correct.
+\end{example}
+\begin{example}[Simple 2-CFA]
+  To see how to compose context information across multiple calls, consider
+  the following change to code in \cref{exmp:1cfa}:
+  \begin{lstlisting}
+    get_real(z) { *z }
+
+    get(z) { get_real$^3$(z) }
+  \end{lstlisting}
+  The type of \imp{get} remains as in \cref{exmp:1cfa}, and taking $[[T]]$
+  to be \[
+    [[ {x:int| (A' = 3 2 ? ==> x < 0) /\ (A' = 3 1 ? ==> x > 0) } ]]
+  \]
+  the type of \imp{get_real} is:
+  \[
+    [[ A' <z: T ref 1> -> <z: T ref 1 | T>]]
+  \]
+  We focus on the typing of the call to \imp{get_real} in \imp{get}.
+  The call is typed in context $[[A]]$ and a type environment where
+  \imp{p} is given type:
+  \[
+    [[ {x:int|(A = 2? ==> x < 0) /\ (A = 1? ==> x > 0)} ref 1]]
+  \]
+  Applying the substitution $[[ [3 : A / A'] ]]$ to the argument
+  type of \imp{get_real} yields the expected type:
+  \begin{align*}
+    & [[ {x:int|(3 A = 3 2 ? ==> x < 0) /\ (3 A = 3 1 ? ==> x > 0)} ref 1 ]][[~]] \\
+    & \,\,\,\,\, [[ {x:int|(A=2? ==> x <0) /\ (A=1? ==> x > 0)} ref 1]]
+  \end{align*}
+  which is exactly the type of \imp{p}. A similar derivation applies to
+  give the return type of \imp{get_real} and thus \imp{get}.
+\end{example}
+
+\begin{remark}
+  The context sensitivity scheme described in this section corresponds
+  to the standard CFA approach without \emph{a priori} call-string limiting.
+  However, this scheme cannot distinguish between calls
+  that occur within a recursive cycle. In principle we could the language
+  of refinements to include more complex context query operations, such
+  as checking whether a context matches a given context free language.
+  However, it seems unlikely such an extension would be amenable to
+  automated type inference, a major goal of this work. Further,
+  we are able to verify several interesting examples even with this
+  relatively simple approach. We leave the rigorous exploration
+  of other context sensitivity schemes to future works.
+\end{remark}
+
 \subsection{Soundness}
+\label{sec:soundness}
+We have proven that any closed program that type checks according to
+the rules above will never experience an assertion failure.
+We formalize this claim with the following soundness theorem.
+
+\begin{theorem}[Soundness]
+  \label{thm:soundness}
+  For any program $[[ <D, e> ]]$ such that $[[ |- <D, e> ]]$ then
+  $[[ <empty, empty, ., e> !-->*D AssertFail ]]$.
+\end{theorem}
+\begin{proof}[Proof Sketch]
+  We omit a full proof for space details, the full proof can be found
+  in the accompanying appendix.
+
+  We define a typing relation for runtime configurations; well-typed
+  configurations satisfy the following invariants
+  \begin{enumerate}
+  \item The value of heap locations and program variables satisfy the refinements given in the program typing judgment, and
+  \item The ownership given to every memory cell never exceeds 1.
+  \end{enumerate}
+  We then show that well-typedness is preserved by our step relation.
+  By defining the $[[AssertFail]]$ configuration as ill-typed, a
+  simple inductive argument then gives the desired result.
+\end{proof}
+
 
 %%% Local Variables:
 %%% mode: latex
