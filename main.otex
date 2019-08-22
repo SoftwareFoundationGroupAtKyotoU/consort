@@ -18,6 +18,7 @@
 \usepackage{amssymb}
 \usepackage{stmaryrd}
 \usepackage{parcolumns}
+\usepackage{mathpartir}
 \usepackage{cases}
 \usepackage[capitalize,nameinlink,noabbrev]{cleveref}
 \usepackage{listings}% http://ctan.org/pkg/listings
@@ -125,9 +126,9 @@
     [[B |- G]]
   }
   \infrule[WF-Int]{
-    [[ST(G), x:int | B |- ph]]
+    [[ST(G), nu:int | B |- ph]]
   }{
-    [[G | B |- { x:int|ph} ]]
+    [[G | B |- { nu:int|ph} ]] 
   }
   \infrule[WF-Ref]{
     [[G | B |- T]]
@@ -185,7 +186,7 @@
     [[ [B/A](lvar != V') ]] & = [[ lvar != V' ]] \\
     [[ [B/A](B' = B''?) ]] & = [[ [B/A]B' = [B/A]B''? ]] \\
     [[ [B/A](T ref r) ]] & = [[([B/A] T) ref r]] \\
-    [[ [B/A]{x:int|ph} ]] & = [[{x:int|[B/A]ph}]] \\
+    [[ [B/A]{nu:int|ph} ]] & = [[{nu:int|[B/A]ph}]] \\
     [[ [B/A](G,x: T) ]] & = [[ ([B/A]G), x : [B/A]T ]] \\
     [[ [B/A]empty ]] & = [[ empty ]] \\
   \end{align*}
@@ -592,70 +593,6 @@ That is $\overrightarrow{E}\COL \LET y=[ ] \IN\dots, D(f)[a/x]$.
 \end{itemize}
 
 \newcommand\EXTEND[1]{\{{#1}\}}
-
-\begin{figure}
-  \leavevmode
-  \infrule[TE-Seq]{
-    [[ Th | [] : T => G | B |-e E : T' => G' ]] \andalso
-    [[ Th | G' | B |- e : T'' => G'' ]]
-  }{
-    [[ Th | [] : T => G | B |-e E; e : T'' => G'' ]]
-  }
-  \infrule[TE-Hole]{}{
-    [[ Th | [] : T => G | B |-e [] : T => G ]]
-  }
-  \infrule[TE-Stack]{
-    [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
-    [[ Th | G, x : T | B |- e : T' => G0 ]] \\
-    [[ G' = G0 \ x ]] \andalso [[ B |- T' => G0 \ x ]]
-  }{
-    [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
-  }
-
-  \begin{align*}
-    [[ (E; e)[e'] ]] & = [[ E[e']; e ]] \\
-    [[ [][e'] ]] & = e' \\
-    [[ E[let y = [] l in e][x] ]] & = [[ E[let y = x in e] ]]
-  \end{align*}
-\caption{Context typing and substitution}
-\label{fig:context-typing}
-\end{figure}
-
-\begin{figure}
-  \leavevmode
-  \infrule[]{
-    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{0..n-1}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
-    [[ Cons(H, R, G) ]] \andalso
-    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\
-    [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]] \\
-    [[ Th | G | ll |- e : T => G' ]]
-  }{
-    [[ |- D <H,R,Es,En[e]> ]]
-  }
-
-  \begin{align*}
-    [[Trace(.) = .]] && [[Trace(E[let x = [] l in e] : Es) = l : Trace(Es)]])
-  \end{align*}
-
-  \begin{align*}
-    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.F(a)]] \leq 1 \\
-    [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
-    [[SATv(H,R,Rv,T)]] = & \begin{cases}
-      [[Rv is INT /\ [R ; Rv / y]ph ]] & [[ T = {y:int|ph} ]] \\
-      [[r > 0 ==> a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
-    \end{cases} \\
-    [[ [empty; v / x]ph ]] & = [[ [v/x]ph ]] \\
-    [[ [R { y |-> nn }; v / x]ph ]] & =  [[ [nn/y] [R ; v / x]ph ]] \\
-    [[ [R { y |-> a }; v / x]ph ]] & =  [[ [R ; v / x]ph ]] \\
-    F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
-    [[own(H,v,T)]] &  = \begin{cases}
-      [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
-      \emptyset & o.w.
-    \end{cases} \\
-  \end{align*}
-\caption{Machine state typing}
-\label{fig:state-typing}
-\end{figure}
 
 \input{semantics}
 

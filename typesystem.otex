@@ -45,17 +45,29 @@ This guarantee enables our combined type system to destructively
 readable pointers that expect values constrained by the previous
 refinement cannot exist when an update occurs.
 
+\begin{remark}
+  In the fractional ownership type systems cited above,
+  an ownership also represents an \emph{obligation} to
+  ensure the memory referenced by a pointer was eventually
+  freed. Further, a $0$ ownership was used for pointers that
+  had been freed to ensure dangling pointers were not used.
+  However, as mentioned in \cref{sec:semantics}, our language
+  does not support manually freeing memory which
+  significantly simplifies some of the technical components
+  of our formalism.
+\end{remark}
+
 \subsection{Types}
 \label{sec:types}
 The grammar of types is given by:
 \[
   \begin{array}{rcl}
-    [[ T ]] &:=& [[ {x:int|ph} ]] \mid [[ T ref r ]] \\
+    [[ T ]] &:=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
     [[ph]] & ::= & [[ph1 ==> ph2]] \mid [[ ph1 \/ ph2 ]] \mid [[ !ph1 ]] \mid
                      [[ ph1 /\ ph2 ]] \mid
                      [[ pfun(lvar1,..,lvar2) ]] \mid
                      [[ lvar = V' ]] \mid [[ lvar != V' ]] \mid [[ Top ]] \\
-            & \mid & [[ B1 = B2? ]] \\
+            & \mid & [[ plhs = ll ? ]] \\
     [[ V ]] & ::= & [[ x ]] \mid [[ v ]] \\
     [[ r ]] &:=& [0,1]
   \end{array}
@@ -72,12 +84,12 @@ The base types of our type system are integers that are refined with a
 predicate $[[ph]]$.  The language of predicates is built using the
 standard logical connectives, with (in)equality and atomic predicate
 symbols $[[pfun]]$ as the basic atoms. Our language of predicates also
-includes \emph{context predicates} of the form $[[ B1 = B2? ]]$; we
+includes \emph{context predicates} of the form $[[ plhs = ll? ]]$; we
 will return to this feature in \cref{sec:cs}.
 
 \begin{example}
-  $[[{x:int | x > 0}]]$ is the type of integers that are strictly
-  positive.  $[[{x:int | x = 3} ref 0.5]]$ is the type of immutable,
+  $[[{nu:int | nu > 0}]]$ is the type of integers that are strictly
+  positive.  $[[{nu:int | nu = 3} ref 0.5]]$ is the type of immutable,
   readable references to integers that are exactly equal to $3$.
 \end{example}
 
@@ -85,7 +97,7 @@ We impose the following well-formedness condition on types: type
 $[[ T ]]$ is well-formed if $[[ T = T' ref 0 ]]$ implies
 $[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
 of a chain of $[[i]]$ references, and is defined inductively as
-$[[top0 = {x:int|Top}]], [[topi = topi-1 ref 0]]$. The ownership of a
+$[[top0 = {nu:int|Top}]], [[topi = topi-1 ref 0]]$. The ownership of a
 reference drops to 0 when the reference is about to fall out of scope
 or when a mutable alias to its referent is created. In the former case
 the (now useless) refinement will never be observed, and in the latter
@@ -113,16 +125,16 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
   }
   \infrule[T-LetInt]{
-    [[ Th | G, x:{x : int | x = nn } | B |- e : T => G']] \andalso
+    [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \andalso
     [[B |- T => G' \ x]]
   }{
     [[ Th | G | B |- e : T => G' \ x]]
   }
   \infrule[T-If]{
-    [[ Th | G[x <- {y:int | ph /\ y = 0 }] | B |- e1 : T => G' ]] \\
-    [[ Th | G[x <- {y:int | ph /\ y != 0}] | B |- e2 : T => G' ]]
+    [[ Th | G[x <- {nu:int | ph /\ nu = 0 }] | B |- e1 : T => G' ]] \\
+    [[ Th | G[x <- {nu:int | ph /\ nu != 0}] | B |- e2 : T => G' ]]
   }{
-    [[ Th | G[x : {y:int|ph}] | B |- ifz y then e1 else e2 : T => G' ]]
+    [[ Th | G[x : {nu:int|ph}] | B |- ifz x then e1 else e2 : T => G' ]]
   }
   \infrule[T-MkRef]{
     [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \andalso
@@ -145,6 +157,7 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
   }
   \infrule[T-Assert]{
     [[ G |= ph ]] \andalso
+    [[ ST(G) | . |- ph ]] \andalso
     [[ Th | G | B |- e : T => G' ]]
   }{
     [[ Th | G | B |- assert(ph); e : T => G']]
@@ -170,8 +183,8 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
   \infrule[T-Sub]{
     [[ G <: G' ]] \andalso
     [[ Th | G' | B |- e : T => G'' ]] \andalso
-    [[ x not in G ]] \andalso
-    [[ G'', x:T <: G''',x:T' ]]
+    [[ G'',T <: G''',T' ]] \\
+    [[ B |- G' ]] \andalso [[ B |- T' => G''' ]]
   }{
     [[ Th | G | B |- e : T' => G''' ]]
   }
@@ -196,7 +209,7 @@ hold after executing $[[e']]$.
 \begin{figure}[t]
   \leavevmode
   \infax[Tadd-Int]{
-    [[{x:int|ph1} + {x:int|ph2} = {x:int|ph1 /\ ph2}]]
+    [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]]
   }
   \infrule[Tadd-Ref1]{
     [[r1]] \ne 0 \andalso
@@ -210,7 +223,7 @@ hold after executing $[[e']]$.
     [[ T1 ref 0 + T2 ref r = T2 ref r]]
   }
   \infax[Tadd-Ref3]{
-    [[T1 ref 0 + T2 ref 0 = { x: int | Top } ref 0]]
+    [[T1 ref 0 + T2 ref 0 = { nu: int | Top } ref 0]]
   }
   \caption{Rules for $[[ T1 + T2 ]]$.}
   \label{fig:addition}
@@ -248,11 +261,11 @@ strengthening operation $[[ T /\ x ph ]]$ and typed equality
 proposition $[[ x = T y]]$, defined respectively as:
 \begin{align*}
   [[ T /\ y ph' ]] & = \begin{cases}
-    [[ { z: int | [z/x]ph /\ [z/y]ph' }]] & [[ T = { x: int | ph } /\ z not in FPV(ph') /\ z not in FPV(ph) ]] \\
+    [[ { nu: int | ph /\ [nu/y]ph' }]] & [[ T = { nu: int | ph } ]] \\
     [[ T ]] & o.w.
     \end{cases} \\
   [[ x = T y ]] & = \begin{cases}
-    [[ x = y ]] & [[ T = {z:int|ph} ]] \\
+    [[ x = y ]] & [[ T = {nu:int|ph} ]] \\
     [[ Top ]] & o.w.
   \end{cases}
 \end{align*}
@@ -269,7 +282,7 @@ lifts the refinements on the integer valued variables into a proposition
 in the deciable logic used for verification. This denotation
 operation is defined as:
 \begin{align*}
-  [[ [{x:int|ph}] y ]] & = [[ [y/x]ph ]] \\
+  [[ [{nu:int|ph}] y ]] & = [[ [y/nu]ph ]] \\
   [[ [T' ref r] y ]] & = [[ Top ]] \\
   [[ [empty] ]] &= [[ Top ]]\\
   [[ [G,x: T] ]] &= [[ [G] /\ [T] x ]] \\
@@ -310,9 +323,9 @@ those references are unreadable, and thus the program can never
 \begin{example}
   We can type the program as follows:
   \begin{lstlisting}
-    let x = mkref 5 in // $\color{comment-green}{[[x:{x:int|x=5} ref 1]]}$
-    let y = x in // $\color{comment-green}{[[x:top1,y:{x:int|x=5} ref 1]]}$
-    y := 4; assert(*y = 4) // $\color{comment-green}{[[x:top1,y:{x:int|x=4} ref 1]]}$
+    let x = mkref 5 in // $\color{comment-green}{[[x:{nu:int|nu=5} ref 1]]}$
+    let y = x in // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
+    y := 4; assert(*y = 4) // $\color{comment-green}{[[x:top1,y:{nu:int|nu=4} ref 1]]}$
   \end{lstlisting}
 \end{example}
 
@@ -325,9 +338,9 @@ those references are unreadable, and thus the program can never
   }
 
   \infrule[TEq-Int]{
-    [[|= ph1 <=> ph2]]
+    [[|= ph1 <=> ph2]] \andalso [[ FPV(ph1) = FPV(ph2) ]] \andalso [[ FPCV(ph1) = FPCV(ph2) ]]
   }{
-    [[ {x:int | ph1} ~ {y:int | ph2} ]]
+    [[ {nu:int | ph1} ~ {nu:int | ph2} ]]
   }
   \caption{Rules for type equality}
   \label{fig:equality}
@@ -362,14 +375,14 @@ non-zero ownership reference.
 
 \begin{example}[Shuffling ownerships and refinements]
   \begin{lstlisting}
-    let x = mkref 5 in // $\color{comment-green}{[[x:{x:int|x=5} ref 1]]}$
-    let y = x in // $\color{comment-green}{[[x:top1,y:{x:int|x=5} ref 1]]}$
-    y := 4; alias(x = y) // $\color{comment-green}{[[x:{x:int|x=4} ref 0.5,y:{x:int|x=4} ref 0.5]]}$    
+    let x = mkref 5 in // $\color{comment-green}{[[x:{nu:int|nu=5} ref 1]]}$
+    let y = x in // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
+    y := 4; alias(x = y) // $\color{comment-green}{[[x:{nu:int|nu=4} ref 0.5,y:{nu:int|nu=4} ref 0.5]]}$    
   \end{lstlisting}
-  Taking $[[ph]]$ to be $[[x = 4]]$, the final type assignment for $[[x]]$ and $[[y]]$ is justified by
+  Taking $[[ph]]$ to be $[[nu = 4]]$, the final type assignment for $[[x]]$ and $[[y]]$ is justified by
   \begin{align*}
-    &[[top1 + {x:int|ph} ref 1 = {x:int|ph} ref 1]][[~]]\\
-    \,\,\,\,&[[{x:int|ph/\ph} ref 1 = {x:int|ph} ref 0.5 + {x:int|ph} ref 0.5 ]]
+    &[[top1 + {nu:int|ph} ref 1 = {nu:int|ph} ref 1]][[~]]\\
+    \,\,\,\,&[[{nu:int|ph/\ph} ref 1 = {nu:int|ph} ref 0.5 + {nu:int|ph} ref 0.5 ]]
   \end{align*}
 \end{example}
 
@@ -378,7 +391,7 @@ non-zero ownership reference.
 \infrule[Sub-Int]{
   [[G |= ph1 ==> ph2]]
   }{
-   [[G |- {x:int|ph1} <: {y:int|ph2}]]
+   [[G |- {nu:int|ph1} <: {nu:int|ph2}]]
   }
   \infrule[Sub-Ref]{
     [[r1 >= r2]]
@@ -391,6 +404,11 @@ non-zero ownership reference.
     [[ forall x in G'.G|- G(x) <: G'(x) ]]
   }{
     [[ G <: G' ]]
+  }
+  \infrule[Sub-Result]{
+    [[G,x:T <: G',x:T']] \andalso [[ x not in dom G ]]
+  }{
+    G,T <: G,T'
   }
   \caption{Rules for subtyping.}
   \label{fig:subtyping}
@@ -478,7 +496,7 @@ thus a refinement type conditional on a paramterized context prefix query
 represents the different types a value may take depending on the concrete
 execution context.
 \begin{example}
-  The type $[[ {x:int| (A = l1? ==> x > 0) /\ (A != l1? ==> x < 0)} ]]$ represents
+  The type $[[ {nu:int| (A = l1? ==> nu > 0) /\ (A != l1? ==> nu < 0)} ]]$ represents
   an integer that is strict positive if the most recent active
   function call site is $[[l1]]$, or is strictly negative otherwise.
 \end{example}
@@ -542,14 +560,14 @@ function call (again, post substitution).
   \end{lstlisting}
   Taking $[[T]]$ to be the type:
   \[
-    [[{x:int|(A = 1? ==> x > 0) /\ (A = 2? ==> x < 0)}]]
+    [[{nu:int|(A = 1? ==> nu > 0) /\ (A = 2? ==> nu < 0)}]]
   \]
   we can give \lstinline{set} the type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$
 
-  Assuming \lstinline{x} is given the type $[[ {x:int|x < 0} ref 1]]$
+  Assuming \lstinline{x} is given the type $[[ {nu:int|nu < 0} ref 1]]$
   then after substitution the function call
   with label 2 requires an argument of type \[
-    [[ {x:int|1 = 2? ==> x > 0 /\ 2 = 2? ==> x < 0} ref 1 ~ {x:int|x < 0} ref 1]]
+    [[ {nu:int|1 = 2? ==> nu > 0 /\ 2 = 2? ==> nu < 0} ref 1 ~ {nu:int|nu < 0} ref 1]]
   \]
   which is exactly the type of \imp{x}. Further, after substitution the
   function's type indicates it returns a strictly negative integer, which is
@@ -565,7 +583,7 @@ function call (again, post substitution).
   \end{lstlisting}
   The type of \imp{get} remains as in \cref{exmp:1cfa}, and taking $[[T]]$
   to be \[
-    [[ {x:int| (A' = 3 2 ? ==> x < 0) /\ (A' = 3 1 ? ==> x > 0) } ]]
+    [[ {nu:int| (A' = 3 2 ? ==> nu < 0) /\ (A' = 3 1 ? ==> nu > 0) } ]]
   \]
   the type of \imp{get_real} is:
   \[
@@ -575,13 +593,13 @@ function call (again, post substitution).
   The call is typed in context $[[A]]$ and a type environment where
   \imp{p} is given type:
   \[
-    [[ {x:int|(A = 2? ==> x < 0) /\ (A = 1? ==> x > 0)} ref 1]]
+    [[ {nu:int|(A = 2? ==> nu < 0) /\ (A = 1? ==> nu > 0)} ref 1]]
   \]
   Applying the substitution $[[ [3 : A / A'] ]]$ to the argument
   type of \imp{get_real} yields the expected type:
   \begin{align*}
-    & [[ {x:int|(3 A = 3 2 ? ==> x < 0) /\ (3 A = 3 1 ? ==> x > 0)} ref 1 ]][[~]] \\
-    & \,\,\,\,\, [[ {x:int|(A=2? ==> x <0) /\ (A=1? ==> x > 0)} ref 1]]
+    & [[ {nu:int|(3 A = 3 2 ? ==> nu < 0) /\ (3 A = 3 1 ? ==> nu > 0)} ref 1 ]][[~]] \\
+    & \,\,\,\,\, [[ {nu:int|(A=2? ==> nu < 0) /\ (A=1? ==> nu > 0)} ref 1]]
   \end{align*}
   which is exactly the type of \imp{p}. A similar derivation applies to
   give the return type of \imp{get_real} and thus \imp{get}.

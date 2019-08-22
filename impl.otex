@@ -1,5 +1,39 @@
-\section{Inference and Implementation}
+\section{Inference and Extensions}
 \label{sec:infr}
+We now briefly describe the inference algorithm implemented in
+our tool \consort. We first run a standard, simple type inference
+algorithm to generate type templates for every function parameter
+type, return type, and for every live variable at each program point.
+For a variable $x$ of simple type
+$[[ST]] ::= [[ int ]] | [[ST ref]]$ at
+program point $p$ we generate a type template $[[ [ST](x,0,pp) ]]$
+as follows:
+\begin{align*}
+  [[ [int](x,nn,pp) ]] & = [[{nu:int|ph(x,nn,pp)[FV pp]}]] \\
+  [[ [ST ref](x,nn,pp) ]] & = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
+\end{align*}
+where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh predicate symbol
+whose arguments are the free variables of with simple type $[[int]]$
+at program point $[[pp]]$ and $[[r[x,nn,pp] ]]$ is a
+fresh ownership variable.
+When generating these type template, our implementation
+also generates well-formedness constraints.
+
+We then walk the program, generating constraints according to
+the typing rules. These constraints take two forms, ownership
+constraints and subtyping constraints. Ownership constraints
+are simple linear (in)equalities over ownership variables
+and constants, according to conditions imposed by the typing
+rules. For example, if variable $[[x]]$ has the type template
+$[[T ref r[x,0,pp] ]]$ for the expression $[[ x := y; e ]]$ at point
+$[[pp]]$, we generate the constraint $[[r[x,0,pp] = 1]]$.
+
+Subtyping constraints 
+
+\paragraph{Encoding Context Sensitivity}
+
+\paragraph{Extensions}
+
 
 %%% Local Variables:
 %%% mode: latex

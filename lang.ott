@@ -45,7 +45,7 @@ grammar
   A {{ tex \alpha }} :: 'A_' ::=
 
   v :: 'v_' ::=                                         {{ com  value }}
-    | nn                   ::   :: Nat     {{ com  natural number }}    {{ tex n }}
+    | nn                   ::   :: Nat     {{ com  natural number }}
 	| 0 :: :: Zero {{ com zero }}
 	| 1 :: :: One {{ com one }}
 	| a :: :: address
@@ -69,6 +69,8 @@ grammar
 	| 1 :: :: excl_owner
 	| F ( a ) :: :: omap_lkp
 	| float :: :: float
+	| r [ x , nn , pp ] :: :: gen_var {{ tex [[r]]_{[[x]],[[nn]],[[pp]]} }}
+
 
   top {{ tex \top }} :: t ::=
     | Top :: :: top
@@ -80,9 +82,9 @@ grammar
     | digit :: :: end
 	| digit DL :: :: seq
 
-  concr_int :: I_ ::=
+  nn {{ tex n }} :: I_ ::=
     | DL :: :: I
-
+	| nn1 + nn2 :: :: plus
    
   l {{ tex \ell}} :: 'L' ::=
     | DL :: :: conr
@@ -118,10 +120,9 @@ grammar
   Rv {{ tex v }} :: Rv_ ::= {{ com runtime value forms }}
     | a :: :: addr
 	| R ( x ) :: :: var
-    | R ( y ) :: :: var_y
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
-	| concr_int :: :: z
+	| nn :: :: z
 	| M ( x ) :: :: model_lkp
 
   E :: E_ ::=    {{ com evaluation context }}
@@ -177,15 +178,15 @@ grammar
 	| ph1 ==> ph2 :: :: entail
 	| [ V1 / lvar ] ph :: :: subst_var
 	| vsub ph :: :: sub_v
-	| [ R ; V1 / lvar ] ph :: :: subst_env
 	| csub ph :: :: subst_ctxt
 	| prefix_query :: :: prefix_query
 	| ( ph ) :: :: paren
 	| x = T y :: :: typed_eq {{ tex [[x]] =_{[[T]]} [[y]] }}
 	| Bot :: :: bot {{ tex \bot }}
+	| ph ( x , nn , pp1 ) [ FV pp2 ] :: :: template {{ tex [[ph]]_{[[x]],[[nn]],[[pp1]]}[ [[FV]]_{[[pp2]]} ] }}
 
   lvar {{ tex V }} :: 'LV_' ::=
-  	| nu :: :: nu {{ tex \nu }}
+  	| nu :: :: nu
     | x :: :: var
     | n :: :: var_n
 
@@ -201,10 +202,13 @@ grammar
   vsub {{ tex \sigma_{x} }} :: 'VS_' ::=
     | [ x1 / x1' ] ,, [ xn / xn' ] :: :: vsub_seq {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] }}
 	| [ x1 / x2 ] :: :: sub {{ tex [ [[x1]] / [[x2]] ] }}
+	| [ x1 / nu ] :: :: nusub
+	| [ nu / x1 ] :: :: nusub2
+	| [ R ] :: :: env_sub
 
   T {{ tex \tau }} :: T_ ::=                              {{ com type }}
-    | { x : int | ph }    ::   :: refint                  {{ com refined integer type }}
-                                        {{ tex \set{ [[x]] \COL \TINT \mid [[ph]]} }}
+    | { nu : int | ph }    ::   :: refint                  {{ com refined integer type }}
+                                        {{ tex \set{ [[nu]] \COL \TINT \mid [[ph]]} }}
     | T ref r             ::   :: reference               {{ com reference type }}
                                         {{ tex [[T]] \TREF^{[[r]]} }}
     | ( T )               :: S :: paren
@@ -216,6 +220,7 @@ grammar
 	| T1 = T2 :: :: eq
     | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
 	| top :: :: top_type
+	| [ ST ] ( x , nn , pp ) :: :: denote_simple {{ tex \sem{[[ST]]}_{[[x]],[[nn]],[[pp]]} }}
 
   ST {{ tex \tau_{ST} }} :: 'ST_' ::=
     | int :: :: simple_int {{ tex \TINT }}
@@ -226,6 +231,7 @@ grammar
     | empty :: :: em {{ tex \bullet }}
 	| Gst , x : ST :: :: append
 	| ST ( G ) :: :: lift_G {{ tex \mathit{ST}([[G]]) }}
+	| Gst , nu : ST :: :: nu_append
 
   tyarg_list :: 'AL_' ::=
     | x1 : T1 , .. , xn : Tn :: :: list
@@ -253,6 +259,7 @@ grammar
 	| [ B / A ] G :: :: cxtSubst
 	| ( G ) :: :: paren
 	| G1 = G2 :: :: tyenvDef
+	| vsub G :: :: subst_var 
     | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
 
   rel_op :: Rel ::=
@@ -262,6 +269,9 @@ grammar
 	| != :: :: neq
 	| >= :: :: geq
     | > :: :: gt
+
+  pp {{ tex p }} :: PP_ ::=
+ 
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -299,6 +309,8 @@ grammar
 	| > :: :: gt
 	| Top :: :: top {{ tex \top }}
 	| ~ :: :: squiggle {{ tex \approx }}
+	| nu :: :: nu {{ tex \nu }}
+	| exists :: :: exists {{ tex \exists }}
 
   reduction :: '' ::=
     | --> :: :: step
@@ -309,6 +321,7 @@ grammar
     | ph :: :: phi
     | [ T ] x :: :: denote_type {{ tex \sem{[[T]]}_{[[x]]} }}
 	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
+	| vsub logical_frag :: :: subst
 	| logical_frag1 /\ logical_frag2 :: :: conj
 	| ! logical_frag :: :: not {{ tex \neg [[logical_frag]]}}
 	| ( logical_frag ) :: :: paren
@@ -318,9 +331,8 @@ grammar
 
   logic_judgment :: '' ::=
 	| |= logical_frag :: :: models
+	| !|= logical_frag :: :: not_models
 	| G |= logical_frag :: :: tyenv_model
-	| R |= logical_frag :: :: env_model
-	| R !|= logical_frag :: :: env_not_model
 	| M |= logical_frag :: :: logical_model
 
   FVF :: 'FV_' ::=
@@ -349,14 +361,16 @@ grammar
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
-	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{WF} [[T]] [[=>]] [[G]] }}
+	| R |- T :: :: valid_sub {{ tex [[R]][[|-]]_{\sigma} [[T]] }}
+	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{\wf} [[T]] [[=>]] [[G]] }}
     | G1 <: G2            ::   :: subG
+	| G1 , T1 <: G2 , T2 :: :: subRes
     | Th | G1 | B |- e : T => G2   ::   :: exp
     | C1 reduction D C2         ::   :: red        {{ tex [[C1]] [[reduction]]_[[D]] [[C2]] }}
 	
-	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{WF} [[ G ]] }}
-	| G | B |- T :: :: twf {{ tex [[G]] [[|]] [[B]] [[|-]]_{WF} [[T]] }}
-	| Gst | B |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[B]] [[|-]]_{WF} [[ph]] }}
+	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{\wf} [[ G ]] }}
+	| G | B |- T :: :: twf {{ tex [[G]] [[|]] [[B]] [[|-]]_{\wf} [[T]] }}
+	| Gst | B |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[B]] [[|-]]_{\wf} [[ph]] }}
 	| T1 = T2 :: :: teq
 	| ST1 = ST2 :: :: steq
 	| Th |- d :: :: fun_typ
@@ -374,6 +388,7 @@ grammar
 	| a  :: :: addr
 	| f :: :: fname
 	| v :: :: value
+	| nu :: :: nu
 
   MF :: 'MF_' ::=
     | G :: :: tyenv
@@ -434,8 +449,10 @@ grammar
 	| r1 <= r2 .. <= r3 :: :: rel_list
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
+	| exists Rv . formula :: :: eq
 	| ( formula ) :: :: parenF
 	| T1 ~ T2 :: :: tEqual
 	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] [[~]]_[[a]] [[H2]] }}
 	| R1 < R2 :: :: reg_weak {{ tex [[R1]] \sqsubseteq [[R2]] }}
+
 

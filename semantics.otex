@@ -61,12 +61,12 @@
     [[ <H, R, Es, E[alias(x = y); e]> --> D AliasFail ]]
   }
   \infrule[R-Assert]{
-    [[ R |= ph ]]
+    [[ |= [R]ph ]]
   }{
     [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]
   }
   \infrule[R-AssertFail]{
-    [[ R !|= ph ]]
+    [[ !|= [R]ph ]]
   }{
     [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]
   }

@@ -107,6 +107,7 @@ we do impose the following requirements:
 \fi
 
 \subsection{Operational Semantics}
+\label{sec:semantics}
 We now introduce the operational semantics for our language.
 A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consists of a heap,
 register file, stack, and currently reducing expression.
