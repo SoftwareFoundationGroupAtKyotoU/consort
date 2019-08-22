@@ -1,8 +1,52 @@
 \section{Typing}
 \label{sec:typesystem}
+We now introduce a refinement type system combined
+with fraction ownership types that guarantees runtime
+assertion failures do not occur. We first present
+a brief background on ownership types (\cref{sec:ownership}),
+before describing our fractional ownership refinement types
+(\cref{sec:types}), the type system (\cref{sec:intra-types,sec:cs}),
+and finally close with a discussion of our soundness guarantee
+(\cref{sec:soundness}).
+
 \subsection{Background: Fractional Ownership Types}
 \label{sec:ownership}
+Before describing our type system in detail, we provide a brief
+overview of the fractional ownership type system upon which it
+is built. Developed by Suenaga and Kobayashi \needcite for
+ensuring safe memory access in low-level languages like C, it
+was later extended by Suenaga et al. \needcite to also ensure
+correct allocation/deallocation of shared resources in concurrent programs.
+The core idea of fractional ownership types is to elaborate reference
+types with an ownership $[[r]]$, which is a rational number that
+ranges from $[0,1]$. An ownership of $[[1]]$ indicates that a pointer
+has exclusive ownership of a memory cell, and may freely read or write
+the contents of the cell. An ownership in the range $(0,1)$
+indicates a pointer with shared ownership, through which
+a memory cell can be read but \emph{not} modified. Finally, a pointer
+with $0$ ownership may be neither read nor modified.
+
+The fractional ownership type systems in \needcite enforced the
+following key invariant: the total ownership of all pointer types that
+point to the same memory cell never exceeds 1. As an immediate
+consequence, given a pointer $p$ with ownership $1$, no other readable
+pointers that alias with $p$ may exist (otherwise the total ownership
+would exceed 1). The type system is designed such that when an alias
+to a pointer $p$ is created, the current ownership of $p$ is divided
+between the new alias and $p$ (hence \emph{fractional} ownership).
+Further, the type system may destructively change
+the type of $p$'s contents without regard for the previous contents.
+In a language with unrestricted aliasing, such an operation would
+be unsound, but the above invariant guarantees that
+at the time of update no readable pointers that expect the old
+contents remain.
+This guarantee enables our combined type system to destructively
+(and incompatibly) change the refinements of mutable memory cells;
+readable pointers that expect values constrained by the previous
+refinement cannot exist when an update occurs.
+
 \subsection{Types}
+\label{sec:types}
 The grammar of types is given by:
 \[
   \begin{array}{rcl}
@@ -16,7 +60,7 @@ The grammar of types is given by:
     [[ r ]] &:=& [0,1]
   \end{array}
 \]
-We support two kinds of types: references and integers. $[[ T ref r ]]$ is the
+Our type system has two type constructors: references and integers. $[[ T ref r ]]$ is the
 type of a (non-null) reference to a value of type $[[ T ]]$.
 $[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a pointer
 that cannot be read or written, to $[[1]]$  indicating a pointer with exclusive
@@ -55,7 +99,6 @@ types; as mentioned in \cref{sec:prelim} our language does not support
 higher order functions. We use a separate type scheme for function
 types: as this scheme is closely related to our handling of context
 sensitivity, we defer its introduction to \cref{sec:cs}.
-
 
 \begin{figure}[t]
   \leavevmode
@@ -137,6 +180,7 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
 \end{figure}
 
 \subsection{Intraprocedural Type System}
+\label{sec:intra-types}
 We now introduce the type system for the intra-procedural fragment of
 our language. Accordingly, this section focuses on interplay of
 mutability and refinement types. The typing rules are given in
@@ -303,6 +347,7 @@ the sum $[[T1' + T2']]$ must be equal modulo logical equivalence
 (denoted $[[~]]$) to the sum of the original types. Formally, $[[~]]$
 is defined as the least relation closed under the rules show in
 \cref{fig:equality}.
+
 The definition of $[[~]]$ ensures the total ownerships between
 the two types are equal, and as the two operands are assumed
 to alias, the type system may therefore freely redistribute
