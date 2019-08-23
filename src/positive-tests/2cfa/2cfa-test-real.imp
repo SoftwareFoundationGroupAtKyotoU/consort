@@ -1,0 +1,20 @@
+f(x) {
+  x[0]
+}
+
+g(x) {
+  f(x)
+}
+
+{
+  let x = mkarray 1 in
+  let y = mkarray 1 in {
+    x[0] <- -1;
+	y[0] <- 1;
+	let xr = g(x) in
+	let yr = g(y) in {
+      assert(xr < 0);
+	  assert(yr > 0)
+	}
+  }
+}

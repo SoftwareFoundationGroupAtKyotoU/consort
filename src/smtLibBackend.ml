@@ -45,7 +45,7 @@ end = struct
       let ctxt = List.init !KCFA.cfa ctxt_var in
       print_string_list (pred_name i::ctxt @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ]) ff
     | CtxtPred (ctxt,i,(args,o)) ->
-      let c_string = (string_of_int ctxt)::(List.init (!KCFA.cfa-1) (fun i -> ctxt_var @@ i + 1)) in
+      let c_string = (string_of_int ctxt)::(List.init (!KCFA.cfa-1) (fun i -> ctxt_var @@ i)) in
       print_string_list (pred_name i::c_string @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ]) ff
     | Top -> atom ff "true"
     | ConstEq n -> print_string_list [ "="; binding; string_of_int n ] ff
