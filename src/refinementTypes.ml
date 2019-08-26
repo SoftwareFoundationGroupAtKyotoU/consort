@@ -428,7 +428,7 @@ let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
             let t_sub = List.nth tl i in
             let (a',mapped) = c (update_binding ap bind b) t_sub in
             (a',Tuple (bind, update_nth tl i mapped))
-          | _ -> failwith @@ Printf.sprintf "Invalid type for proj AP"
+          | _ -> failwith "Invalid type for proj AP"
         )
   in
   inner_loop ap f
