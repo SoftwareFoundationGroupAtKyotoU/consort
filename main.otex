@@ -24,7 +24,7 @@
 \usepackage{listings}% http://ctan.org/pkg/listings
 
 \lstdefinelanguage{Imp}{
-  keywords=[0]{ifz,then,else,alias,assert,mkref,let,in},
+  keywords=[0]{ifz,then,else,alias,assert,mkref,let,in,null,ifnull},
   morecomment=[l]{//},
 }
 \definecolor{comment-green}{rgb}{0,0.6,0}

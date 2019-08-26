@@ -1,10 +1,13 @@
 metavar termvar, x, y, z ::=
   {{ tex \mathit{[[termvar]]} }} {{ com  term variable  }}
 
+metavar c ::=
+  {{ tex \mathit{[[c]]} }} {{ com context var }}
+
 metavar funvar, f, g ::=
   {{ tex \mathit{[[funvar]]} }} {{ com  function name }}
 
-indexvar index, i, n, p, q ::=   {{ com index }}
+indexvar index, i, j, n, p, q, k ::=   {{ com index }}
 
 metavar a ::= {{ com addresses }}
 
@@ -42,7 +45,7 @@ grammar
     | y1 ,, yn :: :: Abbrv {{ tex [[y1]],\ldots,[[yn]] }}
 	| y1 , ... , yn :: :: Explicit
   
-  A {{ tex \alpha }} :: 'A_' ::=
+  A {{ tex \lambda }} :: 'A_' ::=
 
   v :: 'v_' ::=                                         {{ com  value }}
     | nn                   ::   :: Nat     {{ com  natural number }}
@@ -62,7 +65,7 @@ grammar
   P :: P_ ::=                              {{ com programs }}
     | < D , e >            ::   :: prog    {{ tex \tuple{[[D]], [[e]]} }}
 
-  r {{ tex r }} :: 'O_' ::=
+  r {{ tex r }} :: 'O_' ::= {{ com ownership }}
     | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }}
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
@@ -86,7 +89,7 @@ grammar
     | DL :: :: I
 	| nn1 + nn2 :: :: plus
    
-  l {{ tex \ell}} :: 'L' ::=
+  l {{ tex \ell}} :: 'L' ::= {{ com location label }}
     | DL :: :: conr
 
   digit :: 'D_' ::=
@@ -123,7 +126,6 @@ grammar
 	| H ( Rv ) :: :: lkp
 	| v :: :: const
 	| nn :: :: z
-	| M ( x ) :: :: model_lkp
 
   E :: E_ ::=    {{ com evaluation context }}
     | []                ::   :: hole
@@ -131,7 +133,7 @@ grammar
     | ( E ) :: :: paren
     | E = E' :: :: eq
 
-  CE {{ tex E_c }} :: E_ ::=
+  CE {{ tex E_c }} :: E_ ::= {{ com return contexts }}
     | E [ let x = return_hole in e ] :: :: stack {{ tex [[E]][\LET [[x]] = [[return_hole]] \IN [[ e ]] ]}}
 
   Es {{ tex \overrightarrow{E} }} :: Es_ ::=                  {{ com  stack }}
@@ -152,19 +154,19 @@ grammar
   prhs :: 'PRhs_' ::=
     | ll ? :: :: prefix
 
-  prefix_query :: 'PQ_' ::=
+  prefix_query :: 'PQ_' ::= {{ com prefix query }}
     | plhs ineq prhs :: :: query
 
-  ll {{ tex \overrightarrow{\ell} }} :: 'LL_' ::=
+  ll {{ tex \overrightarrow{\ell} }} :: 'LL_' ::= {{ com concrete contexts }}
     | . :: :: empty {{ tex \epsilon }}
 	| l :: :: singleton
 	| l : ll :: :: cons
 	| l1 .. ln :: :: inline
 
-  B {{ tex \mathcal{L}^{\alpha} }} :: B_ ::=
+  B {{ tex \mathcal{L}^{\alpha} }} :: B_ ::= {{ com type contexts }}
     | . :: :: empty {{ tex \epsilon }}
 	| l : B :: :: l_cons
-	| l1 : ,..., : ln : B :: :: multi_cons {{ tex [[l1]] : \cdots : [[ln]] : [[B]] }}
+	| l1 : ... : ln : B :: :: multi_cons
 	| ll :: :: concrete
 	| A :: :: svar
 	| Trace ( Es ) :: :: trace_fun
@@ -183,9 +185,10 @@ grammar
 	| ( ph ) :: :: paren
 	| x = T y :: :: typed_eq {{ tex [[x]] =_{[[T]]} [[y]] }}
 	| Bot :: :: bot {{ tex \bot }}
-	| ph ( x , nn , pp1 ) [ FV pp2 ] :: :: template {{ tex [[ph]]_{[[x]],[[nn]],[[pp1]]}[ [[FV]]_{[[pp2]]} ] }}
+	| ph ( x , nn , pp1 ) :: :: template {{ tex [[ph]]_{[[x]],[[nn]],[[pp1]]} }}
+	| ph [ FVF ] :: :: with_fv
 
-  lvar {{ tex V }} :: 'LV_' ::=
+  lvar {{ tex V }} :: 'LV_' ::= 
   	| nu :: :: nu
     | x :: :: var
     | n :: :: var_n
@@ -195,16 +198,19 @@ grammar
 	| v :: :: val
 	| Rv :: :: rv
 
-  csub {{ tex \sigma_{\alpha} }} :: 'C_' ::=
+  csub {{ tex \sigma_{\alpha} }} :: 'C_' ::= {{ com context sub }}
   	| [ B / A ] :: M :: subst_ctxt
 	| csub1 csub2 :: M :: subst_concat
 
   vsub {{ tex \sigma_{x} }} :: 'VS_' ::=
-    | [ x1 / x1' ] ,, [ xn / xn' ] :: :: vsub_seq {{ tex [ [[x1]] / [[x1']] ] \cdots [ [[xn]] / [[xn']] ] }}
+    | vsub1 ,, vsub2 :: :: vsub_seq {{ tex [[vsub1]]\cdots[[vsub2]] }}
 	| [ x1 / x2 ] :: :: sub {{ tex [ [[x1]] / [[x2]] ] }}
 	| [ x1 / nu ] :: :: nusub
 	| [ nu / x1 ] :: :: nusub2
 	| [ R ] :: :: env_sub
+	| [ c1 / c2 ] :: :: context_sub
+	| [ l / c ] :: :: concrete_sub
+	| vsub1 vsub2 :: :: concat
 
   T {{ tex \tau }} :: T_ ::=                              {{ com type }}
     | { nu : int | ph }    ::   :: refint                  {{ com refined integer type }}
@@ -221,13 +227,26 @@ grammar
     | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
 	| top :: :: top_type
 	| [ ST ] ( x , nn , pp ) :: :: denote_simple {{ tex \sem{[[ST]]}_{[[x]],[[nn]],[[pp]]} }}
+	| [ ST ] ( x , nn , pp ) { X } :: :: denote_eqn {{ tex \sem{[[ST]]}_{[[x]],[[nn]],[[pp]]}^{\mu\mathcal{X} } }}
+	| ( tuple_bind1 ,, tuple_bind2 ) :: :: dependent_tuple {{ tex ([[tuple_bind1]],\ldots,[[tuple_bind2]]) }}
+	| ( tuple_bind1 , ... , tuple_bind2 ) :: :: concr_dep_tup
+	| ( M alpha . T ) :: :: rec_type {{ tex \mu[[alpha]].[[T]] }}
 
-  ST {{ tex \tau_{ST} }} :: 'ST_' ::=
+  tuple_bind :: 'TB_' ::=
+    | x : T :: :: named {{ tex [[x]]\COL[[T]] }}
+	| T :: :: no_bind 
+
+  ST {{ tex \tau_{ST} }} :: 'ST_' ::= {{ com simple type }}
     | int :: :: simple_int {{ tex \TINT }}
 	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
 	| Gst ( x ) :: :: st_lkp
+	| ( M alpha . ST ) :: :: rec_st {{ tex \mu[[alpha]].[[ST]] }}
+	| ST [ alpha ] :: :: over_type
+	| [ ST1 / alpha ] ST2 :: :: subst_ty_var
+	| ( ST1 , ... , ST2 ) :: :: simple_tuple
+	| alpha :: :: ty_var
 
-  Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::=
+  Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::= {{ com simple type env }}
     | empty :: :: em {{ tex \bullet }}
 	| Gst , x : ST :: :: append
 	| ST ( G ) :: :: lift_G {{ tex \mathit{ST}([[G]]) }}
@@ -261,6 +280,7 @@ grammar
 	| G1 = G2 :: :: tyenvDef
 	| vsub G :: :: subst_var 
     | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
+	| G @ pp :: :: env_at_point {{ tex [[G]]^[[pp]] }}
 
   rel_op :: Rel ::=
     | <= :: :: ge
@@ -271,7 +291,8 @@ grammar
     | > :: :: gt
 
   pp {{ tex p }} :: PP_ ::=
- 
+    | f st :: :: f_start {{ tex {[[f]]^{b} } }}
+	| f end :: :: f_end {{ tex {[[f]]^{e} } }}
 
   terminals :: 'terminals_' ::=
     | ;                   ::   :: seq        {{ tex \SEQ }}
@@ -299,7 +320,6 @@ grammar
 	| forall :: :: forall {{ tex \forall }}
 	| /\ :: :: and {{ tex \wedge }}
 	| \/ :: :: or {{ tex \vee }}
-	| M :: :: model {{ tex \mathcal{M} }}
 	| '|<' :: :: sum {{ tex \Sigma }}
 	| <= :: :: leq {{ tex \le }}
 	| >= :: :: geq {{ tex \ge }}
@@ -311,6 +331,8 @@ grammar
 	| ~ :: :: squiggle {{ tex \approx }}
 	| nu :: :: nu {{ tex \nu }}
 	| exists :: :: exists {{ tex \exists }}
+	| CC :: :: ctxt_set {{ tex \mathcal{C} }}
+	| alpha :: :: alpha {{ tex \alpha }}
 
   reduction :: '' ::=
     | --> :: :: step
@@ -328,19 +350,23 @@ grammar
 	| logical_frag1 \/ logical_frag2 :: :: disj
 	| logical_frag1 ==> logical_frag2 :: :: logical_entailment
 	| logical_frag1 <=> logical_frag2 :: :: logical_equiv
+	| /\ { bind in VS } logical_frag :: :: forall_wedge {{ tex \bigwedge_{ [[bind]] \in [[VS]] } [[logical_frag ]] }}
 
   logic_judgment :: '' ::=
 	| |= logical_frag :: :: models
 	| !|= logical_frag :: :: not_models
 	| G |= logical_frag :: :: tyenv_model
-	| M |= logical_frag :: :: logical_model
 
-  FVF :: 'FV_' ::=
+  FVF :: 'FV_' ::= {{ com free variable generators }}
   	| FPV ( T ) :: :: fpv_t
 	| FPV ( ph ) :: :: fpv_p
 	| FPCV ( ph ) :: :: fpcv_p
 	| FPCV ( T ) :: :: fpcv_tx
     | FV ( e ) :: :: fv
+	| FV pp :: :: fv_at_point {{ tex [[FV]]_[[pp]] }}
+	| CC k :: :: context_fv {{ tex [[CC]]^[[k]] }}
+	| FVF1 U FVF2 :: :: union_fv {{ tex [[FVF1]] \cup [[FVF2]] }}
+	| { x1 , .. , x2 } :: :: set
 
   functions :: 'F_' ::=
 	| CV ( B ) :: :: cv
@@ -355,9 +381,6 @@ grammar
 	| own ( H , Rv , T ) :: :: own_fn
 	| empty :: :: empty {{ tex \emptyset }}
 	| |< { x in VS } F :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[F]] }}
-
-  model :: 'M_' ::=
-    | M :: :: m {{ tex \mathcal{M} }}
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
@@ -382,7 +405,7 @@ grammar
 	| |- Th :: :: funenvWf
 	| |- FT :: :: ftWf
 
-  bind :: 'Bin_' ::=
+  bind :: 'Bin_' ::= {{ com mapping function domains }}
     | x :: :: pvar
 	| A :: :: cvar
 	| a  :: :: addr
@@ -390,7 +413,7 @@ grammar
 	| v :: :: value
 	| nu :: :: nu
 
-  MF :: 'MF_' ::=
+  MF :: 'MF_' ::= {{ com mapping function }}
     | G :: :: tyenv
 	| R :: :: env
 	| Gst :: :: stTenv
@@ -398,7 +421,7 @@ grammar
 	| Th :: :: funenv
 	| F :: :: ownership_map
 
-  VS :: 'VS_' ::=
+  VS :: 'VS_' ::= {{ com sets }}
     | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}
 	| { bind } :: :: singleton {{ tex \set{[[bind]]} }}
 	| { bind1 ,, bindn } :: :: count {{ tex \set{[[bind1]],\ldots,[[bindn]]} }}
@@ -454,5 +477,3 @@ grammar
 	| T1 ~ T2 :: :: tEqual
 	| H1 ~ a H2 :: :: h_mod_equiv {{ tex [[H1]] [[~]]_[[a]] [[H2]] }}
 	| R1 < R2 :: :: reg_weak {{ tex [[R1]] \sqsubseteq [[R2]] }}
-
-

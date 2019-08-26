@@ -517,12 +517,12 @@ The followings are key lemmas:
     
     To show $[[Cons(H,R,G'')]]$ we first define:
     \begin{align*}
-      Tp1 = & T1 ref r1 \\
-      Tp2 = & T2 ref r2 \\
-      Tq1 = & T1' ref r1' \\
-      Tq2 = & T2' ref r2' \\
-      Tq = & Tq1 + Tq2 \\
-      Tp = & Tp1 + Tp2
+      [[Tp1]] = & [[T1 ref r1]] \\
+      [[Tp2]] = & [[T2 ref r2]] \\
+      [[Tq1]] = & [[T1' ref r1']] \\
+      [[Tq2]] = & [[T2' ref r2']] \\
+      [[Tq]] = & [[Tq1 + Tq2]] \\
+      [[Tp]] = & [[Tp1 + Tp2 ]]
     \end{align*}
     We thus have $[[Tq ~ Tp]]$.
     
@@ -542,9 +542,9 @@ The followings are key lemmas:
     which follows immediately from the conditions $[[ T1 ref r1 + T2 ref r2 = T1' ref r1' + T2' ref r2']]$ and $[[R(x) = R(y)]]$.
   \end{rneqncase} % R-Alias
   
-  \begin{rncase}{R-AliasFail}
+  \begin{rncase}{R-AliasFail} % DONE
     The result configuration $[[AliasFail]]$ is trivially well-typed.
-  \end{rncase} % DONE
+  \end{rncase}
   
   \begin{rneqncase}{R-Assert}{ % DONE
     [[ |- D <H, R, Es, E[assert(ph); e]>]]\andalso [[ G |= ph ]]\\

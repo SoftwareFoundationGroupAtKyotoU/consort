@@ -13,27 +13,232 @@ as follows:
   [[ [ST ref](x,nn,pp) ]] & = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
 \end{align*}
 where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh predicate symbol
-whose arguments are the free variables of with simple type $[[int]]$
-at program point $[[pp]]$ and $[[r[x,nn,pp] ]]$ is a
-fresh ownership variable.
-When generating these type template, our implementation
-also generates well-formedness constraints.
+whose arguments are the free variables of simple type $[[int]]$
+at program point $[[pp]]$ plus $[[nu]]$, and $[[r[x,nn,pp] ]]$ is a
+fresh ownership variable. For each function definition $[[f]]$,
+there are two synthetic program points, $[[f st]]$ and $[[f end]]$
+for the beginning and end respectively of the function.
+At both points, we generate type template for each argument, where $[[FV f st]]$
+and $[[FV f end]]$ are the names of integer typed parameters.
+Further, at $[[f end]]$, we generate a type template for the return
+value using the synthetic variable name $\RETVAR$.
+Finally, we write $[[ G@pp ]]$ to indicate the type environment at point $[[pp]]$,
+where every variable is mapped to the appropriate type template.
+Then $[[ [G@pp] ]]$ is equivalent to:
+\[
+  [[ /\ { x in FV pp } [x/nu]ph(x,0,pp)[FV pp] ]]
+\]
 
-We then walk the program, generating constraints according to
-the typing rules. These constraints take two forms, ownership
-constraints and subtyping constraints. Ownership constraints
-are simple linear (in)equalities over ownership variables
+When generating these type template, our implementation
+also generates ownership well-formedness constraints. Specifically,
+for a type template of the form $[[ {nu:int|ph(x,nn+1,pp)[FV pp]} ref r[x,nn,pp] ]]$
+\consort emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[FV pp] ]]$
+and for a type template $[[ (T ref r[x,nn+1,pp]) ref r[x,nn,pp] ]]$
+\consort emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] ]]$.
+
+\consort then walks the program, generating constraints according to
+the typing rules. These constraints take three forms, ownership
+constraints, subtyping constraints, and assertion constraints.
+Ownership constraints are simple linear (in)equalities over ownership variables
 and constants, according to conditions imposed by the typing
 rules. For example, if variable $[[x]]$ has the type template
 $[[T ref r[x,0,pp] ]]$ for the expression $[[ x := y; e ]]$ at point
 $[[pp]]$, we generate the constraint $[[r[x,0,pp] = 1]]$.
 
-Subtyping constraints 
+\consort emits subtyping constraints between the predicate symbols
+at each program point according to the rules of the type system.
+For example, consider the following assignment statement at program point
+$[[pp]]$, where $[[e]]$ is at program point $[[pp']]$, and $[[x]]$ has simple type
+$[[int ref]]$:
+\[
+  [[ let x = y in e ]]
+\]
+\consort generates the following subtyping constraint:
+\[
+  [[ [G@pp] /\ ph(y,1,pp)[FV pp] ==> ph(y,1,pp')[FV pp'] /\ ph(x,1,pp')[FV pp'] ]]
+\]
+in addition to the ownership constraint $[[r[y,0,pp] = r[y,0,pp'] + r[x,0,pp'] ]]$.
 
-\paragraph{Encoding Context Sensitivity}
+Finally for each \lstinline[mathescape]{assert($[[ph]]$)} in the program \consort emits an assertion
+constraint of the form:
+\[
+  [[ [G@pp] ==> ph ]]
+\]
+which requires the refinements on integer typed variables
+in scope are sufficient to prove $[[ph]]$. (\consort
+can easily check at inference time that $[[ph]]$ is well-formed
+in the current environment without emitting a constraint.)
 
-\paragraph{Extensions}
+The free variables in the above constraints are universally quantified over
+and then sent to an automated solver. Due to recursion,
+the above constraints may be recursive, so we use a
+constrained horn clause \needcite solver to solve the generated constraints (see
+\cref{sec:sequential-solver} below for a discussion on how we handle the
+ownership constraints).
+Our implementation generates the above constraints in the industry standard
+SMT-Lib2 format \needcite, so any solver that understands
+this format can be used as a backend for \consort. Our implementation
+currently supports Spacer \needcite (part of the Z3 solver \needcite) and HoICE \needcite
+(adding a new backend requires only a handful of glue ML code).
 
+\subsubsection{Encoding Context Sensitivity}
+To make inference tractable, we require the user to fix \emph{a
+  priori} the maximum length of prefix queries to a constant $k$.  We
+supplement the free variables used in every predicate with a set of
+context variables $[[CC k]]$; these variables are assumed to not
+overlap with any program variables.
+
+\consort then uses these variables to infer context sensitive
+refinements as follows. Consider a function call
+$[[ let x = f l (y1,,yn) in e ]]$ at point $[[pp]]$
+where $[[e]]$ is at point $[[pp']]$.
+\consort generates the following constraint for a refinement
+$[[ph(yi,nn,pp)[FV pp U CC k] ]]$ which occurs in the type template of $[[yi]]$:
+\begin{align*}
+  & [[ ph(yi,nn,pp)[FV pp U CC k] ==> vsub [l/c0][c1/c2] ,, [ck-1/ck] ph(xi,nn,f st)[FV f st U CC k] ]] \\
+  & [[ vsub [l/c0][c1/c2],,[ck-1/ck] ph(xi,nn,f end)[FV f end U CC k] ==> ph(yi,nn,pp')[FV pp' U CC k]  ]] \\
+  & [[ vsub = [y1/x1] ,, [yn/xn] ]]
+\end{align*}
+In the above, $[[ [l/c0][c1/c2],,[ck-1/ck] ]]$ plays the role of
+$[[ csub ]]$ in the \rn{T-Call} rule. The above constraint effectively
+constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
+If $[[f]]$ calls another function $[[g]]$, the above rule
+propagates this value of $[[c0]]$ to $[[c1]]$ within $[[g]]$ and so on.
+The solver is then free to generate predicates that are conditional
+over the concrete values of $[[ci]]$.
+\JT{What we're glossing over entirely here is that the solver may generate
+  constraints of the form $[[c1]] = [[c2]]$ which is technically not within
+  our grammar of constraints (although you can technically generate a finite
+  number of constraints that encode the above relatively simply if you need to.)
+  Whether we address this or leave it for the rebuttals if we come up is something to
+  consider.}
+
+\subsection{Extensions}
+We now describe some extensions to our core calculus supported within
+our implementation.
+
+\paragraph{Dependent Tuples}
+Our implementation supports types of the form:
+$[[ (x1: T1 ,, xn: Tn) ]]$, where $[[xi]]$ is free within $[[Tj]]$
+($j\neq i$) if $[[Ti]]$ is not a reference type. For example,
+$[[ (x: {nu:int|Top}, y:{nu:int|nu>x})]]$ is the type of tuples whose
+second element is strictly greater than the first. We also extend
+the language with tuple constructors as a new left hand side, and
+let bindings with tuple patterns as the RHS.
+Our language does \emph{not} include
+explicit projection operators to ensure refinements types of tuple elements
+are well-formed with respect to free variables.
+
+The extension to type checking is relatively straightforward; the only
+significant extensions are to the subtyping rules.
+Specifically, the subtyping check for a tuple element
+$[[xi:Ti]]$ is peformed in a type environment elaborated with
+types of other tuple elements.
+\iffalse
+Formally, we assume all dependent tuple names are distinct from one another
+and program variables, and define the tuple subytping rule as:
+\infrule[T-SubTup]{
+  [[ G,xj:Tj |- Ti <: Ti' ]] \andalso (i \neq j)
+}{
+  [[ G |- (x1:T1 ,, xn:Tn) <: (x1:T1' ,, xn:Tn') ]]
+}\fi
+The extension to type inference is also
+straightforward; the free variables for a
+predicate symbol depend on the enclosing tuple types
+and \consort includes the refinements for related tuple elements
+in subtyping constraints.
+
+\JT{This whole section can be significantly shortened}
+
+\paragraph{Recursive Types}
+Our language also support unbounded heap structures via recursive
+reference types. To keep inference tractable, we forbid nested
+recursive types and fix the shape of refinements that occur within a
+recursive type. Our approach for refinements
+is broadly similar to that in \cite{kawaguchi2009type}, and we use
+the ownership scheme of \cite{suenaga2009fractional} for handling
+ownership. We first use simple type inference
+to infer the shape of the recursive types, and automatically insert
+fold/unfold annotations into the source program. As in
+\cite{kawaguchi2009type},
+the refinements within an unfolding of a recursive type may refer to
+dependent tuple names bound by the enclosing type. These recursive
+types can therefore express the invariant, e.g., of a (mutable)
+sorted list. Adapting the approach in \cite{suenaga2009fractional},
+given a recursive type with references we unfold the type once and
+assign fresh ownership variables to all reference types. We do \emph{not}
+generate fresh ownership variables when unfolding a recursive type;
+the unfolding of $[[ ((M alpha. T ref r2)) ref r1 ]]$ is
+$[[ ((M alpha. T ref r2)) ref r2 ref r1 ]]$.
+
+As in Java or C++, our language does not support sum types,
+and thus any instantiation of a recursive type must use a null pointer.
+Our implementation therefore supports an \lstinline{ifnull} construct
+and a distinguished null constant. At present, our implementation
+does \emph{not} detect null pointer dereferences, and all soundness
+guarantees are made modulo no null dereferences.
+
+\paragraph{Arrays}
+Our implementation supports arrays of integers. Each array is given
+an ownership describing the ownership of the entire array. The array type
+contains two refinements: the first refines the length of the array itself,
+and a single refinement predicate which refines the array contents.
+The content refinement predicate may refer to a symbolic index variable,
+enabling precise, per-index refinements. At reads and writes to the
+array \consort instantiates the refinement's symbolic index variable with
+the concrete index variable used at the read/wite.
+
+As in \cite{suenaga2009fractional}, our restriction to arrays of integers
+stems from the difficulty of ownership inference. Sound handling
+of pointer arrays requires index-wise tracking of ownerships which
+significantly complicates automated inference. We leave supporting
+arrays of pointers to future work.
+
+\iffalse
+For each recursive simple type $[[(M alpha.ST)]]$ at
+point $[[pp]]$, we generate a type equation $[[T{mu}]]$
+parameterized by free variables $[[X]]$.
+The right hand side of this equation is a
+refinement type skeleton with the same shape as $[[ST]]$, where the
+free variables in each refinement include those in $[[X]]$.
+Each occurrence of $[[alpha]]$ within $[[ST]]$ is replaced with
+an occurrence of $[[T{mu}]]$, instantiated with the set of names bound
+by the tuples enclosing $[[alpha]]$. Finally, \consort generates
+a type skeleton from $[[ST]]$ as described previously,
+but replaces all occurences
+of $[[alpha]]$ with an instantiation of $[[T{mu}(TV alpha)]]$, where
+$[[TV alpha]]$ is again the set of names bound by tuples enclosing
+occurrences of alpha.
+
+\iffalse
+For a variable
+$[[x]]$ at program point $[[pp]]$ with recursive
+simple type $[[ (M alpha. ST) ]]$ we generate a skeleton based of
+a one-level unfolding of the type.
+We define the lifting of the recursive type $[[ (M alpha. ST) ]]$ with
+the equation:
+\[
+  [[ T{mu}(X) ]] = [[ [ T{mu} / alpha ][ST](x, 0, pp){X} ]]
+\]
+Where $[[ [ST](x,nn,pp){X} ]]$ is defined as $[[ [ST](x,nn,pp) ]]$ except
+the free variables for each refinement are extended with the set
+$\mathcal{X}$. We define $[[ [ T{mu} / alpha ] T' ]]$ to be the
+type obtained by replacing all instances of $[[alpha]]$ with $[[T{mu}(TV alpha)]]$, where $[[TV alpha]]$ is the set of dependent tuple names bound by
+the enclosing the occurrence of $[[alpha]]$ being replaced. 
+Finally, the type for $[[x]]$ is given as:
+\[
+  [[ [T{mu}/ alpha][ST](x,0,pp) ]]
+\]
+\fi
+
+As with dependent tuples, extending type inference to support recursive
+types is relatively straightforward once the subtyping relation
+has been appropriately extended. We take
+the iso-recursive approach, and first have the simple type checker
+annotate the source program with fold/unfold annotations. These annotations
+guarantee subtyping checks are always performed with two types of the same
+shape. 
+\fi
 
 %%% Local Variables:
 %%% mode: latex
