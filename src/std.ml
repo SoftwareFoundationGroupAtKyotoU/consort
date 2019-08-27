@@ -29,6 +29,14 @@ let fold_left_fst f = function
   | [] -> None
   | h::l -> Option.some @@ List.fold_left f h l
 
+let fold_lefti f a l =
+  let rec loop i a l =
+    match l with
+    | [] -> a
+    | h::t -> loop (i+1) (f i a h) t
+  in
+  loop 0 a l
+
 module StateMonad = struct
   module Let_syntax = struct
     type ('a,'b,'c) context_monad = ('b -> ('c * 'a))
@@ -54,6 +62,11 @@ module StateMonad = struct
     let mwith o ~(f : ('d -> ('a,'b,'c) context_monad)) : ('a,'b,'c) context_monad = (fun ctxt ->
       let v = o ctxt in
       f v ctxt)
+
+    let do_mutate ~a ~b =
+      (fun ctxt ->
+        let ctxt' = a ctxt in
+        b ctxt')
   end
 
   let return = Let_syntax.return
@@ -108,6 +121,25 @@ module StateMonad = struct
       let%bind a' = a in
       f a' e
     ) (return a) l
+
+  let rec mmap f l =
+    match l with
+    | [] -> return []
+    | h::t ->
+      let%bind h' = f h in
+      let%bind t' = mmap f t in
+      return @@ h'::t'
+
+  let mmapi f l =
+    let rec loop i l =
+      match l with
+      | [] -> return []
+      | h::t ->
+        let%bind h' = f i h in
+        let%bind t' = loop (i+1) t in
+        return @@ h'::t'
+    in
+    loop 0 l
 
   let mfold_right f l a = List.fold_right (fun e a ->
       let%bind a' = a in

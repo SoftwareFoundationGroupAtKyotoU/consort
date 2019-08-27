@@ -23,7 +23,7 @@ type tcon = {
   nullity: RefinementTypes.nullity
 }
 
-type ownership_type = (unit, float) RefinementTypes._typ
+type ownership_type = (unit, float,unit) RefinementTypes._typ
 type o_theta = ownership_type RefinementTypes._funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
 type type_hints = int -> (SimpleTypes.r_typ StringMap.t) option
