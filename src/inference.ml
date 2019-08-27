@@ -52,7 +52,7 @@ type pred_context = {
 type funenv = funtype SM.t
 type tenv = typ SM.t
 
-type ownership_type = (unit, float) RefinementTypes._typ
+type ownership_type = (unit, float,unit) RefinementTypes._typ
 type o_theta = ownership_type RefinementTypes._funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
 type type_hints = int -> (SimpleTypes.r_typ StringMap.t) option
@@ -151,7 +151,7 @@ let constrain_well_formed t ctxt =
       wf_loop (Some o) c_acc' t
     | Tuple (_,tl) ->
       List.fold_left (wf_loop last_o) acc tl
-    | Mu (_,_,t) -> wf_loop last_o acc t
+    | Mu (_,_,_,t) -> wf_loop last_o acc t
   in
   wf_loop None ctxt t
 
@@ -169,17 +169,20 @@ let add_type v t ctxt =
   in
   { ctxt with gamma = te }
 
+let denote_array_vars ~nullity path bind len_r =
+  let len_ap = (`ALen path) in
+  let len_comp = compile_refinement len_ap bind len_r in
+  let ind_ap = (`AInd path) in
+  [
+    (len_ap,len_comp,nullity);
+    (ind_ap, NamedPred ("valid-ind", ([ len_ap ],ind_ap)), nullity)
+  ]
+
 let rec denote_type ?(nullity=`NLive) path (bind: (int * Paths.concr_ap) list) acc t =
   match t with
   | Array (b,len_r,_,et) ->
-    let len_ap = (`ALen path) in
     let arr_b = bind_of_arr b path in
-    let len_comp = compile_refinement len_ap bind len_r in
-    let ind_ap = (`AInd path) in
-    let acc' = [
-      (len_ap,len_comp,nullity);
-      (ind_ap, NamedPred ("valid-ind", ([ len_ap ],ind_ap)), nullity)
-    ] @ acc in
+    let acc' = (denote_array_vars ~nullity path bind len_r) @ acc in
     denote_type ~nullity (`AElem path) (arr_b @ bind) acc' et
   | Ref (t',_,_) -> denote_type ~nullity:`NUnk (`ADeref path) bind acc t'
   | Int r ->
@@ -192,7 +195,7 @@ let rec denote_type ?(nullity=`NLive) path (bind: (int * Paths.concr_ap) list) a
         denote_type ~nullity (`AProj (path,i)) bind' acc te
       ) acc
   | TVar _ -> acc
-  | Mu (_,_,t) -> denote_type ~nullity path bind acc t
+  | Mu (_,_,_,_) -> acc
 
 let with_pred_refl root r =
   match root with
@@ -239,9 +242,9 @@ and split_type t =
     in
     return (Tuple (b,tl1),Tuple (b,tl2))
   | TVar id -> return (TVar id,TVar id)
-  | Mu (a,i,t) ->
+  | Mu (a,(),i,t) ->
     let%bind (t1,t2) = split_type t in
-    return (Mu (a,i,t1), Mu (a,i,t2))
+    return (Mu (a,(),i,t1), Mu (a,(),i,t2))
 
 let rec unsafe_meet tr town =
   match tr,town with
@@ -250,8 +253,8 @@ let rec unsafe_meet tr town =
     Ref (unsafe_meet r1 r2,OConst o,n)
   | Tuple (b,tl1), Tuple (_,tl2) ->
     Tuple (b,List.map2 unsafe_meet tl1 tl2)
-  | Mu (a,i,t1), Mu (_,_,t2) ->
-    Mu (a,i,unsafe_meet t1 t2)
+  | Mu (a,fv,i,t1), Mu (_,(),_,t2) ->
+    Mu (a,fv,i,unsafe_meet t1 t2)
   | Array (b,len_r,_,et1), Array (_,_,o,et2) ->
     Array (b,len_r,OConst o,unsafe_meet et1 et2)
   | TVar t,TVar _ -> TVar t
@@ -280,9 +283,9 @@ let split_arg t1 t2 =
       add_owner_con [ Split (o,(o1,o2)) ] >>
       let%bind (rn',rn'') = loop r1 r2 in
       return (Ref (rn',o1,n), Ref (rn'',o2,n))
-    | Mu (a,i,t1), Mu (_,_,t2) ->
+    | Mu (a,(),i,t1), Mu (_,_,_,t2) ->
       let%bind (t1',t2') = loop t1 t2 in
-      return (Mu (a,i,t1'), Mu (a,i,t2'))
+      return (Mu (a,(),i,t1'), Mu (a,(),i,t2'))
     | Array (b,len_r,OConst o1,et_arg), Array (_,_,OConst o2,et_form) ->
       let%bind (et1',et2') = loop et_arg et_form in
       let rem = o1 -. o2 in
@@ -331,35 +334,44 @@ let constrain_owner t1 t2 =
           loop te1 te2 c
         ) ctxt tl1 tl2
     | TVar _,TVar _ -> ctxt
-    | Mu (_,_,t1'), Mu (_,_,t2') -> loop t1' t2' ctxt
+    | Mu (_,_,_,t1'), Mu (_,_,_,t2') -> loop t1' t2' ctxt
     | _ -> type_mismatch t1 t2
   in
   loop t1 t2
 
-let add_type_implication ?ante_ext gamma t1_ t2_ ctxt_ =
-  let rec impl_loop ~nullity ctxt t1 t2 =
+let add_type_implication ?(filter_taut=false) ?ante_ext gamma t1_ t2_ ctxt_ =
+  let rec impl_loop ~nullity ~gamma ctxt t1 t2 =
     match t1,t2 with
-    | Int r1, Int r2 -> add_constraint ?ante_ext gamma r1 r2 nullity ctxt
+    | Int r1, Int r2 ->
+      if (not filter_taut) || r1 <> r2 || ante_ext <> None then
+        add_constraint ?ante_ext gamma r1 r2 nullity ctxt
+      else
+        ctxt
     | Array (_,len_r1,_,et1), Array (_,len_r2,_,et2) ->
       let ctxt' = add_constraint ?ante_ext gamma len_r1 len_r2 nullity ctxt in
-      impl_loop ~nullity ctxt' et1 et2
-    | Ref (t1',_,_), Ref (t2',_,_) -> impl_loop ~nullity:`NUnk ctxt t1' t2'
+      impl_loop ~nullity ~gamma ctxt' et1 et2
+    | Ref (t1',_,_), Ref (t2',_,_) -> impl_loop ~nullity:`NUnk ~gamma ctxt t1' t2'
     | Tuple (_,tl1), Tuple (_,tl2) ->
-      List.fold_left2 (impl_loop ~nullity) ctxt tl1 tl2
+      List.fold_left2 (impl_loop ~nullity ~gamma) ctxt tl1 tl2
     | TVar _,TVar _ -> ctxt
-    | Mu (_,_,t1'), Mu (_,_,t2') -> impl_loop ~nullity ctxt t1' t2'
+    | Mu (_,(fv,env_ext),_,t1'), Mu (_,(fv',_),_,t2') ->
+      assert (fv = fv');
+      let gamma' = List.fold_left (fun acc fv ->
+          (fv,Top,`NLive)::acc
+        ) (env_ext @ gamma) fv in
+      impl_loop ~nullity ~gamma:gamma' ctxt t1' t2'
     | t1,t2 -> type_mismatch t1 t2
   in
-  impl_loop ~nullity:`NLive ctxt_ t1_ t2_
+  impl_loop ~gamma ~nullity:`NLive ctxt_ t1_ t2_
 
-let add_var_type_implication dg var t1 t2 ctxt =
-  let type_compile t : (concr_refinement,ownership) _typ = compile_type t var in
+let add_var_type_implication ?filter_taut dg var t1 t2 ctxt =
+  let type_compile t = compile_type t var in
   let v_t =
     type_compile t1
     |> with_refl (`AVar var)
   in
   let to_t = type_compile t2 in
-  add_type_implication dg v_t to_t ctxt
+  add_type_implication ?filter_taut dg v_t to_t ctxt
 
 let add_var_implication dg gamma var t ctxt =
   add_type_implication dg (compile_type (SM.find var gamma) var |> with_refl (`AVar var)) (compile_type t var) ctxt
@@ -462,7 +474,7 @@ let rec unfold_once_gen unfolder = function
   | Ref (r, o,n) -> map_ref (unfold_once_gen unfolder) r o n
   | Tuple (b,tl) ->
     map_tuple (unfold_once_gen unfolder) b tl
-  | Mu (a,i,t) -> unfolder a i t
+  | Mu (a,(),i,t) -> unfolder a i t
   | TVar _ -> assert false
 
 
@@ -518,14 +530,17 @@ let lift_to_refinement ~pred path fv t =
 
          Note that we need to do something similar with the symbolic length and
          index variables, because arrays.
+
+         XXX: (Or we would, if recursive type variable appeared within the array,
+         which it never can)
       *)
       let rec gen_sub acc t = match t with
         | TVar _
         | Int _ -> acc
-        | Mu (_,_,r)
+        | Mu (_,_,_,r)
         | Ref (r,_,_) -> gen_sub acc r
-        | Array ({ind;len},_,_,r) ->
-          gen_sub ((ind,fresh_tvar ())::(len,fresh_tvar ())::acc) r
+        | Array (_,_,_,r) ->
+          gen_sub acc r
         | Tuple (b,tl) ->
           List.fold_left gen_sub (
               List.fold_left (fun acc' (b,_) ->
@@ -543,9 +558,9 @@ let lift_to_refinement ~pred path fv t =
             | Ref (r,(),n) ->
               Ref (do_sub r,(),n)
             | Mu _ -> unsupported "Nested recursive types"
-            | Array ({len;ind},(),(),t) ->
+            | Array (_,(),(),t) ->
               (* eat at arr_b's *)
-              let arr_b' = {len = List.assoc len sub; ind = List.assoc ind sub} in
+              let arr_b' = {len = fresh_tvar (); ind = fresh_tvar() } in
               Array (arr_b',(),(),do_sub t)
             | Tuple (b,tl) ->
               let b' = List.map (fun (old_sym,p) ->
@@ -554,7 +569,7 @@ let lift_to_refinement ~pred path fv t =
               Tuple (b',List.map do_sub tl)
           in
           let t_subbed = do_sub t' in
-          Mu (sub,id,t_subbed)
+          Mu (sub,(),id,t_subbed)
         | TVar _
         | Mu _ -> unsupported "Nested recursive types"
         | Int _ -> t
@@ -616,7 +631,7 @@ let merge_types ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bind_see
       Int (gen_ref expl r)
     | Ref (r,_,n) ->
       Ref (to_type_template expl r, (), n)
-    | Mu (a,i,t) -> Mu (a,i,to_type_template expl t)
+    | Mu (a,(),i,t) -> Mu (a,(),i,to_type_template expl t)
     | TVar id -> TVar id
     | Tuple (b,tl) ->
       let expl' = List.fold_left (fun acc (i,p) ->
@@ -640,7 +655,7 @@ let merge_types ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bind_see
   let rec merge_loop t1_templ t2_templ map =
     match t1_templ, t2_templ with
     | Int r1,Int r2 -> merge_fvs r1 r2 map
-    | Mu (_,_,t1), Mu (_,_,t2)
+    | Mu (_,(),_,t1), Mu (_,(),_,t2)
     | Ref (t1,_,_), Ref (t2,_,_) -> merge_loop t1 t2 map
     | Array (_,l1,_,t1), Array (_,l2,_,t2) ->
       merge_loop t1 t2 @@ merge_fvs l1 l2 map
@@ -668,7 +683,67 @@ let merge_types ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bind_see
     make_fresh_pred ~ground:pos.under_mu ~loc ~pred_vars:(fv_sum,p) ctxt
   ) path bind_seed t2_fv_templ ctxt
 
-let remove_var_from_pred ~loc ~curr_te ~mk_fv ~oracle ~pos:{under_mu=ground; _} path (sym_vars,sym_val) r =
+let walk_removal te f root t_in =
+  let rec loop ~under_mu te f root bindings t =
+    match t with
+    | TVar v -> return @@ TVar v
+    | Mu (ar,(),v,t') ->
+      let (fv,sym) = bindings in
+      let outer_bind = List.fold_left (fun acc (k,_) ->
+          IntSet.add k acc
+        ) IntSet.empty ar
+      in
+      let env',sym' = map_with_accum (fun (k,l) acc ->
+          if IntSet.mem k outer_bind then
+            let fv = Paths.free l in
+            ((fv, Top, `NUnk)::acc,(k,fv))
+          else
+            (acc,(k,l))
+        ) sym te
+      in
+      let%bind t_mapped = loop ~under_mu:true env' f root (fv,sym') t' in
+      return @@ Mu (ar,(),v,t_mapped)
+    | Int r ->
+      let (fv,sym) = bindings in
+      let filtered_fv = filter_fv root sym fv in
+      let%bind r' = f ~pos:{empty_pos with under_mu } root (filtered_fv,sym) te r in
+      return @@ Int r'
+    | Ref (t',o,n) ->
+      let%bind t'' = loop ~under_mu te f (`ADeref root) bindings t' in
+      return @@ Ref (t'', o, n)
+    | Array (b,len_r,o,et) ->
+      let (_,sym) = bindings in
+      let len_path = `ALen root in
+      let env' = if under_mu then
+          (denote_array_vars ~nullity:`NUnk root sym len_r) @ te
+        else
+          te
+      in
+      let bindings' = update_binding_gen (bind_of_arr b root) bindings in
+      let%bind len_r' = f ~pos:{empty_pos with under_mu} len_path bindings te len_r in
+      let%bind et' = loop ~under_mu env' f (`AElem root) bindings' et in
+      return @@ Array (b,len_r',o,et')
+    | Tuple (b,tl) ->
+      let bind' = update_binding root b bindings in
+      let env' =
+        if under_mu then
+          fold_lefti (fun i a t ->
+            match t with
+            | Int _ -> denote_type ~nullity:`NUnk (`AProj (root,i)) (snd bind') a t
+            | _ -> a
+          ) te tl
+        else
+          te
+      in
+      let%bind tl' = mmapi (fun i t ->
+          loop ~under_mu env' f (`AProj (root,i)) bind' t
+        ) tl
+      in
+      return @@ Tuple (b,tl')
+  in
+  loop ~under_mu:false te f root ([],[]) t_in
+
+let remove_var_from_pred ~loc ~mk_fv ~oracle ~pos:{under_mu=ground;  _} path (sym_vars,sym_val) curr_te r =
   let curr_comp = compile_refinement path sym_val r in
   if oracle curr_comp path then
     let fv : refine_ap list = (mk_fv path curr_comp) @ sym_vars in
@@ -680,8 +755,8 @@ let remove_var_from_pred ~loc ~curr_te ~mk_fv ~oracle ~pos:{under_mu=ground; _} 
     return r
 
 let remove_var_from_type ~loc ~curr_te ~oracle ~mk_fv root_var t context =
-  let staged = remove_var_from_pred ~mk_fv ~loc ~curr_te ~oracle in
-  walk_with_bindings staged root_var ([],[]) t context
+  let staged = remove_var_from_pred ~mk_fv ~loc ~oracle in
+  walk_removal curr_te staged root_var t context
     
 let remove_var ~loc to_remove ctxt =
   let curr_te = denote_gamma ctxt.gamma in
@@ -823,15 +898,25 @@ let rec strengthen_eq ~strengthen_type ~target =
 type walk_ctxt = {
   o_stack: ownership list;
   binding: (int * concr_ap) list;
+  env: (Paths.concr_ap * concr_refinement * nullity) list;
   path: concr_ap;
 }
 
-let step_tup wc b i t =
-  ({ wc with
-    path = `AProj (wc.path,i);
-    binding = (subst_of_binding wc.path b) @ wc.binding;
-  },t)
-
+let step_tup wc b tl =
+  let binding = (subst_of_binding wc.path b) @ wc.binding in
+  let env = fold_lefti (fun ind e t ->
+      match t with
+      | Int _ -> denote_type ~nullity:`NUnk (`AProj (wc.path,ind)) binding e t
+      | _ -> e
+    ) wc.env tl
+  in
+  fun i t ->
+    ({ wc with
+       path = `AProj (wc.path,i);
+       binding;
+       env;
+     },t)
+    
 let step_ref wc o t =
   ({
     wc with
@@ -902,6 +987,7 @@ let generalize_pred root out_type combined_pred =
       match ap with
       | `APre v -> exc ~pre:true (`APre v)
       | `AVar v -> exc ~pre:false (`AVar v)
+      | `AFree _ -> failwith "Impossible but here we are anyway :("
       | `ADeref ap' ->
         gen_ap_loop ap'
           ~exc:(fun ~pre _ ->
@@ -964,11 +1050,12 @@ let generalize_pred root out_type combined_pred =
   in
   gen_loop combined_pred
 
-let step_array wc b o t =
+let step_array wc b o len_ref t =
   {
     path = `AElem wc.path;
     o_stack = o::wc.o_stack;
-    binding = (bind_of_arr b wc.path) @ wc.binding
+    binding = (bind_of_arr b wc.path) @ wc.binding;
+    env = (denote_array_vars ~nullity:`NUnk wc.path wc.binding len_ref) @ wc.env 
   },t
 
 (* apply_matrix walks t1, t2 and out_type in parallel. At each leaf
@@ -976,35 +1063,69 @@ let step_array wc b o t =
    on the ownerships along the paths from the roots of t1 and t2 to the leaf.
 *)
 let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?(out_bind=[]) ~out_type ctxt =
-  let g = denote_gamma ctxt.gamma in
+  let (g,filtered_scope) = denote_gamma ctxt.gamma
+    |> List.partition (fun (p,_,_) ->
+        not (Paths.has_prefix out_root p)
+      )
+  in
+  let const_filtered = List.filter (fun (p,_,_) -> Paths.is_const_ap p) filtered_scope in
   let pp = match pp_constr with
     | None -> (fun ~summary:_ _ p -> p)
     | Some f -> f in
 
-  let shuffle_refinements ~summary (c1,r1) (c2,r2) (c_out,out_r) ctxt =
+  let shuffle_refinements ~env ~summary (c1,r1) (c2,r2) (c_out,out_r) ctxt =
     let gen_constraint =
       (force_cons) ||
-      (not @@ List.for_all all_const_o [c1; c2; c_out])
+      (not @@ List.for_all all_const_o [c1; c2; c_out]) ||
+      summary
     in
     let c_out_r = ctxt_compile_ref c_out out_r in
     let c_r1 = ctxt_compile_ref c1 r1 in
     let c_r2 = ctxt_compile_ref c2 r2 in
+    let close_env e =
+      let bound_ap = List.fold_left (fun ap_set (p,_,_) ->
+          Paths.PathSet.add p ap_set
+        ) Paths.PathSet.empty e
+      in
+      List.fold_left (fun e_acc ((p,_,_) as bind) ->
+        if not (Paths.PathSet.mem p bound_ap) then
+          bind::e_acc
+        else
+          e_acc
+      ) e const_filtered
+    in
+    let add_env c = close_env @@ env @ c.env in
+    let join_envs c1 c2 =
+      assert (List.length c1.env = List.length c2.env);
+      let e1 = List.fast_sort (fun (p1,_,_) (p2,_,_) ->
+          Paths.compare p1 p2
+        ) c1.env
+      in
+      let e2 = List.fast_sort (fun (p1,_,_) (p2,_,_) ->
+          Paths.compare p1 p2
+        ) c2.env
+      in
+      close_env @@ List.fold_left2 (fun acc (p1,r1,_) (p2,r2,_) ->
+        assert (p1 = p2);
+        (p1,And (r1,r2),`NUnk)::acc
+      ) env e1 e2
+    in
     if gen_constraint then
-      let mk_constraint oante ante =
+      let mk_constraint env oante ante =
         pp ~summary c1.path @@ {
-          env = g;
-          ante = ante;
+          env;
+          ante;
           conseq = c_out_r;
           owner_ante = (ctxt_gt c_out) @ oante;
           nullity = `NUnk
         }
       in
       let cons = [
-        mk_constraint ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
-        mk_constraint ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
-        mk_constraint ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1;
+        mk_constraint (join_envs c1 c2) ((ctxt_gt c1) @ (ctxt_gt c2)) @@ And (c_r1,c_r2);
+        mk_constraint (add_env c2) ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
+        mk_constraint (add_env c1) ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1;
         pp ~summary c1.path @@ {
-          env = g;
+          env = close_env @@ env @ (List.map (fun (p,_,n) -> (p,Top,n)) c1.env);
           ante = Top;
           conseq = c_out_r;
           owner_ante = ctxt_any_eq c_out;
@@ -1022,42 +1143,76 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
       (ctxt',(i,gen_pred)::d_list)
   in
 
-  let rec inner_loop ~summary (c1,t1) (c2,t2) (c_out,out_t) ctxt =
+  let rec inner_loop ~env ~summary (c1,t1) (c2,t2) (c_out,out_t) ctxt =
     match t1,t2,out_t with
     | Tuple (b1,tl1), Tuple (b2,tl2), Tuple (b_out,tl_out) ->
-      let st1 = step_tup c1 b1 in
-      let st2 = step_tup c2 b2 in
-      let st3 = step_tup c_out b_out in
+      let st1 = step_tup c1 b1 tl1 in
+      let st2 = step_tup c2 b2 tl2 in
+      let st3 = step_tup c_out b_out tl_out  in
       fold_left3i (fun c ind t1' t2' t_out' ->
-        inner_loop ~summary
+        inner_loop ~env ~summary
           (st1 ind t1')
           (st2 ind t2')
           (st3 ind t_out')
           c
       ) ctxt tl1 tl2 tl_out
+        
     | Ref (t1',o1,_), Ref (t2',o2,_), Ref (t_out',o_out,_) ->
-      inner_loop ~summary
+      inner_loop ~env ~summary
         (step_ref c1 o1 t1')
         (step_ref c2 o2 t2')
         (step_ref c_out o_out t_out')
         ctxt
+        
     | TVar _,TVar _,TVar _ ->
       ctxt
-    | Mu (_,_,t1'), Mu (_,_,t2'), Mu (_,_,out_t') ->
-      inner_loop ~summary:true (c1,t1') (c2,t2') (c_out,out_t') ctxt
+        
+    (* XXX: THIS ACTUALLY NEEDS TO FIDDLE WITH BINDINGS *)
+    | Mu (a1,(),_,t1'), Mu (a2,(),_,t2'), Mu (a_out,(),_,out_t') ->
+      let open Paths in
+      assert (List.length a1 = List.length a2 &&
+              List.length a2 = List.length a_out &&
+              List.length a_out = List.length a1);
+      let free_bindings = List.fold_left (fun acc (k,_) ->
+          let mapped_ap = List.assoc k c1.binding in
+          
+          let free_ap = free mapped_ap in
+          PathMap.add mapped_ap free_ap acc
+        ) PathMap.empty a1
+      in
+      (* now add the bindings as necessary *)
+      let env' = PathMap.bindings free_bindings
+        |> List.map snd
+        |> List.fold_left (fun acc p ->
+            (p,Top,`NUnk)::acc
+          ) env
+      in
+      let update_binding c t =
+        let bindings' = List.map (fun (tv,ap) ->
+            if PathMap.mem ap free_bindings then
+              tv,(PathMap.find ap free_bindings)
+            else
+              (tv,ap)
+          ) c.binding in
+        ({ c with binding = bindings' },t)
+      in
+      inner_loop ~env:env' ~summary:true (update_binding c1 t1') (update_binding c2 t2') (update_binding c_out out_t') ctxt
+        
     | Int r1,Int r2,Int out_r ->
-      shuffle_refinements ~summary
-          (c1,r1)
-          (c2,r2)
-          (c_out,out_r)
-          ctxt
+      shuffle_refinements ~env ~summary
+        (c1,r1)
+        (c2,r2)
+        (c_out,out_r)
+        ctxt
+        
     | Array (b1,len1,o1,t1), Array (b2,len2,o2,t2), Array (b_out,len_out,o_out,t_out) ->
-      let ctxt' = shuffle_refinements ~summary:true (c1,len1) (c2,len2) (c_out,len_out) ctxt in
-      inner_loop ~summary:true
-        (step_array c1 b1 o1 t1)
-        (step_array c2 b2 o2 t2)
-        (step_array c_out b_out o_out t_out)
+      let ctxt' = shuffle_refinements ~env ~summary:true (c1,len1) (c2,len2) (c_out,len_out) ctxt in
+      inner_loop ~env ~summary:true
+        (step_array c1 b1 o1 len1 t1)
+        (step_array c2 b2 o2 len2 t2)
+        (step_array c_out b_out o_out len_out t_out)
         ctxt'
+        
     | _ -> failwith @@ Printf.sprintf "Mismatched types %s + %s = %s"
           (string_of_type t1)
           (string_of_type t2)
@@ -1067,10 +1222,11 @@ let apply_matrix ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=true) ~out_root ?
     ({
       path = out_root;
       binding = b;
-      o_stack = []
+      o_stack = [];
+      env = [];
     },t)
   in
-  inner_loop ~summary:false
+  inner_loop ~env:g ~summary:false
     (mk_ctxt [] t1)
     (mk_ctxt t2_bind t2)
     (mk_ctxt out_bind out_type)
@@ -1085,7 +1241,7 @@ let rec push_subst bind = function
     let b_ext = List.map (fun (i,v) -> (i,SVar v)) bind in
     Tuple (b_ext @ b, tl)
   | TVar id -> TVar id
-  | Mu (i,a,t) -> Mu (i,a,push_subst bind t)
+  | Mu (i,fv,a,t) -> Mu (i,fv,a,push_subst bind t)
   | Array (b,len_p,o,t) ->
     let sigma = List.map (fun (i,v) -> (i,`AVar v)) bind in
     let len_p' = partial_subst sigma len_p in
@@ -1105,7 +1261,7 @@ let rec assign_patt ~let_id p t =
   in
   match p,t with
   | PNone, _ -> return p
-  | p,Mu (a,i,t') ->
+  | p,Mu (a,_,i,t') ->
     assign_patt ~let_id p @@ unfold ~gen:fresh_tvar a i t'
   | PVar v,_ -> (fun (count,ctxt) -> (count,add_type v t ctxt),p)
   | PTuple t_patt,Tuple (b,tl) ->
@@ -1279,7 +1435,7 @@ let shuffle_owners t1 t2 t1' t2' =
       List.fold_left2 (fun ctxt' (te1,te2) (te1',te2') ->
         loop te1 te2 te1' te2' ctxt'
       ) ctxt orig_tl new_tl
-    | Mu (_,_,m1), Mu (_,_,m2), Mu (_,_,m1'), Mu (_,_,m2') ->
+    | Mu (_,(),_,m1), Mu (_,(),_,m2), Mu (_,(),_,m1'), Mu (_,(),_,m2') ->
       loop m1 m2 m1' m2' ctxt
     | TVar _, TVar _, TVar _, TVar _ -> ctxt
     | _ -> failwith "Type mismatch (simple checker broken?)"
@@ -1303,7 +1459,7 @@ let sum_ownership t1 t2 out ctxt =
     | Tuple (_,tl1), Tuple (_,tl2), Tuple (_,tl_out) ->
       fold_left3i (fun ctxt _ e1 e2 e_out ->
           loop e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
-    | Mu (_,_,t1'), Mu (_,_,t2'), Mu (_,_,out') ->
+    | Mu (_,(),_,t1'), Mu (_,(),_,t2'), Mu (_,(),_,out') ->
       loop t1' t2' out' ctxt
     | TVar _,TVar _, TVar _ -> ctxt
     | Array (_,_,o1,et1), Array (_,_,o2,et2), Array (_,_,o3,et3) ->
@@ -1331,8 +1487,8 @@ let meet_loop t_ref t_own =
     | Tuple (b,tl_ref), Tuple (_,tl_own) ->
       let tl_ref_cons = List.map2 loop tl_ref tl_own in
       Tuple (b,tl_ref_cons)
-    | Mu (i,a,t1), Mu (_,_,t2) ->
-      Mu (i,a,loop t1 t2)
+    | Mu (i,(),a,t1), Mu (_,(),_,t2) ->
+      Mu (i,(),a,loop t1 t2)
     | TVar v,TVar _ -> TVar v
     | _ -> type_mismatch t_ref t_own
   in
@@ -1374,7 +1530,7 @@ let simple_type_at id v ctxt =
   |> Option.get
 
 let get_type_scheme ?(is_null=false) ~loc ~fv id v =
-  let%with st = simple_type_at id v in
+  let%swith st = simple_type_at id v in
   lift_to_refinement ~pred:(fun ~pos:{under_mu; _} fv p ->
       let fv' = (if is_null then [] else fv) in
       let%bind p = alloc_pred ~ground:(under_mu || is_null) ~loc fv' p in
@@ -1581,7 +1737,7 @@ let rec process_expr ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
           | PVar lhs ->
             let%bind dg = denote_gamma_m
             and fv = predicate_vars_m in
-            let%with st = simple_type_at cont_id lhs in
+            let%swith st = simple_type_at cont_id lhs in
             let%bind a_type =
               lift_to_refinement ~pred:(fun ~pos:{under_ref; under_mu; _} fv path c ->
                   match path with
@@ -1755,34 +1911,29 @@ and process_call ~e_id ~cont_id ctxt c =
   in
   let p_vars = predicate_vars @@ List.map (fun (_,k,v) -> (k,v)) arg_bindings in
   
-  let inst_symb ~add_post ~pos p (fv_raw,_) f_refinement =
-    let fv = if add_post && add_post_type_p pos p then (`AVar "!pre")::fv_raw else fv_raw in
+  let inst_symb ~add_post ~pos (p: Paths.concr_ap) (fv_raw,_) f_refinement =
+    let fv = if add_post && add_post_type_p pos p then ((Paths.pre p) :> refine_ap)::fv_raw else fv_raw in
      match f_refinement with
      | InfPred p -> 
        CtxtPred (c.label,p,fv)
      | True -> Top
      | BuiltInPred f -> NamedPred (f,fv)
   in
-  let inst_concr ~add_post ~pos target_var (fv,subst) f_refinement =
-    let symb_out = inst_symb ~add_post ~pos target_var (fv,subst) f_refinement in
-    compile_refinement target_var subst symb_out
-  in
   let input_env = ctxt.gamma |> denote_gamma in
   let callee_type = SM.find c.callee ctxt.theta in
-  let inst_fn_type f = List.map (fun (a,t) ->
-      map_with_bindings f (`AVar a) (p_vars,[]) t
+  let inst_fn_type ~post f = List.map (fun (a,t) ->
+      post a @@ map_with_bindings f (`AVar a) (p_vars,[]) t
     )
   in
-  
   let concr_in_t = List.combine c.arg_names callee_type.arg_types
-    |> inst_fn_type @@ inst_concr ~add_post:false
+    |> inst_fn_type ~post:(Fun.flip compile_type) @@ inst_symb ~add_post:false
     |> List.mapi (fun i t ->
         meet_arg i c.callee ctxt t
       )
   in
   let symb_out_t = List.combine c.arg_names callee_type.output_types
-    |> inst_fn_type @@ inst_symb ~add_post:true in
-  
+    |> inst_fn_type ~post:(fun _ t -> t) @@ inst_symb ~add_post:true
+  in
   let in_out_types = List.combine concr_in_t symb_out_t in
   let updated_ctxt = List.fold_left2 (fun acc (i,k,arg_t) (in_t,out_t) ->
       do_with_context acc @@
@@ -1793,34 +1944,29 @@ and process_call ~e_id ~cont_id ctxt c =
           add_type_implication input_env concr_arg_type in_t ctxt
           |> constrain_owner concr_arg_type in_t
         in
-
         let ap = `AVar k in
-        let%with arg_t_o = meet_ownership e_id ap arg_t in
+        let%swith arg_t_o = meet_ownership e_id ap arg_t in
         let%bind (resid,formal) = split_arg arg_t_o in_t in
-        let%with out_owner = meet_out i c.callee out_t in
+        let%swith out_owner = meet_out i c.callee out_t in
         (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
         let%bind fresh_type_ = merge_types ~fv_filter:(fun p ->
-            p <> (`AVar "!pre")
+            not (Paths.is_pre p)
           ) ~loc ~path:ap ~t1:out_owner ~t2:resid in
-        let%with fresh_type_own = meet_ownership cont_id ap fresh_type_ in
+        let%swith fresh_type_own = meet_ownership cont_id ap fresh_type_ in
         let concr_arg_type = concretize_arg_t arg_t in
+        let pre_types = fold_with_bindings (fun ~pos p _ r a ->
+            if add_post_type_p pos p then
+              (Paths.pre p,with_pred_refl p r,`NUnk)::a
+            else
+              a
+          ) (`AVar k) ([],[]) concr_arg_type [] in
 
         let force_cons = post_update_type arg_t in
 
         let%bind psub = apply_matrix
-            ~pp_constr:(fun ~summary path constr  ->
-              if summary || (Paths.is_const_ap path) then
-                constr
-              else begin
-                let pre_type =
-                  match map_ap path Fun.id (fun _ -> concr_arg_type) with
-                  | Int r -> with_pred_refl path r
-                  | _ -> failwith @@ Printf.sprintf "I've made a terrible mistake: %s"
-                    @@ Paths.to_z3_ident path
-                in
-                {constr with
-                  env = (`AVar "!pre",pre_type,`NUnk)::constr.env }
-              end
+            ~pp_constr:(fun ~summary:_ _ constr  ->
+              {constr with
+                env = pre_types @ constr.env }
             )
             ~t1:resid
             ~t2:out_owner

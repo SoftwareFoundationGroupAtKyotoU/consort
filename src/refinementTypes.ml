@@ -60,13 +60,13 @@ type nullity = [
 
 type arr_bind = {len: int; ind: int} [@@deriving sexp]
 
-type ('a,'o) _typ =
+type ('a,'o,'m) _typ =
   | Int of 'a
-  | Ref of ('a,'o) _typ * 'o * nullity
-  | Tuple of ty_binding * (('a,'o) _typ) list
+  | Ref of ('a,'o,'m) _typ * 'o * nullity
+  | Tuple of ty_binding * (('a,'o,'m) _typ) list
   | TVar of int
-  | Mu of rec_args * int * ('a, 'o) _typ
-  | Array of arr_bind * 'a * 'o * ('a,'o) _typ
+  | Mu of rec_args * 'm * int * ('a, 'o,'m) _typ
+  | Array of arr_bind * 'a * 'o * ('a,'o,'m) _typ
 [@@deriving sexp]
 
 type arg_refinment =
@@ -74,8 +74,8 @@ type arg_refinment =
   | BuiltInPred of string
   | True[@@deriving sexp]
 
-type typ = (((refine_ap list,refine_ap) refinement),ownership) _typ [@@deriving sexp]
-type ftyp = (arg_refinment,ownership) _typ[@@deriving sexp]
+type typ = (((refine_ap list,refine_ap) refinement),ownership,unit) _typ [@@deriving sexp]
+type ftyp = (arg_refinment,ownership,unit) _typ[@@deriving sexp]
 
 type 'a _funtype = {
   arg_types: 'a list;
@@ -83,7 +83,14 @@ type 'a _funtype = {
   result_type: 'a
 }[@@deriving sexp]
 
-type walk_pos = {under_mu: bool; array: arr_bind list; under_ref: bool; array_ref: bool}
+type walk_pos = {
+  under_mu: bool;
+  array: arr_bind list;
+  under_ref: bool;
+  array_ref: bool;
+}
+
+let empty_pos = {under_mu=false;array = [];under_ref=false;array_ref = false}
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
@@ -114,7 +121,7 @@ let rec map_refinement f =
   | Int r -> Int (f r)
   | Ref (t,o,n) -> Ref (map_refinement f t,o,n)
   | Tuple (b,tl) -> Tuple (b,(List.map (map_refinement f) tl))
-  | Mu (a,v,t) -> Mu (a,v,map_refinement f t)
+  | Mu (a,fv,v,t) -> Mu (a,fv,v,map_refinement f t)
   | TVar v -> TVar v
   | Array (b,len_r,o,et) ->
     Array (b,f len_r,o,map_refinement f et)
@@ -122,7 +129,7 @@ let rec map_refinement f =
 let rec fold_refinements f a = function
   | TVar _ -> a
   | Int r -> f a r
-  | Mu (_,_,t)
+  | Mu (_,_,_,t)
   | Ref (t,_,_) -> fold_refinements f a t
   | Tuple (_,tl) -> List.fold_left (fold_refinements f) a tl
   | Array (_,len_r,_,et) ->
@@ -132,7 +139,7 @@ let rec to_simple_type = function
   | Ref (t,_,_) -> `Ref (to_simple_type t)
   | Int _ -> `Int
   | Tuple (_,t) -> `Tuple (List.map to_simple_type t)
-  | Mu (_,v,t) -> `Mu (v, to_simple_type t)
+  | Mu (_,_,v,t) -> `Mu (v, to_simple_type t)
   | TVar v -> `TVar v
   | Array (_,_,_,Int _) ->
     `Array `Int
@@ -231,9 +238,9 @@ let unfold_gen ~gen ~rmap arg id t_in =
     function
     | TVar t_id when t_id = id ->
       let ((_,new_arg),t') = do_subst t_in in
-      Mu (new_arg,id,t')
+      Mu (new_arg,(),id,t')
     | TVar v -> TVar v
-    | Mu (arg,id,t) -> Mu (arg,id,loop t)
+    | Mu (arg,(),id,t) -> Mu (arg,(),id,loop t)
     | Tuple (b,tl) ->
       let tl' = List.map loop tl in
       Tuple (b,tl')
@@ -251,52 +258,6 @@ let unfold ~gen arg id t_in =
       ) sub_arg
   in
   unfold_gen ~gen ~rmap:psub arg id t_in
-
-let compile_refinement target subst_assoc =
-  let subst_fn = map_ap subst_assoc in
-  let subst = subst_pv subst_assoc in
-  let rec loop r = 
-    match r with
-    | Pred (i,pv) -> Pred (i,(subst pv,target))
-    | CtxtPred (i1,i2,pv) -> CtxtPred (i1,i2,(subst pv,target))
-    | Top -> Top
-    | Relation rel -> Relation (map_relation subst_fn rel)
-    | ConstEq ce -> ConstEq ce
-    | And (p1,p2) -> And (loop p1, loop p2)
-    | NamedPred (nm,pv) -> NamedPred (nm,(subst pv,target))
-  in loop
-
-let compile_bindings blist root =
-  List.map (fun (k,t) ->
-    match t with
-    | SVar v -> (k,`AVar v)
-    | SProj i -> (k,`AProj (root,i))
-  ) blist
-
-let compile_type_gen =
-  let rec compile_loop t1 root bindings =
-    match t1 with
-    | Int r -> Int (compile_refinement root bindings r)
-    | Ref (t,o,n) -> Ref (compile_loop t (`ADeref root) bindings,o,n)
-    | Tuple (b,tl) ->
-      let bindings' = bindings @ (compile_bindings b root) in
-      let tl' = List.mapi (fun i t ->
-          compile_loop t (`AProj (root,i)) bindings'
-        ) tl in
-      Tuple ([],tl')
-    | TVar v  -> TVar v
-    | Mu (a,v,t) -> Mu (a,v, compile_loop t root bindings)
-    | Array (b,len_r,o,et) ->
-      let bindings' = bindings @ [(b.ind,`AInd root); (b.len,`ALen root)] in
-      let len_rc = compile_refinement (`ALen root) bindings len_r in
-      Array (b,len_rc,o,compile_loop et (`AElem root) bindings')
-  in
-  compile_loop
-
-let compile_type_path t1 ap = compile_type_gen t1 ap []
-
-let compile_type t1 root =
-  compile_type_path t1 @@ `AVar root
 
 let subst_of_binding root = List.map (fun (i,p) ->
     match p with
@@ -329,12 +290,12 @@ let ap_is_target target sym_vals ap =
 let filter_fv path sym_vals =
   List.filter (fun free_var -> not @@ ap_is_target path sym_vals free_var)
 
-let rec walk_with_bindings_own ?(pos={under_mu=false;array = [];under_ref=false;array_ref = false}) ~o_map f root bindings t =
+let rec walk_with_bindings_own ?(pos=empty_pos) ~o_map f root bindings t =
   match t with
   | TVar v -> return @@ TVar v
-  | Mu (ar,v,t') ->
+  | Mu (ar,fv,v,t') ->
     let%bind t'' = walk_with_bindings_own ~pos:{pos with under_mu = true} ~o_map f root bindings t' in
-    return @@ Mu (ar,v,t'')
+    return @@ Mu (ar,fv,v,t'')
   | Int r ->
     let (sym_fv,sym_vals) = bindings in
     let%bind r' = f ~pos root (filter_fv root sym_vals sym_fv,sym_vals) r in
@@ -389,6 +350,80 @@ let map_with_path f root t =
   map_with_bindings (fun ~pos p _ r ->
     f ~pos p r) root ([],[]) t
 
+
+let compile_refinement target subst_assoc =
+  let subst_fn = map_ap subst_assoc in
+  let subst = subst_pv subst_assoc in
+  let rec loop r = 
+    match r with
+    | Pred (i,pv) -> Pred (i,(subst pv,target))
+    | CtxtPred (i1,i2,pv) -> CtxtPred (i1,i2,(subst pv,target))
+    | Top -> Top
+    | Relation rel -> Relation (map_relation subst_fn rel)
+    | ConstEq ce -> ConstEq ce
+    | And (p1,p2) -> And (loop p1, loop p2)
+    | NamedPred (nm,pv) -> NamedPred (nm,(subst pv,target))
+  in loop
+
+let compile_bindings blist root =
+  List.map (fun (k,t) ->
+    match t with
+    | SVar v -> (k,`AVar v)
+    | SProj i -> (k,`AProj (root,i))
+  ) blist
+
+let compile_type_gen =
+  let rec compile_loop t1 root bindings =
+    match t1 with
+    | Int r -> Int (compile_refinement root bindings r)
+    | Ref (t,o,n) -> Ref (compile_loop t (`ADeref root) bindings,o,n)
+    | Tuple (b,tl) ->
+      let bindings' = bindings @ (compile_bindings b root) in
+      let tl' = List.mapi (fun i t ->
+          compile_loop t (`AProj (root,i)) bindings'
+        ) tl in
+      Tuple ([],tl')
+    | TVar v  -> TVar v
+    | Mu (a,(),v,t) ->
+      let closed_vars = List.fold_left (fun acc (i,_) ->
+          IntSet.add i acc
+        ) IntSet.empty a
+      in
+      let (free_vars,mu_bindings) = map_with_accum (fun (k,t) acc ->
+          if IntSet.mem k closed_vars then
+            let fpv = Paths.free t in
+            (fpv::acc,(k,Paths.free t))
+          else
+            (acc,(k,t))
+        ) bindings []
+      in
+      let compiled_t = compile_loop t root mu_bindings in
+      let env_ext = fold_with_bindings (fun ~pos:{array; _} p (_,sym) r a ->
+          (* WARNING: GROSS AWFUL HACK ALERT *)
+          (* TODO: DO THIS PROPERLY *)
+          let a' = (p,r,`NUnk)::a in
+          if array <> [] then
+            let {len; ind} = List.hd array in
+            let ind_ap = List.assoc ind sym in
+            let len_ap = List.assoc len sym in
+            (ind_ap,NamedPred ("valid-ind", ([len_ap],ind_ap)), `NUnk)::a'
+          else a'
+
+        ) root ([],[]) compiled_t []
+      in
+      Mu (a,(free_vars,env_ext),v, compile_loop t root mu_bindings)
+    | Array (b,len_r,o,et) ->
+      let bindings' = bindings @ [(b.ind,`AInd root); (b.len,`ALen root)] in
+      let len_rc = compile_refinement (`ALen root) bindings len_r in
+      Array (b,len_rc,o,compile_loop et (`AElem root) bindings')
+  in
+  compile_loop
+
+let compile_type_path t1 ap = compile_type_gen t1 ap []
+
+let compile_type t1 root =
+  compile_type_path t1 @@ `AVar root
+
 let rec update_nth l i v =
   match l with
   | h::t ->
@@ -403,6 +438,7 @@ let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
     match ap' with
     | `ALen _
     | `AInd _
+    | `AFree _
     | `APre _ -> failwith "V illegal"
     | `AElem ap ->
       inner_loop ap (fun b t' ->
@@ -522,7 +558,7 @@ let pp_map () l =
       pf "%d -> %d" i j
     ) l
     
-let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o) _typ -> Format.formatter -> unit =
+let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o,'m) _typ -> Format.formatter -> unit =
   let open PrettyPrint in
   let sym_var = pf "$%d" in
   let rec pp_type = function
@@ -574,7 +610,7 @@ let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : '
           o_print o
         ]
     | TVar v -> pf "'%d" v
-    | Mu (map,v,t) ->
+    | Mu (map,_, v,t) ->
       pb [
           pf "(%s{%a} '%d.@ " mu pp_map map v;
           pp_type t;

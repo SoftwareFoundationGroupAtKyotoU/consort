@@ -19,8 +19,8 @@ check_list(l) {
     ()
   } else {
     let (d,arr,nxt) = *l in {
-	  check_all(0,d,arr);
-	  check_list(nxt)
+      check_all(0,d,arr);
+      check_list(nxt)
 	}
   }
 }
@@ -31,7 +31,7 @@ mk_list(d) {
   } else {
       let arr = mkarray d in {
       fill_array(0,d,arr);
-	  let nxt = mk_list((d + 1)) in
+      let nxt = mk_list((d + 1)) in
       mkref (d,arr,nxt)
     }
   }

@@ -64,11 +64,6 @@ end = struct
   let pp_owner_ante = S.ownership_ante
 
   let close_env env ante conseq =
-    let debug = match conseq with
-      | Pred ("check_up-a-out-a!len",_) -> true
-      | _ -> false
-    [@@ocaml.warning "-26"] 
-    in
     let module SS = Std.StringSet in
     let update acc =
       fold_refinement_args ~rel_arg:(fun ss a ->
