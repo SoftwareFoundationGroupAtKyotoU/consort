@@ -73,3 +73,8 @@
 \caption{Transition Rules.}
 \label{fig:transitionRules}
 \end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
