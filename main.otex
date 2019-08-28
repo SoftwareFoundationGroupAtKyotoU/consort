@@ -118,49 +118,6 @@
   and $[[FPCV(T)]]$ to indicate free variables that appear in the refinement of $[[T]]$.
 \end{definition}
 
-\begin{figure}[t]
-  \leavevmode
-  \infrule[WF-Env]{
-    [[ forall x in G. G | B |- G(x) ]]
-  }{
-    [[B |- G]]
-  }
-  \infrule[WF-Int]{
-    [[ST(G), nu:int | B |- ph]]
-  }{
-    [[G | B |- { nu:int|ph} ]] 
-  }
-  \infrule[WF-Ref]{
-    [[G | B |- T]]
-  }{
-    [[G | B |- T ref r ]]
-  }
-  \infrule[WF-Phi]{
-    [[FPV(ph)]] \subseteq \set{x \mid [[x in Gst /\ Gst(x) = int]]} \andalso
-    [[FPCV(ph)]] \subseteq [[CV(B)]]
-  }{
-    [[Gst | B |- ph]]
-  }
-  \infrule[WF-Result]{
-    [[G | B |- T]] \andalso
-    [[B |- G]]
-  }{
-    [[ B |- T => G ]]
-  }
-  \infrule[WF-FunType]{
-    [[ A |- x1:T1,,xn:Tn ]] \\ [[ A |- T => x1:T1',,xn:Tn' ]]
-  }{
-    [[ |- A <x1:T1,,xn:Tn> -> <x1:T1',,xn:Tn'|T> ]]
-  }
-  \infrule[WF-FunEnv]{
-    [[ forall f in Th.|- Th(f)]]
-  }{
-    [[ |- Th ]]
-  }
-  \caption{Well-formedness of types and environments}
-  \label{fig:type-wf}
-\end{figure}
-
 \begin{definition}[Well-formedness of types]
   We define simple types $[[ST]]$ and environments $[[Gst]]$ by:
   \[

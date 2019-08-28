@@ -4,9 +4,8 @@ We now briefly describe the inference algorithm implemented in
 our tool \consort. We first run a standard, simple type inference
 algorithm to generate type templates for every function parameter
 type, return type, and for every live variable at each program point.
-For a variable $x$ of simple type
-$[[ST]] ::= [[ int ]] | [[ST ref]]$ at
-program point $p$ we generate a type template $[[ [ST](x,0,pp) ]]$
+For a variable $x$ of simple type $[[ST]]$ (as defined in \cref{fig:type-wf})
+at program point $p$ we generate a type template $[[ [ST](x,0,pp) ]]$
 as follows:
 \begin{align*}
   [[ [int](x,nn,pp) ]] & = [[{nu:int|ph(x,nn,pp)[FV pp]}]] \\

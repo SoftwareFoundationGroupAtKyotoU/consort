@@ -227,7 +227,6 @@ grammar
     | Tn+1 :: ::tn1 {{ tex \tau_{n+1} }}
 	| top :: :: top_type
 	| [ ST ] ( x , nn , pp ) :: :: denote_simple {{ tex \sem{[[ST]]}_{[[x]],[[nn]],[[pp]]} }}
-	| [ ST ] ( x , nn , pp ) { X } :: :: denote_eqn {{ tex \sem{[[ST]]}_{[[x]],[[nn]],[[pp]]}^{\mu\mathcal{X} } }}
 	| ( tuple_bind1 ,, tuple_bind2 ) :: :: dependent_tuple {{ tex ([[tuple_bind1]],\ldots,[[tuple_bind2]]) }}
 	| ( tuple_bind1 , ... , tuple_bind2 ) :: :: concr_dep_tup
 	| ( M alpha . T ) :: :: rec_type {{ tex \mu[[alpha]].[[T]] }}
@@ -239,6 +238,7 @@ grammar
   ST {{ tex \tau_{ST} }} :: 'ST_' ::= {{ com simple type }}
     | int :: :: simple_int {{ tex \TINT }}
 	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
+	| [S T ] :: :: lift_type {{ tex \llparenthesis [[T]]\rrparenthesis_{\tau} }}
 	| Gst ( x ) :: :: st_lkp
 	| ( M alpha . ST ) :: :: rec_st {{ tex \mu[[alpha]].[[ST]] }}
 	| ST [ alpha ] :: :: over_type
@@ -249,7 +249,7 @@ grammar
   Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::= {{ com simple type env }}
     | empty :: :: em {{ tex \bullet }}
 	| Gst , x : ST :: :: append
-	| ST ( G ) :: :: lift_G {{ tex \mathit{ST}([[G]]) }}
+	| ST ( G ) :: :: lift_G {{ tex \llparenthesis [[G]] \rrparenthesis }}
 	| Gst , nu : ST :: :: nu_append
 
   tyarg_list :: 'AL_' ::=

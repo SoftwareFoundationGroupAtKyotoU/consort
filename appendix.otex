@@ -255,25 +255,26 @@ The followings are key lemmas:
     Using \cref{lem:inversion}, we have there exists some $[[Gp]]$, $[[Gp']]$ and $[[Tp]]$ such
     that:
     \begin{mathpar}
-      [[ G0 <: G ]] \and [[ Gp',Tp <: G0',T ]] \and
+      [[ G0 <: Gp ]] \and [[ Gp',Tp <: G0',T ]] \and
       [[ ll |- Gp ]] \and [[ Gp(y) = T1 + T2 ref r ]] \and
       [[ r > 0 ]] \and [[ Gp' = G' \ x ]] \and [[ ll |- Tp => Gp' ]] \and
       [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : Tp => G' ]]
     \end{mathpar}
-    From \cref{lem:subtyp-preserves-cons}, we then have $[[Cons(H,R,G)]]$.
+    From \cref{lem:subtyp-preserves-cons}, we then have $[[Cons(H,R,Gp)]]$.
     We will now show that:
     \begin{align}
       \label{eqn:new-tyenv-cons} & [[Cons(H,R { x' |-> v },G'')]] \\
       \label{eqn:new-tyenv-wf}  & [[ll |- G'']] \\
       & [[Th | G'' | ll |- [x'/x]e : [x'/x]Tp => [x'/x]G' ]]
     \end{align}
-    where $[[ G'' = G[y <- (T1 /\ y y = x') ref r], x' : T2]]$.
+    where $[[ G'' = Gp[y <- (T1 /\ y y = x') ref r], x' : T2]]$.
     
     This is sufficient to establish that
     $[[ |- D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$.  To see how, we
     observe that as $[[ ll |- Tp => G' \ x ]]$, by \cref{lem:remove-well-formed-same}
     we have $[[ [x'/x]Tp = Tp]]$ and $[[ ([x'/x]G') \ x' = G' \ x ]]$. Then by
-    \cref{lem:well-formed-rem-subtype} we have that $[[ [x'/x]G',Tp <: G' \ x,Tp]]$.
+    \cref{lem:well-formed-rem-subtype} and $[[ Gp' = G' \ x = ([x'/x]G') \ x']]$
+    we have that $[[ [x'/x]G',Tp <: Gp',Tp]]$.
     From the inversion lemma, we have that $[[ G' \ x,Tp <: G0',T ]]$ and thus
     with two applications of \rn{T-Sub} we can derive:
     \[
