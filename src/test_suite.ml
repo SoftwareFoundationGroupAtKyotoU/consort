@@ -9,12 +9,12 @@ let run_test v_opts intr expect file =
   | Unverified Timeout,_ -> raise TestTimeout
   | Unverified _,false -> ()
   | s,true -> failwith @@ Printf.sprintf "%s did not verify as expected (%s)" file @@ result_to_string s
-  | _,false -> failwith @@ Printf.sprintf "%s incorrectly verified" file 
+  | Verified,false -> failwith @@ Printf.sprintf "%s incorrectly verified" file 
 
 let () =
   let expect = ref true in
   let verbose = ref false in
-  let maybe_print s = if !verbose then print_string s else () in
+  let maybe_print s = if !verbose then (print_string s; flush stdout) else () in
   let (a_list,gen) =
     Consort.Options.solver_arg_gen ()
     |> Consort.Options.seq Consort.Options.solver_opt_gen
@@ -38,12 +38,15 @@ let () =
     Array.iter (fun f_name ->
       if Filename.check_suffix f_name ".imp" then
         try
+          maybe_print @@ f_name ^ "\n";
           run_test v_opts intr !expect (dir ^ "/" ^ f_name);
           incr n_tests
         with
         | Failure s -> failwith @@ Printf.sprintf "Test %s failed with message: %s" f_name s
         | TestTimeout -> Printf.printf "!!! WARNING: Test %s timed out, optimistically continuing... !!!\n" f_name; flush stdout
-        | e -> failwith @@ Printf.sprintf "Test %s failed with unknown exception: %s " f_name @@ Printexc.to_string e
+        | e ->
+          Printexc.print_backtrace stdout;
+          failwith @@ Printf.sprintf "Test %s failed with unknown exception: %s " f_name @@ Printexc.to_string e
       else ()
     ) test_files;
   ) !dir_list;
