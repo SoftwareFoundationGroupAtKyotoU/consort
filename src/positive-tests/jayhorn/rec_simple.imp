@@ -1,0 +1,15 @@
+f(p) {
+  if _ then {
+    ()
+  } else {
+    let old = *p in
+    let pb = mkref _ in
+	let res = f(pb) in
+	res && (old = *p)
+  }
+}
+
+{
+  let p = mkref 0 in
+  assert(f(p) = 0)
+}
