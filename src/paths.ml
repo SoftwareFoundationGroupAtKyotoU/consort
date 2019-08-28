@@ -81,6 +81,16 @@ let rec has_root_p p = function
 
 let has_root v = has_root_p @@ (=) v
 
+let rec map_root (f: string -> string) = function
+  | `AVar s -> `AVar (f s)
+  | `APre s -> `APre (f s)
+  | `AFree s -> `AFree s
+  | `ALen ap -> `ALen (map_root f ap)
+  | `AElem ap -> `AElem (map_root f ap)
+  | `AInd ap -> `AElem (map_root f ap)
+  | `AProj (ap,i) -> `AProj (map_root f ap,i)
+  | `ADeref ap -> `ADeref (map_root f ap)
+
 let rec compare =
   let constr_code : ([< 'b t_templ] as 'b) -> int = function
     | `APre _ -> 1

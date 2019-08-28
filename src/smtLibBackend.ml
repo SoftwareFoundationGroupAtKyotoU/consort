@@ -121,7 +121,14 @@ end = struct
       let id = Printf.sprintf "null?%d" c in
       `NVar id,(c+1,id::n_acc)
     | `NLive -> `NLive,(c,n_acc)
-      
+
+  let to_atomic_preds =
+    let rec loop acc = function
+      | And (r1,r2) -> loop (loop acc r1) r2
+      | r -> r::acc
+    in
+    loop []
+
   let pp_constraint ~interp ff { env; ante; conseq; owner_ante; nullity } =
     let gamma = close_env env ante conseq in
     let context_vars = List.init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
@@ -135,16 +142,19 @@ end = struct
     let null_args = List.map (Printf.sprintf "(%s Bool)") b_vars in
     let oante = List.map pp_owner_ante owner_ante in
     let e_assum = oante @ denote_gamma in
-    pg "assert" [
-      pg "forall" [
-        print_string_list (free_vars @ null_args);
-        pg "=>" [
-          pg "and" ((pp_refine ~nullity:cons_null ~interp ante (`AVar "NU"))::e_assum) simplify;
-          pp_refine ~nullity:cons_null ~interp conseq (`AVar "NU")
+    let atomic_preds = to_atomic_preds conseq in
+    List.iter (fun atomic_conseq ->
+      pg "assert" [
+        pg "forall" [
+          print_string_list (free_vars @ null_args);
+          pg "=>" [
+            pg "and" ((pp_refine ~nullity:cons_null ~interp ante (`AVar "NU"))::e_assum) simplify;
+            pp_refine ~nullity:cons_null ~interp atomic_conseq (`AVar "NU")
+          ]
         ]
-      ]
-    ] ff.printer;
-    break ff
+      ] ff.printer;
+      break ff
+    ) atomic_preds
 
   let solve ~opts ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
     let ff = SexpPrinter.fresh () in

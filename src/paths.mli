@@ -44,6 +44,9 @@ val has_root_p :
   ([< 'b t_templ ] as 'b) ->
   bool
 
+val map_root :
+  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `AFree `ALen `APre `AProj `AVar] as 'b) -> 'b
+
 val unsafe_get_root : ([< 'b t_templ > `AVar] as 'b) -> string
 
 val compare : concr_ap -> concr_ap -> int

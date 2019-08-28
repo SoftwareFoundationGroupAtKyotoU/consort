@@ -1,5 +1,7 @@
 {
   let y = mkarray 3 in {
+    let x = y.length in
+    y[1] <- 5;
   	y[0] <- 4;
 	assert(y[0] = 4)
   }

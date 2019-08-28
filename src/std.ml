@@ -37,6 +37,14 @@ let fold_lefti f a l =
   in
   loop 0 a l
 
+module StringExt = struct
+  let starts_with s pref =
+    if String.length s < String.length pref then
+      false
+    else
+      (String.sub s 0 (String.length pref)) = pref
+end
+
 module StateMonad = struct
   module Let_syntax = struct
     type ('a,'b,'c) context_monad = ('b -> ('c * 'a))
@@ -158,5 +166,12 @@ module StateMonad = struct
       let%bind a_raw = a in
       f e1 e2 a_raw
     ) l1 l2 (return a)
+
+  let rec miter f l =
+    match l with
+    | [] -> return ()
+    | h::t ->
+      let%bind () = f h in
+      miter f t
 
 end
