@@ -629,9 +629,9 @@ The followings are key lemmas:
     It is thus trivial that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
   \end{rncase}
 
-  \begin{rncase}{Tadd-Ref1}
+  \begin{rncase}{Tadd-Ref}
     We have $[[own(H,v,Tp)=own(H,v,T1 + T1)]]$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
-    $[[own(H,v,T1)]]$ and $[[own(H,v,T2)]]$, where $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.
+    and  $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.
     
     From the definition of ownership, we have $[[own(H,v,Tp)={a |-> r1+r2 } + own(H,H(v),T1' + T2')]]$ and:
     \begin{align*}
@@ -639,24 +639,6 @@ The followings are key lemmas:
                                     & = [[{ a |-> r1 + r2 } + own(H,H(v),T1') + own(H,H(v),T2')]]
     \end{align*}
     By the induction hypothesis, have that $[[own(H,H(v),T1' + T2') = own(H,H(v),T1') + own(H,H(v),T2')]]$ and can conclude that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
-  \end{rncase}
-  
-  \begin{rncase}{Tadd-Ref2}
-    We have $[[own(H,v,Tp)=own(H,v,T1 + T2)]]$, where $[[ T1 + T2 = T2' ref r ]]$,
-    $\mathbf{own}(H,v,T1)$ and $\mathbf{own}(H,v,T2)$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref r ]]$.
-    
-    From the well-formedness condition which states that all ownerships within the type $[[ T1 = T1' ref 0 ]]$ are $0$, we have $[[own(H,v,T1)= empty]]$.
-    
-    Also we know that $[[own(H,v,Tp) = own(H,v,T2)]]$, thus
-    it is trivial that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
-  \end{rncase}
-
-  \begin{rncase}{Tadd-Ref3}
-  We have $[[own(H,v,Tp)=own(H,v,T1+T2)]]$, where $[[T1 + T2 =  Top ref 0]]$,
-  $[[own(H,v,T1)]]$ and $[[own(H,v,T2)]]$, where $[[ T1 = T1' ref 0 ]]$, $[[ T2 = T2' ref 0 ]]$.
-  
-  From the well-formedness condition which states that all ownerships within the types $[[ Tp ]], [[ T1 ]]$ and $[[ T2 ]]$ are $0$, we have $[[own(H,v,Tp)=own(H,v,T1)=own(H,v,T2)=empty]]$.
-  It is thus trivial that $[[own(H,v,Tp) = own(H,v,T1) + own(H,v,T2)]]$.
   \end{rncase}
 \end{proof}
 
@@ -681,25 +663,15 @@ The followings are key lemmas:
     We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]].$
   \end{rncase}
 
-  \begin{rncase}{Tadd-Ref1}
-    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) /\ r1 > 0 ==> a in H /\ SATv(H,R,H(a),T1') /\ T1 = T1' ref r1 /\ Rv = a ]]$,
-    and $[[ SATv(H, R, Rv, T2) /\ r2 > 0 ==> a in H /\ SATv(H,R,H(a),T2') /\ T2 = T2' ref r2 /\ Rv = a ]]$.
-    Also $[[ SATv(H, R, Rv, T1+T2) /\ r1+r2 > 0 ==> a in H /\ SATv(H,R,H(a),T1'+T2') /\ (T1+T2) = (T1'+T2') ref r1+r2 /\ Rv = a ]]$.
-    By the induction hypothesis, we have $[[ SATv(H,R,H(a),T1'+T2') SATv(H,R,H(a),T1') /\  SATv(H,R,H(a),T2') ]]$.
-    We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]].$
-  \end{rncase}
-
-  \begin{rncase}{Tadd-Ref2}
-    In this case, we have $[[ T1 + T2 = T2' ref r ]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref r ]]$, where $[[r>0]]$.
-    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) ==> SATv(H, R, Rv, T1' ref 0) ==> (0 > 0 ==> a in H /\ SATv(H,R,H(a),T1') /\ Rv = a) ]]$ which is trivially true.
-    From the above $[[T2 = Tp]]$, from which it is immediate that $[[ SATv(H,R,Rv,Tp) ==> SATv(H,R,Rv,T2) ]]$.
-    We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]].$
-  \end{rncase}
-  
-  \begin{rncase}{Tadd-Ref3}
-  In this case, we have $[[ T1+T2 = Top ref 0]]$, $[[ T1 = T1' ref 0 ]]$ and $[[ T2 = T2' ref 0 ]]$.
-  From the definition of $[[SAT]]$, as the ownerships are 0, we have $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$ are both trivally true.
-  We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]]$.
+  \begin{rncase}{Tadd-Ref}
+    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) ]] \equiv [[ r1 > 0 ==> a in H /\ SATv(H,R,H(a),T1') /\ T1 = T1' ref r1 /\ Rv = a ]]$,
+    and $[[ SATv(H, R, Rv, T2) ]] \equiv [[ r2 > 0 ==> a in H /\ SATv(H,R,H(a),T2') /\ T2 = T2' ref r2 /\ Rv = a ]]$.
+    Also $[[ SATv(H, R, Rv, T1+T2) ]] \equiv [[ r1+r2 > 0 ==> a in H /\ SATv(H,R,H(a),T1'+T2') /\ Rv = a ]]$, and finally
+    $[[(T1+T2) = (T1'+T2') ref r1+r2]]$.
+    If $[[r1+r2 = 0]]$, then $[[r1]]$ and $[[r2]]$ must be zero, and thus $[[SATv(H,R,v,T1)]]$ and $[[SATv(H,R,v,T2)]]$
+    are trivially true. Otherwise, we have that $[[a in H /\ SATv(H,R,H(a),T1' + T2')]]$, whereby the inductive
+    hypothesis gives $[[SATv(H,R,H(a),T1') /\ SATv(H,R,H(a),T2')]]$. Then if $[[ ri > 0 ]]$, we have the
+    desired result. 
   \end{rncase}
 \end{proof}
 
