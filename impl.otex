@@ -12,8 +12,8 @@ as follows:
   [[ [ST ref](x,nn,pp) ]] & = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
 \end{align*}
 where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh predicate symbol
-whose arguments are the free variables of simple type $[[int]]$
-at program point $[[pp]]$ plus $[[nu]]$, and $[[r[x,nn,pp] ]]$ is a
+whose arguments are $[[nu]]$ and the free variables of simple type $[[int]]$
+at program point $[[pp]]$, and $[[r[x,nn,pp] ]]$ is a
 fresh ownership variable. For each function definition $[[f]]$,
 there are two synthetic program points, $[[f st]]$ and $[[f end]]$
 for the beginning and end respectively of the function.
@@ -34,6 +34,8 @@ for a type template of the form $[[ {nu:int|ph(x,nn+1,pp)[FV pp]} ref r[x,nn,pp]
 \consort emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[FV pp] ]]$
 and for a type template $[[ (T ref r[x,nn+1,pp]) ref r[x,nn,pp] ]]$
 \consort emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] ]]$.
+\JT{Consort doesn't actually generate that final constraint: it
+  uses the old rules which are effectively equivalent to the new approach.}
 
 \consort then walks the program, generating constraints according to
 the typing rules. These constraints take three forms, ownership
@@ -45,7 +47,7 @@ $[[T ref r[x,0,pp] ]]$ for the expression $[[ x := y; e ]]$ at point
 $[[pp]]$, we generate the constraint $[[r[x,0,pp] = 1]]$.
 
 \consort emits subtyping constraints between the predicate symbols
-at each program point according to the rules of the type system.
+at related program points according to the rules of the type system.
 For example, consider the following assignment statement at program point
 $[[pp]]$, where $[[e]]$ is at program point $[[pp']]$, and $[[x]]$ has simple type
 $[[int ref]]$:
@@ -71,14 +73,12 @@ in the current environment without emitting a constraint.)
 The free variables in the above constraints are universally quantified over
 and then sent to an automated solver. Due to recursion,
 the above constraints may be recursive, so we use a
-constrained horn clause \needcite solver to solve the generated constraints (see
-\cref{sec:sequential-solver} below for a discussion on how we handle the
-ownership constraints).
+constrained horn clause \needcite solver to solve the generated constraints.
 Our implementation generates the above constraints in the industry standard
 SMT-Lib2 format \needcite, so any solver that understands
 this format can be used as a backend for \consort. Our implementation
 currently supports Spacer \needcite (part of the Z3 solver \needcite) and HoICE \needcite
-(adding a new backend requires only a handful of glue ML code).
+(adding a new backend requires only a handful of lines of ML glue code).
 
 \subsubsection{Encoding Context Sensitivity}
 To make inference tractable, we require the user to fix \emph{a
@@ -113,7 +113,7 @@ over the concrete values of $[[ci]]$.
   consider.}
 
 \subsection{Extensions}
-We now describe some extensions to our core calculus supported within
+We now describe some extensions to our core language supported within
 our implementation.
 
 \paragraph{Dependent Tuples}
@@ -122,7 +122,7 @@ $[[ (x1: T1 ,, xn: Tn) ]]$, where $[[xi]]$ is free within $[[Tj]]$
 ($j\neq i$) if $[[Ti]]$ is not a reference type. For example,
 $[[ (x: {nu:int|Top}, y:{nu:int|nu>x})]]$ is the type of tuples whose
 second element is strictly greater than the first. We also extend
-the language with tuple constructors as a new left hand side, and
+the language with tuple constructors as a new value form, and
 let bindings with tuple patterns as the RHS.
 Our language does \emph{not} include
 explicit projection operators to ensure refinements types of tuple elements
@@ -175,13 +175,13 @@ and thus any instantiation of a recursive type must use a null pointer.
 Our implementation therefore supports an \lstinline{ifnull} construct
 and a distinguished null constant. At present, our implementation
 does \emph{not} detect null pointer dereferences, and all soundness
-guarantees are made modulo no null dereferences.
+guarantees are made modulo freedom of null dereferences.
 
 \paragraph{Arrays}
 Our implementation supports arrays of integers. Each array is given
-an ownership describing the ownership of the entire array. The array type
-contains two refinements: the first refines the length of the array itself,
-and a single refinement predicate which refines the array contents.
+an ownership describing the ownership of memory allocated for the entire array.
+The array type contains two refinements: the first refines the length of the array itself,
+and the second refines the entire array contents.
 The content refinement predicate may refer to a symbolic index variable,
 enabling precise, per-index refinements. At reads and writes to the
 array \consort instantiates the refinement's symbolic index variable with
