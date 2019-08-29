@@ -13,7 +13,7 @@ for i in $THIS_DIR/*.java; do
 	if [[ $(basename $i) = "Havoc_Class.java" ]]; then
 		continue
 	fi
-	javac -d $CLASS_DIR $i;
+	javac -sourcepath $THIS_DIR -d $CLASS_DIR $i;
 	rm $CLASS_DIR/Havoc_Class.class;
 	echo Testing $(basename $i);
 	java -jar $1 -bounded-heap-size 6 -j $CLASS_DIR
