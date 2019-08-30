@@ -74,13 +74,16 @@ The grammar of types is given by:
     [[ r ]] &:=& [0,1]
   \end{array}
 \]
+\NK{Maye we could omit $ [[ph1 ==> ph2]]$ and $[[ ph1 \/ ph2 ]]$ from the formal syntax
+and introduce them as derived forms?}
 Our type system has two type constructors: references and integers. $[[ T ref r ]]$ is the
 type of a (non-null) reference to a value of type $[[ T ]]$.
 $[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a pointer
 that cannot be read or written, to $[[1]]$  indicating a pointer with exclusive
 ownership that can be read and written. Ownership values between these two
 extremes indicate a pointer that is readable but not writable \emph{and} for which
-there exists no mutable, aliased pointer.
+there exists no mutable, aliased pointer. \NK{I do not quite understand the part
+ ``and for which ...''}
 
 The base types of our type system are integers that are refined with a
 predicate $[[ph]]$.  The language of predicates is built using the
@@ -165,6 +168,9 @@ in the presence of heap writes. The refinement well-formedness ensures
 that the free program variables that appear in refinements are bound
 by the current type environments. The well-formedness rules are defined in
 \cref{fig:type-wf}. \JT{Maybe say something about what on earth FCPV is?}
+\NK{Sure. At this point, $[[ G ]]$, $[[ B ]]$ have not been introduced.
+The treatment of $[[ G ]]$ as a \emph{set} instead of a \emph{sequence} of bindings
+requires a comment, sicne a type environment is a sequence in the usual dependent type system.}
 
 The ownership of a reference may drop to 0 when a mutable alias is created.
 In the latter any mutations through the alias will be consistent with the
@@ -175,7 +181,8 @@ capabilities to a pointer (i.e., restore an ownership greater than 0)
 while simultaneously updating its refinement to reflect any mutations through
 aliases.
 
-Notice that type system for program values does not include function
+Notice that type system for program values \NK{What do you exactly mean by (the) ``type system for
+program values''? Do you just mean the set of types (ranged over by $\tau$)?} does not include function
 types; as mentioned in \cref{sec:prelim} our language does not support
 higher order functions. We use a separate type scheme for function
 types: as this scheme is closely related to our handling of context
@@ -266,10 +273,14 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
 We now introduce the type system for the intra-procedural fragment of
 our language. Accordingly, this section focuses on interplay of
 mutability and refinement types. The typing rules are given in
-\cref{fig:intra-type,fig:pointer-typing}.  A typing judgment takes the
+\cref{fig:intra-type,fig:pointer-typing}.  
+\NK{Where is $[[G \ x]]$ in the figure defined?}
+A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
-environment $[[Th]]$, and typing context $[[B]]$ and evalutes to a
+environment $[[Th]]$, and typing context $[[B]]$ \NK{What mathematical object is $[[B]]$,
+and where is it defined?}
+and evalutes to a
 type $[[T]]$ and modifies the input environment to produce $[[G']]$.
 
 \begin{figure}[t]
@@ -325,7 +336,8 @@ proposition $[[ x = T y]]$, defined respectively as:
   \end{cases}
 \end{align*}
 Where $[[FPV(ph)]]$ are the free variables that appear in predicate
-$[[ph]]$.  We do not track equalities between references or between
+$[[ph]]$.  \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
+We do not track equalities between references or between
 the contents of reference cells, as doing so would violate
 our refinement well-formedness condition.
 
@@ -451,7 +463,7 @@ propagate refinement updates caused by destructive updates.
   \infrule[Sub-Result]{
     [[G,x:T <: G',x:T']] \andalso [[ x not in dom G ]]
   }{
-    G,T <: G,T'
+    [[G,T <: G,T']]
   }
   \caption{Rules for subtyping.}
   \label{fig:subtyping}
