@@ -16,7 +16,7 @@ NEG_DIRS=(recursive-tests challenge-problem arrays)
 	r_test -timeout 15 -seq-solver -pos ./positive-tests;
 	r_test -pos ./positive-tests;
 	for i in ${POS_DIRS[@]}; do
-		r_test -timeout 15 -pos -seq-solver ./positive-tests/$i;
+		r_test -timeout 45 -pos -seq-solver ./positive-tests/$i;
 	done
 	r_test -pos -cfa 2 ./positive-tests/2cfa;
 	r_test -neg ./negative-tests

@@ -91,6 +91,14 @@ let rec map_root (f: string -> string) = function
   | `AProj (ap,i) -> `AProj (map_root f ap,i)
   | `ADeref ap -> `ADeref (map_root f ap)
 
+let rec is_array_path : ([< 'a t_templ] as 'a) -> bool = function
+  | `ALen _
+  | `AInd _
+  | `AElem _ -> true
+  | `ADeref ap
+  | `AProj (ap,_) -> is_array_path ap
+  | _ -> false
+
 let rec compare =
   let constr_code : ([< 'b t_templ] as 'b) -> int = function
     | `APre _ -> 1

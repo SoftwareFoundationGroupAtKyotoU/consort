@@ -38,7 +38,6 @@ let () =
     Array.iter (fun f_name ->
       if Filename.check_suffix f_name ".imp" then
         try
-          maybe_print @@ f_name ^ "\n";
           run_test v_opts intr !expect (dir ^ "/" ^ f_name);
           incr n_tests
         with

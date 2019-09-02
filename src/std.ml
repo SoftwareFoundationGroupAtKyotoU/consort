@@ -37,6 +37,16 @@ let fold_lefti f a l =
   in
   loop 0 a l
 
+let fold_left2i f a l1 l2 =
+  let rec loop i a l1 l2 =
+    match l1,l2 with
+    | h1::t1,h2::t2 ->
+      loop (i+1) (f i a h1 h2) t1 t2
+    | [],[] -> a
+    | _,_ -> raise @@ Invalid_argument "unequal lengths"
+  in
+  loop 0 a l1 l2
+
 module StringExt = struct
   let starts_with s pref =
     if String.length s < String.length pref then

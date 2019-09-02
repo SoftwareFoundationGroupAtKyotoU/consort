@@ -23,24 +23,24 @@ test_sorted(p) {
 }
 
 insert_loop(x,p) {
-  let (v,nxt) = *p in
+  let (v,nxt) = *p in {
   if v < x then {
     ifnull nxt then {
-      p := (v,mkref (x, null))
+      p := (v,mkref (x, null));
     } else {
       insert_loop(x,nxt);
       alias(nxt = (*p).1);
     }
   } else {
-	p := (x, mkref (v, nxt))
-  };
-  
+	p := (x, mkref (v, nxt));
+  }
+  }
 }
 
 insert(x, p) {
   let hd = *p in
   ifnull hd then {
-    p := mkref (x,null)
+    p := mkref (x,null);
   } else {
     insert_loop(x, hd);
 	alias(hd = *p)
@@ -53,9 +53,9 @@ fresh_list() {
 
 {
  let l = fresh_list () in {
+   insert(2,l);
    insert(3,l);
    insert(5,l);
-   insert(2,l);
    test_sorted(l)
  }
 }
