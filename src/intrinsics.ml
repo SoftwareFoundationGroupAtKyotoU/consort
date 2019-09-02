@@ -5,7 +5,7 @@ type bif_refine_t = [
   | `BifPred of string * (int list)
 ][@@deriving sexp]
 
-type bif_arg_t = (bif_refine_t,RefinementTypes.ownership,unit) RefinementTypes._typ [@@deriving sexp]
+type bif_arg_t = (bif_refine_t,RefinementTypes.ownership,unit,RefinementTypes.nullity) RefinementTypes._typ [@@deriving sexp]
 
 type bif_t = {
   arg_types: bif_arg_t list;

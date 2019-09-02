@@ -59,21 +59,39 @@ type ty_binding = (int * ap_symb) list [@@deriving sexp]
 
 type rec_args = (int * int) list [@@deriving sexp]
 
-type nullity = [
-  | `NUnk
-  | `NNull
+type nullity =
+  | NUnk
+  | NNull
+  | NLive [@@deriving sexp]
+
+type concr_nullity = [
   | `NLive
+  | `NNull
+  | `NVar of int
 ] [@@deriving sexp]
+
+let join_nullity a b =
+  if a <> b then
+    NUnk
+  else
+    a
+
+(* This might be pretty unsafe... *)
+let meet_nullity a b =
+  match a,b with
+  | NUnk,n
+  | n,NUnk -> n
+  | a,b -> assert (a = b); a
 
 type arr_bind = {len: int; ind: int} [@@deriving sexp]
 
-type ('a,'o,'m) _typ =
+type ('a,'o,'m,'n) _typ =
   | Int of 'a
-  | Ref of ('a,'o,'m) _typ * 'o * nullity
-  | Tuple of ty_binding * (('a,'o,'m) _typ) list
+  | Ref of ('a,'o,'m,'n) _typ * 'o * 'n
+  | Tuple of ty_binding * (('a,'o,'m,'n) _typ) list
   | TVar of int
-  | Mu of rec_args * 'm * int * ('a, 'o,'m) _typ
-  | Array of arr_bind * 'a * 'o * ('a,'o,'m) _typ
+  | Mu of rec_args * 'm * int * ('a, 'o,'m,'n) _typ
+  | Array of arr_bind * 'a * 'o * ('a,'o,'m,'n) _typ
 [@@deriving sexp]
 
 type arg_refinment =
@@ -87,7 +105,7 @@ type 'a inductive_preds = {
 } [@@deriving sexp]
 
 type symbolic_refinement = (refine_ap list,refine_ap) refinement [@@deriving sexp]
-type typ = (symbolic_refinement,ownership,symbolic_refinement inductive_preds) _typ [@@deriving sexp]
+type typ = (symbolic_refinement,ownership,symbolic_refinement inductive_preds,nullity) _typ [@@deriving sexp]
 type ftyp = typ [@@deriving sexp]
 
 type 'a _funtype = {
@@ -102,9 +120,10 @@ type walk_pos = {
   under_ref: bool;
   array_ref: bool;
   rec_args: rec_args;
+  nullity : nullity list;
 }
 
-let empty_pos = {under_mu=false;array = [];under_ref=false;array_ref = false; rec_args = []}
+let empty_pos = {under_mu=false;array = [];under_ref=false;array_ref = false; rec_args = [];nullity = []}
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
@@ -331,6 +350,7 @@ let unfold ~gen arg ind_ref id t_in =
   let apply_ref r b = And (r,b) in
   unfold_gen ~gen ~rmap:psub ~apply_ref arg ind_ref id t_in
 
+(* TODO: this is the exact same function as compile_bindings... *)
 let subst_of_binding root = List.map (fun (i,p) ->
     match p with
     | SProj ind -> (i,`AProj (root,ind))
@@ -376,7 +396,7 @@ let rec walk_with_bindings_own ?(pos=empty_pos) ~mu_map ~o_map f root bindings t
     let%bind r' = f ~pos root (filter_fv root sym_vals sym_fv,sym_vals) r in
     return @@ Int r'
   | Ref (t',o,n) ->
-    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true} ~o_map ~mu_map f (`ADeref root) bindings t' in
+    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true; nullity = n::pos.nullity} ~o_map ~mu_map f (`ADeref root) bindings t' in
     let%bind o' = o_map o in
     return @@ Ref (t'',o',n)
   | Array (b,len_r,o,et) ->
@@ -608,7 +628,7 @@ let pp_map () l =
       pf "%d -> %d" i j
     ) l
     
-let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o,'m) _typ -> Format.formatter -> unit =
+let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o,'m,'n) _typ -> Format.formatter -> unit =
   let open PrettyPrint in
   let sym_var = pf "$%d" in
   let rec pp_type = function

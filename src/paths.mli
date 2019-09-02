@@ -14,7 +14,6 @@ type 'a t_templ = [
 | `AInd of 'a
 ] [@@deriving sexp]
 
-
 type concr_ap = [
   | concr_ap t_templ
 ] [@@deriving sexp]
@@ -46,6 +45,9 @@ val has_root_p :
 
 val map_root :
   (string -> string) -> ([< 'b t_templ > `ADeref `AElem `AFree `ALen `APre `AProj `AVar] as 'b) -> 'b
+
+val is_array_path:
+  ([< 'a t_templ > `ADeref `AElem `AInd `ALen `AProj ] as 'a) -> bool
 
 val unsafe_get_root : ([< 'b t_templ > `AVar] as 'b) -> string
 
