@@ -22,6 +22,7 @@ let pprint_ty_env =
 type reason =
   | Timeout
   | Unsafe
+  | UnhandledSolverOutput of string
   | SolverError of string
   | Aliasing
 
@@ -34,6 +35,7 @@ let reason_to_string = function
   | Timeout -> "timeout"
   | Unsafe -> "unsafe"
   | SolverError s ->  "solver: \"" ^ s ^ "\""
+  | UnhandledSolverOutput s -> "unexpected solver output: \"" ^ s ^ "\""
 
 let result_to_string = function
   | Verified -> "VERIFIED"
@@ -325,4 +327,5 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       Verified
     | Unsat -> Unverified Unsafe
     | Timeout -> Unverified Timeout
-    | Unhandled msg -> Unverified (SolverError msg)
+    | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
+    | Error s -> Unverified (SolverError s)

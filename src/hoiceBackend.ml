@@ -1,8 +1,8 @@
 module Ch = SolverBridge.Make(struct
     let name = "hoice"
     type st = (string * string)
-
-    let prepare_out ~timeout ~command save_cons =
+    open Solver
+    let prepare_out ~solver_opts:{ timeout; command; command_extra} save_cons =
       let (nm,chan) =
         match save_cons with
         | Some s -> (s,open_out s)
@@ -12,9 +12,10 @@ module Ch = SolverBridge.Make(struct
             Sys.remove nm);
           (nm,chan)
       in
-      let base_command = Printf.sprintf "%s -t %d"
+      let base_command = Printf.sprintf "%s -t %d %a"
           (Option.value ~default:"hoice" command)
           timeout
+          add_extra_arg command_extra
       in
       (base_command,nm),chan
 
