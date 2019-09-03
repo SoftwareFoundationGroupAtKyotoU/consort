@@ -1,0 +1,17 @@
+min_ref(p,x) {
+  let v = *p in {
+    if x < v then
+	  p := x
+	else
+      p := v
+  }
+}
+
+{
+  let g = _ in
+  let p = mkref g in {
+    min_ref(p,_);
+	let new_val = *p in
+	  assert(new_val <= g)
+  }
+}

@@ -1,30 +1,32 @@
+open RefinementTypes
 
-type funenv = RefinementTypes.funtype StringMap.t
+type funenv = funtype StringMap.t
 type oante =
-  | ORel of RefinementTypes.ownership * [ `Eq | `Ge | `Gt ] * float
+  | ORel of ownership * [ `Eq | `Ge | `Gt ] * float
   | OAny of oante list [@@deriving sexp]
-type tenv = RefinementTypes.typ StringMap.t
+type tenv = typ StringMap.t
 
 type ocon =
-    Write of RefinementTypes.ownership
-  | Live of RefinementTypes.ownership
-  | Shuff of (RefinementTypes.ownership * RefinementTypes.ownership) *
-    (RefinementTypes.ownership * RefinementTypes.ownership)
-  | Split of RefinementTypes.ownership *
-    (RefinementTypes.ownership * RefinementTypes.ownership)
-  | Eq of RefinementTypes.ownership * RefinementTypes.ownership
-  | Wf of RefinementTypes.ownership * RefinementTypes.ownership [@@deriving sexp]
+    Write of ownership
+  | Live of ownership
+  | Shuff of (ownership * ownership) *
+    (ownership * ownership)
+  | Split of ownership *
+    (ownership * ownership)
+  | Eq of ownership * ownership
+  | Wf of ownership * ownership [@@deriving sexp]
 
 type tcon = {
-  env : (Paths.concr_ap * RefinementTypes.concr_refinement * RefinementTypes.nullity) list;
-  ante : RefinementTypes.concr_refinement;
-  conseq : RefinementTypes.concr_refinement;
+  env : (Paths.concr_ap * concr_refinement * (concr_nullity list)) list;
+  ante : concr_refinement;
+  conseq : concr_refinement;
   owner_ante : oante list;
-  nullity: RefinementTypes.nullity
+  nullity: concr_nullity list;
+  target : Paths.concr_ap option
 }
 
-type ownership_type = (unit, float) RefinementTypes._typ
-type o_theta = ownership_type RefinementTypes._funtype StringMap.t
+type ownership_type = (unit,float,unit,nullity) _typ
+type o_theta = ownership_type _funtype StringMap.t
 type o_solution = ((int,ownership_type StringMap.t) Hashtbl.t * o_theta)
 type type_hints = int -> (SimpleTypes.r_typ StringMap.t) option
 

@@ -1,0 +1,25 @@
+copy_array(i,ar1,ar2) {
+  if i = ar1.length then
+    ()
+  else {
+    assert(i < ar1.length);
+//	assert(ar1.length <= ar2.length);
+    //ar2[] <- ar1[i];
+	copy_array((i+1),ar1,ar2);
+  }
+}
+
+{
+  let l1 = _ in
+  let l2 = _ in {
+    $gamma {
+       l1: ~ >= 0 int;
+	   l2: ~ >= l1 int
+    };
+	let a1 = mkarray l1 in
+	let a2 = mkarray l2 in {
+ 	assert(a1.length <= a2.length);
+	copy_array(0,a1,a2)
+	}
+  }
+}

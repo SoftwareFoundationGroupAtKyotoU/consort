@@ -188,7 +188,7 @@ let infer opts intr simple_res ast =
         | Ref (t,o,n) -> Ref (map_type t,map_own o,n)
         | Tuple (_,tl) -> Tuple ([],List.map map_type tl)
         | TVar id -> TVar id
-        | Mu (a,i,t) -> Mu (a,i,map_type t)
+        | Mu (a,_,i,t) -> Mu (a,(),i,map_type t)
         | Array (b,_,o,t) ->
           Array (b,(),map_own o,map_type t)
       in

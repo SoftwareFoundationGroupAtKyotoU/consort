@@ -1,8 +1,9 @@
 type 'a _const_ap = [
-    `ALen of 'a
-  | `APre of string
-  | `AProj of 'a * int
-  | `AVar of string
+  `ALen of 'a
+| `APre of string
+| `AProj of 'a * int
+| `AVar of string
+| `AFree of string
 ] [@@deriving sexp]
 type const_ap = const_ap _const_ap [@@deriving sexp]
 
@@ -13,7 +14,6 @@ type 'a t_templ = [
 | `AInd of 'a
 ] [@@deriving sexp]
 
-
 type concr_ap = [
   | concr_ap t_templ
 ] [@@deriving sexp]
@@ -22,11 +22,15 @@ val to_z3_ident :
   ([< 'a t_templ ]
    as 'a) ->
   string
-    
+val has_prefix : ([< 'a t_templ] as 'a) -> 'a -> bool
 val pre :
   ([< 'a t_templ > `ADeref `APre `AProj ] as 'a) ->
   'a
+val free :
+  ([< 'a t_templ > `ADeref `AProj `AFree ] as 'a) ->
+  'a
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
+val is_pre : ([< 'a t_templ > `APre `ADeref `AProj] as 'a) -> bool
 val is_const_ap :
   ([< 'a t_templ > `APre `AProj `ADeref ] as 'a) ->
   bool
@@ -38,6 +42,12 @@ val has_root_p :
   (string -> bool) ->
   ([< 'b t_templ ] as 'b) ->
   bool
+
+val map_root :
+  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `AFree `ALen `APre `AProj `AVar] as 'b) -> 'b
+
+val is_array_path:
+  ([< 'a t_templ > `ADeref `AElem `AInd `ALen `AProj ] as 'a) -> bool
 
 val unsafe_get_root : ([< 'b t_templ > `AVar] as 'b) -> string
 

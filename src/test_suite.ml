@@ -1,20 +1,25 @@
 exception TestTimeout
+exception InternalSpacerError
+
+let spacer_error_p msg =
+  msg = "(error \"tactic failed: Overflow encountered when expanding vector\")"
 
 let run_test v_opts intr expect file =
   let res = Consort.check_file ~opts:v_opts ~intrinsic_defn:intr file in
   let open Consort in
   match res,expect with
   | Verified,true -> ()
+  | Unverified (SolverError msg),_ when spacer_error_p msg -> raise InternalSpacerError
   | Unverified (SolverError msg),_ -> failwith @@ "Solver failed with message: " ^ msg
   | Unverified Timeout,_ -> raise TestTimeout
   | Unverified _,false -> ()
   | s,true -> failwith @@ Printf.sprintf "%s did not verify as expected (%s)" file @@ result_to_string s
-  | _,false -> failwith @@ Printf.sprintf "%s incorrectly verified" file 
+  | Verified,false -> failwith @@ Printf.sprintf "%s incorrectly verified" file 
 
 let () =
   let expect = ref true in
   let verbose = ref false in
-  let maybe_print s = if !verbose then print_string s else () in
+  let maybe_print s = if !verbose then (print_string s; flush stdout) else () in
   let (a_list,gen) =
     Consort.Options.solver_arg_gen ()
     |> Consort.Options.seq Consort.Options.solver_opt_gen
@@ -43,7 +48,10 @@ let () =
         with
         | Failure s -> failwith @@ Printf.sprintf "Test %s failed with message: %s" f_name s
         | TestTimeout -> Printf.printf "!!! WARNING: Test %s timed out, optimistically continuing... !!!\n" f_name; flush stdout
-        | e -> failwith @@ Printf.sprintf "Test %s failed with unknown exception: %s " f_name @@ Printexc.to_string e
+        | InternalSpacerError -> Printf.printf "!!! WARNING: Test %s triggered a spacer bug, optimistically continuing... !!!\n" f_name; flush stdout
+        | e ->
+          Printexc.print_backtrace stdout;
+          failwith @@ Printf.sprintf "Test %s failed with unknown exception: %s " f_name @@ Printexc.to_string e
       else ()
     ) test_files;
   ) !dir_list;

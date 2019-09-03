@@ -1,0 +1,12 @@
+min(x,v) {
+  if x < v then
+    x
+  else
+    v
+}
+
+{
+  let g = _ in
+  let v = min(g,_) in
+  assert(v <= g)
+}

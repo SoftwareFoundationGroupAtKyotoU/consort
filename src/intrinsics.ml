@@ -2,10 +2,10 @@ open Sexplib.Std
 
 type bif_refine_t = [
     `Unconstrained
-  | `BifPred of string
+  | `BifPred of string * (int list)
 ][@@deriving sexp]
 
-type bif_arg_t = (bif_refine_t,RefinementTypes.ownership) RefinementTypes._typ [@@deriving sexp]
+type bif_arg_t = (bif_refine_t,RefinementTypes.ownership,unit,RefinementTypes.nullity) RefinementTypes._typ [@@deriving sexp]
 
 type bif_t = {
   arg_types: bif_arg_t list;
@@ -18,10 +18,14 @@ let bif_env_t_of_sexp = StringMap.t_of_sexp ~v:bif_t_of_sexp
 let sexp_of_bif_env_t = StringMap.sexp_of_t ~v:sexp_of_bif_t
         
 
-let lift_type = RefinementTypes.map_refinement (function
-  | `Unconstrained -> RefinementTypes.True
-  | `BifPred t -> RefinementTypes.BuiltInPred t
-  )
+let lift_type t = RefinementTypes.walk_with_bindings_own
+    ~o_map:(fun _ _ -> failwith "Pointer types in BIF")
+    ~mu_map:((fun _ _ _ _ -> failwith "Mu binder in BIF"),(fun _ _ _ -> failwith "Mu binder in bif"))
+    (fun ~pos:_ _ _ bif_r () ->
+      match bif_r with
+      | `Unconstrained -> (),RefinementTypes.Top
+      | `BifPred (t,n) -> (),RefinementTypes.NamedPred (t,List.map (fun v -> `AVar (Printf.sprintf "$%d" v)) n)
+    ) (`AVar "$dummy") ([],[]) t () |> snd
 
 (* just a mapping of connectives onto Z3 functions *)
 type rel_interp_t = string StringMap.t
