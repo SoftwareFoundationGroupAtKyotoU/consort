@@ -36,7 +36,8 @@ The grammar of the language is as follows.
   \end{array}
 \]
 $[[ph]]$ stands for a logical formula over variables, integers and context strings;
-we discuss these formulas later in section \cref{sec:types}.
+we discuss these formulas later in %section 
+\cref{sec:types}.
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$ and
 a set of labels ranged over by $[[l1]], [[l2]], \dots$.
 
@@ -71,6 +72,9 @@ we do not include them explicitly in our formalism.
 Our grammar requires that side-effecting, result free statements, $[[ assert(ph); e ]]$,
 $[[alias(x = y);e]]$,
 and assignment $[[x := y;e]]$ are followed by a continuation expression.
+\NK{This reads a bit strange. Those followd by a continuation expression are
+assert($\phi$), alias($x = y$), etc., not 
+$[[ assert(ph); e ]]$, $[[alias(x = y);e]]$, etc.}
 This requirement does not reduce the expressiveness
 of the language, and obviates including a unit type.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
@@ -156,7 +160,7 @@ the rewritting rules are defined in terms of $[[ E[e] ]]$, which is
 a context $[[E]]$ and redex $[[e]]$, as is standard.
 The grammar for evaluation contexts and return contexts are defined
 in \cref{fig:eval-context-grammar}.
-Our operational semantics are given in \cref{fig:transitionRules}.
+Our operational semantics are \NK{I think the word ``semantics'' is singular.} given in \cref{fig:transitionRules}.
 Notice that the step relation is parameterized
 by a set of function defitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
