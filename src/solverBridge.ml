@@ -5,7 +5,7 @@ let load_defn = function
 module Make(D: sig
       type st
       val spawn : st -> in_channel
-      val prepare_out : timeout:int -> command:(string option) -> string option -> st * out_channel
+      val prepare_out : solver_opts:Solver.options -> string option -> st * out_channel
       val dispose : st -> unit
       val name : string
     end) = struct
@@ -15,7 +15,7 @@ module Make(D: sig
       Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
       flush stderr
     end;
-    let (s,o) = D.prepare_out ~timeout:opts.Solver.timeout ~command:opts.Solver.command save_cons in
+    let (s,o) = D.prepare_out ~solver_opts:opts save_cons in
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
     let cmd = "\n" ^ strat ^ "\n" ^ (
@@ -42,5 +42,14 @@ module Make(D: sig
       return_and_close @@ Solver.Sat m
     | "unsat" -> return_and_close Solver.Unsat
     | "timeout" -> return_and_close Solver.Timeout
-    | s -> return_and_close @@ Solver.Unhandled s
+    | s ->
+      try
+        let module SS = Sexplib.Sexp in
+        let result_sexp = SS.of_string s in
+        match result_sexp with
+        | SS.List [ SS.Atom "error"; SS.Atom msg ] ->
+          return_and_close @@ Solver.Error msg
+        | _ -> return_and_close @@ Solver.Unhandled s
+      with
+      | Failure _ -> return_and_close @@ Solver.Unhandled s
 end

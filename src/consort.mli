@@ -32,6 +32,7 @@ module Options :
 type reason =
   | Timeout
   | Unsafe
+  | UnhandledSolverOutput of string
   | SolverError of string
   | Aliasing
 
