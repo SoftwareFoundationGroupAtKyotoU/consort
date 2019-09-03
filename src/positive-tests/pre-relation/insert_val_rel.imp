@@ -11,7 +11,7 @@ insert_val(p,n) {
   let b = (_,_) in
   let p = mkref b in {
     $gamma {
-      p: (~ <= $1 int, $1: T int) ref 1.0;
+      p: ($1: ~ <= $2 int, $2: T int) ref 1.0;
 	  b: (T int, T int)
     };
 	insert_val(p, _);

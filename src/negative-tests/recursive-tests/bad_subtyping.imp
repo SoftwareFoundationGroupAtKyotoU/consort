@@ -1,0 +1,44 @@
+mk_list_loop(n) {
+  if _ then {
+    null
+  } else {
+    let p = mk_list_loop((n+1)) in
+    mkref (n, p)
+  }
+}
+
+mk_list() {
+  mk_list_loop(0)
+}
+
+correct_test(p) {
+  ifnull p then ()
+  else {
+    let (x,q) = *p in
+	ifnull q then ()
+	else
+	  let (v2,_) = *q in {
+	    assert(x < v2);
+        correct_test(q)
+	  }
+  }
+}
+
+incorrect_loop(q) {
+  let (n,nxt) = *q in {
+  assert(n = 1); incorrect_loop(nxt)
+  }
+}
+
+incorrect_test(p) {
+  let (n,q) = *p in {
+    incorrect_loop(q)
+  }
+}
+
+{
+  let p = mk_list() in {
+  correct_test(p);
+  incorrect_test(p)
+  }
+}

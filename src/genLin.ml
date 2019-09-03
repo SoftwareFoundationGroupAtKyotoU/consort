@@ -25,7 +25,7 @@ let binop,relop,alias_op =
     sym,{
       arg_types = in_out_type;
       output_types = in_out_type;
-      result_type = Int (`BifPred out_pred)
+      result_type = Int (`BifPred (out_pred,[0;1]))
     }
   in
   let binop' sym out_pred (ty_acc,def_acc) : (string * bif_t) list * ((Sexplib0.Sexp.t -> unit) -> unit) list =

@@ -1,0 +1,30 @@
+test_sorted_loop(p) {
+  let (v,nxt) = *p in {
+  ifnull nxt then
+    ()
+  else {
+    let (nxt_v,_) = *nxt in {
+	  assert(v <= nxt_v);
+	  test_sorted_loop(nxt)
+	}
+  };
+  alias(nxt = (*p).1);
+  }
+}
+
+insert(x,p) {
+  let (v,nxt) = *p in
+  if x < v then {
+    p := (v, mkref (v, nxt));
+  } else {
+    p := (v, nxt)
+  };
+}
+
+{
+  let l = mkref (_, null) in  {
+    insert(_,l);
+	insert(_,l);
+	test_sorted_loop(l);
+  }
+}

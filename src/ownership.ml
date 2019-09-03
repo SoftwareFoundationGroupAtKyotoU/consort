@@ -2,9 +2,10 @@ let print_program ~o_map ~o_printer r ast =
   let open PrettyPrint in
   let print_type (k,t) = 
     let owner_type =
+      let open Std.StateMonad in
       RefinementTypes.walk_with_bindings_own ~o_map (fun ~pos:_ _ _ _ () ->
         ((), ())
-      ) (`AVar k) ([],[]) t () |> snd
+      ) ~mu_map:((fun _ _ _ -> return ()),(fun _ x -> return x)) (`AVar k) ([],[]) t () |> snd
     in
     RefinementTypes.pp_type_gen (fun k () -> ps k) o_printer owner_type
   in
