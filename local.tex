@@ -83,14 +83,14 @@
 
 \newif\ifdraftComments
 \draftCommentstrue
-\def\mkDraftFn#1{%
-  \expandafter\def\csname #1\endcsname##1{\ifdraftComments\textcolor{blue}{[#1: ##1]}\marginpar[$\longrightarrow$]{$\longleftarrow$}\fi}%
+\def\mkDraftFn#1#2{%
+  \expandafter\def\csname #1\endcsname##1{\ifdraftComments\textcolor{#2}{[#1: ##1]}\marginpar[$\longrightarrow$]{$\longleftarrow$}\fi}%
 }
-\mkDraftFn{JT}
-\mkDraftFn{AI}
-\mkDraftFn{KS}
-\mkDraftFn{NK}
-\mkDraftFn{RS}
+\mkDraftFn{JT}{blue}
+\mkDraftFn{AI}{red}
+\mkDraftFn{KS}{purple}
+\mkDraftFn{NK}{cyan}
+\mkDraftFn{RS}{teal}
 \usepackage{xspace}
 \ifdraftComments
 \def\needcite{\textcolor{blue}{[citation needed]}\xspace}
