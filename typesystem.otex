@@ -63,15 +63,15 @@ refinement cannot exist when an update occurs.
 \label{sec:types}
 The grammar of types is given by:
 \[
-  \begin{array}{rcl}
-    [[ T ]] &:=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
-    [[ph]] & ::= & [[ph1 ==> ph2]] \mid [[ ph1 \/ ph2 ]] \mid [[ !ph1 ]] \mid
+  \begin{array}{rrcl}
+    \text{Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
+    \text{Refinements} & [[ph]] & ::= & [[ph1 ==> ph2]] \mid [[ ph1 \/ ph2 ]] \mid [[ !ph1 ]] \mid
                      [[ ph1 /\ ph2 ]] \mid
                      [[ pfun(lvar1,..,lvar2) ]] \mid
                      [[ lvar = V' ]] \mid [[ lvar != V' ]] \mid [[ Top ]] \\
-            & \mid & [[ plhs = ll ? ]] \\
-    [[ V ]] & ::= & [[ x ]] \mid [[ v ]] \\
-    [[ r ]] &:=& [0,1]
+            & & \mid & [[ plhs = ll ? ]] \\
+    \text{Refinement Values} & [[ V ]] & ::= & [[ x ]] \mid [[ v ]] \\
+    \text{Ownership} & [[ r ]] &::=& [0,1] \\
   \end{array}
 \]
 \NK{Maye we could omit $ [[ph1 ==> ph2]]$ and $[[ ph1 \/ ph2 ]]$ from the formal syntax
@@ -81,8 +81,9 @@ type of a (non-null) reference to a value of type $[[ T ]]$.
 $[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a pointer
 that cannot be read or written, to $[[1]]$  indicating a pointer with exclusive
 ownership that can be read and written. Ownership values between these two
-extremes indicate a pointer that is readable but not writable \emph{and} for which
-there exists no mutable, aliased pointer. \NK{I do not quite understand the part
+extremes indicate a pointer that is readable but not writable. Further,
+the ownership type system described above ensures that no mutable aliases
+exist for a pointer with ownership in the range $(0,1)$. \NK{I do not quite understand the part
  ``and for which ...''}
 
 The base types of our type system are integers that are refined with a
@@ -164,26 +165,20 @@ of a chain of $[[i]]$ references, and is defined inductively as
 $[[top0 = {nu:int|Top}]], [[topi = topi-1 ref 0]]$. This well-formedness
 condition ensures that aliases introduced with heap writes do not
 violate the ownership invariant \emph{and} that refinements remain consistent
-in the presence of heap writes. The refinement well-formedness ensures
-that the free program variables that appear in refinements are bound
-by the current type environments. The well-formedness rules are defined in
-\cref{fig:type-wf}. \JT{Maybe say something about what on earth FCPV is?}
-\NK{Sure. At this point, $[[ G ]]$, $[[ B ]]$ have not been introduced.
-The treatment of $[[ G ]]$ as a \emph{set} instead of a \emph{sequence} of bindings
-requires a comment, sicne a type environment is a sequence in the usual dependent type system.}
-
-The ownership of a reference may drop to 0 when a mutable alias is created.
-In the latter any mutations through the alias will be consistent with the
+in the presence of heap writes. Recall that the ownership type system ensures
+that the ownership of a reference drops to 0 when a mutable alias to that
+reference is created.
+Any mutations through the alias will therefore be consistent with the
 ``no information'' $[[ Top ]]$ refinement required by the well-formedness condition.
-That is, our types are always consistent with actual contents during execution.
-Our language can exploit aliasing information to restore the read/write
+Our type system can also exploit aliasing information to restore the read/write
 capabilities to a pointer (i.e., restore an ownership greater than 0)
 while simultaneously updating its refinement to reflect any mutations through
 aliases.
 
-Notice that type system for program values \NK{What do you exactly mean by (the) ``type system for
-program values''? Do you just mean the set of types (ranged over by $\tau$)?} does not include function
-types; as mentioned in \cref{sec:prelim} our language does not support
+Notice that the types for program values \NK{What do you exactly mean by (the) ``type system for
+  program values''? Do you just mean the set of types (ranged over by $\tau$)?} \JT{Yes,
+  I meant ``types'' not ``type system'', careless typo}
+do not include function types; as mentioned in \cref{sec:prelim} our language does not support
 higher order functions. We use a separate type scheme for function
 types: as this scheme is closely related to our handling of context
 sensitivity, we defer its introduction to \cref{sec:cs}.
@@ -238,15 +233,19 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
   }{
     [[ Th | G | B |- assert(ph); e : T => G']]
   }
+  \[
+    [[ G \ x = G' <=> dom G' = dom G U {x} /\ forall y in dom G'. G'(y) = G(y) ]]
+  \]
   \caption{Expression typing rules.}
   \label{fig:intra-type}
 \end{figure}
 
 \begin{figure}
+  \scriptsize
   \leavevmode
     \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- T2 /\ y y = T2 x ref r] | B |- e : T => G']] \\
+    [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref r] | B |- e : T => G']] \\
   }{
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
@@ -278,10 +277,26 @@ mutability and refinement types. The typing rules are given in
 A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
-environment $[[Th]]$, and typing context $[[B]]$ \NK{What mathematical object is $[[B]]$,
-and where is it defined?}
-and evalutes to a
-type $[[T]]$ and modifies the input environment to produce $[[G']]$.
+environment $[[Th]]$, and typing context $[[B]]$
+and evalutes to a type $[[T]]$ and modifies the input environment
+to produce $[[G']]$. A type environment $[[G]]$ is a finite
+mapping from variable names to refinement types $[[T]]$.
+We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
+that $[[x in dom G /\ G(x) = T]]$, $[[G,x:T]]$ to indicate the
+extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
+to indicate the type environment $[[G]]$ with the binding of $[[x]]$
+updated to $[[T]]$.
+Both $[[Th]]$ and typing contexts $[[B]]$
+are fomally defined in \cref{sec:cs}. \JT{I do worry we'll annoy
+  readers with kicking so many cans down the road.}
+
+\begin{remark}
+  The treatment of type environments as mappings instead of sequences
+  in a dependent type system is somewhat non-standard. However, this
+  approach does not cause problems in our formalism as we do not include
+  higher-order functions; all arguments are bound simultaneously
+  in our abstract semantics.
+\end{remark}
 
 \begin{figure}[t]
   \leavevmode
@@ -337,6 +352,7 @@ proposition $[[ x = T y]]$, defined respectively as:
 \end{align*}
 Where $[[FPV(ph)]]$ are the free variables that appear in predicate
 $[[ph]]$.  \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
+\JT{unfortunate ambiguity in the rules, fixed with parens}
 We do not track equalities between references or between
 the contents of reference cells, as doing so would violate
 our refinement well-formedness condition.
@@ -352,8 +368,7 @@ operation is defined as:
   [[ [empty] ]] &= [[ Top ]]\\
   [[ [G,x: T] ]] &= [[ [G] /\ [T] x ]] \\
 \end{align*}
-\JT{We never say that $[[ph]]$ has to mention only program variables, or
-  even just integer variables} If the formula $[[ [G] ==> ph]]$
+If the formula $[[ [G] ==> ph]]$
 is valid, then under any valuation of program variables that satisfy
 the refinements in $[[ [G] ]]$, the predicate $[[ph]]$ must be true and the
 assertion may not fail. This intuition forms the foundation of our

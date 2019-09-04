@@ -69,12 +69,9 @@ If $[[ifz]]$ checkes whether the condition variable $[[x]]$ equals zero and choo
 the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
 
-Our grammar requires that side-effecting, result free statements, $[[ assert(ph); e ]]$,
-$[[alias(x = y);e]]$,
-and assignment $[[x := y;e]]$ are followed by a continuation expression.
-\NK{This reads a bit strange. Those followd by a continuation expression are
-assert($\phi$), alias($x = y$), etc., not 
-$[[ assert(ph); e ]]$, $[[alias(x = y);e]]$, etc.}
+Our grammar requires that side-effecting, result free statements, \lstinline{assert($[[ph]]$)}
+\lstinline{alias(x = y)}, and
+assignment \lstinline{x := y} are followed by a continuation expression.
 This requirement does not reduce the expressiveness
 of the language, and obviates including a unit type.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
@@ -160,7 +157,7 @@ the rewritting rules are defined in terms of $[[ E[e] ]]$, which is
 a context $[[E]]$ and redex $[[e]]$, as is standard.
 The grammar for evaluation contexts and return contexts are defined
 in \cref{fig:eval-context-grammar}.
-Our operational semantics are \NK{I think the word ``semantics'' is singular.} given in \cref{fig:transitionRules}.
+Our operational semantics is given in \cref{fig:transitionRules}.
 Notice that the step relation is parameterized
 by a set of function defitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
