@@ -6,7 +6,7 @@ TEX=intro.tex preliminaries.tex typesystem.tex appendix.tex	\
 
 all: main.pdf src/all
 
-main.pdf: main.tex lang.tex $(TEX)
+main.pdf: main.tex lang.tex local.tex $(TEX)
 	latexmk $<
 
 lang.tex: $(OTTNAME).ott
