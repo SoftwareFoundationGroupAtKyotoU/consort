@@ -2,6 +2,7 @@
 % LLNCS macro package for Springer Computer Science proceedings;
 % Version 2.20 of 2017/10/04
 %
+\let\oldvec\vec
 \documentclass[runningheads]{llncs}
 %
 \usepackage{bcprules}\typicallabel{T-Hoge}
@@ -77,77 +78,7 @@
 
 \section{Simple setting without indirection of pointers and without subtyping}
 
-\begin{definition}
-  The refinement predicates $[[ph]]$ are defined as follows:
-  \[
-    \begin{array}{rcl}
-      [[ph]] & ::= & [[ph1 ==> ph2]] \mid
-                     [[ ph1 /\ ph2 ]] \mid
-                     [[ pfun(x1,..,xn) ]] \mid
-                     [[ lvar = V' ]] \mid [[ lvar != V' ]] \\
-             & \mid & [[ B1 = B2? ]] \\
-      [[ V ]] & ::= & [[ x ]] \mid [[ v ]]
-    \end{array}
-  \]
-  $[[pfun]]$ is a predicate symbol with an interpretation in the
-  theory used by the underlying solver. The predicate $[[ B1 = B2? ]]$ is a prefix
-  query which checks whether $[[B2]]$ is a prefix of $[[B1]]$. We write $[[FPV(ph)]]$ for
-  the free variables occuring in $[[ph]]$, and write $[[FPCV(ph)]]$ for the free context
-  variables that appear in $[[ph]]$.
-  Formally, $\mathbf{FPV}$ is defined as
-  \begin{align*}
-    [[FPV(ph1 /\ ph2)]] & = [[FPV(ph1)]] \cup [[FPV(ph2)]] \\
-    [[FPV(ph1 ==> ph2)]] & = [[FPV(ph1)]] \cup [[FPV(ph2)]] \\
-    [[FPV(pfun(x1,..,xn))]] & = \set{[[x1]],\ldots,[[xn]]} \\
-    [[FPV(B1 = B2?)]] & = \emptyset \\\
-    [[FPV(lvar = V')]] & = \begin{cases}
-      \emptyset & [[lvar]] \equiv  [[v]] \\
-      \set{x} & [[lvar]] \equiv [[x]]
-    \end{cases} \cup \begin{cases}
-      \emptyset & [[V']] \equiv  [[v]] \\
-      \set{x} & [[V']] \equiv [[x]]
-    \end{cases} \\\
-    [[FPV(lvar != V')]] & = [[FPV(lvar = V')]]
-  \end{align*}
-  Through abuse of notation we will also write $[[FPV(T)]]$ to indicate the free variables
-  in the refinement of $[[T]]$, i.e.:
-  \begin{align*}
-    [[FPV(T' ref r)]] & = [[FPV(T')]] \\
-    [[FPV({x:int|ph})]] & = [[FPV(ph)]] \setminus \set{[[x]]}
-  \end{align*}
-  and $[[FPCV(T)]]$ to indicate free variables that appear in the refinement of $[[T]]$.
-\end{definition}
-
-\begin{definition}[Well-formedness of types]
-  We define simple types $[[ST]]$ and environments $[[Gst]]$ by:
-  \[
-    \begin{array}{rcl}
-      [[ST]] & ::= & [[int]] \mid [[ int ref ]]  \\
-      [[Gst]] & ::= & [[empty]] \mid [[Gst,x:ST]]
-    \end{array}
-  \]
-  Let $[[ST(G)]]$ be the obvious transformation of $[[G]]$ into $[[Gst]]$.
-  The well-typedness of types and type environments are shown in \cref{fig:type-wf}.
-\end{definition}
-
 \paragraph{Operations on types.}
-
-\begin{definition}{Context Substitution}
-  Define context substitution operation $[[ [B/A] ]]$ over predicates $[[ph]]$, types $[[T]]$, and type environments $[[G]]$, as:
-
-  \begin{align*}
-    [[ [B/A](ph1 /\ ph2) ]] & = [[ [B/A]ph1 /\ [B/A]ph2 ]] \\
-    [[ [B/A](ph1 ==> ph2) ]] & = [[ [B/A]ph1 ==> [B/A]ph2 ]] \\
-    [[ [B/A]pfun(x1,..,xn) ]] & = [[ pfun(x1,..,xn) ]] \\
-    [[ [B/A](lvar = V') ]] & = [[ lvar = V' ]] \\
-    [[ [B/A](lvar != V') ]] & = [[ lvar != V' ]] \\
-    [[ [B/A](B' = B''?) ]] & = [[ [B/A]B' = [B/A]B''? ]] \\
-    [[ [B/A](T ref r) ]] & = [[([B/A] T) ref r]] \\
-    [[ [B/A]{nu:int|ph} ]] & = [[{nu:int|[B/A]ph}]] \\
-    [[ [B/A](G,x: T) ]] & = [[ ([B/A]G), x : [B/A]T ]] \\
-    [[ [B/A]empty ]] & = [[ empty ]] \\
-  \end{align*}
-\end{definition}
 
 \paragraph{Subtyping.}
 

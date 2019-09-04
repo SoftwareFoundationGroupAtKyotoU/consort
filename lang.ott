@@ -137,32 +137,33 @@ grammar
   CE {{ tex E_c }} :: E_ ::= {{ com return contexts }}
     | E [ let x = return_hole in e ] :: :: stack {{ tex [[E]][\LET [[x]] = [[return_hole]] \IN [[ e ]] ]}}
 
-  Es {{ tex \overrightarrow{E} }} :: Es_ ::=                  {{ com  stack }}
+  Es {{ tex \oldvec{E} }} :: Es_ ::=                  {{ com  stack }}
     | .                  ::   :: empty {{ tex \cdot }}
     | CE : Es             ::   :: cons
     | En-1 : Es             ::    :: cons_new
 
   ineq :: 'IE_' ::=
-    | = :: :: eq
-	| != :: :: ineq
+    | = :: :: eq {{ tex \subseteq }}
+	| != :: :: ineq {{ tex \not\subseteq }}
+	| ?= :: :: unk_eq {{ tex \overset{?}{\subseteq} }}
 
   plhs {{ tex \mathcal{C} }} :: 'PLhs_' ::=
     | A :: :: var
-	| ll A :: :: param_pref
+	| ll A :: :: param_pref {{ tex [[ll]] \circ [[A]] }}
 	| csub plhs :: :: sub
 	| ll :: :: concr
 
   prhs :: 'PRhs_' ::=
-    | ll ? :: :: prefix
+    | ll ? :: :: prefix {{ tex [[ll]] }}
 
-  prefix_query :: 'PQ_' ::= {{ com prefix query }}
-    | plhs ineq prhs :: :: query
+  CQP {{ tex \mathcal{CP} }}:: 'PQ_' ::= {{ com prefix query }}
+    | plhs ineq prhs :: :: query {{ tex [[prhs]] [[ineq]] [[plhs]] }}
 
-  ll {{ tex \overrightarrow{\ell} }} :: 'LL_' ::= {{ com concrete contexts }}
+  ll {{ tex \oldvec{\ell} }} :: 'LL_' ::= {{ com concrete contexts }}
     | . :: :: empty {{ tex \epsilon }}
 	| l :: :: singleton
 	| l : ll :: :: cons
-	| l1 .. ln :: :: inline
+	| l1 ... ln :: :: inline
 
   B {{ tex \mathcal{L}^{\alpha} }} :: B_ ::= {{ com type contexts }}
     | . :: :: empty {{ tex \epsilon }}
@@ -174,30 +175,30 @@ grammar
 	| csub B :: :: string_sub
 
   ph {{ tex \varphi }} :: 'P_' ::= {{ com refinement predicates }}
-    | pfun ( lvar1 , .. , lvarn ) :: :: pred_sym {{ com predicate in underlying logic }}
+    | pfun ( pval1 , .. , pvaln ) :: :: pred_sym {{ com predicate in underlying logic }}
 	| ph1 /\ ph2 :: :: pred_conj {{ tex [[ph1]] \wedge [[ph2]] }} {{ com conjunction }}
-	| lvar rel_op V2 :: :: pred_const {{ com equality }}
+	| pval1 rel_op pval2 :: :: pred_const {{ com equality }}
 	| Top :: :: pred_top {{ tex \top }}
 	| ph1 ==> ph2 :: :: entail
-	| [ V1 / lvar ] ph :: :: subst_var
+	| [ pval / pvar ] ph :: :: subst_var
 	| vsub ph :: :: sub_v
 	| csub ph :: :: subst_ctxt
-	| prefix_query :: :: prefix_query
+	| CQP :: :: prefix_query
 	| ( ph ) :: :: paren
 	| x = T y :: :: typed_eq {{ tex [[x]] =_{[[T]]} [[y]] }}
 	| Bot :: :: bot {{ tex \bot }}
 	| ph ( x , nn , pp1 ) :: :: template {{ tex [[ph]]_{[[x]],[[nn]],[[pp1]]} }}
 	| ph [ FVF ] :: :: with_fv
+	| ! ph :: :: not_ph {{ tex \neg [[ph]] }}
+	| ph1 \/ ph2 :: :: or
 
-  lvar {{ tex V }} :: 'LV_' ::= 
-  	| nu :: :: nu
+  pvar {{ tex x }} :: 'PV_' ::=
     | x :: :: var
-    | n :: :: var_n
+	| nu :: :: nu
 
-  V :: 'V_' ::=
-    | x :: :: var
-	| v :: :: val
-	| Rv :: :: rv
+  pval {{ tex \widehat{v} }} :: 'LV_' ::= 
+  	| pvar :: :: var
+    | Rv :: :: concr_value
 
   csub {{ tex \sigma_{\alpha} }} :: 'C_' ::= {{ com context sub }}
   	| [ B / A ] :: M :: subst_ctxt
@@ -236,7 +237,7 @@ grammar
     | x : T :: :: named {{ tex [[x]]\COL[[T]] }}
 	| T :: :: no_bind 
 
-  ST {{ tex \tau_{ST} }} :: 'ST_' ::= {{ com simple type }}
+  ST {{ tex \tau_{S} }} :: 'ST_' ::= {{ com simple type }}
     | int :: :: simple_int {{ tex \TINT }}
 	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
 	| [S T ] :: :: lift_type {{ tex \llparenthesis [[T]]\rrparenthesis_{\tau} }}
@@ -247,7 +248,7 @@ grammar
 	| ( ST1 , ... , ST2 ) :: :: simple_tuple
 	| alpha :: :: ty_var
 
-  Gst {{ tex \Gamma_{ST} }} :: 'STG_' ::= {{ com simple type env }}
+  Gst {{ tex \Gamma_{S} }} :: 'STG_' ::= {{ com simple type env }}
     | empty :: :: em {{ tex \bullet }}
 	| Gst , x : ST :: :: append
 	| ST ( G ) :: :: lift_G {{ tex \llparenthesis [[G]] \rrparenthesis }}
@@ -307,8 +308,8 @@ grammar
     | in                  ::   :: in         {{ tex \in }}
     | <:                  ::   :: sub        {{ tex \leq }}
     | ==>                 ::   :: impl       {{ tex \implies }}
-	| <=>                 ::   :: bimpl      {{ tex \Leftrightarrow }}
-    | =>                  ::   :: darrow     {{ tex \Rightarrow }}
+	| <=>                 ::   :: bimpl      {{ tex \iff }}
+    | =>                  ::   :: darrow     {{ tex \produces }}
     | |->                 ::   :: mapsto     {{ tex \mapsto }}
     | []                  ::   :: hole       {{ tex \HOLE }}
 	| '|'                 ::   :: bar {{ tex \mid }}
@@ -316,6 +317,7 @@ grammar
 	| ifz                 ::   :: ifz
 	| SAT                 ::   :: sat_pred
 	| SATv                ::   :: satv_pred
+	| FPCV :: :: fpcv {{ tex \mathbf{FCV} }}
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
 	| !|= :: :: notModel {{ tex \not\models }}
 	| forall :: :: forall {{ tex \forall }}
@@ -362,6 +364,7 @@ grammar
   	| FPV ( T ) :: :: fpv_t
 	| FPV ( ph ) :: :: fpv_p
 	| FPCV ( ph ) :: :: fpcv_p
+	| FPCV ( plhs ) :: :: fpcv_plhs
 	| FPCV ( T ) :: :: fpcv_tx
     | FV ( e ) :: :: fv
 	| FV pp :: :: fv_at_point {{ tex [[FV]]_[[pp]] }}
@@ -431,6 +434,7 @@ grammar
 	| FVF :: :: free_var_fun
 	| dom MF :: :: dom_mf {{ tex \DOM([[MF]]) }}
 	| VS1 '\' VS2 :: :: minus {{ tex [[VS1]] \setminus [[VS2]] }}
+	| null :: :: eset {{ tex \emptyset }}
 
   EqT :: 'EqT_' ::= {{ com equatable terms }}
     | e :: :: expt

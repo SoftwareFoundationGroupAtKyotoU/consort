@@ -21,6 +21,7 @@
 \newcommand{\consort}{\textsc{ConSORT}\xspace}
 \newcommand{\RETVAR}{\rho}
 \newcommand{\DOM}{\mathit{dom}}
+\newcommand{\CVar}{\textbf{CVar}}
 
 \let\imp\lstinline
 
@@ -93,11 +94,16 @@
 \mkDraftFn{NK}{cyan}
 \mkDraftFn{RS}{teal}
 \usepackage{xspace}
+\makeatletter
 \ifdraftComments
-\def\needcite{\textcolor{blue}{[citation needed]}\xspace}
+\def\needcite@with[#1]{\textcolor{blue}{[citation needed #1]}\xspace}
+\def\needcite@bare{\textcolor{blue}{[citation needed]}\xspace}
 \else
-\def\needcite{\xspace}
+\def\needcite@with#1{\xspace}
+\def\needcite@bare{\xspace}
 \fi
+\def\needcite{\@ifnextchar[{\needcite@with}{\needcite@bare}}
+\makeatother
 
 
 %%% Local Variables:

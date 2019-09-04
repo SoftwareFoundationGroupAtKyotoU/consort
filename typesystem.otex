@@ -59,49 +59,166 @@ refinement cannot exist when an update occurs.
   of our formalism.
 \end{remark}
 
-\subsection{Types}
+\begin{figure}[t]
+  \[
+    \begin{array}{rrcl}
+      \text{\footnotesize Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
+      \text{\footnotesize Ownership} & [[ r ]] &::=& [0,1] \\
+      \text{\footnotesize Refinements} & [[ph]] & ::= & [[ ph1 \/ ph2 ]] \mid [[ !ph ]] 
+                                                        \mid [[ pfun(pval1,..,pvaln) ]] \mid
+                                                        [[ pval1 = pval2 ]] \mid [[ pval1 != pval2 ]] \mid [[ Top ]] \\
+                                 & & \mid & \mathcal{CP} \\
+      \text{\footnotesize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]] \\
+
+                                 & & & \\
+      \text{\footnotesize Function Types} & [[FT]] & ::= & [[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]] \\
+      \text{\footnotesize Context Variables} & \CVar & ::= & [[A1]], [[A2]], \ldots \\
+      \text{\footnotesize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
+      \text{\footnotesize Parameterized Context} & [[ plhs ]] & ::= & [[ ll ]] \mid [[ ll A ]] \\
+      \text{\footnotesize Context Query Predicates} & [[CQP]] & ::= & [[ plhs != ll ? ]] \mid [[ plhs = ll ? ]] \\
+      \text{\footnotesize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
+    \end{array}
+  \]
+  \caption{Grammar of types, refinements, and contexts}
+  \label{fig:types}
+\end{figure}
+
+\subsection{Types and Contexts}
 \label{sec:types}
-The grammar of types is given by:
-\[
-  \begin{array}{rrcl}
-    \text{Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
-    \text{Refinements} & [[ph]] & ::= & [[ph1 ==> ph2]] \mid [[ ph1 \/ ph2 ]] \mid [[ !ph1 ]] \mid
-                     [[ ph1 /\ ph2 ]] \mid
-                     [[ pfun(lvar1,..,lvar2) ]] \mid
-                     [[ lvar = V' ]] \mid [[ lvar != V' ]] \mid [[ Top ]] \\
-            & & \mid & [[ plhs = ll ? ]] \\
-    \text{Refinement Values} & [[ V ]] & ::= & [[ x ]] \mid [[ v ]] \\
-    \text{Ownership} & [[ r ]] &::=& [0,1] \\
-  \end{array}
-\]
-\NK{Maye we could omit $ [[ph1 ==> ph2]]$ and $[[ ph1 \/ ph2 ]]$ from the formal syntax
-and introduce them as derived forms?}
+The grammar of types is given in \cref{fig:types}.
 Our type system has two type constructors: references and integers. $[[ T ref r ]]$ is the
 type of a (non-null) reference to a value of type $[[ T ]]$.
-$[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a pointer
-that cannot be read or written, to $[[1]]$  indicating a pointer with exclusive
+$[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a
+pointer that provides no refinement information and cannot be
+written, to $[[1]]$ indicating a pointer with exclusive
 ownership that can be read and written. Ownership values between these two
-extremes indicate a pointer that is readable but not writable. Further,
+extremes indicate a pointer that is readable but not writable and which
+has up-to-date refinement information. Further,
 the ownership type system described above ensures that no mutable aliases
-exist for a pointer with ownership in the range $(0,1)$. \NK{I do not quite understand the part
+exist for a pointer with ownership in the range $(0,1]$. \NK{I do not quite understand the part
  ``and for which ...''}
 
 The base types of our type system are integers that are refined with a
 predicate $[[ph]]$.  The language of predicates is built using the
 standard logical connectives of first-order logic,
 with (in)equality between variables and integers, and atomic predicate symbols
-$[[pfun]]$ as the basic atoms.
-We leave the choice of underlying theory unspecified, provided it is decidable.
-Our language of predicates also
-includes \emph{context predicates} of the form $[[ plhs = ll? ]]$; we
-will return to this feature in \cref{sec:cs} and discuss how to encode
-these queries into a logic with equality in \cref{sec:infr}.
+$[[pfun]]$ as the basic atoms. As is standard \needcite,
+we include a special ``value'' variable $[[nu]]$, which represents the
+value being refined by the predicate. For simplicity, we omit the
+connectives $[[ ph /\ ph ]]$ and $[[ ph ==> ph ]]$; they can be written
+as derived forms using the given connectives.
+We leave the choice of underlying theory from which $[[pfun]]$ symbols
+are drawn unspecified, provided it is decidable. The atoms $\mathcal{CP}$
+are context predicates, which are used for context sensitivity as
+explained below.
 
 \begin{example}
   $[[{nu:int | nu > 0}]]$ is the type of integers that are strictly
   positive.  $[[{nu:int | nu = 3} ref 0.5]]$ is the type of immutable,
   readable references to integers that are exactly equal to $3$.
 \end{example}
+
+\paragraph{Contexts and Context Polymorphism}
+Our type system achieves context sensitivity
+by having function types to depend on where and how a function
+is called, i.e., the \emph{execution context} of the function invocation.
+Our system represents a \emph{concrete} execution contexts with
+string of call site labels (or just ``call strings''),
+defined as $[[ll]] ::= [[.]] \mid [[l : ll ]]$.
+As is standard, the string $[[ l : ll ]]$ abstracts
+an execution context where the most recent, active function call occurred
+at call site $[[ l ]]$ which itself was executed in a context abstracted
+by $[[ ll ]]$. In addition our system includes \emph{context variables}
+drawn from a finite domain $\CVar$ and ranged over by $[[A1]], [[A2]], \ldots$.
+A context variable (like type variables in parametric polymorphism \needcite[?])
+represents an arbitrary, unknown context. Function types in our language
+are polymorphic over a distinguished context variable, and argument
+and return types may depend on that context varaible. Intuitively,
+this context variable represents the many different execution contexts
+under which a function may be called.
+As a result, a function may have different behaviors depending on the
+choice of concrete context used to instantiate the context variable,
+i.e., depending on where the function is called.
+
+Our language of function types expreses this polymorphism by universally quantifying
+over a context variable $[[A]]$; the argument, output, and return types may depend
+on this $[[A]]$ with \emph{context predicates} described below. A function type
+takes a tuple of zero or more argument types $[[Ti]]$ to the same number of \emph{output types}
+$[[Ti']]$. These output types express the side effects that may occur within a method.
+Recall that our type system language supports destructive updates to refinements
+on memory locations; these output types express these changes. In addition, function types
+have a direct return value $[[T']]$. Notice that the argument and output types are given
+names: the refinements of the argument and output types may refer to these variable
+names in their refinements.
+
+Types within a function type may depend on the function's calling context
+by including \emph{context query predicates} in their refinements.
+A context query predicate $[[CQP]]$ takes one
+of the two forms $[[ plhs = ll? ]]$ or $[[ plhs != ll ? ]]$. The first
+former is true iff $[[ll]]$ is a prefix of $[[plhs]]$, and vice versa
+for the latter. $[[plhs]]$ is a parameterized context which
+may be a concrete context $[[ll]]$ or an unknown context $[[A]]$
+with a (potentially empty) concrete prefix; we abbreviate $[[ . A ]]$ as
+$[[A]]$.
+Intuitively, a refinement $[[ A = ll ? ==> ph ]]$ on a value
+asserts $[[ ph ]]$ holds in any concrete execution context
+with prefix $[[ll]]$, and provides no information in any other
+context. Notice that while our grammar allows context query predicates
+of the form $[[ ll2 A ?= ll1 ? ]]$, any such query can be reduced
+to a predicate of the form $[[ A ?= ll2' ? ]], [[Top]], [[Bot]]$ using
+the following equivalences:
+\begin{align*}
+  [[ A = .? <=> Top ]] && [[ l1 : ll1' A = l1 : ll2' ? <=> ll1' A = ll2' ? ]] && [[ l1 : ll1' A = l2 : ll2' ? <=> Bot ]]
+\end{align*}
+Additionally, a context query predicate over a concrete context can always be
+immediately reduced to either $[[Top]]$ or $[[Bot]]$. We therefore do not expect
+such predicates to be used directly in refinements, but include them for the purposes
+of proving soundness (see \cref{sec:soundness} and the appendix for details).
+
+\begin{example}
+  The type $[[ {nu:int| (A = l1? ==> nu > 0) /\ (A != l1? ==> nu < 0)} ]]$ represents
+  an integer that is strict positive if the most recent active
+  function call site is $[[l1]]$, or is strictly negative otherwise.
+\end{example}
+
+As types in our type system may contain context variables, our typing judgment
+(introduced below) includes a typing context $[[B]]$, which is either a single
+context variable $[[A]]$ or a concrete context $[[ll]]$. This typing context
+represents the assumptions about the \emph{execution} context of the term being
+typed. If the typing context is a context variable $[[A]]$, then no assumptions
+can be made about the execution context of the term, although types
+may be dependent upon the context using context query predicates described above.
+Accordingly, function bodies are typed under the context variable
+universally quantified over in the corresponding function type; i.e.,
+no assumptions can be made about the exact execution context of the function body.
+As in parametric polymorphism, our type rules are designed such that consistenct
+substitution of a concrete context $[[ll]]$ for a context variable $[[A]]$
+in a typing derivation yields a valid type derivation under concrete context $[[ll]]$.
+
+\paragraph{Well Formedness}
+We impose two well-formedness conditions on types:
+refinement well-formedness and ownership well-formedness.
+Refinement well-formedness (defined in \cref{fig:type-wf})
+ensures that program and context variables in refinements
+are consistent with a typing context and type environment
+respectively.
+The ownership condition is purely syntactic:
+$[[ T ]]$ is ownership well-formed if $[[ T = T' ref 0 ]]$ implies
+$[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
+of a chain of $[[i]]$ references, and is defined inductively as
+$[[top0 = {nu:int|Top}]], [[topi = topi-1 ref 0]]$.
+
+The ownership well-formedness condition ensures that aliases introduced with heap writes do not
+violate the ownership invariant \emph{and} that refinements remain consistent
+in the presence of heap writes. Recall that the ownership type system ensures
+that the ownership of a reference drops to 0 when a mutable alias to that
+reference is created.
+Any mutations through the alias will therefore be consistent with the
+``no information'' $[[ Top ]]$ refinement required by the
+well-formedness condition.  Our type system can also exploit aliasing
+information to restore the read/write capabilities to a pointer (i.e.,
+restore an ownership greater than 0) while simultaneously updating its
+refinement to reflect any mutations through aliases.
 
 \begin{figure}[t]
   \scriptsize
@@ -143,6 +260,7 @@ these queries into a logic with equality in \cref{sec:infr}.
   }{
     [[ |- Th ]]
   }
+  \begin{minipage}[t]{0.48\textwidth}
   \[
     \begin{array}{lrcl}
       \text{Simple Types} & [[ST]] & ::= & [[int]] \mid [[ ST ref ]] \\
@@ -153,37 +271,29 @@ these queries into a logic with equality in \cref{sec:infr}.
                           & [[ ST(G, x:T) ]] & = & [[ ST(G),x: [S T ] ]] 
     \end{array}
   \]
+\end{minipage}
+\begin{minipage}[t]{0.485\textwidth}
+  \[
+    \begin{array}{rrl}
+      \text{Free Ctxt Vars} & [[FPCV(ph1 \/ ph2)]] & = [[FPCV(ph1) U FPCV(ph2) ]] \\
+                            & [[FPCV(!ph)]] & = [[ FPCV(ph) ]] \\
+                            & [[FPCV(pval1 = pval2)]] & = [[FPCV(pval1 != pval2) ]] \\
+                            & & = [[FPCV(pfun(pval1,..,pvaln))]] \\
+                            & & = [[ null ]] \\
+                            & [[FPCV(plhs ?= ll ?)]] & = [[FPCV(plhs)]] \\
+                            & [[FPCV(ll A)]] & = [[ {A} ]] \\
+                            & [[FPCV(ll) ]] & = [[ null ]] \\
+      \text{Ctxt Vars} & [[CV(ll)]] & = [[ null ]] \\
+                            & [[ CV(A)]] & = [[{A}]]
+    \end{array}
+  \]
+\end{minipage}
   \caption{Well-formedness of types and environments}
   \label{fig:type-wf}
 \end{figure}
 
-We impose two well-formedness conditions on types: ownership well-formedness
-and refinement well-formedness.
-$[[ T ]]$ is ownership well-formed if $[[ T = T' ref 0 ]]$ implies
-$[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
-of a chain of $[[i]]$ references, and is defined inductively as
-$[[top0 = {nu:int|Top}]], [[topi = topi-1 ref 0]]$. This well-formedness
-condition ensures that aliases introduced with heap writes do not
-violate the ownership invariant \emph{and} that refinements remain consistent
-in the presence of heap writes. Recall that the ownership type system ensures
-that the ownership of a reference drops to 0 when a mutable alias to that
-reference is created.
-Any mutations through the alias will therefore be consistent with the
-``no information'' $[[ Top ]]$ refinement required by the well-formedness condition.
-Our type system can also exploit aliasing information to restore the read/write
-capabilities to a pointer (i.e., restore an ownership greater than 0)
-while simultaneously updating its refinement to reflect any mutations through
-aliases.
-
-Notice that the types for program values \NK{What do you exactly mean by (the) ``type system for
-  program values''? Do you just mean the set of types (ranged over by $\tau$)?} \JT{Yes,
-  I meant ``types'' not ``type system'', careless typo}
-do not include function types; as mentioned in \cref{sec:prelim} our language does not support
-higher order functions. We use a separate type scheme for function
-types: as this scheme is closely related to our handling of context
-sensitivity, we defer its introduction to \cref{sec:cs}.
-
 \begin{figure}[t]
+  \scriptsize
   \leavevmode
   \infrule[T-Var]{
   }{
@@ -279,7 +389,6 @@ We now introduce the type system for the intra-procedural fragment of
 our language. Accordingly, this section focuses on interplay of
 mutability and refinement types. The typing rules are given in
 \cref{fig:intra-type,fig:pointer-typing}.  
-\NK{Where is $[[G \ x]]$ in the figure defined?}
 A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
@@ -291,12 +400,11 @@ We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
 that $[[x in dom G /\ G(x) = T]]$, $[[G,x:T]]$ to indicate the
 extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
 to indicate the type environment $[[G]]$ with the binding of $[[x]]$
-updated to $[[T]]$.
-Both $[[Th]]$ and typing contexts $[[B]]$
-are fomally defined in \cref{sec:cs}. \JT{I do worry we'll annoy
-  readers with kicking so many cans down the road.}
+updated to $[[T]]$. $[[B]]$ is defined as in \cref{sec:types}
+and $[[Th]]$ is a finite map from function names to function types.
 
 \begin{remark}
+  \label{rmk:env-mapping}
   The treatment of type environments as mappings instead of sequences
   in a dependent type system is somewhat non-standard. However, this
   approach does not cause problems in our formalism as we do not include
@@ -328,14 +436,14 @@ to the well-formedness condition, if the entirety of ownership is
 transferred to one of the result types, all refinements in the other
 type are $[[ Top ]]$.
 
-The rule for dereferencing requires that the ownership on the
-dereferenced pointer is non-zero. In principle, we could soundly
-allow reads of 0 ownership references: the well-formedness condition
-above ensures that references for which there exist mutable aliases
-provide no refinement information. However, we impose this
-precondition as it significantly simplifies automated inference
-(\cref{sec:infr}). \JT{It does, but only because our implementation
-  ignores the well-formedness rule, and may keep around ``stale'' refinements.}
+The let bindings (\rn{T-Let}, \rn{T-MkRef}, \rn{T-Deref}, and
+\rn{T-LetInt}) introduce new bindings based on the right hand side,
+and analyze the let body $[[e]]$, in this new environment. The typing
+rule for each form requires the type and result environment of the
+let body to be well-formed after the removal of the bound variable $[[x]]$.
+This requirement can be met by applying the subtyping rule (see below)
+to weaken refinements to no longer mention $[[x]]$. As in other refinement
+type systems \needcite, this requirement is critical for ensuring soundness.
 
 Our type system also tracks path information. Specifically, In the \rn{T-If}
 rule, we update the refinement on the condition variable in the respective
@@ -347,15 +455,16 @@ type system can track equalities between integer values. We use the
 strengthening operation $[[ T /\ x ph ]]$ and typed equality
 proposition $[[ x = T y]]$, defined respectively as:
 \begin{align*}
-  [[ T /\ y ph' ]] & = \begin{cases}
+  [[ T /\ y ph' ]] = \begin{cases}
     [[ { nu: int | ph /\ [nu/y]ph' }]] & [[ T = { nu: int | ph } ]] \\
     [[ T ]] & o.w.
-    \end{cases} \\
-  [[ x = T y ]] & = \begin{cases}
+    \end{cases} &&
+  [[ x = T y ]] = \begin{cases}
     [[ x = y ]] & [[ T = {nu:int|ph} ]] \\
     [[ Top ]] & o.w.
   \end{cases}
 \end{align*}
+\JT{The above is very ugly}
 Where $[[FPV(ph)]]$ are the free variables that appear in predicate
 $[[ph]]$.  \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
@@ -368,16 +477,18 @@ $[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
 lifts the refinements on the integer valued variables into a proposition
 in the deciable logic used for verification. This denotation
 operation is defined as:
-\begin{align*}
-  [[ [{nu:int|ph}] y ]] & = [[ [y/nu]ph ]] \\
-  [[ [T' ref r] y ]] & = [[ Top ]] \\
-  [[ [empty] ]] &= [[ Top ]]\\
-  [[ [G,x: T] ]] &= [[ [G] /\ [T] x ]] \\
-\end{align*}
+\[
+\begin{array}{rlcrl}
+  [[ [empty] ]] &= [[ Top ]] & \hspace{1em} &  [[ [{nu:int|ph}] y ]] & = [[ [y/nu]ph ]] \\
+  [[ [G,x: T] ]] &= [[ [G] /\ [T] x ]] &   &  [[ [T' ref r] y ]] & = [[ Top ]] \\
+\end{array}
+\]
 If the formula $[[ [G] ==> ph]]$
 is valid, then under any valuation of program variables that satisfy
 the refinements in $[[ [G] ]]$, the predicate $[[ph]]$ must be true and the
-assertion may not fail. This intuition forms the foundation of our
+assertion may not fail. (From the well-formedness requirement on $[[ph]]$
+any free program variables within $[[ph]]$ must be bound within $[[G]]$).
+This intuition forms the foundation of our
 soundness claim (\cref{sec:soundness}).
 
 \paragraph{Destructive Updates, Aliasing, and Subtyping}
@@ -503,7 +614,7 @@ the assign case, the ownership type system prevents this scenario; a write to th
 coerced pointer requires the pointer to have ownership 1, which guarantees
 any aliased pointers have the maximal type and provide no information about their contents.
 
-\begin{figure}
+\begin{figure}[t]
   \leavevmode
     \infrule[T-Call]{
     [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
@@ -525,7 +636,7 @@ any aliased pointers have the maximal type and provide no information about thei
     [[ Th |-  D ]]
   }
   \infrule[T-Prog]{
-    [[ Th |- D ]] \andalso
+    [[ Th |- D ]] \andalso [[ |- Th ]] \andalso
     [[ Th | empty | . |- e : T => G ]]
   }{
     [[ |- < D, e > ]]
@@ -537,90 +648,51 @@ any aliased pointers have the maximal type and provide no information about thei
 \subsection{Interprocedural Fragment and Context-Sensitivity}
 \label{sec:cs}
 We now turn to a discussion of the interprocedural fragment of our
-language, and how our type system supports context sensitivity. The remaining
+language, and how our type system propagates context information. The remaining
 typing rules for our language are shown in \cref{fig:progTyping}.
 These rules concern the typing of function calls, function bodies, and
 entire programs.
 
-Before explaining these rules in detail,
-we first describe our context sensitivity strategy. Our system distinguishes
-between calling contexts with strings of call site labels, or simply call strings.
-The refinements on function inputs and outputs may be conditional on the calling context
-information, expressed using the context prefix query mentioned above. Formally, we define
-call strings as $[[ ll ]] ::= [[ . ]] \mid [[ l : ll ]]$.
-As is standard, the string $[[ l : ll ]]$ represents an execution
-context where the most recent, active function invocation occured at call site $[[ l ]]$
-which itself was executed in a context described by $[[ ll ]]$.
-
-The refinements of our system are made context sensitive by including
-parameterized context prefix queries. A context
-prefix query takes the form $[[ ll1 = ll2? ]]$ or
-$[[ ll1 != ll2? ]]$ and is true if $[[ll2]]$ is (resp. is not) a prefix
-of $[[ll1]]$. A paramterized context prefix query admits a
-context variable $[[A]]$ as the tail of the call string on the left-hand
-side, i.e. $[[ ll1 A = ll2 ? ]]$. Note that $[[ ll1 ]]$ may be $[[.]]$, and thus
-$[[ A = ll2 ]]$ is a valid paramterized context prefix query. In fact, every paramterized
-context query of the form $[[ ll1 A = ll2 ? ]]$ may be simplified to $[[ Top ]]$, $[[ Bot ]]$, or
-$[[ A = ll2' ? ]]$ using the following equivalences:
-\begin{align*}
-  [[ A = .? <=> Top ]] && [[ l1 : ll1' A = l1 : ll2' ? <=> ll1' A = ll2' ? ]] && [[ l1 : ll1' A = l2 : ll2' ? <=> Bot ]]
-\end{align*}
-Intuitively, a context variable $[[A]]$ represents the many possible
-execution contexts in which the type occurs;
-thus a refinement type conditional on a paramterized context prefix query
-represents the different types a value may take depending on the concrete
-execution context.
-\begin{example}
-  The type $[[ {nu:int| (A = l1? ==> nu > 0) /\ (A != l1? ==> nu < 0)} ]]$ represents
-  an integer that is strict positive if the most recent active
-  function call site is $[[l1]]$, or is strictly negative otherwise.
-\end{example}
-We are now ready to explain how we type function bodies and function calls,
-and the role of $[[Th]]$ and $[[B]]$ in the typing judgment.
-As mentioned in the previous section, $[[Th]]$ is a function type
-environment which maps every function name to a function type
-$[[FT]]$ generated by the following grammar:
-\[
-  \begin{array}{rcl}
-    [[FT]] &::=& [[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]]
-  \end{array}
-\]
-The universal quantification over the context variable $[[A]]$ indicates
-that the types of paramter and return values are parameterized by the context
-variable $[[A]]$, which stands for the calling context of the function.
-The return type of the function includes updated types $[[Ti']]$
-for the arguments to reflect any side effects that occur during execution. The value
-directly returned by the function is given type $[[T]]$. The parameters are given
-explicit names in the function type, and the types $[[Ti]], [[Ti']], \text{and} [[T]]$
-type may reference these names in refinements.
-
-The final, unexplained element of the typing judgment is the typing
-context $[[B]]$. Intuitively, $[[B]]$ represents the possible
-execution context(s) under which an expression may be executed;
-it may be a call string $[[ll]]$ or a context variable $[[A]]$.
-In the latter case, the exact context is unknown, refinement types
-in the typing judgment must be parametric over $[[A]]$ to describe
-the different refinements that may hold in all possible concrete
-contexts. Accordingly, function bodies, which may be executed under many possible
-execution contexts, are typed under the context variable
-$[[A]]$ that appears in the corresponding function type (\rn{T-FunDef}).
-Conversely, the program expression $[[e]]$ always execute in the empty context,
-and thus is is typed in the empty context $[[.]]$ (\rn{T-Prog}).
-
-We now explain the \rn{T-Call} rule. The rule uses two substitution
+We first explain the \rn{T-Call} rule. The rule uses two substitution
 maps. $[[vsub]]$ translates between the parameter names used in the
 function type and actual argument names at the call-site. $[[csub]]$
 instantiates all occurrences of $[[A]]$ with $[[ l : B ]]$, where $[[l]]$
 is the label of the callsite. If $[[B]]$
 is itself a context variable $[[A']]$, this substitution effectively
-transforms any parametric context prefix queries over $[[A]]$ into a
-query parametric over $[[A']]$, which may be simplified using the
-equivalences described above.  If $[[B]]$ is concrete, then any prefix
+transforms any context prefix queries over $[[A]]$ in the argument/return types
+into a queries over $[[A']]$. These new queries may be simplified using the
+equivalences described in \cref{sec:types}.  Intuitively, this substitution
+and simplification represents incrementally refining the behavior of
+the callee function with partial context information. Although the exact
+concrete execution context of the callee (and therefore exact behavior)
+is unknown, we at least know the exact context begins with $[[l]]$ and
+can potentially use this knowledge to rule out certain behaviors.
+Notice that if $[[B]]$ is concrete, then any prefix
 queries can be immediately simplified to $[[Top]]$ or $[[Bot]]$. In
-either case, the formal arguments are required to match the parameter
+either case however, the formal arguments are required to match the parameter
 types (post substitution), and then the body of the let binding is
 checked with the argument types updated to reflect the changes in the
 function call (again, post substitution).
+
+Rule \rn{T-FunDef} type checks a function definition
+$[[ f |-> (x1,..,xn) e]]$ against the function type given in $[[Th]]$.
+As a convenience we assume that the parameter
+names in the function type match the formal parameters in the function
+definition. The rule checks that under an initial environment given
+by the argument types, the function body produces a value of the
+return type and transforms the arguments according to the output types.
+Further, as mentioned above,
+functions may be executed under many different contexts,
+so function body type checking is performed under the type context
+variable $[[A]]$ that occurs in the function type.
+
+Finally, the rule for typing programs (\rn{T-Prog}) checks that
+all function definitions are well-typed under a well-formed
+function type environment, and that the entry point $[[e]]$
+is well-typed in an empty environment. The program
+entry point is always executed under the empty context $[[.]]$,
+which is reflected in the typing context of $[[e]]$.
+
 \begin{example}[Simple 1-CFA]
   \label{exmp:1cfa}
   Consider the following simple program:
