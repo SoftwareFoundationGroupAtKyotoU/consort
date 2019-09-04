@@ -1396,12 +1396,11 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
     | None -> (fun ~summary:_ _ _ _ p -> p)
     | Some f -> f in
 
-  let shuffle_refinements ~env ~summary (c1,r1) (c2,r2) (c_out,out_r) ctxt =
-    (* TODO: generalizing constraints is completely broken :-\ *)
+  let shuffle_refinements ~summary (c1,r1) (c2,r2) (c_out,out_r) ctxt =
     let gen_constraint =
       (force_cons) ||
       (not @@ List.for_all all_const_o [c1; c2; c_out]) ||
-      summary || true
+      summary
     in
     let c_out_r = ctxt_compile_ref c_out out_r in
     let c_r1 = ctxt_compile_ref c1 r1 in
@@ -1418,7 +1417,7 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
           e_acc
       ) e const_filtered
     in
-    let add_env c = (c.nullity_stack),(close_env @@ env @ c.env) in
+    let add_env c = (c.nullity_stack),(close_env @@ g @ c.env) in
     let join_envs c1 c2 =
       assert (List.length c1.env = List.length c2.env);
       assert (List.length c1.nullity_stack = List.length c2.nullity_stack);
@@ -1447,7 +1446,7 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
         close_env @@ List.fold_left2 (fun acc (p1,r1,nl1) (p2,r2,nl2) ->
             assert (p1 = p2);
             (p1,And (r1,r2),(merge_nullity nl1 nl2))::acc
-          ) env e1 e2
+          ) g e1 e2
       )
     in
     if gen_constraint then
@@ -1466,7 +1465,7 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
         mk_constraint (add_env c2) ((ctxt_any_eq c1) @ (ctxt_gt c2)) @@ c_r2;
         mk_constraint (add_env c1) ((ctxt_gt c1) @ (ctxt_any_eq c2)) @@ c_r1;
         pp ~summary (c_r1,c1) (c_r2,c2) c1.path @@ {
-          env = close_env @@ env @ (List.map (fun (p,_,n) -> (p,Top,n)) c1.env);
+          env = close_env @@ g @ (List.map (fun (p,_,n) -> (p,Top,n)) c1.env);
           ante = Top;
           conseq = c_out_r;
           owner_ante = ctxt_any_eq c_out;
@@ -1514,14 +1513,14 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
       inner_loop ~summary:true (c1,t1') (c2,t2') (c_out,out_t') ctxt
         
     | Int r1,Int r2,Int out_r ->
-      shuffle_refinements ~env:g ~summary
+      shuffle_refinements ~summary
         (c1,r1)
         (c2,r2)
         (c_out,out_r)
         ctxt
         
     | Array (b1,len1,o1,t1), Array (b2,len2,o2,t2), Array (b_out,len_out,o_out,t_out) ->
-      let ctxt' = shuffle_refinements ~env:g ~summary:true (c1,len1) (c2,len2) (c_out,len_out) ctxt in
+      let ctxt' = shuffle_refinements ~summary:true (c1,len1) (c2,len2) (c_out,len_out) ctxt in
       inner_loop ~summary:true
         (step_array c1 b1 o1 len1 t1)
         (step_array c2 b2 o2 len2 t2)
