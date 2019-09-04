@@ -508,7 +508,6 @@ let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
     match ap' with
     | `ALen _
     | `AInd _
-    | `AFree _
     | `APre _ -> failwith "V illegal"
     | `AElem ap ->
       inner_loop ap (fun b t' ->

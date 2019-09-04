@@ -3,7 +3,6 @@ type 'a _const_ap = [
 | `APre of string
 | `AProj of 'a * int
 | `AVar of string
-| `AFree of string
 ] [@@deriving sexp]
 type const_ap = const_ap _const_ap [@@deriving sexp]
 
@@ -26,9 +25,6 @@ val has_prefix : ([< 'a t_templ] as 'a) -> 'a -> bool
 val pre :
   ([< 'a t_templ > `ADeref `APre `AProj ] as 'a) ->
   'a
-val free :
-  ([< 'a t_templ > `ADeref `AProj `AFree ] as 'a) ->
-  'a
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
 val is_pre : ([< 'a t_templ > `APre `ADeref `AProj] as 'a) -> bool
 val is_const_ap :
@@ -44,7 +40,7 @@ val has_root_p :
   bool
 
 val map_root :
-  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `AFree `ALen `APre `AProj `AVar] as 'b) -> 'b
+  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `APre `AProj `AVar] as 'b) -> 'b
 
 val is_array_path:
   ([< 'a t_templ > `ADeref `AElem `AInd `ALen `AProj ] as 'a) -> bool

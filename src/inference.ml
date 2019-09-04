@@ -1310,7 +1310,6 @@ let generalize_pred root out_type combined_pred =
       match ap with
       | `APre v -> exc ~pre:true (`APre v)
       | `AVar v -> exc ~pre:false (`AVar v)
-      | `AFree _ -> failwith "Impossible but here we are anyway :("
       | `ADeref ap' ->
         gen_ap_loop ap'
           ~exc:(fun ~pre _ ->
