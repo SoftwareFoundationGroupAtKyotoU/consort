@@ -255,6 +255,12 @@ sensitivity, we defer its introduction to \cref{sec:cs}.
   }{
     [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
   }
+  \infrule[T-AliasPtr]{
+    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
+    [[ Th | G[x <- T1' ref r1][y: (T2' ref r2') ref r] | B |- e : T => G' ]]
+  }{
+    [[ Th | G[x : T1 ref r1][y: (T2 ref r2) ref r] | B |- alias(x = *y); e : T => G' ]]
+  }
   \infrule[T-Sub]{
     [[ G <: G' ]] \andalso
     [[ Th | G' | B |- e : T => G'' ]] \andalso
@@ -426,7 +432,7 @@ has been completely transferred from one location to another, the
 original location is effectively unusable. Additionally, once
 a mutable pointer has been split through an assignment, there is no
 way to recover a mutable pointer. The typing rule for
-must alias assertions, \rn{T-Alias}, overcomes this restriction
+must alias assertions, \rn{T-Alias} and \rn{T-AliasPtr}, overcomes this restriction
 by exploting the aliasing information to
 ``shuffle'' ownerships \emph{and refinements} between two
 aliased pointers. The typing rule assigns

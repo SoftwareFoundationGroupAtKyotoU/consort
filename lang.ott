@@ -21,6 +21,7 @@ grammar
     | ifz x then e1 else e2 ::   :: Ifz {{ tex \IFZERO [[x]] \THEN [[e1]] \ELSE [[e2]] }}
     | x := y ; e          ::   :: Assign {{ tex [[x]] \WRITE [[y]] \SEQ [[e]] }}
     | alias ( x = y ) ; e ::   :: Alias  {{ tex \ALIAS([[x]] = [[y]]) \SEQ [[e]] }}
+	| alias ( x = * y ) ; e :: :: AliasPtr {{ tex \ALIAS([[x]] = * [[y]]) \SEQ [[e]] }}
     | assert ( ph ) ; e  ::   :: Assert {{ tex \ASSERT([[ph]]) \SEQ [[e]] }}
     | e ; e'              ::   :: Seq    {{ tex [[e]] \SEQ [[e']] }}
     | vsub e :: :: subst_mult {{ tex [[vsub]] [[e]] }}
@@ -372,7 +373,7 @@ grammar
 	| CV ( B ) :: :: cv
 	| Cons ( H , R , G ) :: :: Cons
 	| SAT ( H , R , G ) :: :: SAT
-	| SATv ( H , R , Rv , T ) :: :: satv {{ tex \mathit{SAT}_v([[H]],[[R]],[[Rv]],[[T]]) }}
+	| SATv ( H , R , Rv , T ) :: :: satv {{ tex [[SATv]]([[H]],[[R]],[[Rv]],[[T]]) }}
 	| F :: :: omap
 
    F :: 'OM_' ::=
@@ -402,8 +403,9 @@ grammar
 	| |- D C :: :: ctxt_type {{ tex \vdash_C^D [[ C ]] }}
 	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing
 	| Th | [] : T => G | B |-e CE : T' => G' :: :: ectxt_typing
-	| |- Th :: :: funenvWf
-	| |- FT :: :: ftWf
+	| |- Th :: :: funenvWf {{ tex [[|-]]_{\wf} [[Th]] }}
+	| |- FT :: :: ftWf {{ tex [[|-]]_{\wf} [[FT]] }}
+	| H |- Rv :~ T :: :: shape_cons_t {{ tex [[H]][[|-]] [[Rv]] \smodels [[T]] }}
 
   bind :: 'Bin_' ::= {{ com mapping function domains }}
     | x :: :: pvar

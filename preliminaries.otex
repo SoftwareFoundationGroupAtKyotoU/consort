@@ -28,6 +28,7 @@ The grammar of the language is as follows.
                [[ let x = f l (y1 ,, yn) in e ]] \\
         &\mid& [[ x := y ; e ]] \mid
                [[ alias(x = y); e ]] \mid
+               [[ alias(x = *y); e ]] \mid
                [[ assert(ph); e ]] \mid
                [[ e1;e2 ]] \\
     [[v]] &::=& [[nn]] \\
@@ -70,10 +71,11 @@ the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
 
 Our grammar requires that side-effecting, result free statements, \lstinline{assert($[[ph]]$)}
-\lstinline{alias(x = y)}, and
+\lstinline{alias(x = y)}, \lstinline{alias(x = *y)} and
 assignment \lstinline{x := y} are followed by a continuation expression.
-This requirement does not reduce the expressiveness
-of the language, and obviates including a unit type.
+We impose this requirement for technical reasons to ease our formal
+presentation; note that this requirement does not reduce the expressiveness
+of the language as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state, and aborts the program otherwise.
 $[[alias(x = y); e]]$ is a specialized type of assertion for asserting

@@ -1,6 +1,7 @@
 
 %edit by shiki
 \begin{figure}[t]
+  \scriptsize
   \leavevmode
   \infrule[R-Var]{
   }{
@@ -51,14 +52,24 @@
     [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y) }, R, Es, E[e]> ]]
   }
   \infrule[R-Alias]{
-    R(x) = R(y)
+    [[R(x) = R(y)]]
   }{
     [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]
+  }
+  \infrule[R-AliasPtr]{
+    [[R(y) = a]] \andalso [[H(a) = R(x)]]
+  }{
+    [[ <H,R,Es,E[alias(x = *y); e]> --> D <H, R, Es, E[e]> ]]
   }
   \infrule[R-AliasFail]{
     [[R(x) != R(y)]]
   }{
     [[ <H, R, Es, E[alias(x = y); e]> --> D AliasFail ]]
+  }
+  \infrule[R-AliasPtrFail]{
+    [[ R(x) != H(R(y)) ]]
+  }{
+    [[ <H,R,Es,E[alias(x = *y); e]> --> D AliasFail ]]
   }
   \infrule[R-Assert]{
     [[ |= [R]ph ]]

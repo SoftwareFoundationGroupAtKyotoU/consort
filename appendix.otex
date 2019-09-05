@@ -49,7 +49,7 @@
     [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
     [[SATv(H,R,Rv,T)]] = & \begin{cases}
       [[Rv is INT /\ [R][Rv / nu]ph ]] & [[ T = {nu:int|ph} ]] \\
-      [[r > 0 ==> a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
+      [[a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
     \end{cases} \\
     [[ [empty]ph ]] & = [[ [v/x]ph ]] \\
     [[ [R { y |-> nn }]ph ]] & =  [[  [R][nn/y]ph ]] \\
@@ -125,8 +125,8 @@ The followings are key lemmas:
 \end{lemma}
 \begin{proof}
   By induction on the shape of $[[T]]$. If $[[ T = T' ref r ]]$, then
-  the result is trivial if $[[r = 0]]$, otherwise it follows from the
-  inductive hypothesis. We therefore consider the case where
+  the result follows from the inductive hypothesis.
+  We therefore consider the case where
   $[[ T = {nu: int | ph} ]]$. Without loss of generality, we consider
   the case where $[[ dom R' ]] \setminus [[ dom R ]] = \set{x}$,
   and $[[R'(x) = nn]]$. (If $[[R'(x) = a]]$, the extra binding
@@ -140,14 +140,23 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{definition}
+  A value $[[Rv]]$ is \emph{shape consistent with $[[T]]$ in heap $[[H]]$}, written $[[ H |- Rv :~ T ]]$, iff:
+  \begin{enumerate}
+  \item $[[ T = T' ref r /\ Rv = a ==> H |- H(a) :~ T' ]]$
+  \item $[[ T = {nu:int|ph} /\ v is INT ]]$
+  \end{enumerate}
+\end{definition}
+
+\begin{definition}
   Two heaps $[[H]]$ and $[[H']]$ are \emph{equivalent modulo $[[a]]$}, written $[[H ~ a H']]$ if:
   \begin{enumerate}
   \item $[[dom H = dom H']]$
   \item $[[forall a' in dom H.a' != a ==> H(a) = H(a')]]$
+  \item $[[ H |- a :~ T <=> H' |- a :~ T ]]$
   \end{enumerate}
 \end{definition}
 
-\begin{lemma}[Heap Ownership Preservation]
+\begin{lemma}[Heap Update Ownership Preservation]
   \label{lem:heapop}
   Let $[[H]]$ and $[[H']]$ be two heaps such that $[[H ~ a H']]$ for
   some $[[a]]$. If $[[own(H,v,T)(a) = 0]]$, then
@@ -172,21 +181,40 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
+  \label{lem:top-type-sat-all}
+  For any $[[n]]$, if $[[H |- v :~ topn]]$ then for any $[[R]]$, $[[ SATv(H,R,v,topn) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on $[[n]]$. In the base case, by inversion on $[[ H |- v :~ top0]]$ we have
+  $[[v is INT]]$ and as $[[ [R][v/nu]Top ==> Top ]]$, we conclude $[[ SATv(H,R,v,top0) ]]$.
+
+  For $[[ n ]]$, by inversion on $[[ H |- v :~ topn ]]$ we have that
+  $[[v = a]]$, $[[ a in dom H]]$, and $[[ H |- H(a) :~ topn-1]]$,
+  whence the result holds from the inductive hypothesis.
+\end{proof}
+  
+\begin{lemma}[Heap Update Consistency Preservation]
   \label{lem:heapfor0}
   Let $[[H ~ a H']]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
 \end{lemma}
 \begin{proof}
   By induction on the shape of $[[T]]$. The base case where
   $[[T = {nu:int|ph}]]$ is trivial. We therefore consider the case
-  where $[[v = a']]$ and $[[T = T' ref r]]$. If $[[a' = a]]$, then by
+  where $[[v = a']]$ and $[[T = T' ref r]]$.
+
+  We first consider the case where $[[a' = a]]$, then by
   our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
-  $r = 0$, and $[[SATv(H',R,v,T)]]$ trivially holds. Otherwise, we
-  have that $[[a' != a]]$, and by definition we must have that
-  $[[own(H,H(a),T')(a) = 0]]$ hence the result follows from the
-  inductive hypothesis.
+  $[[ T = T' ref 0 ]]$, whereby the $[[ T = topn ]]$ for some $[[n]]$.
+  From $[[SATv(H,R,a,T)]]$ we must have that $[[ H |- a :~ T]]$,
+  and from $[[H ~ a H']]$, we therefoe have that $[[ H' |- a :~ T]]$
+  whereby the result holds from \cref{lem:top-type-sat-all}.
+
+  Otherwise, we have that $[[a' != a]]$, and by definition we must have that
+  $[[own(H,H(a),T')(a) = 0]]$ and $[[H'(a) = H(a)]]$ hence the result follows
+  from the inductive hypothesis.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[Heap Extension Consistency Preservation]
   \label{lem:newaddheap}
   If we have heap $H$, such that $[[ SATv(H,R,v,T) ]]$. For any heap $H'$,
   $[[ H' = H{a |-> v'}]], [[a not in H]]$, then we have $[[ SATv(H', R, v, T) ]]$.
@@ -195,14 +223,14 @@ The followings are key lemmas:
   By induction on the shape of $[[ T ]]$.
   The base case where $[[T = {nu:int|ph}]]$ is trivial.
   Next, we consider the case where $[[T = T' ref r]]$.
-  From the definition of $[[SAT]]$,
-  if $[[r = 0]]$, then $[[SATv(H',R,v,T)]]$ trivially holds.
-  Then it remains to show $[[r>0 ==> v in dom H' /\ SATv(H',R, H'(v),T') ]]$.
-  From $v\in dom(H)$ (by inversion on $[[SATv(H,R,v,T)]]$) and $[[a not in H]]$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
-  That is $[[ SATv(H',R, H(v),T') ]]$, which is true by the induction hypothesis.
+  We must show that $[[v in dom H' /\ SATv(H',R, H'(v),T') ]]$.
+  The first condition is immeidately satisfied by inversion on $[[ SATv(H,R,v,T') ]]$,
+  and from $[[a not in H]]$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
+  That is we must show $[[ SATv(H',R, H(v),T') ]]$, which is follows from
+  the induction hypothesis.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[Type Equivalence Preserves Satisfiability]
   \label{lem:sattosat}
   If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
 \end{lemma}
@@ -232,9 +260,9 @@ The followings are key lemmas:
       & \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]
     \end{align*}
     
-    Using $\cref{lem:stack-well-typed}$, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]]$. We therefore take $[[ G'' = G ]]$.
+    Using \cref{lem:stack-well-typed}, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]]$. We therefore take $[[ G'' = G ]]$.
     
-    By $\cref{lem:stack_var}$ and $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[En-1 [x] ]]$
+    By \cref{lem:stack_var} and $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[En-1 [x] ]]$
     into a context $[[E']]$ and expression $[[e']]$ will be well-typed with respect to the types expected by the hole type of $E_{n-2}$.
     
     It remains to show that $[[Cons(H,R,G'')]]$ and $[[ lln-1 |- G ]]$, which follows
@@ -311,11 +339,31 @@ The followings are key lemmas:
       [[F0']] &  = [[ |< {z in dom G \ {y}} own(H,R(z),G(z))]] \\
       [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H',R'(z'),G''(z')) ]]
     \end{align*}
-    By $\cref{lem:heapop}$, $[[F0' = F1']]$ holds.
-    From $\cref{lem:ownadd}$, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $[[v = H(R(y))]]$.
+    By \cref{lem:heapop}, $[[F0' = F1']]$ holds.
+    From \cref{lem:ownadd}, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $[[v = H(R(y))]]$.
     We know that $[[R'(x')=H(R'(y))=H(R(y))]]$, so $[[ own(H,R'(x'),G''(x'))  = own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),G(y)) = own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) = own(H,H(R'(y)),T1) ]]$,
     so we have $[[own(H,R(y),G(y))=own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $[[F0=F1]]$.
   \end{rneqncase} % R-Deref
+
+  \begin{rneqncase}{R-Var}{
+      [[ |- D <H, R, Es, E[x; e]> ]]\\
+      [[ <H, R, Es, E[x; e]> --> D <H, R, Es, E[e]> ]]\\
+    }
+    By inversion (see \rn{R-Deref}) we have for some $[[G]]$ that:
+    \begin{align*}
+      & [[ Th | G[x : T0 + T1] | ll |- x : T0 => G[x <- T1] ]] \\
+      & [[ Th | G[x <- T1] | ll |- e : T' => G' ]] \\
+      & [[ Cons(H,R,G) /\ ll |- G ]]
+    \end{align*}
+    We take $[[G'' = G[x <- T1] ]]$.
+    
+    It suffices to show (see \rn{R-Deref})
+    that $[[ Th | G'' | ll |- e : T => G']]$, $[[ ll |- G[x <- T1] ]]$
+    and $[[Cons(H,R, G'')]]$.
+    The first is immediate from the inversion above, and $[[ ll |- G[x <- T1] ]]$
+    follows from the assumed well-formedness of $[[ ll |- G ]]$. Finally,
+    $[[ Cons(H, R, G'') ]]$ follows from \cref{lem:ownadd,lem:satadd}.
+  \end{rneqncase}
 
   % FIXED
   \begin{rneqncase}{R-Let}{
@@ -371,7 +419,7 @@ The followings are key lemmas:
     We give that $[[ G''= G,x':{nu:int | nu = nn}]]$, and it thus suffices to show
     that $[[ Th | G'' | ll |- [x'/x]e : T => G' \ x]]$, $[[ ll |- G'' ]]$,
     and $[[ Cons(H, R { x' |-> nn }, G'') ]]$.
-    The first one is easy to obtain using the $\cref{lem:substitution}$, and the final two
+    The first one is easy to obtain using the \cref{lem:substitution}, and the final two
     items are trivial.
   \end{rneqncase} % R-LetInt
   
@@ -417,8 +465,8 @@ The followings are key lemmas:
     To show that the output environment is consistent, we must show that $[[SATv(H',R',R'(x'),T2 /\ x' x'=y ref 1)]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
     By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
     We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
-    From $\cref{lem:register}$, we obtain $[[ SATv(H,R,v,T1+T2) ==> SATv(H,R',v,T1+T2) ]]$. By $\cref{lem:newaddheap}$, we have $[[ SATv(H',R',v,T1+T2) ]]$.
-    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R',v,T1) /\ SATv(H',R',v,T2) ]]$, where $[[ R' < R ]]$ and $[[v = R(y)]]$.
+    From \cref{lem:register}, we obtain $[[ SATv(H,R,v,T1+T2) ==> SATv(H,R',v,T1+T2) ]]$. By \cref{lem:newaddheap}, we have $[[ SATv(H',R',v,T1+T2) ]]$.
+    Then by \cref{lem:satadd}, we have $[[ SATv(H',R',v,T1) /\ SATv(H',R',v,T2) ]]$, where $[[ R' < R ]]$ and $[[v = R(y)]]$.
     We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
@@ -437,7 +485,8 @@ The followings are key lemmas:
 
   \begin{rneqncase}{R-Assign}{ % FIXED
       [[ |- D <H, R, Es, E[y:=x;e]>]]\\
-      [[ <H, R, Es, E[y:=x;e]> --> D <H { a <- R(x)}, R, Es, E[e]> ]] \andalso a = R(y)\\
+      [[ <H, R, Es, E[y:=x;e]> --> D <H { a <- R(x)}, R, Es, E[e]> ]] \\
+      a = R(y)
     }
     By inversion (see the \rn{R-Deref} case) we have that
     \begin{align*}
@@ -469,15 +518,24 @@ The followings are key lemmas:
     \]
     we have $[[own(H, R(x), G(x))(a)=own(H, R(x), T1 + T2)(a)=0]]$.
     
-    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> x in R /\ SATv(H,R,R(x),G(x)) ]] $.
-    By $\cref{lem:heapfor0}$ and $[[own(H, R(x), T1 + T2)(a)=0]]$, we obtain
-    $[[ SATv(H',R,v,T1+T2) ]]$.
-    Then by $\cref{lem:satadd}$, we have $[[ SATv(H',R,v,T1) /\ SATv(H',R,v,T2) ]]$, where $[[v = R(x)]]$.
+    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> forall x in dom G.x in R /\ SATv(H,R,R(x),G(x)) ]]$.
+    If we show that $[[ H ~ a H']]$, then by \cref{lem:heapfor0} and $[[own(H, R(x), T1 + T2)(a)=0]]$, we will obtain $[[ SATv(H',R,v,T1+T2) ]]$.
+
+    To show $[[H ~ a H']]$, it suffices to show that
+    $[[H |- H(a) :~ T' <=> H {a <- v} |- v :~ T2]]$ (the other two conditions
+    are immediate). From the condition that $[[T']]$ and $[[T2]]$ have similar shapes,
+    if we can show that $[[ H { a <- v } |- H(a) :~ T']]$ and $[[ H |- v :~ T2 ]]$,
+    we will have the desired result.
+    It is a simple inductive argument to show that $[[a]]$ cannot be reached through
+    pointer dereferences from either $[[v]]$ or $[[H(a)]]$; thus the value of $[[a]]$ is
+    irrelevant to both derivations, giving us the desired result.
+
+    Then by \cref{lem:satadd}, we have $[[ SATv(H',R,v,T1) /\ SATv(H',R,v,T2) ]]$, where $[[v = R(x)]]$.
     We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
     Then, it's to show $[[forall a in H.F(a) <= 1]]$.
-    As $[[F0'=F1']]$ holds by pointwise application of $\cref{lem:heapop}$, and $[[forall a in H.F0(a) <= 1]]$, if $[[forall a' in H'. F1''(a') <= F0''(a')]]$, we can conclude that $[[F1(a') <= F0(a') <= 1]]$.
+    As $[[F0'=F1']]$ holds by pointwise application of \cref{lem:heapop}, and $[[forall a in H.F0(a) <= 1]]$, if $[[forall a' in H'. F1''(a') <= F0''(a')]]$, we can conclude that $[[F1(a') <= F0(a') <= 1]]$.
     
     Suppose for some arbitrary $[[a in H]]$, $[[a= a']]$, then:
     \begin{align*}
@@ -485,8 +543,8 @@ The followings are key lemmas:
       [[F0''(a)]] & = [[own(H, R(x), T1 + T2)(a) + own(H, H(R(y)), T')(a)+1]]
     \end{align*}
     We know $[[F0(a') <= 1]]$, hence $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
-    By $\cref{lem:heapop}$, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
-    Also by $\cref{lem:ownadd}$, we have $[[own(H', R(x), T2+T1) = own(H', R(x), T1)+own(H', R(x), T2)]]$.
+    By \cref{lem:heapop}, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
+    Also by \cref{lem:ownadd}, we have $[[own(H', R(x), T2+T1) = own(H', R(x), T1)+own(H', R(x), T2)]]$.
     Then we have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$.
     Therefore, \[
       [[F1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = F0''(a')]]
@@ -528,7 +586,7 @@ The followings are key lemmas:
     We thus have $[[Tq ~ Tp]]$.
     
     We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]]$.
-    From $[[Tp1 + Tp2 = Tp]]$ and $\cref{lem:satadd}$, we have
+    From $[[Tp1 + Tp2 = Tp]]$ and \cref{lem:satadd}, we have
     $[[SATv(H,R,v,Tp1) /\ SATv(H,R,v,Tp2) ==> SATv(H,R,v,Tp)]]$, where $[[v = H(R(y))=H(R(x))]]$.
     Similarly, we also have $[[SATv(H,R',v,Tq) ==> SATv(H,R',v,Tq1) /\ SATv(H,R',v,Tq2)]]$, where $[[v = H(R(y))=H(R(x))]]$.
     From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we then have $[[SATv(H,R,v,Tp) ==> SATv(H,R,v,Tq)]]$.
@@ -540,10 +598,15 @@ The followings are key lemmas:
       &[[own(H,R(x),T1 ref r1) + own(H,R(y),T2 ref r2) ]] =  \\
       &\,\,\,\,[[ own(H,R(x),T1' ref r1') + own(H,R(y),T2' ref r2')]]
     \end{align*}
-    which follows immediately from the conditions $[[ T1 ref r1 + T2 ref r2 = T1' ref r1' + T2' ref r2']]$ and $[[R(x) = R(y)]]$.
+    which follows immediately from the conditions $[[ T1 ref r1 + T2 ref r2 ~ T1' ref r1' + T2' ref r2']]$, $[[R(x) = R(y)]]$, and \cref{lem:ownadd,lem:ownequiv-preserv}.
   \end{rneqncase} % R-Alias
+
+  \begin{rncase}{R-AliasPtr}
+    By reasoning similar to the \rn{R-Alias} case.
+  \end{rncase}
+    
   
-  \begin{rncase}{R-AliasFail} % DONE
+  \begin{rncase}{R-AliasFail,R-AliasPtrFail} % DONE
     The result configuration $[[AliasFail]]$ is trivially well-typed.
   \end{rncase}
   
@@ -643,6 +706,14 @@ The followings are key lemmas:
 \end{proof}
 
 \begin{lemma}
+  \label{lem:ownequiv-preserv}
+  If $[[ T1 ~ T2]]$, then $[[ own(H,v,T1) = own(H,v,T2)]]$.
+\end{lemma}
+\begin{proof}
+  Straightforward induction on the shape of $[[T1]]$.
+\end{proof}
+
+\begin{lemma}
   \label{lem:satadd}
   If $[[ Tp =  T1+T2 ]]$, we have:
   \[
@@ -657,21 +728,14 @@ The followings are key lemmas:
     We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {nu:int | ph1/\ph2} ]]$,
     $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$, where $[[ T1= {nu:int | ph1} ]], [[ T2 = {nu:int | ph2} ]]$.
     
-    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) ==> [R][v/nu]ph1 ]]$ and $[[ SATv(H, R, Rv, T2) ==> [R][v/nu]ph2 ]]$, and 
+    From the definition of $[[SATv]]$, we have $[[ SATv(H, R, Rv, T1) ==> [R][v/nu]ph1 ]]$ and $[[ SATv(H, R, Rv, T2) ==> [R][v/nu]ph2 ]]$, and 
     $[[ SATv(H, R, Rv, T1+T2) ==> [R][v/x](ph1 /\ ph2) ]]$.
     It is immediate that for any value $v$ such that $[[ [R][v/nu](ph1 /\ ph2) ]]$, we must have $[[ [R][v / nu]ph1 ]]$ and $[[ [R][v / nu]ph2 ]]$.
     We then conclude $[[ SATv(H, R, Rv, T1+T2) ==> SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]].$
   \end{rncase}
 
   \begin{rncase}{Tadd-Ref}
-    From the definition of $[[SAT]]$, we have $[[ SATv(H, R, Rv, T1) ]] \equiv [[ r1 > 0 ==> a in H /\ SATv(H,R,H(a),T1') /\ T1 = T1' ref r1 /\ Rv = a ]]$,
-    and $[[ SATv(H, R, Rv, T2) ]] \equiv [[ r2 > 0 ==> a in H /\ SATv(H,R,H(a),T2') /\ T2 = T2' ref r2 /\ Rv = a ]]$.
-    Also $[[ SATv(H, R, Rv, T1+T2) ]] \equiv [[ r1+r2 > 0 ==> a in H /\ SATv(H,R,H(a),T1'+T2') /\ Rv = a ]]$, and finally
-    $[[(T1+T2) = (T1'+T2') ref r1+r2]]$.
-    If $[[r1+r2 = 0]]$, then $[[r1]]$ and $[[r2]]$ must be zero, and thus $[[SATv(H,R,v,T1)]]$ and $[[SATv(H,R,v,T2)]]$
-    are trivially true. Otherwise, we have that $[[a in H /\ SATv(H,R,H(a),T1' + T2')]]$, whereby the inductive
-    hypothesis gives $[[SATv(H,R,H(a),T1') /\ SATv(H,R,H(a),T2')]]$. Then if $[[ ri > 0 ]]$, we have the
-    desired result. 
+    Immediate from the definition of $[[SATv]]$ and the inductive hypothesis.
   \end{rncase}
 \end{proof}
 
@@ -715,20 +779,33 @@ The followings are key lemmas:
     \item $[[ Gp(x) = T1 + T2 ]]$
     \item $[[ Gp(y) = T' ref 1 ]]$
     \item $[[ Th | Gp[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : Tp => Gp' ]]$
+    \item The shapes of $[[T']]$ and $[[T2]]$ are similar, i.e, $\forall [[H]],[[Rv]].[[H |- Rv :~ T' <=> H |- Rv :~ T2 ]]$.
     \end{itemize}
-  \item If $[[ e0 = alias(x = y); e ]]$ then there exist some $[[T1]], [[T2]], [[T1']], [[T2']]$ such that:
+  \item If $[[ e0 = alias(x = y); e ]]$ then there exist some $[[T1]], [[T2]], [[T1']], [[T2']], [[r1]], [[r2]], [[r1']], [[r2']]$ such that:
     \begin{itemize}
-    \item $[[ T1 + T2 ~ T1' = T2' ]]$
-    \item $[[ Gp(x) = T1 ]]$ and $[[Gp(y) = T2 ]]$
-    \item $[[ Th | G[x <- T1'][y <- T2'] | B |- e : Tp => Gp' ]]$
+    \item $[[ T1 ref r1 + T2 ref r2 ~ T1' ref r1' + T2' ref r2' ]]$
+    \item $[[ Gp(x) = T1 ref r1 ]]$ and $[[Gp(y) = T2 ref r2 ]]$
+    \item $[[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : Tp => Gp' ]]$
     \end{itemize}
-  \item If $[[ e0 = e1; e2 ]]$ then $[[ Th | Gp | B |- e1 : T1 => Gp0 ]]$ and $[[ Th | Gp0 | B |- e2 : Tp => Gp' ]]$
+  \item If $[[ e0 = alias(x = *y); e ]]$ then there exist some $[[T1]], [[T2]], [[T1']], [[T2']], [[r1]], [[r2]], [[r1']], [[r2']], [[r]]$, such that:
+    \begin{itemize}
+    \item $[[ T1 ref r1 + T2 ref r2 ~ T1' ref r1' + T2' ref r2' ]]$
+    \item $[[Gp(x) = T1 ref r1]]$ and $[[Gp(y) = (T2 ref r2) ref r]]$
+    \item $[[ Th | G[x <- T1' ref r1'][y <- (T2' ref r2') ref r] | B |- e : Tp => Gp' ]]$
+    \end{itemize}
+  \item If $[[ e0 = x; e' ]]$ then $[[ Th | Gp[x: T' + T0] | B |- x : T1 => Gp[x <- T0] ]]$ and $[[ Th | Gp[x <- T0] | B |- e' : Tp => Gp' ]]$
   \item If $[[ e0 = assert(ph); e ]]$ then $[[ Gp |= ph ]]$ and $[[ Th | Gp | B |- e : Tp => Gp' ]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
   By straightforward induction on the typing relation and the
   transitivity of the subtyping relation \cref{lem:subtype-transitive}.
+
+  The only case of note is the case for $[[ e0 = x; e2 ]]$. If the subderivation for $[[x]]$
+  has applications of \rn{T-Sub} then the subtypings on the output environment can be pushed
+  into application subtyping on input environments when typing $[[e']]$. Similarly,
+  any input subtypings on the input environment of the derivation of $[[x]]$ can be pushed
+  into \rn{T-Sub} rules such that $[[G <: Gp[x : T' + T0] ]]$.
 \end{proof}
 
 \begin{lemma}
@@ -778,12 +855,12 @@ The followings are key lemmas:
   \item Let $[[ F = |< { z in dom G' } own(H,R(z),G(z)) ]]$, $[[forall a in H.F(a) <= 1]]$
   \item If $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$
   \item $[[SAT(H,R,G')]]$
-  \item $[[Cons(H,R,G)]]$
+  \item $[[Cons(H,R,G')]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
   \begin{enumerate}
-  \item By induction on T1.
+  \item By induction on $[[T1]]$.
   \item Direct consequence of 1.
   \item From $[[Cons(H,R,G)]]$ we have $[[SAT(H,R,G)]]$ which implies $[[ |= [R][G] ]]$.
     We now proceed by induction on the shape of $[[T]]$.
@@ -828,8 +905,8 @@ The followings are key lemmas:
   For any $[[ ll ]]$:
   \begin{enumerate}
   \item $[[ A |- G ==> ll |- [ll / A]G]]$
-  \item $[[ G | A |- T ==> [ll/A]G | B |- [ll/A]T]]$
-  \item $[[ A |- T => G ==> B |- [ll/A] T => [ll/A]G ]]$
+  \item $[[ G | A |- T ==> [ll/A]G | ll |- [ll/A]T]]$
+  \item $[[ A |- T => G ==> ll |- [ll/A] T => [ll/A]G ]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
@@ -1178,10 +1255,10 @@ The followings are key lemmas:
 
 \begin{lemma}
   \label{lem:type-result-wf}
-  If $[[ ll |- G ]]$ and $[[ Th | G | ll |- e : T => G' ]]$ then $[[ ll |- T => G' ]]$.
+  If $[[ B |- G ]]$ and $[[ Th | G | B |- e : T => G' ]]$ then $[[ B |- T => G' ]]$.
 \end{lemma}
 \begin{proof}
-  By induction on the typing derivation of $[[e]]$.
+  By induction on the typing derivation of $[[e]]$; in the following we say ``well-formedness'' to mean ``refinement well-formedness''.
   \begin{namedcase}{\casefont{Cases \rn{T-LetInt}, \rn{T-Let}, \rn{T-Mkref}, \rn{T-Deref}, \rn{T-Call}, and \rn{T-Sub}: }}
     Immediate from the precondition of the typing rule.
   \end{namedcase}
@@ -1195,7 +1272,7 @@ The followings are key lemmas:
     result.
   \end{rncase}
 
-  \begin{rncase}{T-Alias}
+  \begin{rncase}{T-Alias,T-AliasPtr}
     From the assumed well-formedness of $[[T1 ref r1]]$ and $[[T2 ref r2]]$, we have that
     $[[ T1 ref r1 + T2 ref r2 ]]$ is well-formed, and thus from the definition of $[[~]]$
     $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed. Then the IH gives us the desired
@@ -1210,7 +1287,7 @@ The followings are key lemmas:
   \end{rncase}
 
   \begin{rncase}{T-Var}
-    From the assumed well-formedness of $[[ T1 + T2 ]]$, $[[ ll |- T2 => G[x <- T1] ]]$
+    From the assumed well-formedness of $[[ T1 + T2 ]]$, $[[ B |- T2 => G[x <- T1] ]]$
     is clearly well-formed.
   \end{rncase}
 \end{proof}
