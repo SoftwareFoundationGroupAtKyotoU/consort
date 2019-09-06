@@ -334,9 +334,11 @@ refinement to reflect any mutations through aliases.
     [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
   }
   \infrule[T-Deref]{
-    [[r > 0]] \andalso
-    [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : T => G']] \andalso
-    [[ B |- T => G' \ x ]]
+    [[ Th | G[y <- T' ref r], x : T2 | B |- e : T => G']] \andalso
+    [[ B |- T => G' \ x ]] \andalso [[ T' ]] = \begin{cases}
+      [[ T1 /\ y y = T1 x ]] & [[r > 0]] \\
+      [[ T1 ]] & [[ r = 0 ]]
+    \end{cases} 
   }{
     [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
   }
@@ -354,7 +356,7 @@ refinement to reflect any mutations through aliases.
     [[ Th | G | B |- assert(ph); e : T => G']]
   }
   \[
-    [[ G \ x = G' <=> dom G' = dom G U {x} /\ forall y in dom G'. G'(y) = G(y) ]]
+    [[ G \ x = G' <=> dom G' U {x} = dom G /\ forall y in dom G'. G'(y) = G(y) ]]
   \]
   \caption{Expression typing rules.}
   \label{fig:intra-type}
@@ -480,7 +482,9 @@ $[[ph]]$.  \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
 We do not track equalities between references or between
 the contents of reference cells, as doing so would violate
-our refinement well-formedness condition.
+our refinement well-formedness condition. Notice also that the
+equality tracking in the \rn{T-Deref} case is \emph{conditionally}
+applied, depending on the ownership of the dereferenced pointer. 
 
 The rule for type checking assert statements has the precondition
 $[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$

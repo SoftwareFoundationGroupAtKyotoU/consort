@@ -193,52 +193,6 @@ of pointer arrays requires index-wise tracking of ownerships which
 significantly complicates automated inference. We leave supporting
 arrays of pointers to future work.
 
-\iffalse
-For each recursive simple type $[[(M alpha.ST)]]$ at
-point $[[pp]]$, we generate a type equation $[[T{mu}]]$
-parameterized by free variables $[[X]]$.
-The right hand side of this equation is a
-refinement type skeleton with the same shape as $[[ST]]$, where the
-free variables in each refinement include those in $[[X]]$.
-Each occurrence of $[[alpha]]$ within $[[ST]]$ is replaced with
-an occurrence of $[[T{mu}]]$, instantiated with the set of names bound
-by the tuples enclosing $[[alpha]]$. Finally, \consort generates
-a type skeleton from $[[ST]]$ as described previously,
-but replaces all occurences
-of $[[alpha]]$ with an instantiation of $[[T{mu}(TV alpha)]]$, where
-$[[TV alpha]]$ is again the set of names bound by tuples enclosing
-occurrences of alpha.
-
-\iffalse
-For a variable
-$[[x]]$ at program point $[[pp]]$ with recursive
-simple type $[[ (M alpha. ST) ]]$ we generate a skeleton based of
-a one-level unfolding of the type.
-We define the lifting of the recursive type $[[ (M alpha. ST) ]]$ with
-the equation:
-\[
-  [[ T{mu}(X) ]] = [[ [ T{mu} / alpha ][ST](x, 0, pp){X} ]]
-\]
-Where $[[ [ST](x,nn,pp){X} ]]$ is defined as $[[ [ST](x,nn,pp) ]]$ except
-the free variables for each refinement are extended with the set
-$\mathcal{X}$. We define $[[ [ T{mu} / alpha ] T' ]]$ to be the
-type obtained by replacing all instances of $[[alpha]]$ with $[[T{mu}(TV alpha)]]$, where $[[TV alpha]]$ is the set of dependent tuple names bound by
-the enclosing the occurrence of $[[alpha]]$ being replaced. 
-Finally, the type for $[[x]]$ is given as:
-\[
-  [[ [T{mu}/ alpha][ST](x,0,pp) ]]
-\]
-\fi
-
-As with dependent tuples, extending type inference to support recursive
-types is relatively straightforward once the subtyping relation
-has been appropriately extended. We take
-the iso-recursive approach, and first have the simple type checker
-annotate the source program with fold/unfold annotations. These annotations
-guarantee subtyping checks are always performed with two types of the same
-shape. 
-\fi
-
 %%% Local Variables:
 %%% mode: latex
 %%% TeX-master: t

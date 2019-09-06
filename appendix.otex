@@ -285,8 +285,12 @@ The followings are key lemmas:
     \begin{mathpar}
       [[ G0 <: Gp ]] \and [[ Gp',Tp <: G0',T ]] \and
       [[ ll |- Gp ]] \and [[ Gp(y) = T1 + T2 ref r ]] \and
-      [[ r > 0 ]] \and [[ Gp' = G' \ x ]] \and [[ ll |- Tp => Gp' ]] \and
-      [[ Th | G[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : Tp => G' ]]
+      [[ Gp' = G' \ x ]] \and [[ ll |- Tp => Gp' ]] \and
+      [[ Th | G[y <- T'' ref r], x : T2 | B |- e : Tp => G' ]] \and
+      [[T'' ]] = \begin{cases}
+          [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
+          [[T1]] & [[r = 0]]
+        \end{cases}
     \end{mathpar}
     From \cref{lem:subtyp-preserves-cons}, we then have $[[Cons(H,R,Gp)]]$.
     We will now show that:
@@ -295,7 +299,7 @@ The followings are key lemmas:
       \label{eqn:new-tyenv-wf}  & [[ll |- G'']] \\
       & [[Th | G'' | ll |- [x'/x]e : [x'/x]Tp => [x'/x]G' ]]
     \end{align}
-    where $[[ G'' = Gp[y <- (T1 /\ y y = x') ref r], x' : T2]]$.
+    where $[[ G'' = Gp[y <- T'' ref r], x' : T2]]$.
     
     This is sufficient to establish that
     $[[ |- D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$.  To see how, we
@@ -318,14 +322,17 @@ The followings are key lemmas:
     
     We now want to show $[[ Th | G'' | ll |- [x'/x]e : Tp => [x'/x]G' ]]$, $[[ ll |- G'' ]]$,
     and $[[Cons(H,R { x' |-> v }, G'')]]$.
-    The first is easy to obtain using \cref{lem:substitution}, and the latter
+    The first is easy to obtain using \cref{lem:substitution}, and the last
     follows almost immediately from $[[ ll |- G ]]$.
     
     It therefore remains to show $[[Cons(H,R { x' |-> v }, G'')]]$. To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$
-    and $[[SATv(H,R',H(R'(y)),T1 /\ y y = x) ]]$.
-    If $[[ T1 ]]$ is an integer, by the definition of the strengthening operator, the latter is equivalent to show that $[[ SATv(H,R',H(R'(y)),T1) ]]$
+    and $[[SATv(H,R',H(R'(y)),T'') ]]$.
+    If $[[ T1 ]]$ is an integer and $[[r > 0]]$, then
+    by the definition of the strengthening operator, the latter is equivalent to show
+    that $[[ SATv(H,R',H(R'(y)),T1) ]]$
     and that $[[R'(x')=H(R'(y))=H(R(y))]]$, which is immediate from the definition of $\rn{R-Deref}$.
-    If $[[ T1 ]]$ is not an integer, then we must only show that $[[ SATv(H,R',H(R'(y)),T1) ]]$.
+    If $[[ T1 ]]$ is not an integer or if $[[r = 0]]$,
+    then we must only show that $[[ SATv(H,R',H(R'(y)),T1) ]]$.
     
     We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
     From \cref{lem:satadd,lem:r-valid-subst,lem:register}, we obtain $[[ SATv(H,R,v,T1+T2) ==> SATv(H,R',v,T1) /\ SATv(H,R',v,T2) ]]$, where $[[ R' < R ]]$ and $[[v = H(R(y))]]$.
@@ -337,7 +344,7 @@ The followings are key lemmas:
       [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\
       [[F1]] & =[[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
       [[F0']] &  = [[ |< {z in dom G \ {y}} own(H,R(z),G(z))]] \\
-      [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H',R'(z'),G''(z')) ]]
+      [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H,R'(z'),G''(z')) ]]
     \end{align*}
     By \cref{lem:heapop}, $[[F0' = F1']]$ holds.
     From \cref{lem:ownadd}, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $[[v = H(R(y))]]$.
@@ -760,10 +767,16 @@ The followings are key lemmas:
     
   \item If $[[ e0 = let x = *y in e ]]$, then:
     \begin{itemize}
-    \item $[[Gp(y) = T1 + T1 ref r]]$
-    \item $[[Th | Gp[y <- (T1 /\ y y = T1 x) ref r], x : T2 | B |- e : Tp => Gp0]]$
+    \item $[[Gp(y) = T1 + T2 ref r]]$
+    \item $[[Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp0]]$
     \item $[[r > 0]]$
     \item $[[Gp' = Gp0 \ x]]$
+    \item \[
+        [[T'' ]] = \begin{cases}
+          [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
+          [[T1]] & [[r = 0]]
+        \end{cases}
+      \]
     \end{itemize}
   \item If $[[ e0 = let x = f l (y1,,yn) in e]]$ then:
     \begin{itemize}
@@ -818,8 +831,9 @@ The followings are key lemmas:
   \end{enumerate}
 \end{lemma}
 \begin{proof}
+  \leavevmode
   \begin{enumerate}
-  \item It suffices to show that $[[ [G] ==> [x/nu]ph']]$ for any $x in dom G'$ where $[[G'(x) = {nu:int|ph'}]]$. From $[[ G <: G' ]]$ we have $[[ |= [G] /\ ph ==> ph' ]]$ where $[[ G(x) = {nu:int|ph}]]$. We must then have $[[ |= [G] /\ [x/nu]ph ==> ph' ]]$. From the definition of $[[ [G] ]]$ we have $[[ [G] /\ [x/nu]ph <=> [G] ]]$, giving the desired result.
+  \item It suffices to show that $[[ [G] ==> [x/nu]ph']]$ for any $[[x in dom G']]$ where $[[G'(x) = {nu:int|ph'}]]$. From $[[ G <: G' ]]$ we have $[[ |= [G] /\ ph ==> ph' ]]$ where $[[ G(x) = {nu:int|ph}]]$. We must then have $[[ |= [G] /\ [x/nu]ph ==> ph' ]]$. From the definition of $[[ [G] ]]$ we have $[[ [G] /\ [x/nu]ph <=> [G] ]]$, giving the desired result.
   \item By induction on $[[T1]]$. The only case of note is where
     $[[ T1 = {nu:int|ph1} ]],[[T2 = {nu:int|ph2}]], [[ T3 =
     {nu:int|ph3}]]$. By inversion on $[[ G' |- T2 <: T3 ]]$ we have
@@ -924,7 +938,7 @@ The followings are key lemmas:
 
 \begin{lemma}
   \label{lem:ctxt-sub-subtype}
-  For any $[[G]]$, $[[T1]]$, $[[T2]]$, $[[A]]$ and $[[B]]$, $[[ G |- T1 <: T2 ==> [B/A]G |- [B/A]T1 <: [B/A]T2 ]]$.
+  For any $[[G]]$, $[[T1]]$, $[[T2]]$, $[[A]]$ and $[[B]]$, $[[ G |- T1 <: T2 ==> [ll/A]G |- [ll/A]T1 <: [ll/A]T2 ]]$.
 \end{lemma}
 \begin{proof}
   If $[[A]]$ does not appear free in $[[T1]]$, $[[T2]]$ or $[[G]]$, then the result trivially holds. Let us then assume
@@ -932,22 +946,22 @@ The followings are key lemmas:
 
   \begin{rneqncase}{Sub-Ref}{
       [[ T1 = T1' ref r1 ]] & [[ T2 = T2' ref r2 ]] \\
-      [[ [B/A] T1 = ([B/A]T1') ref r2 ]] & [[ [B/A]T2 = ([B/A]T2') ref r2 ]] \\
+      [[ [ll/A] T1 = ([ll/A]T1') ref r2 ]] & [[ [ll/A]T2 = ([ll/A]T2') ref r2 ]] \\
       [[  r2 > 0 ==> G |- T1' <: T2' ]]
     }
-    If $[[ r2 = 0 ]]$ then the result trivially holds. If not, we must show that $[[ [B/A]G |- [B/A]T1' <: [B/A]T2' ]]$
+    If $[[ r2 = 0 ]]$ then the result trivially holds. If not, we must show that $[[ [ll/A]G |- [ll/A]T1' <: [ll/A]T2' ]]$
     which holds immediately from the induction hypothesis.
   \end{rneqncase}
 
   \begin{rneqncase}{Sub-Int}{
       [[ T1 = {nu:int|ph1} ]] & [[ T2 = {nu:int|ph2} ]] \\
-      [[ [B/A]T1 = {nu:int|[B/A]ph1 } ]] & [[ [B/A]T2 = {nu:int|[B/A]ph2 } ]] \\
+      [[ [ll/A]T1 = {nu:int|[ll/A]ph1 } ]] & [[ [ll/A]T2 = {nu:int|[ll/A]ph2 } ]] \\
       [[ G |= ph1 ==> ph2 ]]
     }
-    We must show that $[[ [B/A]G |= [B/A]ph1 ==> [B/A]ph2 ]]$, i.e. $[[ |= [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$.
+    We must show that $[[ [ll/A]G |= [ll/A]ph1 ==> [ll/A]ph2 ]]$, i.e. $[[ |= [ [ll/A]G ] /\ [ll/A]ph1 ==> [ll/A]ph2 ]]$.
     From our assumption that $[[ G |= ph1 ==> ph2 ]]$ we have that $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ is valid,
-    whence the formula $[[ [ G ] /\ ph1 ==> ph2 ]]$ is true for any possible valuation of the free context
-    variable $[[A]]$. Thus the formula $[[ [ [B/A]G ] /\ [B/A]ph1 ==> [B/A]ph2 ]]$ must also be valid.
+    whence the formula $[[ [ G ] /\ ph1 ==> ph2 ]]$ is true for any possible concrete valuation of the free context
+    variable $[[A]]$. Thus the formula $[[ [ [ll/A]G ] /\ [ll/A]ph1 ==> [ll/A]ph2 ]]$ must also be valid.
   \end{rneqncase}
 \end{proof}
 
@@ -960,7 +974,7 @@ The followings are key lemmas:
 \end{lemma}
 \begin{proof}
   By induction on the typing derivation $[[ Th | G | A |- e : T => G' ]]$. In the following
-  analysis, we will freely use the identity $[[([B/A]G) \ x = [B/A](G \ x)]]$.
+  analysis, we will freely use the identity $[[([ll/A]G) \ x = [ll/A](G \ x)]]$.
   \begin{rneqncase}{T-Var}{
       [[e = x]] & [[T = T2]] \\
       [[G = G0[x : T1 + T2] ]] & [[ G' = G0[x <- T2] ]]
