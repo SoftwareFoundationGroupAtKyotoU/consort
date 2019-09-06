@@ -43,7 +43,6 @@ module Result :
   end
 
 val infer :
-  print_pred:bool ->
   save_types:bool ->
   ?o_solve:o_solution ->
   intrinsics:funenv ->

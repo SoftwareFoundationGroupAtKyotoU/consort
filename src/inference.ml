@@ -11,17 +11,6 @@ module P = Paths
 
 type concr_ap = P.concr_ap
 
-(* Proper nullity tracking
-  * TODO update merge types to _join_ the nullity information
-  * TODO _except_ in alias, which should meet constant nullities (nullities that are in a constant position)
-  * TODO constrain get_type_scheme results with (folded) outputs (assign and mkref case)
-  * TODO assign sets nullity to live
-  * TODO deref _also_ sets nullity to live
-  * TODO update walk in apply_matrix to track nullities during walk
-  * TODO do NOT propagate grounding unnecessarily
-  * TODO mark ifnull preds as null
-*)
-
 type pred_loc =
   | LCond of int
   | LArg of string * string
@@ -35,31 +24,6 @@ type pred_loc =
   | LNull of int
   | LMkArray of int
   | LFold of int
-
-let loc_to_string =
-  let labeled_expr s i = Printf.sprintf "%s@%d" s i in
-  let fn_nm_loc = Printf.sprintf "fn %s %s %s" in
-  let fn_loc = Printf.sprintf "fn %s %s" in
-  function
-  | LCond i -> labeled_expr "if" i
-  | LArg (f,a) -> fn_nm_loc f "Arg" a
-  | LReturn f -> fn_loc f "Ret"
-  | LOutput (f,a) -> fn_nm_loc f "Out" a
-  | LAlias i -> labeled_expr "alias" i
-  | LLet i -> labeled_expr "let" i
-  | LCall (i,a) -> labeled_expr a i
-  | LNull i -> labeled_expr "ifnull" i
-  | LFold i -> labeled_expr "fold" i
-  | LRead i -> labeled_expr "read" i
-  | LMkArray i -> labeled_expr "mkarray" i
-  | LUpdate i -> labeled_expr "update" i
-
-
-type pred_context = {
-  fv: refine_ap list;
-  loc: pred_loc;
-  target_var: concr_ap
-}
 
 type funenv = funtype SM.t
 type tenv = typ SM.t
@@ -107,7 +71,6 @@ type context = {
   refinements: tcon list;
   pred_arity: (bool * int) StringMap.t;
   v_counter: int;
-  pred_detail: (int,pred_context) Hashtbl.t;
   store_env: int -> tenv -> unit;
   o_info: o_solution;
   type_hints: type_hints;
@@ -2502,15 +2465,7 @@ let process_function ctxt fdef =
   let c = process_function_bind ctxt fdef in
   { c with gamma = SM.empty }
 
-let print_pred_details t =
-  Hashtbl.iter (fun k { fv; loc; target_var } ->
-    Printf.fprintf stderr "%d: >>\n" k;
-    Printf.fprintf stderr "  Free vars: [%s]\n" @@ String.concat ", " @@ List.map refine_ap_to_string fv;
-    Printf.fprintf stderr "  Target var: %s\n" @@ refine_ap_to_string target_var;
-    Printf.fprintf stderr "  At: %s\n<<\n" @@ loc_to_string loc
-  ) t
-
-let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,main) =
+let infer ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,main) =
   let init_fun_type f_def =
     let lift_simple_type ~post ~loc =
       lift_to_refinement ~nullity:NUnk ~pred:(fun ~mu ~pos fv path ->
@@ -2562,7 +2517,6 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,
     refinements = [];
     pred_arity = StringMap.empty;
     v_counter = 0;
-    pred_detail = Hashtbl.create 10;
     store_env;
     o_info = (match o_solve with
     | Some e -> e
@@ -2571,11 +2525,10 @@ let infer ~print_pred ~save_types ?o_solve ~intrinsics (st,type_hints,iso) (fns,
     iso
   } in
   let ctxt = List.fold_left (Fun.flip init_fun_type) initial_ctxt fns in
-  let { pred_detail; refinements; ownership; ovars; pred_arity; theta; _ } =
+  let { refinements; ownership; ovars; pred_arity; theta; _ } =
     List.fold_left process_function ctxt fns
     |> process_expr main
   in
-  if print_pred then print_pred_details pred_detail;
   Result.{
     ownership;
     ovars;

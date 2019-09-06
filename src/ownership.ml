@@ -59,7 +59,7 @@ let ownership_infr debug i_gen o_gen file =
   print_endline "FOLD LOCATIONS>>>";
   Std.IntSet.iter (Printf.printf "* %d\n") fl;
   print_endline "<<";
-  let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
+  let r = Inference.infer ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
   print_program ~o_map:(fun o _ -> (),o) ~o_printer:RefinementTypes.pp_owner r ast;
   let open PrettyPrint in
   let o_solve = OwnershipSolver.solve_ownership ~opts:(o_gen ()) ?save_cons:!debug r in
