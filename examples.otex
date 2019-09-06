@@ -1,0 +1,369 @@
+\subsection{Examples}
+For examples, consider the following programs, written in an ML-like language.
+The righthand side shows the types assigned to each variable before execution of
+each line.
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[1]
+  let x = mkref 1 in
+  let y = *x in
+    assert(y>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[2]
+  let x = mkref 1 in
+  let y = *x in
+    assert(y<0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[1] and example[2], from typing rule for T-MkRef, the ownership for varible $x$ will be 1.
+As for dereference, $y$ will hold the same value as $x$.The only difference in the programs is the
+assert statements, from the types of varible $y$, it's clear that the example[1] will return true,
+and the example[2] will be false, since $y \COL \set{r \COL \TINT \mid r = 1} \models y > 0$.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[3]
+  let x = mkref 1 in
+  let y = x in
+  let z = *y in
+    assert(z>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1, z \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[3], from T-Let $x$ will transfer the ownership of the reference cell to $y$, so that the
+owership of $y$ will be 1 and then can be dereferenced to $z$ with the return value, the result of
+the assertion is true, since $z \COL \set{r \COL \TINT \mid r = 1} \models z>0$
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[4]
+  let x = mkref 1 in
+  let y = x in
+    y := -1;
+    let z = *y in
+      assert(z>0)
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0, y \COL \set{r \COL \TINT \mid r = -1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^0,y \COL \set{r \COL \TINT \mid r = -1} \TREF^1, z \COL \set{r \COL \TINT \mid r = -1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[4], it contains update the value of $y$ to $-1$. From T-Assign it only changes the value of $y$.
+And the result should be false obviously, because $z \COL \set{r \COL \TINT \mid r = -1} \not\models z>0$.
+The refinement type $\set{r \COL \TINT \mid r = 1}$ of $x$ after the command $y := -1$ does not reflect the actual value of $*x$.
+This is OK in our type system because the ownership of the reference $x$ is $0$; the refinement attached to this reference type is not reliable.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{lstlisting}
+[5]
+  let x = mkref 1 in
+  let y = x in
+  let $z_1$ = *y in
+  let $z_2$ = *x in
+    assert($z_1$>0 && $z_2$>0)
+\end{lstlisting}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},z_1 \COL \set{r \COL \TINT \mid r = 1},z_2 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[5], dereferencing doesn't change the ownership of each variable, and the result
+of assertion is true, because $z_1 \COL \set{r \COL \TINT \mid r = 1},z_2 \COL \set{r \COL \TINT \mid r = 1}\models z_1, z_2>0$.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{lstlisting}
+[6]
+  let x = mkref 1 in
+  let y = x in
+  let $z_1$ = *y in
+  let $z_2$ = *x in
+    x := 0;
+    let $z_3$ = *x in
+      assert($z_3$=0)
+
+\end{lstlisting}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{r_1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{1-r_1} \mbox{where $1 > r_1 > 0$}$ \newline
+  $z_1 \COL \set{r \COL \TINT \mid r = 1}$ \newline
+  $z_2 \COL \set{r \COL \TINT \mid r = 1}, r_1 = 1 \mbox{ which contradicts to $1 > r_1 > 0$}$ \newline
+  safe but cannot be typed
+}
+\colplacechunks
+\end{parcolumns}
+
+In example[6], after dereferencing $x$ to $z_2$ the ownership of $x$ will become 0, which means that
+it can't be updated in our type system. But we can add statement \textbf{alias}(x=y)
+to shuffle the ownerships between $x$ and $y$, then the program will be typable as belows. And the assert
+statement will give true result, since $z_3 \COL \set{r \COL \TINT \mid r = 0}\models z_3 = 0$.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{lstlisting}
+[6 typable]
+  let x = mkref 1 in
+  let y = x in
+  let $z_1$ = *y in
+  let $z_2$ = *x in
+    alias(x=y)
+    x := 0;
+    let $z_3$ = *x in
+      assert($z_3$=0)
+\end{lstlisting}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\emptyset$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^1$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5},y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0.5}, \dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 1} \TREF^{1}, y \COL \set{r \COL \TINT \mid r = 1} \TREF^{0},\dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}\TREF^{0},\dots$ \newline
+  $x \COL \set{r \COL \TINT \mid r = 0} \TREF^1, y \COL \set{r \COL \TINT \mid r = 1}\TREF^{0},z_3 \COL \set{r \COL \TINT \mid r = 0}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+In order to derive example for Context-Sensitiveness, we first focus on examples for function. Here are examples for “push/pull” instructions.
+We can see that function $\bf{push}$ is just assign an integer $x$ to variable $p$. $\bf{pull}$ is to pop the integer stored in $p$. Here we write
+$\sigma \COL\COL= \forall \beta.<\dots>\ra <\dots\mid\tau>$ to contain the return values.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[7 push]
+  def push(p, x) =
+    p := x;
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\bf{push} \COL \newline
+  \forall \beta. p\COL \set{n \COL \TINT \mid T}\TREF^1, x\COL \set{n \COL \TINT \mid \frac{(\beta[0]=l_1\Rightarrow n=0)\land}{(\beta[0]\neq l_1\Rightarrow n>0))}} \ra \newline
+  p\COL \set{n \COL \TINT \mid n=x_{pre}}\TREF^1, x\COL \set{n \COL \TINT \mid x_{pre}=x}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{verbatim}
+[8 pull]
+  def pull(p) =
+    *p;
+\end{verbatim}
+}
+\colchunk[2]{%
+\newline
+\newline
+  $\bf{pull} \COL \newline
+  \forall \beta. p\COL \set{n \COL \TINT \mid \frac{(\beta[0]=l_6\Rightarrow n>0)\land}{(\beta[0]\neq l_6\Rightarrow n\geq 0))}}\TREF^1\ra \newline
+  p\COL \set{n \COL \TINT \mid p_{pre}=p}\TREF^1\mid \set{n \COL \TINT \mid \frac{(\beta[0]=l_6\Rightarrow n>0)\land}{(\beta[0]\neq l_6\Rightarrow n\geq 0))}}$ \newline
+}
+\colplacechunks
+\end{parcolumns}
+
+
+After writing the types changing for each function, now we can take an example for explaining context-sensitiveness of our type-system.
+In the example[9], using the types changes in the above, we can write the types before executing for each statement.
+For every function $\bf{push/pull}$, we also give labels $l_1,\dots,l_6$ to distinguish the context-flow.
+It's obvious that the result of assertion should be true, since $x \COL \set{n \COL \TINT \mid n > 0}\models x > 0$.
+
+\begin{parcolumns}{2}
+\colchunk[1]{%
+\begin{lstlisting}
+[9 Context-Sensitiveness]
+let p = mkref _ in
+let x = mkref _ in
+  push$^{l_1}$(p, 0)
+  if b then
+    x := pull$^{l_2}$(p)
+    push$^{l_3}$(p, *x+1)
+  else
+    x := pull$^{l_4}$(p)
+    push$^{l_5}$(p, *x+2)
+  x := pull$^{l_6}$(p)
+  assert(*x > 0)
+\end{lstlisting}
+}
+\colchunk[2]{%
+\newline
+\newline
+\newline
+\newline
+  $p\COL \set{n \COL \TINT \mid T}\TREF^1, x\COL \set{n \COL \TINT \mid T}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid T}\TREF^1$ \newline\newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n>0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid T}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n=0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n>0}\TREF^1, x\COL \set{n \COL \TINT \mid n\geq 0}\TREF^1$ \newline
+  $p\COL \set{n \COL \TINT \mid n>0}\TREF^1, x\COL \set{n \COL \TINT \mid n>0}\TREF^1$ \newline
+
+}
+\colplacechunks
+\end{parcolumns}
+
+\paragraph{2-CFA Call Sensitivity}
+
+Consider the following program:
+\begin{lstlisting}
+f(x, b):
+  if b then
+    f$^{\ell_3}$(x + 1, false)
+  else
+    g$^{\ell_4}$(x)
+g(x): x + 1
+
+let $r_1$ = f$^{\ell_1}$(0, true) in
+let $r_2$ = g$^{\ell_2}$(0) in
+assert ($r_1 + r_2 \geq 3$);
+\end{lstlisting}
+
+This program is clearly correct, as \lstinline{f} will recurse exactly once before execution
+flows through to the else branch and the call to \lstinline{g}.
+
+The type system can verify this example if we give f and g the following types:
+\begin{align*}
+  f: \forall \alpha.\langle&x: \{ n : int \mid (\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \} \\
+                           &b: \{ n: bool \mid (\alpha = \ell_3? \produces n = 0) \wedge (\alpha \neq \ell_3? \produces n = 1) \}\rangle \\
+                           & \ra \{ n : int \mid n > 1 \} \\
+  g: \forall \beta.\langle&x: \{ n : int \mid (\beta = \ell_4\ell_3? \produces n \geq 1) \wedge n \geq 0 \}\rangle \\
+                           & \ra \{ n: int \mid n = n_{pre} + 1\}
+\end{align*}
+(Here we abbreviate $\tuple{x_1:\typ_1,\ldots,x_n:\typ_n} \ra \tuple{x_1:\typ_1,\ldots,x_n:\typ_n\mid \typ}$ as $\tuple{x_1:\typ_1,\ldots,x_n:\typ_n} \ra \typ$ when the types of the arguments
+do not change.)
+
+The key step in the typing derivation is at the call to g within the body of $f$. We reach the
+call in the type environment:
+
+\begin{align*}
+  x: & \{ n : int \mid (\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \} \\
+  b: & \{ n: bool \mid (\alpha = \ell_3? \produces n = 0) \wedge (\alpha \neq \ell_3? \produces n = 1) \wedge n = 0 \}
+\end{align*}
+Notice that we have propagated the path condition induced by the if
+statement to the type of $b$.
+
+We then apply the rule T-Call. Performing substitution on the path variable in the type
+of g indicates that the argument $x$ must have type:
+
+\[
+  [\ell_4\alpha/\beta]\{ n : int \mid (\beta = \ell_4\ell_3? \produces n \geq 1) \wedge n \geq 0 \} = \{ n : int \mid (\ell_4\alpha = \ell_4\ell_3?)\} \produces n \geq 1) \wedge n \geq 0 \}
+\]
+
+$x$ indeed has this type. Simplifying the result type of $g$ we have that the overall expression has type:
+
+\[
+  \{ n : int \mid (\alpha = \ell_3? \produces n \geq 2) \wedge n \geq 1 \}
+\]
+
+It remains to verify that this type satisfies the result type of $f$, i.e.,
+$\{ n : int \mid n > 1 \}$. Applying the rule T-Sub, it suffices to
+show that:
+
+\begin{align*}
+  \models \big( & (\alpha = \ell_3? \produces b = 0) \wedge (\alpha \neq \ell_3? \produces b = 1) \wedge b = 0\big) \produces \\
+  & \big((\alpha  = \ell_3? \produces n \geq 2) \wedge n \geq 1\big) \produces n > 1
+\end{align*}
+
+In the above, we have omitted the constraint generated from the type of $x$ in the environment
+as it is irrelevant. The automated theorem prover Z3 discharges the above implication,
+indicating the above subtyping relationship is valid.
+
+It is instructive to also consider the typing of the recursive call in
+the true branch of $f$'s body. Per the rule T-Call, substituting
+$\ell_3\alpha$ for $\alpha$ in the argument types of $f$ indicates that
+\lstinline{x + 1} must have type:
+\[
+  \{ n : int \mid (\ell_3\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \}
+\]
+and \lstinline{false} (i.e., \lstinline{0}) must have type:
+\[
+  \{ n : bool | (\ell_3\alpha = \ell_3? \produces n = 0) \wedge (\ell_3\alpha \neq \ell_3? \produces n = 1) \}
+\]
+The latter type simplifies to $\{ n : bool \mid n = 0 \}$ which the constant \lstinline{0} has
+(tehnically an application of the subtyping rule is required, but it is straightforward).
+We must also verify that:
+\[
+  \tenv \p \{ n : int \mid (\alpha = \ell_3? \produces n \geq 2) \wedge n \geq 1 \} \subt \{ n : int \mid (\ell_3\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \}
+\]
+It is easy to verify this relationship holds.
+
+\paragraph{\large{\bf{example to explain context stack in the type system}}}
+$\newline$
+
+Suppose $\langle H, R,\overrightarrow{E}, l_4 \rangle$ represent heap(memory), register(environment), a sequence of context, program respectively.
+Here, $\overrightarrow{E} = E_3:E_2:E_1$, which $E_3$ is the newest context and $E_1$ is the oldest one.
+The context flow will go as belows, and $l_3$ is the newest program to call and $l_1$ is obvious the oldest one.
+It needs to satisfy the condition $\cup_i \textit{dom}(\tenv_i)= \textit{dom}(R)$.
+
+$\newline\tenv_4, l_3 l_2 l_1 \vdash l_4:\tau_4 \Rightarrow \tenv_4'\newline$
+$\tenv_3, []:\tenv_4 \Rightarrow \tenv_4'\mid \tau_4, l_2 l_1 \vdash E_3:\tau_3 \Rightarrow \tenv_3'\newline$
+$\tenv_2, []:\tenv_3 \Rightarrow \tenv_3'\mid\tau_3, l_1 \vdash E_2:\tau_2 \Rightarrow \tenv_2'\newline$
+$\tenv_1, []:\tenv_2 \Rightarrow \tenv_2'\mid\tau_2, \varepsilon \vdash E_1:\tau_1 \Rightarrow \tenv_1'\newline$
+
+To have a better understanding, we can now assume a function $\funenv(f) = \langle x\COL\set{z\mid T}\TREF^1\rangle \ra \langle x\COL\set{z\mid z>0}\TREF^1\rangle$.
+We give a varible $a$ to this function, it will have $a\COL\set{z\mid T}\TREF^1 \Rightarrow a\COL\set{z\mid z>0}\TREF^1 \LET y=f(a) \IN\dots$.
+That is $\overrightarrow{E}\COL \LET y=[ ] \IN\dots, D(f)[a/x]$.

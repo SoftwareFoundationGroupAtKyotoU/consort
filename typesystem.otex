@@ -9,6 +9,16 @@ before describing our fractional ownership refinement types
 and finally close with our soundness statement
 (\cref{sec:soundness}).
 
+\AI{\rn{T-Let} loses information that $x$ is equal to $y$ (unlike \rn{T-LetInt}).}
+
+\AI{\rn{T-Let} discards all the refinement on \(x\).  Probably we should propagate it to $\tenv'$.}
+
+\AI{\rn{T-Let} and \rn{T-LetInt} can be merged.}
+
+\AI{\rn{T-Call} requires actual arguments to be variables introduced at the end of the type environment.  This is not a restriction because one can introduce let-expressions before a function call and alias-expressions after the call.}
+
+\AI{$\varepsilon$ in \rn{T-Prog} stands for the empty string.}
+
 \subsection{Background: Fractional Ownership Types}
 \label{sec:ownership}
 Before describing our type system in detail, we provide a brief
