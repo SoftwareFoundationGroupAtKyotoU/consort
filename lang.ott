@@ -283,6 +283,7 @@ grammar
 	| vsub G :: :: subst_var 
     | Gn+1 :: ::gn1 {{ tex \tenv_{n+1} }}
 	| G @ pp :: :: env_at_point {{ tex [[G]]^[[pp]] }}
+	| G1 + G2 :: :: env_comb {{ tex [[G1]] \uplus [[G2]] }}
 
   rel_op :: Rel ::=
     | <= :: :: ge
@@ -428,6 +429,7 @@ grammar
 
   VS :: 'VS_' ::= {{ com sets }}
     | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}
+	| VS1 /\ VS2 :: :: inter {{ tex [[VS1]] \cap [[VS2]] }}
 	| { bind } :: :: singleton {{ tex \set{[[bind]]} }}
 	| { bind1 ,, bindn } :: :: count {{ tex \set{[[bind1]],\ldots,[[bindn]]} }}
 	| { bind1 , ... , bindn } :: :: concr
@@ -468,14 +470,14 @@ grammar
 	| bind not in MF :: :: notInMap {{ tex [[bind]] \not\in \DOM([[MF]]) }}
 	| bind in VS :: :: inFv {{ tex [[bind]] \in [[VS]] }}
 	| bind not in VS :: :: notInFv {{ tex [[bind]] \not\in [[VS]] }}
-	| VS1 sub VS2 :: :: subset {{ tex [[VS1]] \subseteq [[VS2]] }}
+	| VS1 <= VS2 :: :: subset {{ tex [[VS1]] \subseteq [[VS2]] }}
 	| Rv is INT :: :: in_int {{ tex [[Rv]] \in [[INT]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
 	| EqT1 = EqT2 :: :: equate
 	| EqT1 = EqT2 ... = EqT3 :: :: eq_list 
 	| EqT1 != EqT2 :: :: ineq {{ tex [[EqT1]] \neq [[EqT2]] }}
-	| r1 <= r2 .. <= r3 :: :: rel_list
+	| r1 <= ... <= r3 :: :: rel_list
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
 	| exists Rv . formula :: :: eq

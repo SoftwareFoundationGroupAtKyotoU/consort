@@ -1154,12 +1154,20 @@ The followings are key lemmas:
 
 \begin{lemma}[Environment Weakening]
   \label{lem:tyenv-weaken}
-  For any $[[G]]$ and $[[ G'' ]]$ such that $[[dom G sub dom G'']]$ and $[[ forall x in dom G.G(x) = G''(x)]]$.
+  Define the partial operation $[[G1 + G2]]$ for two environments such $[[dom G1 /\ dom G2 = null]]$:
+  \[
+    [[(G1 + G2)(x)]] = \begin{cases}
+      [[G1(x)]] & [[ x in dom G1 ]] \\
+      [[G2(x)]] & [[ x in dom G2 ]] \\
+      \textit{undef} & o.w.
+    \end{cases}
+  \]
+  
+  Then, for any $[[G]]$ and $[[ G'' ]]$ where $[[ dom G /\ dom G'' = null ]]$:
   \begin{enumerate}
-  \item $[[ G |- T1 <: T2 ==> G'' |- T1 <: T2 ]]$
-  \item $[[G <: G' ==> G'' <: G''']]$ where $[[forall x in dom G'.G'''(x) = G'(x) /\ forall x not in dom G'.G'''(x) = G''(x)]]$.
-  \item Let $[[ Th | G | B |- e : T => G' ]]$. Then $[[ Th | G'' | B |- e : T => G''']]$ where
-    $[[G''' = G''[xi <- G'(xi)] ]]$ ($[[xi in G']]$).
+  \item $[[ G |- T1 <: T2 ==> G + G'' |- T1 <: T2 ]]$
+  \item $[[G <: G' ==> G + G'' <: G' + G'']]$
+  \item If $[[ Th | G | B |- e : T => G' ]]$, $[[ B |- G + G' ]]$ and $[[ B |- G' + G'']]$, then $[[ Th | G + G'' | B |- e : T => G'' + G]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
@@ -1167,9 +1175,9 @@ The followings are key lemmas:
   \item As in the proof of \cref{lem:ctxt-sub-subtype}, at the root of
     the subtyping derivation is a logical judgment of the form
     $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ which can be shown to be valid. We
-    must then show that $[[ |= [ G'' ] /\ ph1 ==> ph2 ]]$ is valid. As
-    $[[ [ G'' ] /\ ph1 ]]$ only strengthens the pre-condition
-    $[[ [ G ] /\ ph1 ]]$, the $[[ |= [ G'' ] /\ ph1 ==> ph2 ]]$ must
+    must then show that $[[ |= [ G + G'' ] /\ ph1 ==> ph2 ]]$ is valid. As
+    $[[ [ G'' + G] /\ ph1 = [G''] /\ [G] /\ ph ]]$ only strengthens the pre-condition
+    $[[ [ G ] /\ ph1 ]]$, $[[ |= [ G''  + G] /\ ph1 ==> ph2 ]]$ must
     also be valid.
   \item It suffices to show that $[[G'' |- G''(x) <: G'''(x)]]$ for
     any arbitrary $[[x]]$. If $[[x in G']]$ then by we must have
@@ -1179,25 +1187,61 @@ The followings are key lemmas:
     If $[[ x not in G' ]]$, then $[[empty |- G''(x) <: G'''(x)]]$ and the result holds
     again from part 1.
   \item By straightforward induction on the typing derivation of
-    $[[ Th | G | B |- e : T => G' ]]$. The only interesting cases are
-    \rn{T-Sub} and \rn{T-Assert}. \rn{T-Sub} follows from using parts
-    1 and 2.  \rn{T-Assert} requires showing that
-    $[[ |= [G''] ==> ph ]]$. As the source term was well typed,
-    $[[ |= [G] ==> ph ]]$ is valid, and as $[[ [G''] ]]$ only
-    strengthens the hypothesis $[[ [G] ]]$, $[[ |= [G''] ==> ph]]$ must
-    also be valid.
+    $[[ Th | G | B |- e : T => G' ]]$. We assume that the variables bound in
+    any let expressions that appear within $[[e]]$ are not in the domain
+    of $[[G'']]$; this requirement can be easily enforced with
+    consistent renaming. The only interesting cases are
+    \rn{T-Sub} and \rn{T-Assert};  the other cases follow from the induction hypothesis.
+    
+    Notice that for the cases with let bindings, to use the inductive
+    hypothesis we must show that $[[ B |- G + G'', x: T' ]]$ and $[[ B |- G' + G'',x : T'' ]]$
+    for some $[[T']], [[T'']]$ and where $[[x]]$ is the variable being bound.
+    
+    The former follows from that $[[ G | B |- T' ]]$ for any type $[[T']]$ bound by a let
+    expression, and that $[[ dom G <= dom G + G'' ]]$.
+    The latter follows from $[[ B |- T => G',x:T'' ]]$
+    (by \cref{lem:type-result-wf}) and $[[ B |- G' + G'' ]]$.
+
+    We now turn to the remaining two relevant cases.
+
+    \begin{rneqncase}{T-Sub}{
+        [[ G <: G3 ]] & [[ Th | G3 | B |- e : T2 => G4 ]] \\
+        [[ G4,T2 <: G',T ]] & [[ B |- G3 ]] \\
+        [[ B |- T => G' ]]
+      }
+      From the rules for subtyping, we must have
+      $[[ dom G3 <= dom G ]]$ and $[[ dom G' <= dom G4 ]]$. A simple inductive argument
+      gives that $[[ dom G4 <= dom G3 ]]$, therefore we have $[[ dom G3 <= dom G' ]]$.
+      Let $\mathcal{LV}$ be the set of free variables in the refinements of $[[G'']]$
+      that are not in the domain of $[[G'']]$. From the assumed well-formedness of
+      $[[ B |- G' + G'' ]]$, we must have that
+      $\forall x \in \mathcal{LV}.[[x in dom G' /\ [S G'(x) ] = int ]]$. Thus,
+      $\mathcal{LV} \subseteq [[G3]] [[/\]] \mathcal{LV} \subseteq [[G4]]$. Further, by definition,
+      if $[[ Gi <: Gj ]]$, then $[[forall x in dom Gj. [S Gj(x)] = [S Gi(x)] ]]$ for
+      any environments $[[Gi]], [[Gj]]$. We conclude that $[[ B |- G3 + G'' ]]$ and
+      $[[ B |- G4 + G'']]$, whereby the inductive hypothesis gives
+      $[[ Th | G3 + G'' | B |- e : T2 => G4 + G'' ]]$. To prove the overall result, we must
+      show that $[[ G + G'' <: G3 + G'' ]]$ and $[[ G4 + G'',T2 <: G' + G'',T ]]$
+      which follow from parts 1 and 2 above.
+    \end{rneqncase}
+    \begin{rncase}{T-Assert}
+      We must show that $[[ |= [G'' + G] ==> ph ]]$ which is equivalent to
+      $[[ |= [G''] /\ [G] ==> ph ]]$. As the source term was well typed,
+      $[[ |= [G] ==> ph ]]$ is valid, we must then have $[[ |= [G''] /\ [G] ==> ph ]]$
+      whereby the inductive hypothesis gives the required result.
+    \end{rncase}
   \end{enumerate}
 \end{proof}
 
 \begin{lemma}
-  Let $[[ E[let x = f l (y1,,yn) in e'] ]]$ be a term in a program
-  $[[ <D, e> ]]$ such that:
   \label{lem:callfunc}
+  Let $[[ E[let x = f l (y1,,yn) in e'] ]]$ be a term such that:
+  
   \begin{bcpcasearray}
     [[ Th | G0 | ll |- let x = f l (y1,,yn) in e' : T1 => G1 ]] &  [[ csub = [l:ll/A] ]] \\
     [[ Th | [] : T1 => G1 | ll |-e E : T2 => G2 ]] & [[ vsub = [y1/x1],,[yn/xn] ]] \\
     [[ f |-> ( x1, .. ,xn) e' in D]] & [[ Th |- f |-> (x1,..,xn) e ]] \\
-    [[ ll |- G0 ]] & 
+    [[ ll |- G0 ]] &  [[ |- Th ]]
   \end{bcpcasearray}
 
   where $[[Th(f) = A < x1 : T1 ,, xn: Tn> -> <x1: T1',,xn:Tn' | Tq >]]$.
@@ -1218,6 +1262,7 @@ The followings are key lemmas:
     & [[ Gp' = Gp0 \ x ]] \\
     & [[ Th | Gp[yi <- csub vsub Ti'],x: csub vsub Tq | ll |- e' : Tp => Gp0 ]] \label{eqn:let-body-well-typed} \\
     & [[ ll |- Tp => Gp0 \ x ]]
+    & [[ ll |- Gp ]] \label{eqn:sub-in-env-wf} \\
   \end{align}
   
   To prove the first part, from the well-typing of the function body, we have
@@ -1227,7 +1272,8 @@ The followings are key lemmas:
   By \cref{lem:ctxt-subst-well-typed} we then have
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
   We take $[[T3 = csub vsub Tq ]]$ and $[[ G3 = Gp[yi <- csub vsub Ti'] ]]$,
-  and by \cref{lem:tyenv-weaken,eqn:arg-typed} we have
+  By the well-formedness of function types, we must have that $[[ ll |- G3 ]]$
+  and by \cref{eqn:arg-typed,eqn:sub-in-env-wf,lem:tyenv-weaken} we have
   $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whence an application of \rn{T-Sub}
   using $[[ G0 <: Gp ]]$ gives $[[ Th | G0 | l:ll |- vsub e : T3 => G3 ]]$
   gives the first result.
@@ -1250,7 +1296,7 @@ The followings are key lemmas:
   application of \rn{T-Sub}.
 
   Finally, \cref{eqn:x-not-free} holds as, by definition $[[ x not in dom Gp' ]]$
-  and $[[ Gp' <: G1 ==> dom G1 sub dom Gp' ]]$.
+  and $[[ Gp' <: G1 ==> dom G1 <= dom Gp' ]]$.
 \end{proof}
 
 \begin{lemma}
