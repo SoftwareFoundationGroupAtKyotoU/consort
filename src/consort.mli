@@ -7,7 +7,6 @@ module Options :
       | Null
 
     type t = {
-      debug_pred: bool;
       debug_cons: bool;
       debug_ast: bool;
       save_cons: string option;

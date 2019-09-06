@@ -49,7 +49,6 @@ module Options = struct
     | Null
   
   type t = {
-    debug_pred: bool;
     debug_cons: bool;
     debug_ast: bool;
     save_cons: string option;
@@ -66,7 +65,6 @@ module Options = struct
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
 
   let default = {
-    debug_pred = false;
     debug_cons = false;
     save_cons = None;
     debug_ast = false;
@@ -86,13 +84,12 @@ module Options = struct
   let debug_arg_gen () =
     let open Arg in
     let debug_cons = ref default.debug_cons in
-    let debug_pred = ref default.debug_pred in
     let debug_ast = ref default.debug_ast in
     let show_model = ref default.print_model in
     let annot_infr = ref default.annot_infr in
     let dry_run = ref default.dry_run in
     let save_cons = ref default.save_cons in
-    let all_debug_flags = [ debug_cons; debug_pred; debug_ast; show_model ] in
+    let all_debug_flags = [ debug_cons; debug_ast; show_model ] in
     let mk_arg key flg what =
       [
         ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
@@ -101,7 +98,6 @@ module Options = struct
     let arg_defs =
       (mk_arg "cons" debug_cons "constraints sent to Z3") @
         (mk_arg "ast" debug_ast "(low-level) AST") @
-        (mk_arg "pred" debug_pred "predicate explanations") @
         (mk_arg "model" show_model "inferred model") @
         [
           ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
@@ -117,7 +113,6 @@ module Options = struct
         ] in
     (arg_defs, (fun ?(comb=default) () ->
        { comb with
-         debug_pred = !debug_pred;
          debug_ast = !debug_ast;
          print_model = !show_model;
          annot_infr = !annot_infr;
@@ -169,10 +164,10 @@ let infer opts intr simple_res ast =
   let open Options in
   let save_types = opts.Options.annot_infr || opts.Options.check_trivial in
   if (not opts.Options.seq_solver) then
-    Inference.infer ~print_pred:opts.debug_pred ~save_types ~intrinsics:intr.Intrinsics.op_interp simple_res ast
+    Inference.infer ~save_types ~intrinsics:intr.Intrinsics.op_interp simple_res ast
     |> Option.some
   else
-    let r = Inference.infer ~print_pred:false ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
+    let r = Inference.infer ~save_types:true ~intrinsics:intr.Intrinsics.op_interp simple_res ast in
     let module R = Inference.Result in
     match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts r with
     | None -> None
@@ -205,7 +200,6 @@ let infer opts intr simple_res ast =
             result_type = map_type result_type
           }) r.R.theta in
       Inference.infer
-        ~print_pred:opts.debug_pred
         ~save_types
         ~o_solve:(o_gamma_tbl,o_theta)
         ~intrinsics:intr.Intrinsics.op_interp
