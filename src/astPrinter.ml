@@ -200,7 +200,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
   match e with
   | Seq _ -> e_printer
   | _ -> (fun ff ->
-      annot id ff;
+      annot id e ff;
       e_printer ff)
 and pp_cond ~ip:((po_id,_) as ip) ~annot id cond v tr fl =
   pblock
@@ -267,7 +267,7 @@ let id_printer labels =
   else
     (fun () _ -> (fun _ff -> ())),(fun () _ -> (fun _ff -> ()))
     
-let pretty_print_program ?(with_labels=true) ?(annot_fn=(fun _ _ -> ())) ?(annot=(fun _ _ -> ())) out_chan prog =
+let pretty_print_program ?(with_labels=true) ?(annot_fn=(fun _ _ -> ())) ?(annot=(fun _ _ _ -> ())) out_chan prog =
   let ff = Format.formatter_of_out_channel out_chan in
   pprint_prog ~ip:(id_printer with_labels) ~annot_fn ~annot ff prog;
   Format.pp_print_newline ff ()

@@ -82,22 +82,24 @@ type ptr_op = (int * TyCons.t * typ)
 type side_results = {
   t_cons: tuple_cons list;
   assign_locs: ptr_op list;
-  deref_locs: ptr_op list
+  deref_locs: ptr_op list;
+  let_types: typ Std.IntMap.t;
 }
 
 module SideAnalysis = struct
   type results = {
     unfold_locs: Std.IntSet.t;
-    fold_locs: Std.IntSet.t
+    fold_locs: Std.IntSet.t;
+    let_types:  SimpleTypes.r_typ Std.IntMap.t
   }
 end
 
-type simple_results = SimpleTypes.funtyp StringMap.t* (int -> (SimpleTypes.r_typ StringMap.t) option) * SideAnalysis.results
+type simple_results = SimpleTypes.funtyp StringMap.t * SideAnalysis.results
 
 type fn_ctxt = {
   sub: sub_ctxt;
   fenv: funenv;
-  tyenv: tyenv
+  tyenv: tyenv;
 }
 
 let fresh_cons_id sub_ctxt t =
@@ -254,8 +256,7 @@ let dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
       [@@ocaml.warning "-32"]
 
-let rec process_expr save_type ctxt (id,e) res_acc =
-  save_type id ctxt.tyenv;
+let rec process_expr ctxt (id,e) res_acc =
   let resolv = function
     | `Var v -> `Var (UnionFind.find ctxt.sub.uf v)
     | t -> t
@@ -292,7 +293,10 @@ let rec process_expr save_type ctxt (id,e) res_acc =
   let record_tcons tup_var ind pvar acc =
     { acc with t_cons = { var = tup_var; ind; unif = pvar }::acc.t_cons }
   in
-  let (>&>) (a,t1) b =
+  let save_let ty acc =
+    { acc with let_types = Std.IntMap.add id ty acc.let_types }
+  in
+  let (>||>) (a,t1) b =
     let (a',t2) = b a in
     unify t1 t2;
     a',t2
@@ -309,28 +313,28 @@ let rec process_expr save_type ctxt (id,e) res_acc =
   | EVar v -> res_acc,lkp v
   | Cond (v,e1,e2) ->
     unify_var v `Int;
-    process_expr save_type ctxt e1 res_acc
-    >&> process_expr save_type ctxt e2
+    process_expr ctxt e1 res_acc
+    >||> process_expr ctxt e2
   | NCond (v,e1,e2) ->
     unify_ref v @@ fresh_var ();
-    process_expr save_type ctxt e1 res_acc
-    >&> process_expr save_type ctxt e2
+    process_expr ctxt e1 res_acc
+    >||> process_expr ctxt e2
   | Seq (e1,e2) ->
-    process_expr save_type ctxt e1 res_acc
-    >> process_expr save_type ctxt e2
+    process_expr ctxt e1 res_acc
+    >> process_expr ctxt e2
   | Assign (v1,IInt _,e) ->
     unify_ref v1 `Int;
-    process_expr save_type ctxt e res_acc
+    process_expr  ctxt e res_acc
   | Assign (v1,IVar v2,e) ->
     let acc,c_id = save_assign v2 in
     unify_var v1 @@ `TyCons c_id;
-    process_expr save_type ctxt e acc
+    process_expr ctxt e acc
   | Update (v1,ind,u,e) ->
     let d = fresh_var () in
     unify_var v1 @@ `Array d;
     unify_var ind `Int;
     unify_var u @@ d;
-    process_expr save_type ctxt e res_acc
+    process_expr ctxt e res_acc
   | Alias (v, ap,e) ->
     let fresh_node () = UnionFind.new_node ctxt.sub.uf in
     let find ap =
@@ -355,19 +359,19 @@ let rec process_expr save_type ctxt (id,e) res_acc =
     in
     let (acc,ty) = find ap in
     unify (lkp v) ty;
-    process_expr save_type ctxt e acc
+    process_expr ctxt e acc
   | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1 `Int;
     unify_imm rop2 `Int;
-    process_expr save_type ctxt e res_acc
+    process_expr ctxt e res_acc
   | EAnnot (g,e) ->
     List.iter (fun (k,t) ->
         unify_var k @@ abstract_type ctxt.sub @@ RefinementTypes.to_simple_type t
       ) g;
-    process_expr save_type ctxt e res_acc
+    process_expr ctxt e res_acc
   | Let (PVar v,Mkref (RVar v'),expr) ->
     let acc,c_id = save_assign v' in
-    process_expr save_type (add_var v (`TyCons c_id) ctxt) expr acc
+    process_expr (add_var v (`TyCons c_id) ctxt) expr @@ save_let (`TyCons c_id) acc
   | Let (p,lhs,expr) ->
     let res_acc',v_type =
       let same t = res_acc,t in
@@ -421,12 +425,12 @@ let rec process_expr save_type ctxt (id,e) res_acc =
         acc''
     in
     let ctxt' = unify_patt ctxt p v_type in
-    process_expr save_type ctxt' expr res_acc'
+    process_expr ctxt' expr @@ save_let v_type res_acc'
 
-let constrain_fn save_type sub fenv acc ({ name; body; _ } as fn) =
+let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt =  { sub; fenv; tyenv  } in
-  let acc',out_type = process_expr save_type ctxt body acc in
+  let acc',out_type = process_expr ctxt body acc in
   unify ctxt.sub out_type (`Var (StringMap.find name fenv).ret_type_v);
   acc'
 
@@ -482,15 +486,14 @@ let typecheck_prog intr_types (fns,body) =
       }
     ) intr_types fenv_
   in
-  let cached : (int,typ SM.t) Hashtbl.t = Hashtbl.create 10 in
-  let save_type = Hashtbl.add cached in
-  let acc = List.fold_left (constrain_fn save_type sub fenv)  {
+  let acc = List.fold_left (constrain_fn sub fenv)  {
       t_cons = [];
       assign_locs = [];
-      deref_locs = []
+      deref_locs = [];
+      let_types = Std.IntMap.empty
     } fns
   in
-  let (acc',_) = process_expr save_type {
+  let (acc',_) = process_expr {
     sub; fenv; tyenv = StringMap.empty; 
     } body acc
   in
@@ -508,19 +511,13 @@ let typecheck_prog intr_types (fns,body) =
   let fold_locs = get_rec_loc sub acc'.assign_locs in
   let unfold_locs = get_rec_loc sub acc'.deref_locs in  
   let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in
-  let lkp = (fun i ->
-    match Hashtbl.find_opt cached i with
-    | None -> None
-    | Some e ->
-      let mapped = SM.map get_soln e in
-      Some mapped
-  ) in
   (List.fold_left (fun acc { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
     let arg_types = List.map get_soln @@ List.map (fun x -> `Var x) arg_types_v in
     let ret_type = get_soln @@ `Var ret_type_v in
     StringMap.add name { arg_types; ret_type } acc
-   ) StringMap.empty fns),lkp,SideAnalysis.(
+   ) StringMap.empty fns),SideAnalysis.(
     { unfold_locs = Std.IntSet.of_list unfold_locs;
-      fold_locs = Std.IntSet.of_list fold_locs
+      fold_locs = Std.IntSet.of_list fold_locs;
+      let_types = Std.IntMap.map get_soln acc'.let_types
     })
