@@ -3,6 +3,7 @@
   let y = x in
   let z1 = *y in
   let z2 = *x in {
+  	y := 1;
     x := 0;
 	let z3 = *x in assert(z3 = 0)
   }

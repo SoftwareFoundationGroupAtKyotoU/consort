@@ -105,7 +105,7 @@ let rec pp_typ t =
   let open RefinementTypes in
   let t_printer = match t with
     | Int r -> pf "%a int" (ul pp_ref_ast) r
-    | Ref (t,OConst o,_) -> pf "%a ref %f" (ul pp_typ) t o
+    | Ref (t,o,_) -> pf "%a ref %f" (ul pp_typ) t o
     | Tuple (bl,t) ->
       let ty_printers =
         List.mapi (fun i t ->
@@ -127,7 +127,8 @@ let rec pp_typ t =
         psep_gen (pf ",@ ") ty_printers;
         ps ")"
       ]
-    | _ -> failwith @@ "Can't print type " ^ (string_of_type t)
+    (* TODO: make a generic version of type to string for god's sake *)
+    | _ -> failwith @@ "Can't print type"
   in
   pb [
     t_printer

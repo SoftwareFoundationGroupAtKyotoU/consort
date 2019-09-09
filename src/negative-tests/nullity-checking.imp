@@ -1,0 +1,18 @@
+insert(x, p) {
+  let hd = *p in
+  ifnull hd then {
+    p := mkref x
+  } else {
+    alias(hd = *p);
+  }
+}
+
+{
+  let l = mkref null in {
+    let g = _ in {
+      insert(g, l);
+      let d = *l in
+	  let k = *d in assert(k = 0);
+    }
+  }
+}

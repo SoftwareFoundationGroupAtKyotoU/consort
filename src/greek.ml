@@ -1,3 +1,4 @@
 let alpha = "\xCE\xB1"
 let nu = "\xCE\xBD"
 let mu = "\xCE\xBC"
+let bot = "\xe2\x8a\xa5"

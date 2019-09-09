@@ -130,10 +130,10 @@ module StateMonad = struct
   (* sequencing and the dual of the above.
      Produce a computation that transforms the state according to d1
      and then produces a state and value according to d2 in the new state *)
-  let (>>) d1 d2 = (fun ctxt -> let c = d1 ctxt in d2 c)
+  let (>>) d1 d2 = (fun ctxt -> let (c,()) = d1 ctxt in d2 c)
 
   (* sugar *)
-  let map_state f ctxt = f ctxt
+  let map_state f ctxt = (f ctxt,())
 
   (* reify the state *)
   let get_state = fun ctxt -> ((),ctxt)
