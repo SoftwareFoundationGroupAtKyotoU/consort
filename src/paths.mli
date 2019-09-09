@@ -1,6 +1,7 @@
 type 'a _const_ap = [
   `ALen of 'a
 | `APre of string
+| `ARet (* the return type *)
 | `AProj of 'a * int
 | `AVar of string
 ] [@@deriving sexp]
@@ -48,7 +49,7 @@ val has_root_p :
   bool
 
 val map_root :
-  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `APre `AProj `AVar] as 'b) -> 'b
+  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `APre `AProj `AVar `ARet] as 'b) -> 'b
 
 val is_array_path:
   ([< 'a t_templ > `ADeref `AElem `AInd `ALen `AProj ] as 'a) -> bool

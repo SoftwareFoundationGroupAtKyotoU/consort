@@ -16,14 +16,28 @@
  (modules Parser Ast SurfaceAst AstPrinter SimpleChecker Lexer LabelManager SimpleTypes RefinementTypes Paths AstUtil Intrinsics))
 
 (library
+ (name solving)
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (wrapped false)
+ (libraries util)
+ (modules Z3Channel Solver SolverBridge))
+
+(library
+ (name ownership)
+ (preprocess (pps ppx_let with_monad ppx_sexp_conv))
+ (wrapped false)
+ (libraries lang util solving)
+ (modules OwnershipInference OwnershipSolver))
+
+(library
  (name consort)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad))
  (wrapped false)
- (libraries sexplib util lang str)
+ (libraries sexplib util lang str solving)
  (modules Inference KCFA
-          HornBackend OwnershipSolver SmtBackend
-          Z3BasedBackend Z3Channel Consort SmtLibBackend
-          Solver HoiceBackend SolverBridge NullSolver))
+          HornBackend SmtBackend
+          Z3BasedBackend Consort SmtLibBackend
+          HoiceBackend NullSolver))
 
 (executable
  (name test)
@@ -48,7 +62,7 @@
 
 (executable
  (name ownership)
- (libraries consort)
+ (libraries ownership)
  (modules Ownership))
             
 (executable
