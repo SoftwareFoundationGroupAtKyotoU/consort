@@ -5,6 +5,7 @@ type 'a _const_ap = [
   | `ALen of 'a
   | `AProj of 'a * int
   | `APre of string
+  | `ARet
 ] [@@deriving sexp]
 
 type const_ap = const_ap _const_ap [@@deriving sexp]
@@ -27,12 +28,14 @@ let rec to_z3_ident = function
   | `AElem a -> Printf.sprintf "%s->$i" @@ to_z3_ident a
   | `AVar v -> v
   | `APre v -> Printf.sprintf "%s!old" v
+  | `ARet -> "$ret"
 
 let rec pre = function
   | `ADeref f -> `ADeref (pre f)
   | `AProj (d,i) -> `AProj (pre d,i)
   | `AVar v -> `APre v
   | `APre v -> `APre v
+  | `ARet
   | `AInd _
   | `AElem _
   | `ALen _ -> failwith "Not supported"
@@ -53,6 +56,7 @@ let rec is_pre : ([< 'b t_templ] as 'b) -> bool = function
 let rec is_const_ap : ([< 'b t_templ] as 'b) -> bool = function
   | `APre _
   | `AVar _ -> true
+  | `ARet -> false
   | `ALen ap
   | `AProj (ap,_) -> is_const_ap ap
   | `AInd _
@@ -61,6 +65,7 @@ let rec is_const_ap : ([< 'b t_templ] as 'b) -> bool = function
 
 let rec has_root_p p = function
   | `AVar v -> p v
+  | `ARet
   | `APre _ -> false
   | `ALen ap
   | `AInd ap
@@ -74,6 +79,7 @@ let has_root v = has_root_p @@ (=) v
 let rec map_root (f: string -> string) = function
   | `AVar s -> `AVar (f s)
   | `APre s -> `APre (f s)
+  | `ARet -> `ARet 
   | `ALen ap -> `ALen (map_root f ap)
   | `AElem ap -> `AElem (map_root f ap)
   | `AInd ap -> `AElem (map_root f ap)
@@ -90,6 +96,7 @@ let rec is_array_path : ([< 'a t_templ] as 'a) -> bool = function
 
 let rec compare =
   let constr_code : ([< 'b t_templ] as 'b) -> int = function
+    | `ARet -> 0
     | `APre _ -> 1
     | `AVar _ -> 2
     | `AProj _ -> 4
@@ -115,9 +122,11 @@ let rec compare =
       | `AProj (sub1,ind1),`AProj (sub2,ind2) ->
         let cmp = compare (sub1 :> 'b) (sub2 :> 'b) in
         if cmp <> 0 then cmp else ind1 - ind2
+      | `ARet,`ARet -> 0
       | _,_ -> assert false
 
 let rec unsafe_get_root = function
+  | `ARet
   | `APre _ -> raise @@ Invalid_argument "not rooted in var"
   | `AVar v -> v
   | `AProj (ap,_)
@@ -137,6 +146,7 @@ let rec has_prefix (d: [< 'a t_templ] as 'a) (g: 'a) =
     | `AInd ap
     | `AElem ap -> has_prefix d ap
     | `AVar _
+    | `ARet
     | `APre _ -> false
 
 
@@ -146,5 +156,4 @@ module PathOrd = struct
 end
 
 module PathSet = Set.Make(PathOrd)
-
 module PathMap = Map.Make(PathOrd)

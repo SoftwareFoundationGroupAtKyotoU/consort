@@ -1,6 +1,18 @@
 open SexpPrinter
-open RefinementTypes
-open Inference
+
+type ownership =
+    OVar of int
+  | OConst of float
+
+type ocon =
+  (* Constraint ownership variable n to be 1 *)
+  | Write of ownership
+  (* ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
+  | Shuff of (ownership * ownership) * (ownership * ownership)
+  | Split of ownership * (ownership * ownership)
+  | Eq of ownership * ownership
+  (* For well-formedness: if o1 = 0, then o2 = 0 *)
+  | Wf of ownership * ownership
 
 let owner_fact = 0.02
 
@@ -45,12 +57,6 @@ let pp_oconstraint ff ocon =
                        plift "1.0"
                      ]
                    ]
-    | Live o -> pg "assert" [
-                    pg ">" [
-                      po o;
-                      plift "0.0"
-                    ]
-                  ]
     | Shuff ((o1,o2),(o1',o2')) ->
       pg "assert" [
           pg "=" [
@@ -107,18 +113,8 @@ let rec extract_assoc m acc =
     extract_assoc l @@ (nm,ty,body)::acc
   | _::l -> extract_assoc l acc
   | [] -> acc
-
-let print_ownership o_vals sexp_buf =
-  List.iter (fun (o_var,o_val) ->
-    pg "define-const" [
-      pl @@ ovar_name o_var;
-      pl "Real";
-      pl @@ string_of_float o_val
-    ] sexp_buf.printer;
-    break sexp_buf) o_vals
-      
-let solve_ownership ~opts ?save_cons r =
-  let { Inference.Result.ovars; Inference.Result.ownership = ocons; _ } =  r in
+    
+let solve_ownership ~opts ?save_cons (ovars,ocons) =
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;

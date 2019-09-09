@@ -494,11 +494,13 @@ let compile_type_path t1 ap = compile_type_gen t1 ap []
 let compile_type t1 root =
   compile_type_path t1 @@ `AVar root
 
+(* TODO: get rid of this? do we even use it? *)
 let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
   let rec inner_loop ap' c =
     match ap' with
     | `ALen _
     | `AInd _
+    | `ARet 
     | `APre _ -> failwith "V illegal"
     | `AElem ap ->
       inner_loop ap (fun b t' ->
