@@ -15,7 +15,9 @@ loop(i,n,q) {
   if n > 0 then {
     loop(0,n,q);
 	let d = *q in
-	let a = *d in
-	assert(a = 1)
+	let a = *d in {
+	assert(a = 1);
+	alias(d = *q)
+	}
   } else ()
 }

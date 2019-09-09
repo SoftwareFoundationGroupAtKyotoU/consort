@@ -1,9 +1,5 @@
-exception OwnershipFailure
-
 module type STRATEGY = sig
-  val ownership: Inference.Result.t -> SexpPrinter.t -> unit
   val solve: Solver.solve_fn
-  val ownership_ante : Inference.oante -> (Sexplib.Sexp.t -> 'a) -> 'a
 end
 
 type intrinsic_interp  = (string StringMap.t) * string option
@@ -64,8 +60,6 @@ end = struct
     | None,(CtxtPred _ | NamedPred _ | Pred _ | ConstEq _) ->
       failwith "Malformed refinement: expect a nu binder but none was provided"
         
-  let pp_owner_ante = S.ownership_ante
-
   let close_env env ante conseq =
     let module SS = Std.StringSet in
     let update acc =
@@ -170,7 +164,7 @@ end = struct
       in
       impl_loop lh t
 
-  let pp_constraint ~interp ff { env; ante; conseq; owner_ante; nullity; target } =     
+  let pp_constraint ~interp ff { env; ante; conseq; nullity; target } =     
     let gamma = close_env env ante conseq in
     let context_vars = List.init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
     let env_vars =
@@ -186,7 +180,6 @@ end = struct
       let%bind pred_nullity = lift_nullity_chain nullity in
       let%bind (nullity_ante,b_vars) = get_state in
       let null_args = List.map (Printf.sprintf "(%s Bool)") @@ StringSet.elements b_vars in
-      let oante = List.map pp_owner_ante owner_ante in
       
       let nullity_assume =
         NullityMap.fold (fun src dst_set acc1 ->
@@ -197,7 +190,7 @@ end = struct
              ])::acc2
           ) dst_set acc1
         ) nullity_ante [] in
-      let e_assum = oante @ nullity_assume @ denote_gamma in
+      let e_assum = nullity_assume @ denote_gamma in
       let free_vars = StringSet.fold (fun nm acc ->
           (Printf.sprintf "(%s Int)" nm)::acc
         ) env_vars @@ context_vars @ null_args
@@ -242,11 +235,7 @@ end = struct
           
       end;
     ) arity;
-    try
-      S.ownership infer_res ff;
-      List.iter (pp_constraint ~interp ff) refinements;
-      SexpPrinter.finish ff;
-      S.solve ~opts ~debug_cons ?save_cons ~get_model ~defn_file ff
-    with
-      OwnershipFailure -> Unsat
+    List.iter (pp_constraint ~interp ff) refinements;
+    SexpPrinter.finish ff;
+    S.solve ~opts ~debug_cons ?save_cons ~get_model ~defn_file ff
 end

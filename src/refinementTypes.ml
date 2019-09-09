@@ -106,7 +106,8 @@ type 'a inductive_preds = {
 } [@@deriving sexp]
 
 type symbolic_refinement = (refine_ap list,refine_ap) refinement [@@deriving sexp]
-type typ = (symbolic_refinement,ownership,symbolic_refinement inductive_preds,nullity) _typ [@@deriving sexp]
+type typ = (symbolic_refinement,bool,symbolic_refinement inductive_preds,nullity) _typ [@@deriving sexp]
+type src_typ = (symbolic_refinement,float,symbolic_refinement inductive_preds,nullity) _typ [@@deriving sexp]
 type ftyp = typ [@@deriving sexp]
 
 type 'a _funtype = {
@@ -115,16 +116,16 @@ type 'a _funtype = {
   result_type: 'a
 }[@@deriving sexp]
 
-type walk_pos = {
+type 'a walk_pos = {
   under_mu: bool;
   array: arr_bind list;
   under_ref: bool;
   array_ref: bool;
   rec_args: rec_args;
-  nullity : nullity list;
+  olist: 'a list;
 }
 
-let empty_pos = {under_mu=false;array = [];under_ref=false;array_ref = false; rec_args = [];nullity = []}
+let empty_pos = {under_mu=false;array = [];under_ref=false;array_ref = false; rec_args = []; olist = []}
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
@@ -252,7 +253,7 @@ let partial_subst (subst_assoc : (int * [< refine_ap]) list) : (refine_ap list, 
 
 let unfold_gen ~gen ~rmap ~iref:(apply_ref,imap) arg ind_ref id t_in =
   let codom = List.map snd arg in
-  (* I am almost certain these are equal, and we can do away with them *)
+  (* TODO: I am almost certain these are equal, and we can do away with them *)
   let gen_var_for i (subst,acc) = 
     let fresh_var = gen () in
     ((i,fresh_var)::subst,
@@ -396,15 +397,15 @@ let rec walk_with_bindings_own ?(pos=empty_pos) ~mu_map ~o_map f root bindings t
     let%bind r' = f ~pos root (filter_fv root sym_vals sym_fv,sym_vals) r in
     return @@ Int r'
   | Ref (t',o,n) ->
-    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true; nullity = n::pos.nullity} ~o_map ~mu_map f (`ADeref root) bindings t' in
-    let%bind o' = o_map o in
+    let%bind o' = o_map o root in
+    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true; olist = o'::pos.olist} ~o_map ~mu_map f (`ADeref root) bindings t' in
     return @@ Ref (t'',o',n)
   | Array (b,len_r,o,et) ->
     let len_path = `ALen root in
     let bindings' = update_binding_gen (bind_of_arr b root) bindings in
     let%bind len_r' = f ~pos:{pos with array_ref = true} len_path bindings len_r in
-    let%bind o' = o_map o in
-    let%bind et' = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true} ~mu_map ~o_map f (`AElem root) bindings' et in
+    let%bind o' = o_map o root in
+    let%bind et' = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true;olist = o'::pos.olist} ~mu_map ~o_map f (`AElem root) bindings' et in
     return @@ Array (b,len_r',o',et')
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
@@ -423,8 +424,18 @@ let rec walk_with_bindings_own ?(pos=empty_pos) ~mu_map ~o_map f root bindings t
     let%bind tl' = loop tl_named in
     return @@ Tuple (b,tl')
 
-let walk_with_bindings ?(o_map=(fun o c -> (c,o))) f root bindings t a =
-  walk_with_bindings_own ~o_map ~mu_map:((fun _ _ _ -> return ()),(fun _ fv -> return fv)) f root bindings t a
+let id_mu_map =
+  (fun _ _ _ -> return ()),
+  (fun _ fv -> return fv)
+
+let id_pred_map = (fun ~pos:_ _ _ r -> return r)
+
+let id_omap = (fun o _ -> return o)
+
+let empty_bindings = ([],[])
+
+let walk_with_bindings ?(o_map=(fun o _ c -> (c,o))) f root bindings t a =
+  walk_with_bindings_own ~o_map ~mu_map:id_mu_map f root bindings t a
 
 let walk_with_path ?o_map f root =
   walk_with_bindings ?o_map (fun ~pos p _ r a' ->
@@ -539,11 +550,9 @@ let refine_ap_to_string = function
   | `Sym i -> Printf.sprintf "$%d" i
 
 
-let pp_owner =
+let pp_owner b =
   let open PrettyPrint in
-  function
-  | OVar o -> ps @@ Printf.sprintf "$o%d" o
-  | OConst f -> ps @@ Printf.sprintf "%f" f
+  ps @@ Printf.sprintf "%b" b
 
 let simplify_ref r_in = 
   let rec loop ~ex ~k r =
@@ -619,6 +628,11 @@ let pp_map () l =
     List.map (fun (i,j) ->
       pf "%d -> %d" i j
     ) l
+
+let pp_nullity = function
+  | NUnk -> PrettyPrint.ps "?"
+  | NLive -> PrettyPrint.ps "!"
+  | NNull -> PrettyPrint.ps Greek.bot
     
 let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : 'o -> Format.formatter -> unit) : ('a,'o,'m,'n) _typ -> Format.formatter -> unit =
   let open PrettyPrint in
@@ -665,10 +679,10 @@ let pp_type_gen (r_print: string -> 'a -> Format.formatter -> unit) (o_print : '
           pp_type et;
           pf "@ "; o_print o; ps "]"
         ]
-    | Ref (t,o,_) ->
+    | Ref (t,o,n) ->
       pb [
           pp_type t;
-          pf "@ ref@ ";
+          pf "@ ref%a@ " (ul pp_nullity) n;
           o_print o
         ]
     | TVar v -> pf "'%d" v

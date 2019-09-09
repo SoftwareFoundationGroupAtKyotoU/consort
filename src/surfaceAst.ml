@@ -37,7 +37,7 @@ type exp =
   | Assert of int * relation
   | Call of call
   | Seq of exp * exp
-  | EAnnot of int * (string * RefinementTypes.typ) list
+  | EAnnot of int * (string * RefinementTypes.src_typ) list
 
 type fn = string * string list * exp
 type prog = fn list * exp

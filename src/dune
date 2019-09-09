@@ -33,7 +33,7 @@
  (name consort)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad))
  (wrapped false)
- (libraries sexplib util lang str solving)
+ (libraries sexplib util lang str solving ownership)
  (modules Inference KCFA
           HornBackend SmtBackend
           Z3BasedBackend Consort SmtLibBackend
