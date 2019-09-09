@@ -109,6 +109,8 @@ let unsupported s = raise @@ Incompleteness s
 
 let do_with f l = ignore (f l); l
 
+let ignore_iref = (fun r _ -> r),(fun _ r -> r)
+
 let add_owner_con l ctxt = { ctxt with ownership = l @ ctxt.ownership  }
 
 let alloc_split o =
@@ -430,10 +432,9 @@ let mu_bind_update_cb =
     let ps' = List.map (fun (m_ap,r) ->
         let c_ap = root_mu_path path m_ap in
         let new_r = Paths.PathMap.find_opt c_ap bind_set in
-        match r,new_r with
-        | Some _, Some _
-        | None, _ -> (m_ap,new_r)
-        | Some _, None -> (m_ap, None)
+        match new_r with
+        | Some r' -> (m_ap,r')
+        | None -> (m_ap, r)
       ) pred_symbols in
     (ctxt,(Paths.PathMap.empty,Paths.PathMap.empty)),{fv_map; pred_symbols = ps' }
   in
@@ -765,7 +766,7 @@ let lift_to_refinement ~nullity ~pred initial_path fv t =
     let%bind (ctxt,_,bound_map_opt) = get_state in
     let bound_map = Option.get bound_map_opt in
     let pred_symbols = List.map (fun (mu_ap,_) ->
-        (mu_ap,Paths.PathMap.find_opt (root_mu_path path mu_ap) bound_map)
+        (mu_ap,Paths.PathMap.find (root_mu_path path mu_ap) bound_map)
       ) fv_list
     in
     let%bind () = put_state (ctxt,None,None) in
@@ -894,7 +895,7 @@ let merge_types ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bind_see
       Ref (to_type_template expl r, nullity_counter (), n)
     | Mu (a,{pred_symbols;fv_map},i,t) ->
       Mu (a,{
-            pred_symbols = List.map (fun (a,_) -> (a,None)) pred_symbols; fv_map
+            pred_symbols = List.map (fun (a,_) -> (a,Top)) pred_symbols; fv_map
           },i,to_type_template expl t)
     | TVar id -> TVar id
     | Tuple (b,tl) ->
@@ -941,7 +942,7 @@ let merge_types ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bind_see
   in
   let maybe_unfold f t =
     if f then
-      unfold_once_gen (unfold_gen ~gen:fresh_tvar ~apply_ref:(fun r _ -> r) ~rmap:(fun _ r -> r)) t
+      unfold_once_gen (unfold_gen ~gen:fresh_tvar ~iref:ignore_iref ~rmap:(fun _ r -> r)) t
     else
       t
   in
@@ -1864,7 +1865,7 @@ let propagate_nullity ~src ?(unfold_dst=false) ~dst =
   let ((o_map : ownership IntMap.t),tmpl) = to_template dst IntMap.empty in
   let tmpl_u =
     if unfold_dst then
-      unfold_once_gen (unfold_gen ~gen:fresh_tvar  ~rmap:(fun _ r -> r) ~apply_ref:(fun r _ -> r)) tmpl
+      unfold_once_gen (unfold_gen ~gen:fresh_tvar  ~rmap:(fun _ r -> r) ~iref:ignore_iref) tmpl
     else
       tmpl
   in
