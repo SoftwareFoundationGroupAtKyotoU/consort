@@ -100,7 +100,7 @@ type arg_refinment =
   | True[@@deriving sexp]
 
 type 'a inductive_preds = {
-  pred_symbols: (mu_ap * 'a option) list;
+  pred_symbols: (mu_ap * 'a) list;
   fv_map: (mu_ap * (int list * int list)) list;
 } [@@deriving sexp]
 
@@ -249,7 +249,7 @@ let partial_subst (subst_assoc : (int * [< refine_ap]) list) : (refine_ap list, 
   in
   loop
 
-let unfold_gen ~gen ~rmap ~apply_ref arg ind_ref id t_in =
+let unfold_gen ~gen ~rmap ~iref:(apply_ref,imap) arg ind_ref id t_in =
   let codom = List.map snd arg in
   (* I am almost certain these are equal, and we can do away with them *)
   let gen_var_for i (subst,acc) = 
@@ -288,11 +288,10 @@ let unfold_gen ~gen ~rmap ~apply_ref arg ind_ref id t_in =
   in
   
   let apply_pred {pred_symbols = pred_map; _} sub_map m_ap r =
-    let app = List.assoc_opt m_ap pred_map |> Option.join in
-    let app' = Option.map (rmap (sub_map @ arg)) app in
+    let app' = List.assoc m_ap pred_map |> imap (sub_map @ arg) in
     let outer_sub = rmap sub_map r in
-    let r' = Option.fold ~none:outer_sub ~some:(apply_ref outer_sub) app' in
-    let%bind () = mutate (fun l -> (m_ap,app')::l) in
+    let r' = apply_ref outer_sub app' in
+    let%bind () = mutate @@ fun l -> (m_ap,app')::l in
     return @@ r'
   in
   
@@ -348,7 +347,7 @@ let unfold ~gen arg ind_ref id t_in =
       ) sub_arg
   in
   let apply_ref r b = And (r,b) in
-  unfold_gen ~gen ~rmap:psub ~apply_ref arg ind_ref id t_in
+  unfold_gen ~gen ~rmap:psub ~iref:(apply_ref,psub) arg ind_ref id t_in
 
 (* TODO: this is the exact same function as compile_bindings... *)
 let subst_of_binding root = List.map (fun (i,p) ->
