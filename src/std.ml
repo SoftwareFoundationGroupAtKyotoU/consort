@@ -81,10 +81,18 @@ module StateMonad = struct
       let v = o ctxt in
       f v ctxt)
 
-    let do_mutate ~a ~b =
+    let seq ~a ~b =
       (fun ctxt ->
-        let ctxt' = a ctxt in
+        let (ctxt',()) = a ctxt in
         b ctxt')
+
+    let proj ~f ctxt =
+      let v = f ctxt in
+      (ctxt,v)
+
+    let mut ~f ctxt =
+      let ctxt' = f ctxt in
+      (ctxt',())
   end
 
   let return = Let_syntax.return
