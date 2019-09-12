@@ -99,6 +99,7 @@ type arg_refinment =
   | BuiltInPred of string
   | True[@@deriving sexp]
 
+(* this is not a good type *)
 type 'a inductive_preds = {
   pred_symbols: (mu_ap * 'a) list;
   fv_map: (mu_ap * (int list * int list)) list;
@@ -492,15 +493,6 @@ let compile_type_path t1 ap = compile_type_gen t1 ap []
 
 let compile_type t1 root =
   compile_type_path t1 @@ `AVar root
-
-let rec update_nth l i v =
-  match l with
-  | h::t ->
-    if i = 0 then
-      v::t
-    else
-      h::(update_nth t (i - 1) v)
-  | [] -> raise @@ Invalid_argument "Bad index"
 
 let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
   let rec inner_loop ap' c =

@@ -38,7 +38,12 @@ let rec pre = function
   | `ALen _ -> failwith "Not supported"
 
 let t_ind a i = `AProj (a,i)
-
+let elem p = `AElem p
+let deref p = `ADeref p
+let var v = `AVar v
+let arg_name = Printf.sprintf "$%d"
+let arg i = var @@ arg_name i
+      
 let rec is_pre : ([< 'b t_templ] as 'b) -> bool = function
   | `APre _ -> true
   | `AProj (ap,_)
@@ -134,12 +139,12 @@ let rec has_prefix (d: [< 'a t_templ] as 'a) (g: 'a) =
     | `AVar _
     | `APre _ -> false
 
-module PathSet = Set.Make(struct
-    type t = concr_ap
-    let compare = compare
-  end)
 
-module PathMap = Map.Make(struct
-    type t = concr_ap
-    let compare = Stdlib.compare
-  end)
+module PathOrd = struct
+  type t = concr_ap
+  let compare = compare
+end
+
+module PathSet = Set.Make(PathOrd)
+
+module PathMap = Map.Make(PathOrd)

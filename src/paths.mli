@@ -25,7 +25,15 @@ val has_prefix : ([< 'a t_templ] as 'a) -> 'a -> bool
 val pre :
   ([< 'a t_templ > `ADeref `APre `AProj ] as 'a) ->
   'a
+    
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
+val elem : ([< 'a t_templ > `AElem] as 'a) -> 'a
+val deref : ([< 'a t_templ > `ADeref] as 'a) -> 'a
+val var: string -> ([< 'a t_templ > `AVar] as 'a)
+val arg : int -> ([< 'a t_templ > `AVar] as 'a)
+val arg_name : int -> string
+
+
 val is_pre : ([< 'a t_templ > `APre `ADeref `AProj] as 'a) -> bool
 val is_const_ap :
   ([< 'a t_templ > `APre `AProj `ADeref ] as 'a) ->
@@ -51,3 +59,4 @@ val compare : concr_ap -> concr_ap -> int
   
 module PathSet : Set.S with type elt = concr_ap
 module PathMap : Map.S with type key = concr_ap
+module PathOrd : Set.OrderedType with type t = concr_ap
