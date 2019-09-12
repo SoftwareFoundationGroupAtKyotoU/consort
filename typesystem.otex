@@ -597,7 +597,7 @@ propagate refinement updates caused by destructive updates.
   \infrule[Sub-Ref]{
     [[r1 >= r2]]
     \andalso
-    [[r2 > 0 ==> G |- T1 <: T2 ]]
+    [[ G |- T1 <: T2 ]]
   }{
     [[ G |- T1 ref r1 <: T2 ref r2 ]]
   }

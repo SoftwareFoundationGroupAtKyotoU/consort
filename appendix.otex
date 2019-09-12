@@ -215,10 +215,10 @@ substituting a well-typed expression matching a context's hole type yields a wel
 
     \begin{rneqncase}{Sub-Ref}{
         [[ T1 = T1' ref r1 ]] & [[ T2 = T2' ref r2 ]] \\
-        [[ [ll/A] T1 = ([ll/A]T1') ref r2 ]] & [[ [ll/A]T2 = ([ll/A]T2') ref r2 ]] \\
-        [[  r2 > 0 ==> G |- T1' <: T2' ]]
+        [[ [ll/A] T1 = ([ll/A]T1') ref r1 ]] & [[ [ll/A]T2 = ([ll/A]T2') ref r2 ]] \\
+        [[  G |- T1' <: T2' ]] & [[ r2 <= r1 ]]
       }
-      If $[[ r2 = 0 ]]$ then the result trivially holds. If not, we must show that $[[ [ll/A]G |- [ll/A]T1' <: [ll/A]T2' ]]$
+      We must show that $[[ [ll/A]G |- [ll/A]T1' <: [ll/A]T2' ]]$
       which holds immediately from the induction hypothesis.
     \end{rneqncase}
 
@@ -300,9 +300,9 @@ substituting a well-typed expression matching a context's hole type yields a wel
       We must also show that
       $\forall i \in \set{1..n}.[[([l:ll/A]G)(yi) = csub' vsub Ti]]$.
       From the assumed well-typing of the term under $[[A]]$ we have
-      that $\forall i \in\set{1..n}.[[csub G(yi) = csub vsub Ti]]$. Recall
-      that $[[csub']]$ is equivalent to $[[ [ll/A] csub ]]$, whence we have
-      $[[ [ll/A] csub G(yi) = [ll/A] csub vsub Ti]]$ for any $[[i]]$ as
+      that $\forall i \in\set{1..n}.[[G(yi) = csub vsub Ti]]$. Recall
+      that $[[csub']]$ is equivalent to $[[ [ll/A] csub ]]$, whereby we have
+      $[[ [ll/A] G(yi) = [ll/A] csub vsub Ti = csub' vsub Ti]]$ for any $[[i]]$ as
       equality is preserved by consistent substitution.
 
       That $[[ ll |- [ll/A]T => [ll/A](G2 \ y) ]]$ holds from application of
@@ -359,10 +359,11 @@ substituting a well-typed expression matching a context's hole type yields a wel
     bothered to define anywhere, woops}
 \end{proof}
 
+
 % PROPERTIES OF SUBTYPING
 
-\cref{lem:subtype-transitive,lem:subtyp-preserves-cons} prove two properties of the
-subtyping relation: transitivity, and that it preserves the consistency relation.
+\cref{lem:subtype-transitive,lem:subtyp-preserves-cons} prove two properties of the subtyping relation:
+transitivity, and that it preserves the consistency relation.
 
 \begin{lemma} % L15
   \label{lem:subtype-transitive}
@@ -376,8 +377,10 @@ subtyping relation: transitivity, and that it preserves the consistency relation
 \begin{proof}
   \leavevmode
   \begin{enumerate}
-  \item It suffices to show that $[[ [G] ==> [x/nu]ph']]$ for any $[[x in dom G']]$ where $[[G'(x) = {nu:int|ph'}]]$. From $[[ G <: G' ]]$ we have $[[ |= [G] /\ ph ==> ph' ]]$ where $[[ G(x) = {nu:int|ph}]]$. We must then have $[[ |= [G] /\ [x/nu]ph ==> ph' ]]$. From the definition of $[[ [G] ]]$ we have $[[ [G] /\ [x/nu]ph <=> [G] ]]$, giving the desired result.
-  \item By induction on $[[T1]]$. The only case of note is where
+  \item It suffices to show that $[[ [G] ==> [x/nu]ph']]$ for any $[[x in dom G']]$ where $[[G'(x) = {nu:int|ph'}]]$.
+    From $[[ G <: G' ]]$ we have $[[ |= [G] /\ ph ==> ph' ]]$ where $[[ G(x) = {nu:int|ph}]]$.
+    We must then have $[[ |= [G] /\ [x/nu]ph ==> [x/nu]ph' ]]$. From the definition of $[[ [G] ]]$ we have $[[ [G] /\ [x/nu]ph <=> [G] ]]$, giving the desired result.
+  \item By induction on $[[G |- T1 <: T2]]$. The only case of note is where
     $[[ T1 = {nu:int|ph1} ]],[[T2 = {nu:int|ph2}]], [[ T3 =
     {nu:int|ph3}]]$. By inversion on $[[ G' |- T2 <: T3 ]]$ we have
     $ [[ |= [G'] /\ ph2 ==> ph3 ]]$ and from part 1 above and
@@ -391,7 +394,7 @@ subtyping relation: transitivity, and that it preserves the consistency relation
   \label{lem:subtyp-preserves-cons}
   If $[[ G <: G' ]]$ and $[[ Cons(H,R,G)]]$ then:
   \begin{enumerate}
-  \item If $[[G |- T1 <: T2 ]]$, then for any $[[v]]$, $[[ forall a in H.own(H,v,T1)(a) < own(H,v,T2)(a) ]]$
+  \item If $[[G |- T1 <: T2 ]]$, then for any $[[v]]$, $[[ forall a in H.own(H,v,T1)(a) <= own(H,v,T2)(a) ]]$
   \item Let $[[ F = |< { z in dom G' } own(H,R(z),G(z)) ]]$, $[[forall a in H.F(a) <= 1]]$
   \item If $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$
   \item $[[SAT(H,R,G')]]$
@@ -400,7 +403,7 @@ subtyping relation: transitivity, and that it preserves the consistency relation
 \end{lemma}
 \begin{proof}
   \begin{enumerate}
-  \item By induction on $[[T1]]$.
+  \item By induction on $[[G |- T1 <: T2]]$.
   \item Direct consequence of 1.
   \item From $[[Cons(H,R,G)]]$ we have $[[SAT(H,R,G)]]$ which implies $[[ |= [R][G] ]]$.
     We now proceed by induction on the shape of $[[T]]$.
@@ -414,12 +417,12 @@ subtyping relation: transitivity, and that it preserves the consistency relation
     \end{eqncase}
     
     \begin{eqncase}{
-        [[T = Tp ref r]] & [[T' = Tp' ref r]]
+        [[T = Tp ref r1]] & [[T' = Tp' ref r2]] \\
+        [[ r2 <= r1 ]]
       }
-      If $[[r = 0]]$ then the result is immediate, otherwise
-      the result follows from the induction hypothesis.
+      Immediate from the induction hypothesis.
     \end{eqncase}
-  \item Immediate consequence of 2 and that
+  \item Immediate consequence of 3 and that
     $[[ G <: G' ]]$ implies that $[[G |- G(x) <: G'(x)]]$ for any $[[x in G']]$.
   \item Immediate from 2 and 4.
   \end{enumerate}
@@ -435,7 +438,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
 \end{lemma}
 \begin{proof}
-  The forward case follows from straightforward induction on the shape of $[[T1]]$
+  The forward case follows from straightforward induction on $[[T1 ~ T2]]$
   and from the observation that if $[[ph1 <=> ph2]]$ then $[[ [R][v/x]ph1 <=> [R][v/x]ph2]]$. The
   backwards case follows by symmetric reasoning by induction on the shape of $[[T2]]$.
 \end{proof}
@@ -445,7 +448,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   If $[[ T1 ~ T2]]$, then $[[ own(H,v,T1) = own(H,v,T2)]]$.
 \end{lemma}
 \begin{proof}
-  Straightforward induction on the shape of $[[T1]]$.
+  Straightforward induction on $[[T1 ~ T2]]$.
 \end{proof}
 
 \begin{lemma} % L11
