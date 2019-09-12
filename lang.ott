@@ -318,6 +318,7 @@ grammar
 	| ifz                 ::   :: ifz
 	| SAT                 ::   :: sat_pred
 	| SATv                ::   :: satv_pred
+	| own                 ::   :: own_fn
 	| Cons                ::   :: cons_pred
 	| FPCV :: :: fpcv {{ tex \mathbf{FCV} }}
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
