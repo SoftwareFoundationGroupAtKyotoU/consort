@@ -46,6 +46,25 @@ let fold_left2i f a l1 l2 =
     | _,_ -> raise @@ Invalid_argument "unequal lengths"
   in
   loop 0 a l1 l2
+    
+let fold_left3i f a l1 l2 l3 =
+  let rec inner_loop i acc l1 l2 l3 =
+    match l1,l2,l3 with
+    | h1::t1,h2::t2,h3::t3 ->
+      inner_loop (i+1) (f acc i h1 h2 h3) t1 t2 t3
+    | [],[],[] -> acc
+    | _ -> raise @@ Invalid_argument "differing lengths"
+  in
+  inner_loop 0 a l1 l2 l3
+
+let rec update_nth l i v =
+  match l with
+  | h::t ->
+    if i = 0 then
+      v::t
+    else
+      h::(update_nth t (i - 1) v)
+  | [] -> raise @@ Invalid_argument "Bad index"
 
 module StringExt = struct
   let starts_with s pref =
@@ -192,4 +211,29 @@ module StateMonad = struct
       let%bind () = f h in
       miter f t
 
+  let miteri f =
+    let rec loop i = function
+      | [] -> return ()
+      | h::t ->
+        let%bind () = f i h in loop (i + 1) t
+    in
+    loop 0
+
 end
+
+module DefaultOrd(O: sig type t end) = struct
+  type t = O.t
+  let compare : t -> t -> int = Stdlib.compare
+end
+
+module OrderedPair(O1: Map.OrderedType)(O2: Map.OrderedType) : Map.OrderedType with type t = O1.t * O2.t = struct
+  type t = O1.t * O2.t
+
+  let compare (a1,a2) (b1,b2) =
+    let c1 = O1.compare a1 b1 in
+    if c1 = 0 then
+      O2.compare a2 b2
+    else
+      c1
+end
+
