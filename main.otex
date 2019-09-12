@@ -21,8 +21,25 @@
 \usepackage{parcolumns}
 \usepackage{mathpartir}
 \usepackage{cases}
-\usepackage[capitalize,nameinlink,noabbrev]{cleveref}
 \usepackage{listings}% http://ctan.org/pkg/listings
+\usepackage{etoolbox}
+\input{local}
+% generate nice pdf index when compiling in draft mode
+\ifdraftComments
+\makeatletter
+\let\llncs@addcontentsline\addcontentsline
+\patchcmd{\maketitle}{\addcontentsline}{\llncs@addcontentsline}{}{}
+\patchcmd{\maketitle}{\addcontentsline}{\llncs@addcontentsline}{}{}
+\patchcmd{\maketitle}{\addcontentsline}{\llncs@addcontentsline}{}{}
+\setcounter{tocdepth}{2}
+\makeatother
+\fi
+\usepackage[dvipdfmx]{hyperref}
+\hypersetup{colorlinks,
+  linkcolor=red,
+  citecolor=red}
+\usepackage[capitalize,noabbrev]{cleveref}
+
 
 \lstdefinelanguage{Imp}{
   keywords=[0]{ifz,then,else,alias,assert,mkref,let,in,null,ifnull},
@@ -38,7 +55,6 @@
   mathescape,
 }
 
-\input{local}
 % \input{../effgrad/def/ott/coe}
 \input{./lang}
 
