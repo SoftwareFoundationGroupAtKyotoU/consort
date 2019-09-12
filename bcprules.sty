@@ -245,12 +245,16 @@
 %   \parbox[b]{0.5\linewidth}{\layoutruleverbose{#1}{#2}}}
 
 \newcommand{\layoutruleterse}[2]%
-  {\setbox \rulebox \hbox{$\displaystyle #2$}
+  {\setbox \rulebox \hbox{$\begin{array}{r}\displaystyle #2 \\ \text{#1} \end{array}$}
    \noindent
-   \parbox[b]{0.5\linewidth}
-    {\vspace*{0.4em} \hfill\box\rulebox\hfill~}
+%   \parbox[b]{0.5\linewidth}
+    {\vspace*{0.4em} \box\rulebox}
    }
 
+% \newcommand{\layoutruleterse}[2]{%
+%    $\displaystyle #2$~#1
+% }
+ 
 %%% Select low-level layout driver based on \bcprulessavespace flag
 \newcommand{\layoutrule}[2]{%
       \ifbcprulessavespace 

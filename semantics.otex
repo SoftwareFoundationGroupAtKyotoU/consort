@@ -1,8 +1,8 @@
-
+\bcprulessavespacetrue
 %edit by shiki
 \begin{figure}[t]
   \scriptsize
-  \leavevmode
+  \begin{center}
   \infrule[R-Var]{
   }{
     [[ <H, R, CE : Es, x> --> D <H, R, Es, CE[x]> ]]
@@ -10,51 +10,58 @@
    \infrule[R-Seq]{
    }{
      [[ <H, R, CE : Es, E[x; e]> --> D <H, R, Es, E[e]> ]]
-  }
+   }
   \infrule[R-Let]{
     [[ x' fresh in R ]]
   }{
-    [[<H, R, Es, E[let x = y in e]> --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]
+    [[<H, R, Es, E[let x = y in e]> \\ --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]
   }
   \infrule[R-LetInt]{
     [[ x' fresh in R ]]
   }{
-    [[ <H,R,Es,E[let x = nn in e]> --> D <H,R { x' |-> nn},Es, E[ [x'/x]e]>]]
+    [[ <H,R,Es,E[let x = nn in e]> \\ --> D <H,R { x' |-> nn},Es, E[ [x'/x]e]>]]
   }
   \infrule[R-IfTrue]{
     [[ R(x) = 0 ]]
   }{
-    [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e1]> ]]
+    [[ <H, R, Es, E[ifz x then e1 else e2]> \\ --> D <H, R, Es, E[e1]> ]]
   }
   \infrule[R-IfFalse]{
     [[ R(x) != 0 ]]
   }{
-    [[ <H, R, Es, E[ifz x then e1 else e2]> --> D <H, R, Es, E[e2]> ]]
+    [[ <H, R, Es, E[ifz x then e1 else e2]> \\ --> D <H, R, Es, E[e2]> ]]
   }
   \infrule[R-MkRef]{
     [[ a fresh in H ]] \andalso [[ x' fresh in R ]]
   }{
-    [[ <H, R, Es, E[let x = mkref y in e]> --> D <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]
+    [[ <H, R, Es, E[let x = mkref y in e]> --> D \\ <H { a |-> R(y) }, R { x' |-> a }, Es, E[ [x'/x]e]> ]]
   }
   \infrule[R-Deref]{
     [[ R(y) = a ]] \andalso [[ H(a) = v ]] \andalso [[ x' fresh in R ]]
   }{
-    [[ <H, R, Es, E[let x = *y in e]> --> D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]
+    [[ <H, R, Es, E[let x = *y in e]> --> D \\ <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]
   }
+\end{center}
+\caption{Transition Rules (1).}
+\label{fig:transitionRules1}
+\end{figure}
+\begin{figure}[t]
+  \scriptsize
+  \begin{center}
   \infrule[R-Call]{
     [[ f |-> (x1,..,xn) e in D ]]
   }{
-    [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]
+    [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> \\ --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]
   }
   \infrule[R-Assign]{
     [[ R(x) = a ]] \andalso [[ a in H ]]
   }{
-    [[ <H, R, Es, E[x:=y;e]> --> D <H { a <- R(y) }, R, Es, E[e]> ]]
+    [[ <H, R, Es, E[x:=y;e]> --> D \\ <H { a <- R(y) }, R, Es, E[e]> ]]
   }
   \infrule[R-Alias]{
     [[R(x) = R(y)]]
   }{
-    [[ <H, R, Es, E[alias(x = y); e]> --> D <H, R, Es, E[e]> ]]
+    [[ <H, R, Es, E[alias(x = y); e]> \\ --> D <H, R, Es, E[e]> ]]
   }
   \infrule[R-AliasPtr]{
     [[R(y) = a]] \andalso [[H(a) = R(x)]]
@@ -74,16 +81,18 @@
   \infrule[R-Assert]{
     [[ |= [R]ph ]]
   }{
-    [[ <H, R, Es, E[assert(ph); e]> --> D <H, R, Es, E[e]> ]]
+    [[ <H, R, Es, E[assert(ph); e]> \\ --> D <H, R, Es, E[e]> ]]
   }
   \infrule[R-AssertFail]{
     [[ !|= [R]ph ]]
   }{
     [[ <H, R, Es, E[assert(ph); e]> --> D AssertFail ]]
   }
-\caption{Transition Rules.}
-\label{fig:transitionRules}
+  \end{center}
+\caption{Transition Rules (2).}
+\label{fig:transitionRules2}
 \end{figure}
+\bcprulessavespacefalse
 
 %%% Local Variables:
 %%% mode: latex
