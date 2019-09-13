@@ -1,0 +1,14 @@
+/** fail: ownership */
+m(a1, a2) {
+  a1 := 41;
+  a2 := 42
+}
+
+{
+  let a1 = mkref _ in
+  let a2 = mkref _ in {
+    let atmp = a2 in
+    m(a2,atmp);
+	assert(*a2 = 42);
+  }
+}

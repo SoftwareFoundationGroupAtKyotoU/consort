@@ -1,0 +1,16 @@
+fibonacci(n) {
+  if n < 1 then
+    0
+  else if n = 1 then
+    1
+  else
+   let f1 = fibonacci((n - 1)) in
+   let f2 = fibonacci((n - 2)) in
+   f1 + f2
+}
+
+
+{
+  let result = fibonacci(9) in
+  assert(result = 34)
+}

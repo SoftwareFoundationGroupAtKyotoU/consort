@@ -1,0 +1,13 @@
+setI(r, i) {
+  r := i
+}
+
+{
+  let a = mkref 0 in {
+    setI(a, 41);
+	setI(a, 42);
+	let v = *a in
+	let cond = ((v = 0) || (v = 41)) || (v = 42) in
+	assert(cond = 0)
+  }
+}

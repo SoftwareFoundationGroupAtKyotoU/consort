@@ -1,0 +1,11 @@
+{
+  let a = mkref 0 in {
+    a := 42;
+	let b = mkref null in {
+	  b := a;
+	  let a_ = *b in
+	    assert(*a_ = 42)
+	}
+  }
+  
+}

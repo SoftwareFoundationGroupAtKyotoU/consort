@@ -1,0 +1,33 @@
+loop(tbl,l1) {
+  if _ then {
+    ()
+  } else {
+    let d = _ in
+	let len = tbl.length in {
+	if (d >= 0) && (d < len) then {
+	  let l_tmp = mkref (d, *l1) in
+	  l1 := l_tmp
+	} else ();
+	loop(tbl,l1)
+	}
+  }
+}
+
+do_loop(tbl,l) {
+  ifnull l then ()
+  else {
+    let (ind,l2) = *l in {
+      tbl[ind] <- tbl[ind] + 1;
+	  do_loop(tbl,l2)
+    }
+  }
+}
+
+{
+  let l1 = mkref null in
+  let sz = 10 in
+  let table = mkarray sz in {
+    loop(table,l1);
+	do_loop(table,*l1);
+  }
+}

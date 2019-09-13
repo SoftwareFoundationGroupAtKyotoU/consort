@@ -1,0 +1,9 @@
+/** trivial */
+{
+  let n = mkref 0 in {
+    let v = *n in 
+      n := v + 1;
+	let v = *n in
+	  assert(v = 1)
+  }  
+}

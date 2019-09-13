@@ -25,6 +25,7 @@ rule read =
               read lexbuf }
   | "//" { line_comment lexbuf; read lexbuf }
   | "/*" { comment lexbuf; read lexbuf }
+  | "/**" { comment lexbuf; read lexbuf }
   | white    { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "()" { UNIT }
@@ -77,6 +78,7 @@ and comment =
   | non_comment { comment lexbuf }
   | "*/" { () }
   | "/*" { comment lexbuf; comment lexbuf }
+  | "/**" { comment lexbuf; comment lexbuf }
   | comment_delim { comment lexbuf }
 and line_comment =
   parse

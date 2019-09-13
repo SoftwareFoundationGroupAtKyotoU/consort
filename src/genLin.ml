@@ -28,13 +28,17 @@ let binop,relop,alias_op =
       result_type = Int (`BifPred (out_pred,[0;1]))
     }
   in
-  let binop' sym out_pred (ty_acc,def_acc) : (string * bif_t) list * ((Sexplib0.Sexp.t -> unit) -> unit) list =
+  let binop' ?sat_sym sym out_pred (ty_acc,def_acc) : (string * bif_t) list * ((Sexplib0.Sexp.t -> unit) -> unit) list =
     let ty = gen_ty sym out_pred in
+    let z3_sym = match sat_sym with
+      | None -> sym
+      | Some p -> p
+    in
     let def =
       let open SP in
       let fun_body = pg "=" [
           out;
-          pg sym [
+          pg z3_sym [
             arg1;
             arg2
           ]
@@ -79,6 +83,7 @@ let (ty_def,defn) =
   |> binop "+" "plus-+-out"
   |> binop "-" "minus---out"
   |> binop "*" "times-*-out"
+  |> binop ~sat_sym:"mod" "%" "mod-%-out"
   |> relop "="
   |> relop "<="
   |> relop "<"

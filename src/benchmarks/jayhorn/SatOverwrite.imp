@@ -1,0 +1,11 @@
+{
+  let a1 = mkref mkref 0 in {
+  let a_ = *a1 in {
+    a_ := 42;
+	alias(a_ = *a1)
+  };
+  a1 := mkref 0;
+  let a_ = *a1 in
+    assert(*a_ = 0)
+  }
+}

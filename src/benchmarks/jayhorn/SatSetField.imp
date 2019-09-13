@@ -1,0 +1,6 @@
+{
+  let a = mkref 0 in {
+    a := 999;
+	assert(*a = 999)
+  }
+}

@@ -1,0 +1,12 @@
+m(a1, a2) {
+  a1 := 41;
+  a2 := 42
+}
+
+{
+  let a1 = mkref _ in
+  let a2 = mkref _ in {
+    m(a1,a2);
+	assert(*a1 < *a2);
+  }
+}

@@ -1,0 +1,11 @@
+AAAA_init(r,i) {
+  r:=i
+}
+
+{
+  let r = mkref 0 in {
+    AAAA_init(r, 42);
+	let v = *r in
+	assert(v = 42)
+  }
+}

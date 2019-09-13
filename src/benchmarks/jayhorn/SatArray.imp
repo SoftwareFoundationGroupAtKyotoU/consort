@@ -1,0 +1,24 @@
+/** fail: array */
+{
+  let a0 = mkref _ in {
+    a0 := 999;
+	let a1 = mkref _ in {
+	  a1 := 666;
+	  let as = mkarray 2 in
+	  let b = mkref as in {
+	  let d1 = *b in {
+	    d1[0] <- a0;
+		alias(d1 = *b)
+	  };
+	  let d1 = *b in {
+        d1[1] <- a1;
+		alias(d1 = *b)
+      };
+	  let d1 = *b in {
+	    let as_elem = d1[0] in
+		assert(*as_elem = 999)
+	  }
+      }
+   }
+ } 
+}
