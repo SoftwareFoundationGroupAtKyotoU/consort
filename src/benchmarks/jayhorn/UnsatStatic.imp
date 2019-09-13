@@ -1,0 +1,6 @@
+/** trivial */
+
+{
+  let Ai = mkref 0 in
+    assert(*Ai != 0)
+}

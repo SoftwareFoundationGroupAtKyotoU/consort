@@ -1,0 +1,10 @@
+setField(a) {
+  a := 42
+}
+
+{
+  let a = mkref 0 in {
+    setField(a);
+	assert(*a != 42)
+  }
+}

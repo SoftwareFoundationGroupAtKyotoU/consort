@@ -1,0 +1,6 @@
+/** fail: no-null */
+{
+  let a = null in {
+    a := 42;
+  }
+}

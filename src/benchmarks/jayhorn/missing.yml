@@ -2,3 +2,12 @@ SatInstOf: reflection
 SatInstanceOf: reflection
 SatInstanceOf1: reflection
 SatObjectFromLib: jcl
+UnsatException: reflection
+UnsatInstOf: reflection
+UnsatInstanceOf: reflection
+UnsatInstanceOf1: reflection
+UnsatInstanceOf2: reflection
+UnsatInstanceOf3: reflection
+UnsatObjectFromLib: jcl
+UnsatThrows: exceptions
+UnsatThrows2: exceptions

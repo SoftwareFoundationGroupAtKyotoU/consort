@@ -1,0 +1,29 @@
+/** fail: timeout */
+isOdd(n) {
+  if n = 0 then
+    0
+  else if n = 1 then
+    1
+  else
+    isEven((n - 1))
+}
+
+isEven(n) {
+  if n = 0 then
+   1
+  else if n = 1 then
+   0
+  else
+   isOdd((n - 1))
+}
+
+{
+  let n = _ in {
+    $gamma {
+	  n: ~ >= 0 int
+	};
+	let result = isEven(n) in
+	let m = n % 2 in
+	assert(result = m)
+  }
+}

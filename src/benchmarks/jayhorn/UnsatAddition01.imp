@@ -1,0 +1,18 @@
+addition(m,n) {
+  if n = 0 then {
+    m
+  } else if n > 0 then {
+    addition((m+1), (n - 1))
+  } else {
+    addition((m - 1), (n+1))
+  }
+}
+
+{
+  let x = _ in
+  let y = _ in {
+	let result = addition(x, y) in
+	let add = x - y in
+	assert(result = add)
+  }
+}

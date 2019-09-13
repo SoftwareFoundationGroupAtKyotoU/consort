@@ -1,0 +1,18 @@
+f(n) {
+  if n > 100 then
+    n - 10
+  else
+    let r1 = f((n + 11)) in
+	f(r1)
+}
+
+{
+  let x = _ in {
+    $gamma {
+	   x: ~ >= 0 int
+	};
+	let y = f(x) in
+	let cond = (x > 101) || (y < 90) in
+	assert(cond = 0)
+  }
+}

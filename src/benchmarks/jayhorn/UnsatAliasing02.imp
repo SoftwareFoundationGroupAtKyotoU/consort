@@ -1,8 +1,7 @@
 m(a1, a2) {
   a1 := 41;
   alias(a1 = a2);
-  a2 := 42;
-  alias(a1 = a2)
+  a2 := 42
 }
 
 {
@@ -10,6 +9,6 @@ m(a1, a2) {
   let a2 = mkref _ in {
     let atmp = a2 in
     m(a2,atmp);
-	assert(*a2 = 42);
+	assert(*a2 != 42);
   }
 }
