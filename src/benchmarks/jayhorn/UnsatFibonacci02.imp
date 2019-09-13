@@ -1,0 +1,24 @@
+fibonacci(n) {
+  if n < 1 then
+    0
+  else if n = 1 then
+    1
+  else
+   let f1 = fibonacci((n - 1)) in
+   let f2 = fibonacci((n - 2)) in
+   f1 + f2
+}
+
+
+{
+  let x = _ in {
+    $gamma {
+	  x: ~ >= 0 /\ ~ <= 46 int
+	};
+	let result = fibonacci(x) in
+    if x >= 8 then
+	  assert(result < 34)
+	else
+	  ()
+  }
+}

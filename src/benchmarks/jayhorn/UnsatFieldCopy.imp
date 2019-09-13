@@ -1,0 +1,10 @@
+{
+  let a = mkref (0,0) in {
+    let (i,j_) = *a in
+      a := (42,j_);
+	let (i,j_) = *a in
+	  a := (i,i);
+	let (i,j) = *a in
+	  assert(i != j)
+  }
+}

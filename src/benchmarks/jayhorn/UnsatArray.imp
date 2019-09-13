@@ -1,0 +1,6 @@
+{
+  let N = 4 in
+  let input = mkarray N in
+  let x = input.length in
+  assert(x < 4)
+}

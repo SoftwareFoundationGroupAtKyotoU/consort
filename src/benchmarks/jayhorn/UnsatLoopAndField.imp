@@ -1,0 +1,17 @@
+loop(a, i, N) {
+  if i = N then
+    ()
+  else
+  let v = *a in {
+    a := (v + 1);
+    loop(a,(i+1), N)
+  }
+}
+
+{
+  let a = mkref 0 in
+  let N = 10 in {
+    loop(a, 0, N);
+	assert(*a != N)
+  }
+}

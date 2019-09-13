@@ -1,0 +1,20 @@
+loop(a_ref, i) {
+  if i >= 3 then
+    ()
+  else {
+    a_ref := mkref (i + 1);
+	loop(a_ref, (i+1))
+  }
+}
+
+{
+  let a_loc = mkref null in {
+    loop(a_loc, 0);
+	let a = *a_loc in
+	ifnull a then
+	  ()
+	else {
+	  assert(*a = 0)
+	}
+  }
+}

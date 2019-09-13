@@ -1,0 +1,7 @@
+/** trivial */
+{
+  let c = mkref 0 in {
+    c := 0;
+	assert(*c = 42)
+  }
+}

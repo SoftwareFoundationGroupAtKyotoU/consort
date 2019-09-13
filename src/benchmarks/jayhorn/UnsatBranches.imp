@@ -1,0 +1,14 @@
+setI(r,v) {
+  r := v
+}
+
+{
+  let r = mkref _ in {
+    if _ then {
+	  setI(r,41);
+	} else {
+	  setI(r,42);
+	};
+	assert(*r = 42)
+  } 
+}

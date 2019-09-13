@@ -1,0 +1,20 @@
+/** fail: poc */
+setI(r,v) {
+  r := v
+}
+
+{
+  let r = mkref _ in {
+  let b = _ in {
+    if b then {
+	  setI(r,41);
+	} else {
+	  setI(r,42);
+	};
+	if b then
+      assert(*r = 41)
+	else
+	  assert(*r = 42)
+  }
+  }
+}
