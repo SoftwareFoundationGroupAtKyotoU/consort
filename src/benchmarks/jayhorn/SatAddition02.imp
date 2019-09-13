@@ -1,0 +1,24 @@
+addition(m,n) {
+  if n = 0 then {
+    m
+  } else if n > 0 then {
+    addition((m+1), (n - 1))
+  } else {
+    addition((m - 1), (n+1))
+  }
+}
+
+{
+  let x = _ in
+  let y = _ in {
+    $gamma {
+      y: ~ >= 0 int;
+	  x: ~ >= 0 int
+    };
+	let result = addition(x, y) in
+	let cond = (x >= 100) && (y >= 100) in
+	if cond then
+	  assert(result >= 200)
+	else ()
+  }
+}

@@ -1,0 +1,10 @@
+{
+  let a0 = 999 in
+  let a1 = 666 in
+  let b = mkarray 2 in {
+    b[0] <- a0;
+	b[1] <- a1;
+	let v = b[0] in
+	assert(v = 999)
+  }
+}

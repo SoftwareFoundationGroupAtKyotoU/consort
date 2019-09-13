@@ -1,0 +1,18 @@
+sum(n,s) {
+  if n > 0 then {
+    let ret = sum((n - 1), s) in
+      s := ret;
+	*s + n
+  } else 0
+}
+
+{
+  let n = _ in {
+    $gamma {
+	  n: ~ >= 2 int
+	};
+	let s = mkref 0 in
+	let ex = sum(n, s) in
+	assert(ex > n)
+  }
+}

@@ -1,0 +1,32 @@
+hanoi(n) {
+  if n = 1 then
+    1
+  else
+   let rec = hanoi((n - 1)) in
+   (2 * rec) + 1
+}
+
+applyHanoi(n, from, to, via, counter) {
+  if n = 0 then
+    ()
+  else {
+    let v = *counter in {
+	  counter := (v + 1)
+	};
+	applyHanoi((n - 1), from, via, to, counter);
+	applyHanoi((n - 1), via, to, from, counter)
+  }
+}
+
+{
+  let n = _ in {
+    $gamma {
+	  n: ~ >= 1 /\ ~ <= 31 int
+	};
+	let counter = mkref 0 in {
+	  applyHanoi(n, 1, 3, 2, counter);
+	  let result = hanoi(n) in
+	  assert(result = *counter)
+	}
+  }
+}

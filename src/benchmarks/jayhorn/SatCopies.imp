@@ -1,0 +1,22 @@
+{
+  let a = mkref mkref 0 in
+  let b = mkref mkref 0 in
+  let c = mkref mkref 0 in {
+    let a_ = *a in {
+	  a_ := 41; alias(a_ = *a)
+	};
+	let b_ = *b in {
+	  b_ := 42; alias(b_ = *b)
+	};
+	let c_ = *c in {
+	  c_ := 43; alias(c_ = *c)
+	};
+	if _ then {
+      c := *a
+    } else ();
+	let b_ = *b in
+	let v = *b_ in
+	assert(v >= 0)
+  }
+  
+}
