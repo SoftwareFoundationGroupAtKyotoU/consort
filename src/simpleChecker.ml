@@ -499,9 +499,10 @@ let typecheck_prog intr_types (fns,body) =
     } body acc
   in
   List.iter (fun { var; ind; unif; loc } ->
-    let t_typ = Hashtbl.find_opt sub.resolv var in
+    let v' = UnionFind.find sub.uf var in
+    let t_typ = Hashtbl.find_opt sub.resolv v' in
     match t_typ with
-    | None -> failwith "Could not deduce type of tuple"
+    | None -> Locations.raise_errorf ~loc  "Could not deduce type of tuple"
     | Some (`Tuple tl) ->
       if (List.compare_length_with tl ind) <= 0 then
         failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
