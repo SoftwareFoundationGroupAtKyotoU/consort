@@ -11,7 +11,7 @@ let typecheck i_gen file =
       pf "/* %s */" @@ SimpleTypes.fntype_to_string @@ StringMap.find f_name f_types;
       newline
     ] ff
-  ) ~annot:(fun id e ->
+  ) ~annot:(fun (id,_) e ->
     let open Std in
     match IntMap.find_opt id let_types,e with
     | Some ty,Let (patt,_,_) ->

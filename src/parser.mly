@@ -1,13 +1,12 @@
 %{
 	open SurfaceAst
 
-	let list_to_seq x rest =
+	let list_to_seq pos x rest =
 	  let comp = x::rest in
 	  let rev = List.rev comp in
 	  let accum = List.hd rev in
 	  List.fold_left (fun curr next  ->
-					   Seq (next, curr)) accum (List.tl rev)
-
+					   Seq (pos, next, curr)) accum (List.tl rev)
 %}
 // values
 %token UNIT
@@ -74,22 +73,36 @@ let array_expr :=
   | base = op; LBRACKET; ind = op; RBRACKET; <>
 
 let expr :=
-  | UNIT; ~ = expr_label; <Unit>
+  | UNIT; ~ = expr_label; { Unit(expr_label,$startpos) } 
   | ~ = delimited(LBRACE, expr, RBRACE); <>
   | LBRACE; e = expr; SEMI; rest = seq; {
-		list_to_seq e rest
+		list_to_seq ($startpos) e rest
 	  }
-  | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; <Let>
-  | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; <Cond>
-  | IFNULL; lbl = expr_label; ~ = ID; THEN; thenc = expr; ELSE; elsec = expr; <NCond>
-  | lbl = pre_label; x = ID; ASSIGN; y = lhs; <Assign>
-  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; <Alias>
-  | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; { Assert (lbl,{ op1; cond; op2 }) }
+  | LET; lbl = expr_label; p = patt; EQ; ~ = lhs; IN; body = expr; { Let ((lbl, $startpos),p,lhs,body) }
+  | IF; lbl = expr_label; x = cond_expr; THEN; thenc = expr; ELSE; elsec = expr; {
+		Cond ((lbl,$startpos),x,thenc,elsec)
+	  }
+  | IFNULL; lbl = expr_label; id = ID; THEN; thenc = expr; ELSE; elsec = expr; {
+		NCond ((lbl,$startpos),id,thenc,elsec)
+	  }
+  | lbl = pre_label; x = ID; ASSIGN; y = lhs; {
+		Assign((lbl,$startpos),x,y)
+	  }
+  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; {
+		Alias ((lbl,$startpos),x,y)
+	  }
+  | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; {
+		Assert ((lbl,$startpos),{ op1; cond; op2 })
+	  }
   | lbl = pre_label; (b,i) = array_expr; LARROW; y = lhs; {
-		Update (lbl,b,i,y)
+		Update ((lbl,$startpos),b,i,y)
 	  }
-  | GAMMA; lbl = expr_label; LBRACE; ~ = ty_env; RBRACE; <EAnnot>
-  | lbl = pre_label; ~ = lhs; <Value>
+  | GAMMA; lbl = expr_label; LBRACE; ty_env = ty_env; RBRACE; {
+		EAnnot ((lbl,$startpos),ty_env)
+	  }
+  | lbl = pre_label; ~ = lhs; {
+		Value ((lbl,$startpos),lhs)
+	  }
 
 let ty_env == separated_list(SEMI, separated_pair(ID, COLON, typ))
 
@@ -155,12 +168,17 @@ let rel_op :=
   | ~ = OPERATOR; <>
   | EQ; { "=" }
 
-let expr_label == COLON; ~ = INT; <> | { LabelManager.register () }
-let pre_label == ~ = INT; COLON; <> | { LabelManager.register () }
+let expr_label == COLON; id = INT; {
+		LabelManager._internal_incr id; id
+	  }
+  | { LabelManager._internal_fresh () }
+let pre_label == id = INT; COLON; {
+						 LabelManager._internal_incr id; id
+					   } | { LabelManager._internal_fresh () }
 
 let typ :=
   | ~ = refine; INT_T; { RefinementTypes.Int refine }
-  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ,o,NUnk) }
+  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ,o,RefinementTypes.NUnk) }
   | LPAREN; ~ = tup_list; RPAREN; {
 		let (m_bind,t_l) =
 		  List.mapi (fun i (b_l,t) ->

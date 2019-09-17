@@ -41,6 +41,8 @@ type relation = {
   rop2: imm_op
 }
 
+type position = int * Lexing.position
+
 type src_ap =
   | AVar of string
   | AProj of string * int
@@ -58,7 +60,7 @@ type raw_exp =
   | Alias of string * src_ap * exp
   | Assert of relation * exp
   | EAnnot of (string * RefinementTypes.src_typ) list * exp
-and exp = int * raw_exp
+and exp = position * raw_exp
 
 type fn = { name: string; args: (string list); body: exp }
 

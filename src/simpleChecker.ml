@@ -68,7 +68,7 @@ let _sexp_of_resolv_map r = Hashtbl.fold (fun k v acc ->
     (k,v)::acc
   ) r [] |> [%sexp_of: (int * typ) list]
 
-type tuple_cons = {var: int; ind: int; unif: int}
+type tuple_cons = {var: int; ind: int; unif: int; loc: Lexing.position}
 
 type sub_ctxt = {
   uf: UnionFind.t;
@@ -159,7 +159,7 @@ let assign sub var t =
   occurs_check sub var t;
   Hashtbl.add sub.resolv var t  
 
-let rec unify sub_ctxt t1 t2 =
+let rec unify ~loc sub_ctxt t1 t2 =
   let unfold t1 =
     match canonicalize sub_ctxt t1 with
     | `Var v -> Hashtbl.find_opt sub_ctxt.resolv v
@@ -173,15 +173,16 @@ let rec unify sub_ctxt t1 t2 =
   | t,`Var v1 -> assign sub_ctxt v1 t
   | `Int,`Int -> ()
   | `Tuple tl1,`Tuple tl2 ->
-    List.iter2 (unify sub_ctxt) tl1 tl2
+    List.iter2 (unify ~loc sub_ctxt) tl1 tl2
   | `TyCons c1,`TyCons c2 ->
-    unify_tycons sub_ctxt c1 c2
+    unify_tycons ~loc sub_ctxt c1 c2
   | `Array t1',`Array t2' ->
-    unify sub_ctxt t1' t2'
-  | t1',t2' -> failwith @@ Printf.sprintf "Ill-typed; could not unify %s and %s"
-        (string_of_typ t1')
-        (string_of_typ t2')
-and unify_tycons sub_ctxt c1 c2 =
+    unify ~loc sub_ctxt t1' t2'
+  | t1',t2' -> Locations.raise_errorf ~loc
+                 "Ill-typed; could not unify %s and %s"
+                 (string_of_typ t1')
+                 (string_of_typ t2')
+and unify_tycons ~loc sub_ctxt c1 c2 =
   let c1' = TyConsUF.find sub_ctxt.cons_uf c1 in
   let c2' = TyConsUF.find sub_ctxt.cons_uf c2 in
   if TyCons.equal c1' c2' then
@@ -190,7 +191,7 @@ and unify_tycons sub_ctxt c1 c2 =
     let a1 = TyConsResolv.find sub_ctxt.cons_arg c1' in
     let a2 = TyConsResolv.find sub_ctxt.cons_arg c2' in
     TyConsUF.union sub_ctxt.cons_uf c1' c2';
-    unify sub_ctxt a1 a2
+    unify ~loc sub_ctxt a1 a2
 
 module IS = Std.IntSet
 
@@ -232,7 +233,7 @@ let rec resolve_with_rec sub v_set k t =
         | _ -> failwith "Only integer arrays are supported"
       ) t'
 
-let process_call lkp ctxt { callee; arg_names; _ } =
+let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
   let rec find_dup l = match l with
     | [_]
@@ -249,14 +250,14 @@ let process_call lkp ctxt { callee; arg_names; _ } =
       Not_found -> failwith @@ "No function definition for " ^ callee
   in
   List.iter2 (fun a_var t_var ->
-    unify ctxt.sub (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
+    unify ~loc ctxt.sub (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
   `Var ret_type_v
 
 let dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
       [@@ocaml.warning "-32"]
 
-let rec process_expr ctxt (id,e) res_acc =
+let rec process_expr ctxt ((id,loc),e) res_acc =
   let resolv = function
     | `Var v -> `Var (UnionFind.find ctxt.sub.uf v)
     | t -> t
@@ -267,16 +268,16 @@ let rec process_expr ctxt (id,e) res_acc =
     with
       Not_found -> failwith @@ Printf.sprintf "Undefined variable %s at expression %d" n id
   in
-  let unify_var n typ = unify ctxt.sub (lkp n) typ in
+  let unify_var n typ = unify ~loc ctxt.sub (lkp n) typ in
   let unify_ref v t =
-    unify ctxt.sub (lkp v) @@ fresh_cons ctxt.sub t
+    unify ~loc ctxt.sub (lkp v) @@ fresh_cons ctxt.sub t
   in
   let fresh_var () =
     let t = UnionFind.new_node ctxt.sub.uf in
     `Var t
   in
   let unify t1 t2 =
-    unify ctxt.sub t1 t2
+    unify ~loc ctxt.sub t1 t2
   in
   let fresh_cons t1 =
     fresh_cons ctxt.sub t1
@@ -291,7 +292,7 @@ let rec process_expr ctxt (id,e) res_acc =
     { res_acc with deref_locs = (id,c_id,ty)::res_acc.deref_locs },c_id
   in
   let record_tcons tup_var ind pvar acc =
-    { acc with t_cons = { var = tup_var; ind; unif = pvar }::acc.t_cons }
+    { acc with t_cons = { var = tup_var; ind; unif = pvar; loc }::acc.t_cons }
   in
   let save_let ty acc =
     { acc with let_types = Std.IntMap.add id ty acc.let_types }
@@ -385,7 +386,7 @@ let rec process_expr ctxt (id,e) res_acc =
           | RVar v ->
             fresh_cons (lkp v)
         end
-      | Call c -> same @@ process_call lkp ctxt c
+      | Call c -> same @@ process_call ~loc lkp ctxt c
       | Nondet -> same `Int
       | LengthOf v ->
         let tv = fresh_var () in
@@ -431,7 +432,7 @@ let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt =  { sub; fenv; tyenv  } in
   let acc',out_type = process_expr ctxt body acc in
-  unify ctxt.sub out_type (`Var (StringMap.find name fenv).ret_type_v);
+  unify ~loc:Lexing.dummy_pos ctxt.sub out_type (`Var (StringMap.find name fenv).ret_type_v);
   acc'
 
 let is_rec_assign sub c t' =
@@ -497,7 +498,7 @@ let typecheck_prog intr_types (fns,body) =
     sub; fenv; tyenv = StringMap.empty; 
     } body acc
   in
-  List.iter (fun { var; ind; unif } ->
+  List.iter (fun { var; ind; unif; loc } ->
     let t_typ = Hashtbl.find_opt sub.resolv var in
     match t_typ with
     | None -> failwith "Could not deduce type of tuple"
@@ -505,7 +506,7 @@ let typecheck_prog intr_types (fns,body) =
       if (List.compare_length_with tl ind) <= 0 then
         failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
       else
-        unify sub (`Var unif) @@ List.nth tl ind
+        unify ~loc sub (`Var unif) @@ List.nth tl ind
     | Some t' -> failwith @@ "Ill-typed: expected tuple, got " ^ (string_of_typ t')
   ) acc'.t_cons;
   let fold_locs = get_rec_loc sub acc'.assign_locs in

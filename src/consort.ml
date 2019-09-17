@@ -2,7 +2,7 @@ open Std
 
 let pprint_ty_env =
   let open PrettyPrint in
-  fun ty_envs i _ ->
+  fun ty_envs (i,_) _ ->
     let ty_env = Hashtbl.find ty_envs i in
     if (StringMap.cardinal ty_env) = 0 then
       pl [ ps "/* empty */"; newline ]
@@ -229,7 +229,7 @@ let check_triviality res ast t =
       else begin
         let pred_set = StringSet.of_list triv_preds in
         Printf.fprintf stderr "!!!! Inferred trivial solution (check grounding?) !!!!\n";
-        AstPrinter.pretty_print_program ~with_labels:true ~annot:(fun id _ ->
+        AstPrinter.pretty_print_program ~with_labels:true ~annot:(fun (id,_) _ ->
           let envs = res.Inference.Result.ty_envs in
           Hashtbl.find_opt envs id
           |> Option.map @@ env_is_trivial pred_set

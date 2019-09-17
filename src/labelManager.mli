@@ -1,6 +1,4 @@
-val register: ?ctxt:int -> unit -> int
-val get_label_expl: unit -> (int * int) list
-
-val print_label_explanation: unit -> unit
-
+val register: Lexing.position -> int * Lexing.position
+val register_with: int * Lexing.position -> int * Lexing.position
+val _internal_fresh : unit -> int
 val _internal_incr : int -> unit

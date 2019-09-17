@@ -415,7 +415,7 @@ let process_call e_id c =
 let%lm save_type e_id ctxt =
   { ctxt with save_env = IntMap.add e_id ctxt.gamma ctxt.save_env }
 
-let rec process_expr ?output (e_id,expr) =
+let rec process_expr ?output ((e_id,_),expr) =
   save_type e_id >>
   match expr with
   | EVar v -> begin
