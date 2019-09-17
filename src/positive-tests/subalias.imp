@@ -1,0 +1,38 @@
+update_2nd(p) {
+  let (j,q) = *p in {
+    q := 1;
+    alias(q = (*p).1)
+  }
+}
+
+check_ref(g) {
+  assert(*g = 1)
+}
+
+check(k) {
+  let (j,q) = *k in {
+    check_ref(q);
+    alias(q = (*k).1);
+  }
+}
+
+update(a) {
+  let (g,k) = *a in {
+    alias(g = (*k).1);
+    update_2nd(k);
+    check(k);
+    alias(g = (*k).1);
+    alias(g = (*a).0);
+    alias(k = (*a).1);
+  }
+}
+
+{
+  let g = mkref 0 in
+  let k = mkref (1, g) in
+  let a = mkref (g, k) in {
+    update(a);
+    let (g_,_) = *a in
+    assert(*g_ = 1)
+  }
+}

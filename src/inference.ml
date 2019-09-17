@@ -1091,17 +1091,33 @@ type walk_ctxt = {
   binding: (int * concr_ap) list;
   env: (Paths.concr_ap * concr_refinement * (concr_nullity list)) list;
   path: concr_ap;
-  nullity_stack : concr_nullity list
+  nullity_stack : concr_nullity list;
+  sym_bindings: (int * refine_ap) list;
 }
 
-let step_tup wc b tl =
+let step_tup wc ?b_out:out_o b tl =
   let binding = update_tuple_bind b wc.path wc.binding in
+  let sym_bindings = Option.map (fun l ->
+      List.map (function
+      | (tv,SProj i) ->
+        let out_tvar = List.find (function
+          | (_,SProj i') -> i = i'
+          | _ -> false
+          ) l |> fst
+        in
+        tv,`Sym out_tvar
+      | tv,SVar v -> (tv,`AVar v)
+      ) b
+    ) out_o
+    |> Option.fold ~none:wc.sym_bindings ~some:(fun l -> l @ wc.sym_bindings)
+  in
   let env = update_tuple_env ~nullity:wc.nullity_stack wc.env wc.path binding b tl in
   fun i t ->
     ({ wc with
        path = `AProj (wc.path,i);
        binding;
        env;
+       sym_bindings
      },t)
     
 let step_ref nxt wc t n =
@@ -1127,82 +1143,6 @@ let unsafe_extract_pred = function
 let unsafe_split_ref = function
   | Ref (r,o,n) -> r,o,n
   | _ -> failwith "You were supposed to give me a ref :("
-
-let combine_concr_preds (_,ct1) (_,ct2) _ =
-  And (ct1,ct2)
-
-let generalize_pred root out_type combined_pred =
-  let rec gen_ap_loop ?(arr_ap=(fun _ -> failwith "Invalid nesting of access paths")) ap ~exc ~k =
-    if ap = root then
-      k (root :> refine_ap) out_type
-    else
-      let pass_through = (fun ~pre _ -> exc ~pre (ap :> refine_ap)) in
-      match ap with
-      | `ARet -> assert false
-      | `APre v -> exc ~pre:true (`APre v)
-      | `AVar v -> exc ~pre:false (`AVar v)
-      | `ADeref ap' ->
-        gen_ap_loop ap'
-          ~exc:(fun ~pre _ ->
-            if pre then
-              exc ~pre (ap :> refine_ap)
-            else
-              failwith @@ "Free deref rooted outside target " ^ (string_of_type out_type) ^ " " ^ P.to_z3_ident root
-          )
-          ~k:(fun _ t ->
-            match t with
-            | Ref (t',_,_) -> k (ap :> refine_ap) t'
-            | _ -> assert false)
-      | `ALen ap' ->
-        gen_ap_loop ap' ~exc:pass_through
-          ~k:(fun _ t ->
-            match t with
-            | Array ({len; _},_,_,_) -> arr_ap @@ `Sym len
-            | _ -> assert false
-          )
-      | `AInd ap' ->
-        gen_ap_loop ap' ~exc:pass_through
-          ~k:(fun _ t ->
-            match t with
-            | Array ({ind; _},_,_,_) -> arr_ap @@ `Sym ind
-            | _ -> assert false
-          )
-      | `AElem ap' ->
-        gen_ap_loop ap' ~exc:(fun ~pre _ ->
-            assert (not pre);
-            failwith @@ "Free array element rooted outside target " ^ (string_of_type out_type) ^ " " ^ P.to_z3_ident root
-          ) ~k:(fun _ t ->
-            match t with
-            | Array (_,_,_,t') ->
-              k (ap :> refine_ap) t'
-            | _ -> assert false
-          )
-      | `AProj (ap',i) -> 
-        gen_ap_loop ap'
-          ~exc:(fun ~pre _ -> exc ~pre (ap :> refine_ap))
-          ~k:(fun _ t ->
-            match t with
-            | Tuple (b,tl) ->
-              let (s,_) = List.find (fun (_,sym_ap) ->
-                  match sym_ap with
-                  | SProj i' when i' = i -> true
-                  | _ -> false) b in
-              k (`Sym s) (List.nth tl i)
-            | _ -> assert false
-          )
-  in
-  let gen_ap ap = gen_ap_loop ~arr_ap:(fun ap -> ap) ap ~exc:(fun ~pre:_ t -> t) ~k:(fun ap _ -> ap)in
-  let rec gen_loop = function
-    | Top -> Top
-    | ConstEq n -> ConstEq n
-    | And (r1,r2) -> And (gen_loop r1,gen_loop r2)
-    | Relation r -> Relation (RefinementTypes.map_relation gen_ap r)
-    | Pred (i,(fv,_)) -> Pred (i,List.map gen_ap fv)
-    | CtxtPred (i1,i2,(fv,_)) -> CtxtPred (i1,i2,List.map gen_ap fv)
-    | NamedPred (nm,(fv,_)) -> NamedPred (nm,List.map gen_ap fv)
-  in
-  gen_loop combined_pred
-
 let step_array wc b len_ref t =
   { wc with
     path = `AElem wc.path;
@@ -1294,10 +1234,9 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
            cons @ ctxt'.refinements },d_list)
     else begin
       let (i,_) = unsafe_extract_pred c_out_r in
-      let comb_pred = combine_concr_preds (c1,c_r1) (c2,c_r2) c_out in
-      let gen_pred = generalize_pred out_root out_type comb_pred in
+      let comb_pred = And (partial_subst c1.sym_bindings r1, partial_subst c2.sym_bindings r2) in
       let (ctxt',d_list) = ctxt in
-      (ctxt',(i,gen_pred)::d_list)
+      (ctxt',(i,comb_pred)::d_list)
     end
   in
   let next_nvar =
@@ -1310,8 +1249,8 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
   let rec inner_loop ~summary (c1,t1) (c2,t2) (c_out,out_t) ctxt =
     match t1,t2,out_t with
     | Tuple (b1,tl1), Tuple (b2,tl2), Tuple (b_out,tl_out) ->
-      let st1 = step_tup c1 b1 tl1 in
-      let st2 = step_tup c2 b2 tl2 in
+      let st1 = step_tup c1 ~b_out b1 tl1 in
+      let st2 = step_tup c2 ~b_out b2 tl2 in
       let st3 = step_tup c_out b_out tl_out  in
       fold_left3i (fun c ind t1' t2' t_out' ->
         inner_loop ~summary
@@ -1343,7 +1282,6 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
         (c2,r2)
         (c_out,out_r)
         ctxt
-    (* TODO: short-circuit if out flag is false *)        
     | Array (b1,len1,_,t1), Array (b2,len2,_,t2), Array (b_out,len_out,flg,t_out) ->
       if not flg then ctxt
       else
@@ -1364,7 +1302,8 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
       path = out_root;
       binding = b;
       env = [];
-      nullity_stack = []
+      nullity_stack = [];
+      sym_bindings = []
     },t)
   in
   inner_loop ~summary:false
