@@ -264,7 +264,7 @@ let pprint_prog ~ip ~annot_fn ~annot ff (fn,body) =
 
 let id_printer labels =
   if labels then
-    (fun () id -> pf ":%d" id),(fun () id -> pf "%d:" id)
+    (fun () (id,_) -> pf ":%d" id),(fun () (id,_) -> pf "%d:" id)
   else
     (fun () _ -> (fun _ff -> ())),(fun () _ -> (fun _ff -> ()))
     

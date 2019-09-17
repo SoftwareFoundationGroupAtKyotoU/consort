@@ -1686,7 +1686,7 @@ let propagate_nullity ~src ?(unfold_dst=false) ~dst =
 
 (* TODO: thread context through everywhere A LA ownershipInference *)
 (* This will cut down on the awful <|> et al. sequencing operations *)
-let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) (e_id,e) ctxt =
+let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
   let lkp_split ?(loc=OI.SBind e_id) v ctxt =
     let t = SM.find v ctxt.gamma in
     let ctxt,(t1,t2) = split_type loc (`AVar v) t ctxt in

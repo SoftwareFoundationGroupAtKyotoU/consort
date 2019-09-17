@@ -31,7 +31,7 @@ let print_program ~o_map ~o_printer r ast =
       print_type t
     ]
   in
-  let pp_ty_env i _ =
+  let pp_ty_env (i,_) _ =
     let ty_env = Std.IntMap.find i r.Result.ty_envs in
     if (StringMap.cardinal ty_env) = 0 then
       pl [ ps "/* empty */"; newline ]
