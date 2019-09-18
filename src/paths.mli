@@ -28,10 +28,10 @@ val pre :
   'a
     
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
-val elem : ([< 'a t_templ > `AElem] as 'a) -> 'a
-val deref : ([< 'a t_templ > `ADeref] as 'a) -> 'a
-val var: string -> ([< 'a t_templ > `AVar] as 'a)
-val arg : int -> ([< 'a t_templ > `AVar] as 'a)
+val elem : 'a -> [> `AElem of 'a]
+val deref : 'a -> [> `ADeref of 'a ]
+val var: string -> [> `AVar of string ]
+val arg : int -> [> `AVar of string ]
 val arg_name : int -> string
 
 
