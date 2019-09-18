@@ -576,10 +576,11 @@ let simplify_ref r_in =
   in
   loop ~ex:(fun () -> Top) ~k:(fun r' -> r') r_in
 
-let rec pp_ref =
+let pp_alist = List.map (fun ap -> PrettyPrint.ps @@ refine_ap_to_string ap)
+
+let rec pp_ref pp_alist =
   let open PrettyPrint in
   let pred_name i = i in
-  let pp_alist o = List.map (fun ap -> ps @@ refine_ap_to_string ap) o in
   let print_pred i o ctxt = pb [
       pf "%s(" @@ pred_name i;
       psep_gen (pf ",@ ") @@ [
@@ -617,9 +618,9 @@ let rec pp_ref =
       ]
   | And (r1,r2) ->
     pb [
-        pp_ref r1;
+        pp_ref pp_alist r1;
         pf "@ /\\@ ";
-        pp_ref r2
+        pp_ref pp_alist r2
       ]
 
 let pp_map () l =
@@ -700,9 +701,10 @@ let pp_type : typ -> Format.formatter -> unit =
   pp_type_gen (fun k r ->
     pb [
       pf "{%s:%s@ |@ " nu k;
-      simplify_ref r |> pp_ref;
+      simplify_ref r |> pp_ref pp_alist;
       ps "}"
     ]) pp_owner
 
 let string_of_type = PrettyPrint.pretty_print_gen_rev pp_type
 let string_of_owner = PrettyPrint.pretty_print_gen_rev pp_owner
+let string_of_refinement : symbolic_refinement -> string = PrettyPrint.pp_gen_rev (pp_ref pp_alist)
