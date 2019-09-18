@@ -103,3 +103,6 @@ let pretty_print_gen printer x =
 
 let pretty_print_gen_rev printer x =
   pretty_print_gen (fun ff x -> printer x ff) x
+
+let pp_gen_rev = pretty_print_gen_rev
+let pp_gen = pretty_print_gen

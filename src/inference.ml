@@ -32,6 +32,11 @@ type tenv = typ SM.t
 
 let sexp_of_tenv = SM.sexp_of_t ~v:sexp_of_typ
 
+let string_of_concr_refinement =
+  PrettyPrint.pp_gen_rev (pp_ref (fun (k,_) ->
+      pp_alist (k :> refine_ap list)
+    ))[@@ocaml.warning "-32"]
+
 type tcon = {
   env: (Paths.concr_ap * concr_refinement * (concr_nullity list)) list;
   ante: concr_refinement;
@@ -955,7 +960,7 @@ let remove_var ~loc to_remove ctxt =
                   failwith @@ Printf.sprintf "Invariant broken: %s %s (%s)"
                       (Paths.to_z3_ident l)
                       (Paths.to_z3_ident root)
-                      (PrettyPrint.pretty_print_gen_rev pp_ref r)
+                      (string_of_refinement r)
                 else ()
               )
           |> do_with @@ List.iter @@ StrUF.register eq_ref

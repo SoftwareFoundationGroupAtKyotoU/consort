@@ -98,7 +98,7 @@ let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_a
     pf "%a@ /\\@ %a"
       (ul pp_ref_ast) r1
       (ul pp_ref_ast) r2
-  | _ -> failwith @@ "Cannot annotate with relation " ^ (pretty_print_gen_rev pp_ref r)
+  | _ -> failwith @@ "Cannot annotate with relation " ^ (string_of_refinement r)
     
 
 let rec pp_typ t =
