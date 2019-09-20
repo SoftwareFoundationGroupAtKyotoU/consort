@@ -11,6 +11,7 @@ type ocon =
   | Eq of ownership * ownership
   (* For well-formedness: if o1 = 0, then o2 = 0 *)
   | Wf of ownership * ownership
+  | Ge of ownership * ownership
 
 type options
 val default : options

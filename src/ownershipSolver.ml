@@ -13,6 +13,8 @@ type ocon =
   | Eq of ownership * ownership
   (* For well-formedness: if o1 = 0, then o2 = 0 *)
   | Wf of ownership * ownership
+  (* Ge o1 >= o2 *)
+  | Ge of ownership * ownership
 
 let owner_fact = 0.02
 
@@ -83,6 +85,13 @@ let pp_oconstraint ff ocon =
     | Eq (o1,o2) ->
       pg "assert" [
           pg "=" [
+            po o1;
+            po o2
+          ]
+        ]
+    | Ge (o1,o2) ->
+      pg "assert" [
+          pg ">=" [
             po o1;
             po o2
           ]
