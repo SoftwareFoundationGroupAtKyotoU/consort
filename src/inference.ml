@@ -431,6 +431,8 @@ let generate_refinement =
       let%bind local_pred = make_fresh_pred ~ground:true ~mu:false ~pred_vars:(local_pred_fv,path) ~loc in
       return_with_path (Paths.PathMap.add path local_pred path_set,fv_manager) (And (ind_pred,local_pred))
 
+let is_max_ref pos = (List.nth_opt pos.olist 0) = Some false
+
 let generate_type (type a) ~ground ~os:(os: (a,bool) osrc) ~target ~loc ~fv_seed ?(bind=[]) ~fv_gen t context =
   let o_map : a -> Paths.concr_ap -> (bool,'c,'c) Let_syntax.context_monad = match os with
     | Prev -> (fun o _ -> return o)
@@ -441,7 +443,7 @@ let generate_type (type a) ~ground ~os:(os: (a,bool) osrc) ~target ~loc ~fv_seed
   let ((ctxt,_),t') =
     walk_with_bindings_own ~o_map:o_map ~mu_map:mu_bind_update_cb 
       (fun ~pos root (fv,bind) r ->
-        let is_top = (List.nth_opt pos.olist 0) = Some false in
+        let is_top = is_max_ref pos in
         if is_top then
           return Top
         else
@@ -2152,7 +2154,7 @@ let process_function_bind ctxt fdef =
       let inst = inst_fn_type t in
       let (g',inst') =
         walk_with_path (fun ~pos path p g ->
-          if (not (add_post_type_p pos path)) || ((List.nth_opt pos.olist 0) = Some false) then
+          if (not (add_post_type_p pos path)) || (is_max_ref pos) then
             (g,p)
           else
             let pre_path = to_reif_name path in
@@ -2181,7 +2183,7 @@ let infer ~save_types ~intrinsics (st,iso) o_hints (fns,main) =
     let lift_simple_type ~gloc ~post ~loc =
       lift_to_refinement gloc ~nullity:NUnk ~pred:(fun ~mu ~pos fv path ->
         let fv' =
-          if post && (add_post_type_p pos path) then
+          if (post path) && (add_post_type_p pos path) then
             ((Paths.pre path) :> refine_ap)::fv
           else
             fv
@@ -2201,10 +2203,19 @@ let infer ~save_types ~intrinsics (st,iso) o_hints (fns,main) =
     let symbolic_args = List.mapi (fun i _ -> Printf.sprintf "$%d" i) f_def.args in
     let arg_templ = List.combine symbolic_args simple_ftype.SimpleTypes.arg_types in
     let free_vars = List.filter (fun (_,t) -> t = `Int) arg_templ |> List.map (fun (n,_) -> (`AVar n)) in
-    let%bind arg_types = gen_arg_preds ~gloc:(MArg f_def.name) ~post:false ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ in
-    let%bind output_types = gen_arg_preds ~gloc:(MOut f_def.name) ~post:true ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ in
+    let%bind arg_types = gen_arg_preds ~gloc:(MArg f_def.name) ~post:(Fun.const false) ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ in
+    let post_positions = List.fold_left2 (fun acc symb arg_type ->
+        fold_with_bindings (fun ~pos p _ _ set ->
+          if not @@ is_max_ref pos then
+            P.PathSet.add p set
+          else
+            set
+        ) (P.var symb) empty_bindings arg_type acc
+      ) P.PathSet.empty symbolic_args arg_types
+    in
+    let%bind output_types = gen_arg_preds ~gloc:(MOut f_def.name) ~post:(fun p -> P.PathSet.mem p post_positions) ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ in
     let%bind result_type =
-      lift_simple_type ~gloc:(MRet f_def.name) ~post:false `ARet ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type
+      lift_simple_type ~gloc:(MRet f_def.name) ~post:(Fun.const false) `ARet ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type
     in
     map_state (fun ctxt -> 
       { ctxt with
