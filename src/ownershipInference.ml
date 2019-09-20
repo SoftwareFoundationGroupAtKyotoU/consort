@@ -336,7 +336,8 @@ let rec split_type loc p =
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
 
-let%lm constrain_eq ~e_id ~src:t1 ~dst:t2 ctxt =
+
+let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
   let dst_unfld =
     let open SimpleChecker.SideAnalysis in
     if (IntSet.mem e_id ctxt.iso.unfold_locs) ||
@@ -351,13 +352,15 @@ let%lm constrain_eq ~e_id ~src:t1 ~dst:t2 ctxt =
     | Int, Int -> ctxt
     | Ref (t1',o1), Ref (t2',o2)
     | Array (t1',o1), Array (t2',o2) ->
-      loop t1' t2' { ctxt with ocons = Eq(o1,o2)::ctxt.ocons }
+      loop t1' t2' { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
     | Mu (_,t1'), Mu (_,t2') -> loop t1' t2' ctxt
     | Tuple tl1,Tuple tl2 ->
       List.fold_left2 (fun acc t1 t2 -> loop t1 t2 acc) ctxt tl1 tl2
     | _,_ -> failwith "Type mismatch (simple checker broken B?)"
   in
   loop t1 dst_unfld ctxt
+
+let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1,o2))
 
 let constrain_write o = add_constraint @@ Write o
 
@@ -560,9 +563,10 @@ and process_conditional ~e_id ~tr_branch ?output e1 e2 ctxt =
   miter (fun (k,ft) ->
     let%bind t' = make_fresh_type (MJoin e_id) (P.var k) ft in
     let tt = StringMap.find k ctxt_t.gamma in
+    let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
     begin%m
-        constrain_eq ~e_id ~src:tt ~dst:t';
-         constrain_eq ~e_id ~src:ft ~dst:t';
+        constrain_ge ~e_id ~src:tt ~dst:t';
+         constrain_ge ~e_id ~src:ft ~dst:t';
          update_type k t'
     end
   ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty }
