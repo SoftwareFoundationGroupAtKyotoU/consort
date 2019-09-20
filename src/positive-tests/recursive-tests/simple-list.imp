@@ -1,0 +1,40 @@
+fresh_list() {
+  mkref null
+}
+
+add(p, v) {
+  let hd = *p in
+  p := mkref (v, hd)
+}
+
+all_positive(p) {
+  ifnull p then
+    ()
+  else
+    let (v,nxt) = *p in {
+      assert(v > 0);
+      all_positive(nxt);
+      alias(nxt = (*p).1);
+    }
+}
+
+clear_list(p) {
+  p := null
+}
+
+{
+  let l1 = fresh_list() in
+  let l3 = l1 in
+  let l2 = fresh_list() in {
+    add(l1, 1);
+	add(l1, 2);
+	alias(l3 = l1);
+	add(l3, 2);
+	alias(l3 = l1);
+	add(l2, -4);
+    clear_list(l2);
+	add(l2, 3);
+	all_positive(*l1);
+	all_positive(*l2);
+  }
+}
