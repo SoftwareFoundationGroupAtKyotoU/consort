@@ -76,7 +76,7 @@ refinement cannot exist when an update occurs.
       \text{\footnotesize Ownership} & [[ r ]] &::=& [0,1] \\
       \text{\footnotesize Refinements} & [[ph]] & ::= & [[ ph1 \/ ph2 ]] \mid [[ !ph ]] 
                                                         \mid [[ pfun(pval1,..,pvaln) ]] \mid
-                                                        [[ pval1 = pval2 ]] \mid [[ pval1 != pval2 ]] \mid [[ Top ]] \\
+                                                        [[ pval1 = pval2 ]] \mid [[ Top ]] \\
                                  & & \mid & \mathcal{CP} \\
       \text{\footnotesize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]] \\
 
@@ -163,10 +163,11 @@ names in their refinements.
 
 Types within a function type may depend on the function's calling context
 by including \emph{context query predicates} in their refinements.
-A context query predicate $[[CQP]]$ takes one
-of the two forms $[[ plhs = ll? ]]$ or $[[ plhs != ll ? ]]$. The first
-former is true iff $[[ll]]$ is a prefix of $[[plhs]]$, and vice versa
-for the latter. $[[plhs]]$ is a parameterized context which
+A context query predicate $[[CQP]]$ takes the
+form $[[ plhs = ll? ]]$, and is true iff $[[ll]]$ is a
+prefix of $[[plhs]]$. We will also write $[[ plhs != ll? ]]$ as a more convenient
+syntax for $[[ !(plhs = ll?) ]]$.
+$[[plhs]]$ is a parameterized context, which
 may be a concrete context $[[ll]]$ or an unknown context $[[A]]$
 with a (potentially empty) concrete prefix; we abbreviate $[[ . A ]]$ as
 $[[A]]$.
@@ -174,8 +175,8 @@ Intuitively, a refinement $[[ A = ll ? ==> ph ]]$ on a value
 asserts $[[ ph ]]$ holds in any concrete execution context
 with prefix $[[ll]]$, and provides no information in any other
 context. Notice that while our grammar allows context query predicates
-of the form $[[ ll2 A ?= ll1 ? ]]$, any such query can be reduced
-to a predicate of the form $[[ A ?= ll2' ? ]], [[Top]], [[Bot]]$ using
+of the form $[[ ll2 A = ll1 ? ]]$, any such query can be reduced
+to a predicate of the form $[[ A = ll2' ? ]], [[Top]], [[Bot]]$ using
 the following equivalences:
 \begin{align*}
   [[ A = .? <=> Top ]] && [[ l1 : ll1' A = l1 : ll2' ? <=> ll1' A = ll2' ? ]] && [[ l1 : ll1' A = l2 : ll2' ? <=> Bot ]]
@@ -287,10 +288,8 @@ refinement to reflect any mutations through aliases.
     \begin{array}{rrl}
       \text{Free Ctxt Vars} & [[FPCV(ph1 \/ ph2)]] & = [[FPCV(ph1) U FPCV(ph2) ]] \\
                             & [[FPCV(!ph)]] & = [[ FPCV(ph) ]] \\
-                            & [[FPCV(pval1 = pval2)]] & = [[FPCV(pval1 != pval2) ]] \\
-                            & & = [[FPCV(pfun(pval1,..,pvaln))]] \\
-                            & & = [[ null ]] \\
-                            & [[FPCV(plhs ?= ll ?)]] & = [[FPCV(plhs)]] \\
+                            & [[FPCV(pval1 = pval2)]] & = [[FPCV(pfun(pval1,..,pvaln)) = null ]] \\
+                            & [[FPCV(plhs = ll ?)]] & = [[FPCV(plhs)]] \\
                             & [[FPCV(ll A)]] & = [[ {A} ]] \\
                             & [[FPCV(ll) ]] & = [[ null ]] \\
       \text{Ctxt Vars} & [[CV(ll)]] & = [[ null ]] \\
