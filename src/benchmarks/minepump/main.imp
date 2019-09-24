@@ -1,0 +1,47 @@
+randomSequenceOfActions_loop(counter, actions) {
+  if counter = 3 then ()
+  else
+    let action1 = _ in
+    let action2 = _ in
+    let action3 = _ in
+    let action4 = mkref false in {
+      if action3 = false then
+        action4 := _
+      else ();
+      // action 1
+      {
+        if action1 = true then
+          Actions_waterRise(actions)
+        else ()
+      };
+      {
+        if action2 = true then
+          Actions_methaneChange(actions)
+        else ()
+      };
+      {
+        if action3 = true then
+          Actions_startSystem(actions)
+        else if *action4 = true then
+          Actions_stopSystem(actions)
+        else ()
+      };
+      Actions_timeShift(actions);
+      randomSequenceOfActions_loop((counter + 1), actions)
+    }
+}
+
+cleanUp_loop(counter, actions) {
+  if counter = 2 then ()
+  else {
+    Actions_timeShift(actions);
+    cleanUp_loop((counter + 1), actions)
+  }
+}
+
+{
+  let actions = Actions_init() in {
+    randomSequenceOfActions_loop(0, actions);
+    cleanUp_loop(0, actions)
+  }
+}

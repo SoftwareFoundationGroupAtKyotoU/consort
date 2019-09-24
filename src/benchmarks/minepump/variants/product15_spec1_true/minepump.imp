@@ -1,0 +1,59 @@
+/* pump running, system active, env ref */
+
+MinePump_init(env) {
+  mkref (false, true, env)
+}
+
+MinePump_timeShift(this) {
+  let (pumpRunning, systemActive, env) = *this in {
+    if pumpRunning = true then
+	  Environment_lowerWaterLevel(env)
+	else ();
+	alias(env = (*this).2);
+	if systemActive = true then
+	  MinePump_processEnvironment(this)
+	else ()
+  }
+}
+
+MinePump_processEnvironment(this) {
+  ()
+}
+
+MinePump_activatePump(this) {
+  let (_, systemActive, env) = *this in {
+    this := (true, systemActive, env)
+  }
+}
+
+MinePump_isPumpRunning(this) {
+  let (pumpRunning, _, _) = *this in {
+    pumpRunning
+  }
+}
+
+MinePump_deactivatePump(this) {
+  let (_, systemActive, env) = *this in {
+    this := (false, systemActive, env)
+  }
+}
+
+MinePump_isMethaneAlarm(this) {
+  let (_, _, env) = *this in {
+    let ret = Environment_isMethaneLevelCritical(env) in {
+      alias(env = (*this).2);
+      ret
+	}
+  }
+}
+
+MinePump_getEnv(this) {
+  let (_,_,env) = *this in env
+}
+
+MinePump_stopSystem(this) ()
+MinePump_startSystem(this) ()
+
+MinePump_isSystemActive(this) {
+  let (_, systemActive, _) = *this in systemActive
+}

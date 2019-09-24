@@ -1,0 +1,82 @@
+/*
+  env: (water level, methane level critical)
+  pump: (pump running, system active, env ref)
+  actions: (env, pump)
+*/
+
+Actions_waterRise(this) {
+  let (env,pump) = *this in {
+    alias(env = (*pump).2);
+    Environment_waterRise(env);
+    alias(env = (*pump).2);
+    alias(env = (*this).0);
+    alias(pump = (*this).1);
+  }
+}
+
+Actions_methaneChange(this) {
+  let (env,pump) = *this in {
+    alias(env = (*pump).2);
+    Environment_changeMethaneLevel(env);
+    alias(env = (*pump).2);
+    alias(env = (*this).0);
+    alias(pump = (*this).1);
+  }
+}
+
+Actions_startSystem(this) {
+  let (_,pump) = *this in {
+    let flg = MinePump_isSystemActive(pump) in
+    if flg then
+     ()
+    else
+      MinePump_startSystem(pump);
+    alias(pump = (*this).1);
+  }
+}
+
+Actions_stopSystem(this) {
+  let (_,pump) = *this in {
+    let flg = MinePump_isSystemActive(pump) in
+    if flg then
+     MinePump_stopSystem(pump)
+    else
+     ();
+    alias(pump = (*this).1);
+  }
+}
+
+Actions_timeShift(this) {
+  let (env,pump) = *this in {
+    alias(env = (*pump).2);
+    MinePump_timeShift(pump);
+    let flg = MinePump_isSystemActive(pump) in {
+      alias(env = (*pump).2);
+      alias(env = (*this).0);
+      alias(pump = (*this).1);
+      if flg then
+        Actions_Specification1(this)
+      else
+        ()
+    }
+  }
+}
+
+Actions_Specification1(this) {
+  let (_,pump) = *this in {
+    let env_real = MinePump_getEnv(pump) in
+    let b1 = Environment_isMethaneLevelCritical(env_real) in
+    let b2 = MinePump_isPumpRunning(pump) in {
+      alias(env_real = (*pump).2);
+      let cond = (b1 = true) && (b2 = true) in
+      assert(cond != true)
+	};
+	alias(pump = (*this).1)
+  }
+}
+
+Actions_init() {
+  let env = Environment_init() in
+  let mpump = MinePump_init(env) in
+  mkref (env, mpump)
+}

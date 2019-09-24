@@ -1,0 +1,53 @@
+Environment_lowerWaterLevel(this) {
+  let (waterLevel,methaneLevelCritical) = *this in {
+    if waterLevel = 2 then
+	  this := (1, methaneLevelCritical)
+	else if waterLevel = 1 then
+	  this := (0, methaneLevelCritical)
+	else ()
+  }
+}
+
+Environment_waterRise(this) {
+  let (waterLevel,methaneLevelCritical) = *this in {
+    if waterLevel = 1 then
+	  this := (2, methaneLevelCritical)
+	else if waterLevel = 0 then
+	  this := (1, methaneLevelCritical)
+	else ()
+  }
+}
+
+Environment_changeMethaneLevel(this) {
+  let (waterLevel, methaneLevelCritical) = *this in {
+    if methaneLevelCritical = true then {
+	  this := (waterLevel, false)
+    } else {
+	  this := (waterLevel, true)
+	}
+  }
+}
+
+
+Environment_isMethaneLevelCritical(this) {
+  let (_, methaneLevelCritical) = *this in {
+    methaneLevelCritical = true
+  }
+}
+
+Environment_getWaterLevel(this) {
+  let (waterLevel, _) = *this in waterLevel
+}
+
+Environment_isLowWaterSensorDry(this) {
+  let (waterLevel, _) = *this in waterLevel = 0
+}
+
+Environment_isHighWaterSensorDry(this) {
+  let (waterLevel, _) = *this in waterLevel < 2
+}
+
+Environment_init() {
+  mkref (1, false)
+}
+

@@ -1,0 +1,112 @@
+/*
+  (water level, methane level, pump running, active)
+*/
+waterRise(p) {
+  let (lvl, ml, pr, a) = *p in {
+    if lvl = 1 then
+	  p := (2, ml, pr, a)
+    else if lvl = 0 then
+	  p := (1, ml, pr, a)
+	else ()
+  }
+}
+
+methaneChange(p) {
+  let (lvl, ml, pr, a) = *p in {
+    if ml = true then
+	  p := (lvl, false, pr, a)
+	else
+	  p := (lvl, true, pr, a)
+  }
+}
+
+startSystem(p) {
+  let (lvl, ml, pr, _) = *p in {
+    p := (lvl, ml, pr, true)
+  }
+}
+
+stopSystem(p) {
+  let (lvl, ml, pr, _) = *p in {
+    p := (lvl, ml, pr, false)
+  }
+}
+
+processEnvironment(p) {
+  ()
+}
+
+lowerWaterLevel(p) {
+  let (lvl, ml, pr, a) = *p in {
+    if lvl = 2 then
+	  p := (1, ml, pr, a)
+	else if lvl = 1 then
+	  p := (0, ml, pr, a)
+	else ()
+  }
+}
+
+timeShift(p) {
+  let (_, _, pr, _) = *p in {
+    if pr = true then
+	  lowerWaterLevel(p)
+	else ()
+  };
+  let (_, _, pr, a) = *p in {
+    if a = true then
+	  processEnvironment(p)
+	else ()
+  };
+  spec1(p)
+}
+
+spec1(p) {
+  let  (_, ml, pr, _) = *p in
+  let cond = ml && pr in
+  assert(cond != true)
+}
+
+sequence(counter, p) {
+  if counter = 2 then ()
+  else
+    let action1 = _ in
+    let action2 = _ in
+    let action3 = _ in
+    let action4 = _ in {
+      // action 1
+      {
+        if action1 = true then
+          waterRise(p)
+        else ()
+      };
+      {
+        if action2 = true then
+          methaneChange(p)
+        else ()
+      };
+      {
+        if action3 = true then
+          startSystem(p)
+        else if action4 = true then
+          stopSystem(p)
+        else ()
+      };
+      timeShift(p);
+      //sequence((counter + 1), p)
+	}
+}
+
+cleanup(counter, p) {
+  if counter = 3 then ()
+  else {
+    timeShift(p);
+	//cleanup((counter + 1), p)
+  }
+}
+
+{
+  let p = mkref (1, false, false, true) in {
+    sequence(0, p);
+	cleanup(0, p)
+  }
+}
