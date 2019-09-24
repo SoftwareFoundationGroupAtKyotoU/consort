@@ -142,6 +142,8 @@ we do impose the following requirements:
 \end{enumerate}
 \fi
 
+\input{semantics}
+
 \subsection{Operational Semantics}
 \label{sec:semantics}
 We now introduce the operational semantics for our language.
@@ -159,7 +161,7 @@ the rewritting rules are defined in terms of $[[ E[e] ]]$, which is
 a context $[[E]]$ and redex $[[e]]$, as is standard.
 The grammar for evaluation contexts and return contexts are defined
 in \cref{fig:eval-context-grammar}.
-Our operational semantics is given in \cref{fig:transitionRules}.
+Our operational semantics is given in \cref{fig:transitionRules1,fig:transitionRules2}.
 Notice that the step relation is parameterized
 by a set of function defitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
