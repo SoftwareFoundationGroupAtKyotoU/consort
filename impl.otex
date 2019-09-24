@@ -133,14 +133,6 @@ significant extensions are to the subtyping rules.
 Specifically, the subtyping check for a tuple element
 $[[xi:Ti]]$ is peformed in a type environment elaborated with
 types of other tuple elements.
-\iffalse
-Formally, we assume all dependent tuple names are distinct from one another
-and program variables, and define the tuple subytping rule as:
-\infrule[T-SubTup]{
-  [[ G,xj:Tj |- Ti <: Ti' ]] \andalso (i \neq j)
-}{
-  [[ G |- (x1:T1 ,, xn:Tn) <: (x1:T1' ,, xn:Tn') ]]
-}\fi
 The extension to type inference is also
 straightforward; the free variables for a
 predicate symbol depend on the enclosing tuple types

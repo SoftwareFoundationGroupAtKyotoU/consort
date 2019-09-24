@@ -125,23 +125,6 @@ assert statement in the desguring.
 \label{fig:eval-context-grammar}
 \end{figure}
 
-\iffalse
-\subsection{Logical Formula}
-Our language defintion, semantics, or type system does not assume
-any particular logic. We assume all logical formulae are built
-using the standard logical connectives
-using primitive relations and functions whose interpretation
-given is given by some underlying
-theory \theory. Although we do not fix a particular logic or theory,
-we do impose the following requirements:
-\begin{enumerate}
-\item Any \theory-model treats the symbol $[[nn]]$ as a constant denoting the mathematical
-  integer $[[nn]]$.
-\item The signature for the theory must include all program variables as constants,
-  and any \theory-model must assign a mathematical integer to each variable symbol
-\end{enumerate}
-\fi
-
 \input{semantics}
 
 \subsection{Operational Semantics}
