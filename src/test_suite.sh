@@ -17,15 +17,14 @@ NEG_DIRS=(recursive-tests challenge-problem arrays)
 (
 	cd $THIS_DIR;
 	make test;
-	r_test "$@" -timeout 15 -seq-solver -pos ./positive-tests;
-	r_test "$@" -pos ./positive-tests;
+	r_test "$@" -timeout 15 -pos ./positive-tests;
 	for i in ${POS_DIRS[@]}; do
-		r_test "$@" -timeout 60 -pos -seq-solver ./positive-tests/$i;
+		r_test "$@" -timeout 60 -pos ./positive-tests/$i;
 	done
 	r_test "$@" -pos -cfa 2 ./positive-tests/2cfa;
 	r_test "$@" -neg ./negative-tests
 	for i in ${NEG_DIRS[@]}; do
-		r_test "$@" -neg -seq-solver ./negative-tests/$i;
+		r_test "$@" -neg ./negative-tests/$i;
 	done
 	jayhorn ./benchmarks/jayhorn/Sat*.imp;
 	jayhorn -neg ./benchmarks/jayhorn/Unsat*.imp;

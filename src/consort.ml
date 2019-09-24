@@ -54,7 +54,6 @@ module Options = struct
     save_cons: string option;
     annot_infr: bool;
     print_model: bool;
-    seq_solver: bool;
     check_trivial: bool;
     dry_run : bool;
     solver: solver;
@@ -70,7 +69,6 @@ module Options = struct
     debug_ast = false;
     annot_infr = false;
     print_model = false;
-    seq_solver = false;
     check_trivial = false;
     dry_run = false;
     solver = Spacer;
@@ -130,22 +128,20 @@ module Options = struct
 
   let solver_arg_gen () =
     let open Arg in
-    let seq_run = ref default.seq_solver in
     let check_trivial = ref default.check_trivial in
     let solver = ref default.solver in
     ([
-      ("-seq-solver", Set seq_run, "Run two inference passes; the first inferring ownership, the second inferring refinements");
+      ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
       ("-solver", Symbol (["spacer";"hoice";"z3";"null"], function
          | "spacer" -> solver := Spacer
-         | "hoice" -> solver := Hoice; seq_run := true
+         | "hoice" -> solver := Hoice
          | "null" -> solver := Null
          | "z3" -> solver := Z3SMT
-         | _ -> assert false), " Use solver backend <solver>. (default: spacer) NOTE: Selecting Hoice enables sequential solving")
+         | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
            
     ], (fun ?(comb=default) () ->
        { comb with
-         seq_solver = !seq_run;
          check_trivial = !check_trivial;
          solver = !solver;
        }))

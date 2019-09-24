@@ -12,7 +12,6 @@ module Options :
       save_cons: string option;
       annot_infr: bool;
       print_model: bool;
-      seq_solver: bool;
       check_trivial: bool;
       dry_run : bool;
       solver: solver;
