@@ -1632,7 +1632,7 @@ let propagate_nullity ~src ?(unfold_dst=false) ~dst =
 
 (* TODO: thread context through everywhere A LA ownershipInference *)
 (* This will cut down on the awful <|> et al. sequencing operations *)
-let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
+let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
   let lkp_split ?(loc=OI.SBind e_id) v ctxt =
     let t = SM.find v ctxt.gamma in
     let ctxt,(t1,t2) = split_type loc (`AVar v) t ctxt in
@@ -1664,19 +1664,19 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
       let%bind t2 = lkp_split ~loc:(SRet e_id) v in
       let%bind dg = denote_gamma_m in
       let%bind gamma = Let_syntax.proj ~f:(fun ctxt -> ctxt.gamma) in
-      (match output_type,output_args with
-      | Some t,Some out_args -> 
+      (match output with
+      | Some (t,out_args) -> 
         add_type_implication dg (`AVar v) t2 t
         >> miter (fun (k,ty) ->
           add_var_implication dg gamma k ty
         ) out_args
-      | None,None -> return ()
-      | _,_ -> assert false)
+      | None -> return ()
+      )
       >> mutate @@ remove_var ~loc:(LLet e_id) remove_scope
     end
   | Seq (e1, e2) ->
     process_expr e1 ctxt
-    |> process_expr ?output_args ?output_type ~remove_scope e2
+    |> process_expr ?output ~remove_scope e2
 
   | Assign (lhs,IVar rhs,cont) ->
     do_with_context ctxt @@
@@ -1694,13 +1694,13 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
       in
       let t2_eq = strengthen_eq ~strengthen_type:t2_assign ~target:(`AVar rhs) in
       mupdate_type lhs @@ ref_of t2_eq o NLive
-      >> mutate @@ process_expr ?output_args ?output_type ~remove_scope cont
+      >> mutate @@ process_expr ?output ~remove_scope cont
 
   | Assign (lhs,IInt i,cont) ->
     let ctxt,(_,o,_) = lkp_ref lhs ctxt in
     ctxt
     |> update_type lhs @@ ref_of (Int (ConstEq i)) o NLive
-    |> process_expr ?output_args ?output_type ~remove_scope cont
+    |> process_expr ?output ~remove_scope cont
 
   | Update (base,ind,v,cont) ->
     let (b,l,o,et,lenr_comp) = lkp_array base in
@@ -1728,7 +1728,7 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
            add_type_implication ~init_bind:orig_case_bind ~ante_ext:(Relation { rel_op1 = rel_ind_ap; rel_cond = "!="; rel_op2 = ind_ap }) orig_case_env elem_ap et et';
            add_bounds_constraint (lenr_comp::dg) base ind;
            mupdate_type base @@ Array (b,l,o,et');
-           mutate @@ process_expr ?output_args ?output_type ~remove_scope cont
+           mutate @@ process_expr ?output ~remove_scope cont
       end
 
   | Let (PVar v,Mkref (RVar v_ref),exp) when IntSet.mem e_id ctxt.iso.fold_locs ->
@@ -1743,7 +1743,7 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
       begin%m
           constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref);
            bind_var v @@ ref_of fresh_strengthened o NLive;
-           mutate @@ process_expr ?output_args ?output_type ~remove_scope:(SS.add v remove_scope) exp
+           mutate @@ process_expr ?output ~remove_scope:(SS.add v remove_scope) exp
       end
   | Let (PVar lhs,MkArray len,nxt) ->
     do_with_context ctxt @@ begin
@@ -1769,14 +1769,14 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
                And (r,Relation {rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`ALen (`AVar lhs)) })
              ) lent);
            bind_var lhs a_type;
-           mutate @@ process_expr ?output_args ?output_type ~remove_scope:(SS.add lhs remove_scope) nxt
+           mutate @@ process_expr ?output ~remove_scope:(SS.add lhs remove_scope) nxt
       end
     end
 
   | Let (PVar v,Null,nxt) -> do_with_context ctxt @@ begin
       let%bind t = get_type_scheme (OI.MGen e_id) ~is_null:true ~fv:(gamma_predicate_vars ctxt.gamma) ~loc:(LNull e_id) e_id v in
       bind_var v t
-      >> mutate @@ process_expr ?output_args ?output_type ~remove_scope:(SS.add v remove_scope) nxt
+      >> mutate @@ process_expr ?output ~remove_scope:(SS.add v remove_scope) nxt
     end
   | Let (patt,rhs,exp) ->
     do_with_context ctxt @@
@@ -1847,10 +1847,10 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
       map_state snd >>
       return_mut
       <|> strengthen_let close_p rhs
-      <|> process_expr ?output_args ?output_type ~remove_scope:(SS.union bound_vars remove_scope) exp
+      <|> process_expr ?output ~remove_scope:(SS.union bound_vars remove_scope) exp
 
   | Assert (relation,cont) ->
-    process_expr ?output_args ?output_type ~remove_scope cont @@ {
+    process_expr ?output ~remove_scope cont @@ {
       ctxt with
       refinements = {
         env = denote_gamma ctxt.gamma;
@@ -1937,7 +1937,7 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
            mupdate_type v1 @@ sub_pdef psub1 t1';
            remove_sub psub1;
            remove_sub psub2;
-           mutate @@ process_expr ?output_args ?output_type ~remove_scope cont
+           mutate @@ process_expr ?output ~remove_scope cont
       end
 
   | Cond(v,e1,e2) ->
@@ -1954,16 +1954,14 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
     let fv_seed = if SS.mem v remove_scope then [] else [`AVar v] in
     process_conditional
       ~fv_seed
-      ?output_args
-      ?output_type ~remove_scope
+      ?output ~remove_scope
       ~tr_path:(add_pc_refinement "=")
       ~fl_path:(add_pc_refinement "!=")
       e_id e1 e2 ctxt
 
   | NCond (v,e1,e2) ->
     process_conditional
-      ?output_args
-      ?output_type ~remove_scope
+      ?output ~remove_scope
       ~tr_path:(fun ctxt ->
         let (ctxt',t) = make_fresh_type ~os:(Ownership (OI.MGen e_id)) ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:[] (lkp v ctxt) ctxt in
         update_type v (make_null t) ctxt'
@@ -1983,11 +1981,11 @@ let rec process_expr ?output_args ?output_type ?(remove_scope=SS.empty) ((e_id,_
         in
         StringMap.add k v' acc
       ) StringMap.empty ty_env in
-    process_expr ?output_args ?output_type ~remove_scope next { ctxt with gamma = env' }
+    process_expr ?output ~remove_scope next { ctxt with gamma = env' }
 
-and process_conditional ?output_args ?output_type ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
-  let ctxt1 = process_expr ?output_args ?output_type ~remove_scope e1 @@ tr_path ctxt in
-  let ctxt2 = process_expr ?output_args ?output_type ~remove_scope e2 @@ fl_path {
+and process_conditional ?output ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
+  let ctxt1 = process_expr ?output ~remove_scope e1 @@ tr_path ctxt in
+  let ctxt2 = process_expr ?output ~remove_scope e2 @@ fl_path {
         ctxt with
         refinements = ctxt1.refinements;
         v_counter = ctxt1.v_counter;
@@ -2171,7 +2169,7 @@ let process_function_bind ctxt fdef =
       let out_refine_type = inst_fn_type out_ty_tmpl in
       (v,out_refine_type)
     ) out_typ_template in
-  let ctxt' = process_expr ~output_args ~output_type:result_type ~remove_scope:SS.empty fdef.body { ctxt with gamma = init_env } in
+  let ctxt' = process_expr ~output:(result_type,output_args) ~remove_scope:SS.empty fdef.body { ctxt with gamma = init_env } in
   ctxt'
 
 let process_function ctxt fdef =
