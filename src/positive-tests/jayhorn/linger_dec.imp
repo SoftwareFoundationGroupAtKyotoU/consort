@@ -19,10 +19,6 @@ linger_dec(p) {
 }
 
 {
-  let p  = mkref _ in {
-  $gamma {
-    p: ~ > 0 int ref 1.0
-  };
+  let p  = mkref (_ : ~ > 0) in
   let ret = linger_dec(p) in assert(ret = 0)
-  }
 }
