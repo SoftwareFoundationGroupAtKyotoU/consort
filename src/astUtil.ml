@@ -6,8 +6,8 @@ let parse_file in_name =
     Parser.prog Lexer.read lexbuf |> SurfaceAst.simplify
   with
     | Parser.Error -> let open Lexing in
-    failwith @@ Printf.sprintf "Parse error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
+    failwith @@ Printf.sprintf "Parse error at %s" @@ Locations.string_of_location lexbuf.lex_start_p
     | Failure _ ->
       let open Lexing in
-      failwith @@ Printf.sprintf "Lexing error on line %d, col: %d in file %s" lexbuf.lex_curr_p.pos_lnum (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol) in_name
+      failwith @@ Printf.sprintf "Lexing error at %s" @@ Locations.string_of_location lexbuf.lex_curr_p
 
