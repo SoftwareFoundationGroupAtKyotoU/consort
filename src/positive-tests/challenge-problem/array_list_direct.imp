@@ -16,12 +16,7 @@ push(c,l) {
 }
 
 {
-  let c = _ in
-  let l = _ in {
-  $gamma {
-    c: ~ <= l /\ ~ >= 0 int;
-	l: ~ >= 0 int
-  };
+  let l = ( _ : ~ >= 0 ) in
+  let c = ( _ : ~ <= l /\ ~ >= 0 ) in
   push(c, l)
-  }
 }

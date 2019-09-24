@@ -38,11 +38,7 @@ push_loop(l) {
 }
 
 {
-  let g = _ in {
-    $gamma {
-	  g : ~ > 0 int
-	};
-    let l = mklist(g) in
-	push_loop(l)
-  }
+  let g = ( _ : ~ >= 0) in
+  let l = mklist(g) in
+  push_loop(l)
 }
