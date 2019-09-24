@@ -43,6 +43,7 @@ let rec pre = function
 let t_ind a i = `AProj (a,i)
 let elem p = `AElem p
 let deref p = `ADeref p
+let len p = `ALen p
 let var v = `AVar v
 let arg_name = Printf.sprintf "$%d"
 let arg i = var @@ arg_name i

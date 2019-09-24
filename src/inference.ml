@@ -483,6 +483,7 @@ let predicate_vars kv =
   List.fold_left (fun acc (k, t) ->
       match t with
       | Int _ -> (`AVar k)::acc
+      | Array _ -> (`ALen (`AVar k))::acc
       | _ -> acc
   ) [] kv |> List.rev
 
@@ -2200,7 +2201,12 @@ let infer ~save_types ~intrinsics (st,iso) o_hints (fns,main) =
     let simple_ftype = SM.find f_def.name st in
     let symbolic_args = List.mapi (fun i _ -> Printf.sprintf "$%d" i) f_def.args in
     let arg_templ = List.combine symbolic_args simple_ftype.SimpleTypes.arg_types in
-    let free_vars = List.filter (fun (_,t) -> t = `Int) arg_templ |> List.map (fun (n,_) -> (`AVar n)) in
+    let free_vars =
+      List.filter_map (function
+      | (k,`Int) -> Some (P.var k)
+      | (k, `Array `Int) -> Some (P.len @@ P.var k)
+      | _ -> None
+      ) arg_templ in
     let%bind arg_types = gen_arg_preds ~gloc:(MArg f_def.name) ~post:(Fun.const false) ~loc:(fun k -> LArg (f_def.name,k)) free_vars arg_templ in
     let post_positions = List.fold_left2 (fun acc symb arg_type ->
         fold_with_bindings (fun ~pos p _ _ set ->
