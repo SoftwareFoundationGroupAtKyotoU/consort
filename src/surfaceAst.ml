@@ -4,7 +4,7 @@ type lhs = [
   | `OVar of string
   | `OInt of int
   | `ODeref of string
-  | `Nondet
+  | `Nondet of RefinementTypes.symbolic_refinement option
   | `BinOp of lhs * string * lhs
   | `Null
   | `OBool of bool
@@ -75,7 +75,7 @@ let rec simplify_expr ?next count e : pos * A.raw_exp =
   | Cond (i,`Var v,e1,e2) ->
     A.Cond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
   | Cond (i,`Nondet,e1,e2) ->
-    bind_in ~ctxt:i count `Nondet (fun c tvar ->
+    bind_in ~ctxt:i count (`Nondet None) (fun c tvar ->
         A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
         |> tag_with i
       )
@@ -128,7 +128,7 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `OVar v -> k @@ A.Var v
   | `OInt i -> k @@ A.Const i
   | `ODeref v -> k @@ A.Deref v
-  | `Nondet -> k @@ A.Nondet
+  | `Nondet r -> k @@ A.Nondet r
   | `LengthOf lhs ->
     lift_to_var ~ctxt count lhs (fun c' r ->
         rest c' @@ A.LengthOf r
@@ -163,7 +163,7 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
 and lift_to_rinit ~ctxt count (r: lhs) rest =
   let k = rest count in
   match r with
-  | `Nondet -> k A.RNone
+  | `Nondet None -> k A.RNone
   | `OVar v -> k @@ A.RVar v
   | `OInt i -> k @@ A.RInt i
   | #lhs as l ->

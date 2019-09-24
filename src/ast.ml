@@ -25,7 +25,7 @@ type lhs =
   | Call of fn_call
   | Deref of string
   | Tuple of ref_contents list
-  | Nondet
+  | Nondet of RefinementTypes.symbolic_refinement option
   | Read of string * string
   | LengthOf of string
   | Null

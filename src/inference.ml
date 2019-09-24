@@ -1442,7 +1442,7 @@ let rec strengthen_let patt rhs ctxt =
   | _,Const _
   | _,Mkref RNone
   | _,Mkref (RInt _)
-  | _,Nondet
+  | _,Nondet _
   | _,Null
   | _,Call _ -> ctxt
   | _,Var v ->
@@ -1790,7 +1790,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
           lkp_split left_v           
         | Const n -> return @@ Int (ConstEq n)
 
-        | Nondet -> return @@ Int Top
+        | Nondet r -> return @@ Int (Option.value ~default:Top r)
 
         | Call c -> process_call e_id c
 

@@ -117,13 +117,17 @@ let patt :=
   | UNDERSCORE; { Ast.PNone }
   | ~ = ID; <Ast.PVar>
 
+let nondet :=
+  | UNDERSCORE; { `Nondet None }
+  | LPAREN; UNDERSCORE; COLON; r = refine; RPAREN; { `Nondet (Some r) }
+
 let op :=
   | ~ = INT; <`OInt>
   | ~ = ID; <`OVar>
   | TRUE; { `OBool true }
   | FALSE; { `OBool false }
   | STAR; ~ = ID; <`ODeref>
-  | UNDERSCORE; { `Nondet }
+  | ~ = nondet; <>
   | LPAREN; o = lhs; RPAREN; { o }
   | NULL; { `Null }
   | ~ = fn_call; <`Call>
