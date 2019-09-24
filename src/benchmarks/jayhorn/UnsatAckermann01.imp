@@ -11,15 +11,10 @@ ackermann(m, n) {
 
 
 {
-  let m = _ in
-  let n = _ in {
-    $gamma {
-      m: ~ >= 0 /\ ~ <= 3 int;
-      n: ~ >= 0 /\ ~ <= 23 int
-    };
-	let result = ackermann(m, n) in
-	if m >= 2 then
-	  assert(result < 4)
-	else ()
-  }
+  let m = (_: ~ >= 0 /\ ~ <= 3) in
+  let n = (_: ~ >= 0 /\ ~ <= 23) in
+  let result = ackermann(m, n) in
+  if m >= 2 then
+    assert(result < 4)
+  else ()
 }

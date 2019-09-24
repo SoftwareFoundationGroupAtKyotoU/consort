@@ -18,12 +18,8 @@ isEven(n) {
 }
 
 {
-  let n = _ in {
-    $gamma {
-	  n: ~ >= 0 int
-	};
-	let result = isEven(n) in
-	let m = n % 2 in
-	assert(result = m)
-  }
+  let n = (_: ~ >= 0) in
+  let result = isEven(n) in
+  let m = n % 2 in
+  assert(result = m)
 }
