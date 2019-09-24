@@ -9,14 +9,9 @@ addition(m,n) {
 }
 
 {
-  let x = _ in
-  let y = _ in {
-    $gamma {
-      x: ~ >= 0 int;
-	  y: ~ >= 0 int
-    };
-	let result = addition(x, y) in
-	let add = x + y in
-	assert(result = add)
-  }
+  let x = (_: ~ >= 0) in
+  let y = (_: ~ >= 0) in
+  let result = addition(x, y) in
+  let add = x + y in
+  assert(result = add)
 }

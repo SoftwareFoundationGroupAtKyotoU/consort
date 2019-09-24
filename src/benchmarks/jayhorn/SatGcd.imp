@@ -12,13 +12,8 @@ gcd(y1, y2) {
 }
 
 {
-  let m = _ in
-  let n = _ in {
-    $gamma {
-	  m: ~ > 0 int;
-	  n: ~ > 0 int
-	};
-	let z = gcd(m, n) in
-	assert(z >= 1)
-  }
+  let m = (_: ~ > 0) in
+  let n = (_: ~ > 0) in
+  let z = gcd(m, n) in
+  assert(z >= 1)
 }

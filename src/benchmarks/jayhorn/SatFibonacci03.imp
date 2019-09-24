@@ -10,11 +10,7 @@ fibonacci(n) {
 }
 
 {
-  let x = _ in {
-    $gamma {
-	  x: ~ >= 9 /\ ~ <= 46 int
-	};
-	let result = fibonacci(x) in
-	assert(result >= 34)
-  }
+  let x = (_ : ~ >= 9 /\ ~ <= 46) in
+  let result = fibonacci(x) in
+  assert(result >= 34)
 }

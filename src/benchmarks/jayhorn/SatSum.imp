@@ -7,12 +7,8 @@ sum(n,s) {
 }
 
 {
-  let n = _ in {
-    $gamma {
-	  n: ~ >= 2 int
-	};
-	let s = mkref 0 in
-	let ex = sum(n, s) in
-	assert(ex > n)
-  }
+  let n = (_ : ~ >= 2) in
+  let s = mkref 0 in
+  let ex = sum(n, s) in
+  assert(ex > n)
 }
