@@ -1,0 +1,24 @@
+copy(i,a,b) {
+  if i = a.length then
+    ()
+  else {
+    let elem = a[i] in b[i] <- elem;
+	copy((i+1),a,b)
+  }
+}
+
+{
+  let g = _ in {
+    $gamma {
+	  g : ~ > 0 int
+	};
+	let a = mkarray g in
+	let g2 = g * 2 in
+	let b = mkarray g2 in {
+	  a[0] <- 4;
+      copy(0,a,b);
+	  let b_fst = b[0] in
+	  assert(b_fst = 4)
+	}
+  }
+}

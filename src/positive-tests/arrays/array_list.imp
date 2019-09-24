@@ -1,0 +1,38 @@
+copy(i,a,b) {
+  if i = a.length then
+    ()
+  else {
+    let elem = a[i] in b[i] <- elem;
+	copy((i+1),a,b)
+  }
+}
+
+grow(p) {
+  let (curr,len,arr) = *p in
+  let dl = (len * 2) + 1 in
+  let new_array = mkarray dl in {
+    copy(0,arr,new_array);
+	p := (curr, dl, new_array)
+  }
+}
+
+push(p, v) {
+  let (curr,len,_) = *p in
+  if curr = len then {
+    grow(p)
+  } else ();
+  let (curr,len,arr) = *p in {
+    arr[curr] <- v;
+	p := (curr + 1,len,arr)
+  }
+}
+
+mklist(len) {
+  let arr = mkarray len in
+  mkref (0,len,arr)
+}
+
+{
+  let l = mklist(0) in
+  push(l, 0)
+}
