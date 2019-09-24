@@ -58,7 +58,7 @@
       [[Rv is INT /\ [R][Rv / nu]ph ]] & [[ T = {nu:int|ph} ]] \\
       [[a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
     \end{cases} \\
-    [[ [empty]ph ]] & = [[ [v/x]ph ]] \\
+    [[ [empty]ph ]] & = [[ ph ]] \\
     [[ [R { y |-> nn }]ph ]] & =  [[  [R][nn/y]ph ]] \\
     [[ [R { y |-> a }]ph ]] & =  [[ [R]ph ]] \\
     F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
