@@ -44,18 +44,12 @@ is_prime_(n, m) {
 }
 
 {
-  let n = _ in
-  let f1 = _ in
-  let f2 = _ in {
-    $gamma {
-      n : ~ >= 1 /\ ~ <= 46340 int;
-	  f1 : ~ > 1 /\ ~ <= 46340 int;
- 	  f2 : ~ > 1 /\ ~ <= 46340 int
-    };
-	let result = is_prime(n) in
-	let m_res = mult(f1, f2) in
-	if m_res = n then
-	  assert(result = 0)
-	else ()
-  }
+  let n = (_: ~ >= 1 /\ ~ <= 46340) in
+  let f1 = (_: ~ > 1 /\ ~ <= 46340) in
+  let f2 = (_: ~ > 1 /\ ~ <= 46340) in
+  let result = is_prime(n) in
+  let m_res = mult(f1, f2) in
+  if m_res = n then
+    assert(result = 0)
+  else ()
 }
