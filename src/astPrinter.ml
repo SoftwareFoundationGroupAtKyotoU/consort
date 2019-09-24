@@ -33,42 +33,7 @@ let pprint_kv (k,v) =
   ]
 
 let upp_imm = ul pp_imm
-
-let pp_lhs = function
-  | Var x -> pv x
-  | Const i -> pi i
-  | Mkref il -> pl [
-                    ps "mkref ";
-                    pp_rinit il
-                  ]
-  | Tuple rinit ->
-    pl [
-        ps "(";
-        psep ", " @@ List.map pp_rinit rinit;
-        ps ")"
-      ]
-  | Deref v -> pl [
-                   ps "*";
-                   pv v
-                 ]
-  | Call c -> pprint_fn_call c
-  | Nondet -> ps "_"
-  | Null -> ps "null"
-  | MkArray v -> pl [ ps "mkarray "; pv v ]
-  | Read (b,i) ->
-    pf "%s[%s]" b i
-  | LengthOf v ->
-    pf "%s.length" v
-
-let rec pp_patt = function
-  | PVar v -> pv v
-  | PNone -> ps "_"
-  | PTuple l -> pl [
-                    ps "(";
-                    psep ", " @@ List.map pp_patt l;
-                    ps ")"
-                  ]
-
+    
 let pp_ap = function
   | AVar v -> pv v
   | ADeref v -> pl [ ps "*"; pv v ]
@@ -99,7 +64,45 @@ let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_a
       (ul pp_ref_ast) r1
       (ul pp_ref_ast) r2
   | _ -> failwith @@ "Cannot annotate with relation " ^ (string_of_refinement r)
-    
+
+let pp_lhs = function
+  | Var x -> pv x
+  | Const i -> pi i
+  | Mkref il -> pl [
+                    ps "mkref ";
+                    pp_rinit il
+                  ]
+  | Tuple rinit ->
+    pl [
+        ps "(";
+        psep ", " @@ List.map pp_rinit rinit;
+        ps ")"
+      ]
+  | Deref v -> pl [
+                   ps "*";
+                   pv v
+                 ]
+  | Call c -> pprint_fn_call c
+  | Nondet None -> ps "_"
+  | Nondet (Some nref) ->
+    pb [
+        pf "(_@ :@ %a)" (ul pp_ref_ast) nref
+      ]
+  | Null -> ps "null"
+  | MkArray v -> pl [ ps "mkarray "; pv v ]
+  | Read (b,i) ->
+    pf "%s[%s]" b i
+  | LengthOf v ->
+    pf "%s.length" v
+
+let rec pp_patt = function
+  | PVar v -> pv v
+  | PNone -> ps "_"
+  | PTuple l -> pl [
+                    ps "(";
+                    psep ", " @@ List.map pp_patt l;
+                    ps ")"
+                  ]   
 
 let rec pp_typ t =
   let open RefinementTypes in

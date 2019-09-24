@@ -500,7 +500,7 @@ let rec process_expr ?output ((e_id,_),expr) =
       match rhs with
       | Var v -> lkp_split (SBind e_id) v
       | LengthOf _
-      | Nondet
+      | Nondet _
       | Const _ -> return Int
       (* these two cases are handled above *)
       | Null -> assert false

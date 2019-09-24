@@ -4,11 +4,14 @@ let string_of_location p =
   let t = Obj.repr p in
   if Obj.is_block t then
     Printf.sprintf
-      "In file %s, line %d, col %d"
+      "file %s, line %d, col %d"
       p.pos_fname
       p.pos_lnum
       (p.pos_cnum - p.pos_bol)
-  else "<!!INVALID LOC>"
+  else begin
+    print_endline @@ string_of_int @@ Obj.obj t;
+    "<!!INVALID LOC>"
+  end
     
 
 let set_file_name lexbuf in_name lnum = 

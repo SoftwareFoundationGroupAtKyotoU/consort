@@ -1,0 +1,7 @@
+{
+  let a = ( _ : ~ >= 0 ) in
+  let d = mkarray a in
+  if d.length > 0 then
+    d[0] <- 3
+  else ()
+}

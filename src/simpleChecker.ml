@@ -266,7 +266,7 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
     try
       StringMap.find n ctxt.tyenv |> resolv
     with
-      Not_found -> failwith @@ Printf.sprintf "Undefined variable %s at expression %d" n id
+      Not_found -> failwith @@ Printf.sprintf "Undefined variable %s at %s" n @@ Locations.string_of_location loc
   in
   let unify_var n typ = unify ~loc ctxt.sub (lkp n) typ in
   let unify_ref v t =
@@ -387,7 +387,7 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
             fresh_cons (lkp v)
         end
       | Call c -> same @@ process_call ~loc lkp ctxt c
-      | Nondet -> same `Int
+      | Nondet _ -> same `Int
       | LengthOf v ->
         let tv = fresh_var () in
         unify_var v @@ `Array tv;
