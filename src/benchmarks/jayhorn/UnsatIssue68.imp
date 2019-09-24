@@ -1,11 +1,6 @@
 /** trivial */
 {
-  let len = _ in {
-    $gamma {
-	  len: ~ >= 0 int
-	};
-	let args = mkarray len in
-	assert(args.length = 42)
-  }
-  
+  let len = (_: ~ >= 0) in
+  let args = mkarray len in
+  assert(args.length = 42)
 }
