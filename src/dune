@@ -37,7 +37,8 @@
  (modules Inference KCFA
           HornBackend SmtBackend
           Z3BasedBackend Consort SmtLibBackend
-          HoiceBackend NullSolver))
+          HoiceBackend NullSolver
+          ExternalFileBackend EldaricaBackend))
 
 (executable
  (name test)

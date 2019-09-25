@@ -4,6 +4,7 @@ module Options :
       | Hoice
       | Spacer
       | Z3SMT
+      | Eldarica
       | Null
 
     type t = {
@@ -33,6 +34,7 @@ type reason =
   | UnhandledSolverOutput of string
   | SolverError of string
   | Aliasing
+  | Unknown
 
 type check_result =
   | Verified

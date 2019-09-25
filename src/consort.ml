@@ -25,6 +25,7 @@ type reason =
   | UnhandledSolverOutput of string
   | SolverError of string
   | Aliasing
+  | Unknown
 
 type check_result =
   | Verified
@@ -34,6 +35,7 @@ let reason_to_string = function
   | Aliasing -> "ownership"
   | Timeout -> "timeout"
   | Unsafe -> "unsafe"
+  | Unknown -> "unknown"
   | SolverError s ->  "solver: \"" ^ s ^ "\""
   | UnhandledSolverOutput s -> "unexpected solver output: \"" ^ s ^ "\""
 
@@ -46,6 +48,7 @@ module Options = struct
     | Hoice
     | Spacer
     | Z3SMT
+    | Eldarica
     | Null
   
   type t = {
@@ -133,13 +136,13 @@ module Options = struct
     ([
       ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
-      ("-solver", Symbol (["spacer";"hoice";"z3";"null"], function
+      ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica"], function
          | "spacer" -> solver := Spacer
          | "hoice" -> solver := Hoice
          | "null" -> solver := Null
          | "z3" -> solver := Z3SMT
+         | "eldarica" -> solver := Eldarica
          | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
-           
     ], (fun ?(comb=default) () ->
        { comb with
          check_trivial = !check_trivial;
@@ -281,6 +284,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       | Z3SMT -> SmtBackend.solve
       | Hoice -> HoiceBackend.solve
       | Null -> NullSolver.solve
+      | Eldarica -> EldaricaBackend.solve
     in
     let res = solver
         ~opts:opts.solver_opts
@@ -298,3 +302,4 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
     | Timeout -> Unverified Timeout
     | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
     | Error s -> Unverified (SolverError s)
+    | Unknown -> Unverified Unknown
