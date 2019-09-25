@@ -1665,15 +1665,13 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       let%bind t2 = lkp_split ~loc:(SRet e_id) v in
       let%bind dg = denote_gamma_m in
       let%bind gamma = Let_syntax.proj ~f:(fun ctxt -> ctxt.gamma) in
-      (match output with
+      match output with
       | Some (t,out_args) -> 
         add_type_implication dg (`AVar v) t2 t
         >> miter (fun (k,ty) ->
           add_var_implication dg gamma k ty
         ) out_args
-      | None -> return ()
-      )
-      >> mutate @@ remove_var ~loc:(LLet e_id) remove_scope
+      | None -> mutate @@ remove_var ~loc:(LLet e_id) remove_scope
     end
   | Seq (e1, e2) ->
     process_expr e1 ctxt
@@ -1994,22 +1992,25 @@ and process_conditional ?output ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_
       } in
   let loc = LCond e_id in
   let u_ctxt = { ctxt2 with gamma = SM.empty } in
-  let b1 = SM.bindings ctxt1.gamma in
-  let b2 = SM.bindings ctxt2.gamma in
-  let dg1 = denote_gamma ctxt1.gamma in
-  let dg2 = denote_gamma ctxt2.gamma in
-  let subsume_types ~target_var t1 t2 =
-    let%bind t' = merge_types ~gloc:(OI.MJoin e_id) ~bind_seed:(fv_seed,[]) ~loc ~path:(`AVar target_var) ~t1 ~t2 in
+  if output = None then
+    let b1 = SM.bindings ctxt1.gamma in
+    let b2 = SM.bindings ctxt2.gamma in
+    let dg1 = denote_gamma ctxt1.gamma in
+    let dg2 = denote_gamma ctxt2.gamma in
+    let subsume_types ~target_var t1 t2 =
+      let%bind t' = merge_types ~gloc:(OI.MJoin e_id) ~bind_seed:(fv_seed,[]) ~loc ~path:(`AVar target_var) ~t1 ~t2 in
 
-    add_var_type_implication dg1 target_var t1 t'
-    >> add_var_type_implication dg2 target_var t2 t'
-    >> return t'
-  in
-  List.fold_left2 (fun ctxt (k1,t1) (k2,t2) ->
-    assert (k1 = k2);
-    let (ctxt',t) = subsume_types ~target_var:k1 t1 t2 ctxt in
-    add_type k1 t ctxt'
-  ) u_ctxt b1 b2
+      add_var_type_implication dg1 target_var t1 t'
+      >> add_var_type_implication dg2 target_var t2 t'
+      >> return t'
+    in
+    List.fold_left2 (fun ctxt (k1,t1) (k2,t2) ->
+      assert (k1 = k2);
+      let (ctxt',t) = subsume_types ~target_var:k1 t1 t2 ctxt in
+      add_type k1 t ctxt'
+    ) u_ctxt b1 b2
+  else
+    u_ctxt
 
 and process_call e_id c ctxt =
   let arg_bindings = List.map (fun k ->
