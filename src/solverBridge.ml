@@ -28,7 +28,7 @@ module Make(D: sig
     output_string o cmd;
     close_out o;
     let i = D.spawn s in
-    let res = input_line i in
+    let res = String.trim @@ input_line i in
     let return_and_close f = close_in i; D.dispose s; f in
     match res with
     | "sat" ->
