@@ -42,6 +42,7 @@ module Make(D: sig
       return_and_close @@ Solver.Sat m
     | "unsat" -> return_and_close Solver.Unsat
     | "timeout" -> return_and_close Solver.Timeout
+    | "unknown" -> return_and_close Solver.Unknown
     | s ->
       try
         let module SS = Sexplib.Sexp in

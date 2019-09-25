@@ -4,6 +4,7 @@ type result =
   | Timeout
   | Unhandled of string
   | Error of string
+  | Unknown
 
 type options = {
   timeout : int;
