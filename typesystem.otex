@@ -57,6 +57,12 @@ This guarantee enables our combined type system to destructively
 readable pointers that expect values constrained by the previous
 refinement cannot exist when an update occurs.
 
+\AI{We should discuss how the meaning of ownership has changed.
+  Unlike previous work, we do allow reading from a reference with 0 ownership, although there is no useful refinement information.
+  It relies on the fact that we disallow strong update of the underlying
+  simple type and the language has no construct for deallocation.
+}
+
 \begin{remark}
   In the fractional ownership type systems cited above,
   an ownership also represents an \emph{obligation} to
@@ -230,6 +236,8 @@ well-formedness condition.  Our type system can also exploit aliasing
 information to restore the read/write capabilities to a pointer (i.e.,
 restore an ownership greater than 0) while simultaneously updating its
 refinement to reflect any mutations through aliases.
+\AI{The subscript $\tau$
+  in $[[ [S T ] ]]$ may look like a parameter to this operation.}
 
 \begin{figure}[t]
   \scriptsize
@@ -297,7 +305,7 @@ refinement to reflect any mutations through aliases.
     \end{array}
   \]
 \end{minipage}
-  \caption{Well-formedness of types and environments}
+\caption{Well-formedness of types and environments }
   \label{fig:type-wf}
 \end{figure}
 
@@ -318,7 +326,7 @@ refinement to reflect any mutations through aliases.
     [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \andalso
     [[B |- T => G' \ x]]
   }{
-    [[ Th | G | B |- e : T => G' \ x]]
+    [[ Th | G | B |- let x = nn in e : T => G' \ x]]
   }
   \infrule[T-If]{
     [[ Th | G[x <- {nu:int | ph /\ nu = 0 }] | B |- e1 : T => G' ]] \\
@@ -366,7 +374,7 @@ refinement to reflect any mutations through aliases.
   \leavevmode
     \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref r] | B |- e : T => G']] \\
+    [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : T => G']] \\
   }{
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
@@ -378,7 +386,7 @@ refinement to reflect any mutations through aliases.
   }
   \infrule[T-AliasPtr]{
     [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
-    [[ Th | G[x <- T1' ref r1][y: (T2' ref r2') ref r] | B |- e : T => G' ]]
+    [[ Th | G[x <- T1' ref r1][y <- (T2' ref r2') ref r] | B |- e : T => G' ]]
   }{
     [[ Th | G[x : T1 ref r1][y: (T2 ref r2) ref r] | B |- alias(x = *y); e : T => G' ]]
   }
@@ -503,6 +511,7 @@ assertion may not fail. (From the well-formedness requirement on $[[ph]]$
 any free program variables within $[[ph]]$ must be bound within $[[G]]$).
 This intuition forms the foundation of our
 soundness claim (\cref{sec:soundness}).
+\AI{We could allow an assertion $[[ph]]$ to mention $[[ B ]]$.}
 
 \paragraph{Destructive Updates, Aliasing, and Subtyping}
 We now discuss the handling of assignment, aliasing annotations,
@@ -553,7 +562,8 @@ thus by well-formedness have the $[[Top]]$ refinement.
 
 As described thus far, the type system is quite strict: if ownership
 has been completely transferred from one location to another, the
-original location is effectively unusable. Additionally, once
+original location is effectively unusable.  \AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
+Additionally, once
 a mutable pointer has been split through an assignment, there is no
 way to recover a mutable pointer. The typing rule for
 must alias assertions, \rn{T-Alias} and \rn{T-AliasPtr}, overcomes this restriction
@@ -721,7 +731,7 @@ which is reflected in the typing context of $[[e]]$.
   \[
     [[{nu:int|(A = l1? ==> nu > 0) /\ (A = l2? ==> nu < 0)}]]
   \]
-  we can give \lstinline{set} the function type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$
+  we can give \lstinline{get} the function type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$
 
   Assuming \lstinline{x} is given the type $[[ {nu:int|nu < 0} ref 1]]$
   then after substitution the function call
@@ -750,7 +760,7 @@ which is reflected in the typing context of $[[e]]$.
   \]
   We focus on the typing of the call to \imp{get_real} in \imp{get}.
   The call is typed in context $[[A]]$ and a type environment where
-  \imp{p} is given type:
+  \imp{z} is given type:
   \[
     [[ {nu:int|(A = l2? ==> nu < 0) /\ (A = l1? ==> nu > 0)} ref 1]]
   \]
@@ -760,7 +770,7 @@ which is reflected in the typing context of $[[e]]$.
     & [[ {nu:int|(l3 A = l3 l2 ? ==> nu < 0) /\ (l3 A = l3 l1 ? ==> nu > 0)} ref 1 ]][[~]] \\
     & \,\,\,\,\, [[ {nu:int|(A=l2? ==> nu < 0) /\ (A=l1? ==> nu > 0)} ref 1]]
   \end{align*}
-  which is exactly the type of \imp{p}. A similar derivation applies to
+  which is exactly the type of \imp{z}. A similar derivation applies to
   give the return type of \imp{get_real} and thus \imp{get}.
 \end{example}
 
