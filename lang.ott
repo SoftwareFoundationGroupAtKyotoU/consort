@@ -240,7 +240,7 @@ grammar
   ST {{ tex \tau_{S} }} :: 'ST_' ::= {{ com simple type }}
     | int :: :: simple_int {{ tex \TINT }}
 	| ST ref :: :: simple_ref {{ tex [[ST]] \TREF }}
-	| [S T ] :: :: lift_type {{ tex \llparenthesis [[T]]\rrparenthesis_{\tau} }}
+	| [S T ] :: :: lift_type {{ tex \llparenthesis [[T]]\rrparenthesis }}
 	| Gst ( x ) :: :: st_lkp
 	| ( M alpha . ST ) :: :: rec_st {{ tex \mu[[alpha]].[[ST]] }}
 	| ST [ alpha ] :: :: over_type

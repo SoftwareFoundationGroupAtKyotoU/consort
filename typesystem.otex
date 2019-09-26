@@ -72,7 +72,10 @@ refinement cannot exist when an update occurs.
   However, as mentioned in \cref{sec:semantics}, our language
   does not support manually freeing memory which
   significantly simplifies some of the technical components
-  of our formalism.
+  of our formalism. In particular, our type system \emph{does}
+  allow reads of references with 0 ownerships. However,
+  such references provide no information about their contents
+  beyond simple types for reasons discussed below.
 \end{remark}
 
 \begin{figure}[t]
@@ -240,8 +243,10 @@ refinement to reflect any mutations through aliases.
   in $[[ [S T ] ]]$ may look like a parameter to this operation.}
 
 \begin{figure}[t]
+  \bcprulessavespacetrue
   \scriptsize
   \leavevmode
+  \begin{center}
   \infrule[WF-Env]{
     [[ forall x in G. G | B |- G(x) ]]
   }{
@@ -258,7 +263,7 @@ refinement to reflect any mutations through aliases.
     [[G | B |- T ref r ]]
   }
   \infrule[WF-Phi]{
-    [[FPV(ph)]] \subseteq \set{x \mid [[x in Gst /\ Gst(x) = int]]} \andalso
+    [[ forall x in FPV(ph).x in dom Gst /\ Gst(x) = int ]] \\
     [[FPCV(ph)]] \subseteq [[CV(B)]]
   }{
     [[Gst | B |- ph]]
@@ -279,6 +284,8 @@ refinement to reflect any mutations through aliases.
   }{
     [[ |- Th ]]
   }
+  \end{center}
+  \bcprulessavespacefalse
   \begin{minipage}[t]{0.48\textwidth}
   \[
     \begin{array}{lrcl}
@@ -484,8 +491,7 @@ proposition $[[ x = T y]]$, defined respectively as:
   \end{cases}
 \end{align*}
 \JT{The above is very ugly}
-Where $[[FPV(ph)]]$ are the free variables that appear in predicate
-$[[ph]]$.  \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
+\NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
 We do not track equalities between references or between
 the contents of reference cells, as doing so would violate
@@ -561,8 +567,10 @@ thus by well-formedness have the $[[Top]]$ refinement.
 \end{figure}
 
 As described thus far, the type system is quite strict: if ownership
-has been completely transferred from one location to another, the
-original location is effectively unusable.  \AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
+has been completely transferred from one reference to another, the
+refinement information found in the original reference is effectively useless.
+\AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
+\JT{This now just reads as obvious. Do better}
 Additionally, once
 a mutable pointer has been split through an assignment, there is no
 way to recover a mutable pointer. The typing rule for

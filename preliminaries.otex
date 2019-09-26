@@ -71,8 +71,8 @@ the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
 
 Our grammar requires that side-effecting, result free statements, \lstinline{assert($[[ph]]$)}
-\lstinline{alias(x = y)}, \lstinline{alias(x = *y)} and
-assignment \lstinline{x := y} are followed by a continuation expression.
+\lstinline{alias($[[x]]$ = $[[y]]$)}, \lstinline{alias($[[x]]$ = *$[[y]]$)} and
+assignment \lstinline{$[[x]]$ := $[[y]]$} are followed by a continuation expression.
 \AI{Commands should be typeset in italic.}
 We impose this requirement for technical reasons to ease our formal
 presentation; note that this requirement does not reduce the expressiveness
