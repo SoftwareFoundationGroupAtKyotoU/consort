@@ -24,9 +24,9 @@ and finally close with our soundness statement
 Before describing our type system in detail, we provide a brief
 overview of the fractional ownership type system upon which it
 is built. The fractional ownership system of
-Suenaga and Kobayashi \needcite 
+Suenaga and Kobayashi \cite{suenaga2009fractional}
 ensures safe memory access in low-level languages like C; it
-was later extended by Suenaga et al. \needcite to also guarantee
+was later extended by Suenaga et al. \cite{suenaga2012type} to also guarantee
 correct allocation/deallocation of shared resources in concurrent programs.
 Fractional ownership types elaborate reference
 types with an ownership $[[r]]$, which is a rational number that
@@ -37,7 +37,7 @@ indicates a pointer with shared ownership, through which
 a memory cell can be read but \emph{not} modified. Finally, a pointer
 with $0$ ownership may be neither read nor modified.
 
-The fractional ownership type systems in \needcite enforced the
+The fractional ownership type systems in \cite{suenaga2009fractional,suenaga2012type} enforced the
 following key invariant: the total ownership of all pointer types that
 point to the same memory cell never exceeds 1. As an immediate
 consequence, given a pointer $p$ with ownership $1$, no other readable
