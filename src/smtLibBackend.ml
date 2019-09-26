@@ -3,7 +3,7 @@ module type STRATEGY = sig
 end
 
 type intrinsic_interp  = (string StringMap.t) * string option
-type solver_intf = opts:Solver.options -> debug_cons:bool ->  ?save_cons:string -> get_model:bool -> interp:intrinsic_interp -> Inference.Result.t -> Solver.result
+type solver_intf = (interp:intrinsic_interp -> Inference.Result.t -> Solver.result) Solver.option_fn
 module Make(S: STRATEGY) : sig
   val solve : solver_intf
 end = struct

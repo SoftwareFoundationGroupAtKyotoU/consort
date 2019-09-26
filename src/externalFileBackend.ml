@@ -25,11 +25,15 @@ module Make(D: sig
         (base_command,nm),chan
 
       let spawn (base_command,nm) =
-        Unix.open_process_in @@ Printf.sprintf "%s %s" base_command @@ Filename.quote nm
+        let to_ret = Process.spawn @@ Printf.sprintf "%s %s" base_command @@ Filename.quote nm in
+        close_out to_ret.Process.proc_stdin;
+        to_ret
 
       let name = D.name
     end)
   include SmtLibBackend.Make(struct
       let solve = Ch.call ~strat:D.strat
     end)
+
+  let solve_cont = Ch.call_cont ~strat:D.strat
 end

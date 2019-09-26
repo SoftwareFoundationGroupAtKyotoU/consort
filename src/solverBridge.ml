@@ -2,39 +2,32 @@ let load_defn = function
   | Some f -> Files.string_of_file f
   | None -> ""
 
+module type S = sig
+  val call : (defn_file:string option -> strat:string -> SexpPrinter.t -> Solver.result) Solver.option_fn
+  val call_cont : 
+    opts:Solver.options ->
+    get_model:bool ->
+    defn_file:string option ->
+    strat:string ->
+    SexpPrinter.t ->
+    Solver.cont
+end
+
 module Make(D: sig
       type st
-      val spawn : st -> in_channel
+      val spawn : st -> Process.t
       val prepare_out : solver_opts:Solver.options -> string option -> st * out_channel
       val dispose : st -> unit
       val name : string
-    end) = struct
-  let call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
-    if debug_cons then begin
-      let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
-      Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
-      flush stderr
-    end;
-    let (s,o) = D.prepare_out ~solver_opts:opts save_cons in
-    output_string o @@ load_defn defn_file;
-    SexpPrinter.to_channel cons o;
-    let cmd = "\n" ^ strat ^ "\n" ^ (
-        if get_model then
-          "(get-model)\n"
-        else
-          ""
-      )
-    in
-    output_string o cmd;
-    close_out o;
-    let i = D.spawn s in
-    let res = String.trim @@ input_line i in
-    let return_and_close f = close_in i; D.dispose s; f in
+    end) : S = struct
+  let handle_return get_model s p = 
+    let res = String.trim @@ input_line p.Process.proc_stdout in
+    let return_and_close f = Process.dispose p; D.dispose s; f in
     match res with
     | "sat" ->
       let m =
         if get_model then
-          let model = Files.string_of_channel i in
+          let model = Files.string_of_channel p.Process.proc_stdout in
           Some model
         else
           None
@@ -53,4 +46,33 @@ module Make(D: sig
         | _ -> return_and_close @@ Solver.Unhandled s
       with
       | Failure _ -> return_and_close @@ Solver.Unhandled s
+
+  let prepare_call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
+    if debug_cons then begin
+      let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
+      Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
+      flush stderr
+    end;
+    let (s,o) = D.prepare_out ~solver_opts:opts save_cons in
+    output_string o @@ load_defn defn_file;
+    SexpPrinter.to_channel cons o;
+    let cmd = "\n" ^ strat ^ "\n" ^ (
+        if get_model then
+          "(get-model)\n"
+        else
+          ""
+      )
+    in
+    output_string o cmd;
+    close_out o;
+    let p = D.spawn s in
+    (s,p)
+    
+  let call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
+    let (s,p) = prepare_call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons in
+    handle_return get_model s p
+
+  let call_cont ~opts ~get_model ~defn_file ~strat cons =
+    let (s,p) = prepare_call ~opts ~debug_cons:false ?save_cons:None ~get_model ~defn_file ~strat cons in
+    (p, (fun () -> handle_return get_model s p), (fun () -> D.dispose s))
 end
