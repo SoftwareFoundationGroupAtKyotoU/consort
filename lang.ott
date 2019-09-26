@@ -134,13 +134,13 @@ grammar
     | ( E ) :: :: paren
     | E = E' :: :: eq
 
-  CE {{ tex E_c }} :: E_ ::= {{ com return contexts }}
+  CE {{ tex F }} :: E_ ::= {{ com return contexts }}
     | E [ let x = return_hole in e ] :: :: stack {{ tex [[E]][\LET [[x]] = [[return_hole]] \IN [[ e ]] ]}}
 
-  Es {{ tex \oldvec{E} }} :: Es_ ::=                  {{ com  stack }}
+  Es {{ tex \oldvec{F} }} :: Es_ ::=                  {{ com  stack }}
     | .                  ::   :: empty {{ tex \cdot }}
-    | CE : Es             ::   :: cons
-    | En-1 : Es             ::    :: cons_new
+    | CE : Es            ::   :: cons
+    | Fn-1 : Es          ::   :: cons_new
 
   ineq :: 'IE_' ::=
     | = :: :: eq {{ tex \subseteq }}
@@ -319,6 +319,7 @@ grammar
 	| SAT                 ::   :: sat_pred
 	| SATv                ::   :: satv_pred
 	| own                 ::   :: own_fn
+	| Own                 ::   :: ownHRG_fn
 	| Cons                ::   :: cons_pred
 	| FPCV :: :: fpcv {{ tex \mathbf{FCV} }}
 	| <- :: :: destrUp {{ tex \hookleftarrow }}
@@ -386,6 +387,7 @@ grammar
     | { a |-> r } :: :: omap
 	| F1 + F2 :: :: omap_add
 	| own ( H , Rv , T ) :: :: own_fn
+	| Own ( H , R , G ) :: :: ownHRG_fn
 	| empty :: :: empty {{ tex \emptyset }}
 	| |< { x in VS } F :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[F]] }}
 

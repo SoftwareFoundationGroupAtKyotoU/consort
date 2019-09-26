@@ -40,19 +40,29 @@
     [[ |- D <H,R,Es,En[e]> ]]
   }
 
+  \infrule[Simplified]{
+    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{1..n}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
+    [[ Cons(H, R, G) ]] \andalso
+    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli |-e CEi : Ti-1 => Gi-1 ]] \\
+    [[ Es ]] = [[CEn]] : \cdots : [[CE1]] : \cdot \andalso
+    [[ Th | G | ll |- e : Tn => Gn ]] \andalso [[ ll |- G ]]
+  }{
+    [[ |- D <H,R,Es,e> ]]
+  }
+
   \infax[]{
     [[ |- D AliasFail ]]
   }
 
   \begin{align*}
-    [[Trace(.) = .]] && [[Trace(E[let x = [] l in e] : Es) = l : Trace(Es)]])
+    [[Trace(.) = .]] && [[Trace(E[let x = [] l in e] : Es) = l : Trace(Es)]]
   \end{align*}
 \caption{Machine state typing}
 \label{fig:state-typing}
 \end{figure}
 \begin{figure}
   \begin{align*}
-    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.F(a)]] \leq 1 \\
+    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.Own(H,R,G)(a)]] \leq 1 \\
     [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
     [[SATv(H,R,Rv,T)]] = & \begin{cases}
       [[Rv is INT /\ [R][Rv / nu]ph ]] & [[ T = {nu:int|ph} ]] \\
@@ -61,7 +71,7 @@
     [[ [empty]ph ]] & = [[ ph ]] \\
     [[ [R { y |-> nn }]ph ]] & =  [[  [R][nn/y]ph ]] \\
     [[ [R { y |-> a }]ph ]] & =  [[ [R]ph ]] \\
-    F = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
+    [[Own(H,R,G)]] = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
     [[own(H,v,T)]] &  = \begin{cases}
       [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
       \emptyset & o.w.
@@ -72,7 +82,7 @@
 \end{figure}
 
 \section{Proof of Type Soundness (\cref{thm:soundness})}
-We first define a typing relation for machine configurations $[[ < H, R, Es, E[e]>]]$ as show in
+We first define a typing relation for machine configurations $[[ < H, R, Es, e>]]$ as show in
 \cref{fig:state-typing}. The critical component of this typing relation is the consistency relation $[[Cons]]$.
 Intuitively, $[[Cons]]$ expresses that the current heap and registers are consistent with the ownership
 and refinement information implied by $[[G]]$. We say triple $( [[H]],[[R]],[[G]] )$ is \emph{consistent},
@@ -338,6 +348,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
 \end{lemma}
 \begin{proof}
   By straightforward induction of typing rules.
+  \AI{Do you need to assume $[[x' not in dom(G)]]$?}
 \end{proof}
 
 %% VARIABLE REMOVAL
@@ -352,7 +363,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
 
 \begin{lemma} % L17
   \label{lem:remove-well-formed-same}
-  If $[[ ll |- T => G \ x]]$ then $[[ [x'/x]T = T ]]$ and $[[ [x'/x]G \ x' = G \ x ]]$.
+  If $[[ ll |- T => G \ x]]$ then $[[ [x'/x]T = T ]]$ and $[[ ([x'/x]G) \ x' = G \ x ]]$.
 \end{lemma}
 \begin{proof}
   By induction on the substitution operations. \JT{That we never
@@ -371,7 +382,8 @@ transitivity, and that it preserves the consistency relation.
   \begin{enumerate}
   \item If $[[ G <: G' ]]$ then $[[ [G] ==> [G'] ]]$.
   \item If $[[ G <: G']]$, $[[ G |- T1 <: T2 ]]$ and $[[ G' |- T2 <: T3 ]]$ then $[[ G |- T1 <: T3 ]]$.
-  \item If $[[ G <: G' ]]$ and $[[ G' <: G'' ]]$, then $[[ G <: G'' ]]$
+    \AI{You might want to spilt this into two: (1) if $[[G |- T1 <: T2]]$ and $[[G |- T2 <: T3]]$, then $[[G |- T1 <: T3]]$; and (2) if $[[ G <: G' ]]$ and $[[G' |- T1 <: T2]]$, then $[[G |- T1 <: T2]]$.}
+  \item If $[[ G <: G' ]]$ and $[[ G' <: G'' ]]$, then $[[ G <: G'' ]]$.
   \end{enumerate}
 \end{lemma}
 \begin{proof}
@@ -395,7 +407,7 @@ transitivity, and that it preserves the consistency relation.
   If $[[ G <: G' ]]$ and $[[ Cons(H,R,G)]]$ then:
   \begin{enumerate}
   \item If $[[G |- T1 <: T2 ]]$, then for any $[[v]]$, $[[ forall a in H.own(H,v,T1)(a) <= own(H,v,T2)(a) ]]$
-  \item Let $[[ F = |< { z in dom G' } own(H,R(z),G(z)) ]]$, $[[forall a in H.F(a) <= 1]]$
+  \item Let $[[ F = |< { z in dom G' } own(H,R(z),G(z)) ]]$, $[[forall a in H.Own(H,R,G)(a) <= 1]]$
   \item If $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$
   \item $[[SAT(H,R,G')]]$
   \item $[[Cons(H,R,G')]]$
@@ -975,15 +987,16 @@ call cases respectively; we have separated them into separate lemmas for clarity
   The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
   $[[ |-D ]]$, and for that we must find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
   the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
-  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .F(a) <= 1]]$.
-  We give that $[[a in H]]$ and $[[F0]]$ represents the $[[F(a)]]$ before transition, $[[F1]]$ represents the $[[F(a)]]$ after transition.
+  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .Own(H,R,G)(a) <= 1]]$.
+  We give that $[[a in H]]$ and $[[F0]]$ represents the $[[Own(H,R,G)(a)]]$ before transition, $[[F1]]$ represents the $[[Own(H,R,G)(a)]]$ after transition.
   We know that $[[forall a in H.F0(a) <= 1]]$ since the configuration is well typed before transition, and to prove $[[F0=F1]]$ in each case.
 
   % FIXED
   \begin{rneqncase}{R-Var}{
-    [[ |- D <H, R, En-1 : Es, x>]], [[<H, R, En-1 : Es, x> --> D <H, R, Es, En-1[x]> ]] \\
-  }  
-    By the Inversion on configuration typing $[[ |- D <H, R, En-1 : Es, x>]]$ we obtain $[[E = [] /\ e = x ]]$, and thus
+    [[ |- D <H, R, CEn-1 : Es, x>]], [[<H, R, CEn-1 : Es, x> --> D <H, R, Es, CEn-1[x]> ]] \\
+  }
+    \AI{Fix needed after the typing rule for configurations is changed.}
+    By the Inversion on configuration typing $[[ |- D <H, R, CEn-1 : Es, x>]]$ we obtain $[[E = [] /\ e = x ]]$, and thus
     \begin{align*}
       & [[ T = Tn ]] \\
       & [[ G' = Gn ]] \\
@@ -1070,7 +1083,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We therefore prove that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a in H.F(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
+    Then, it's to show $[[forall a in H.Own(H,R{ x' |-> v },G'')(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
     \begin{align*}
       [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\
       [[F1]] & =[[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
@@ -1131,7 +1144,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a in H.F(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
+    Then, it's to show $[[forall a in H.Own(H,R',G'')(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
     \begin{align*}
     [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\ 
     [[F1]] & = [[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
@@ -1208,7 +1221,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a in H.F(a) <= 1]]$. We have:
+    Then, it's to show $[[forall a in H.Own(H',R',G'')(a) <= 1]]$. We have:
     \begin{align*}
       [[F1]] & = [[|< {z in dom G''} own(H',R'(z'),G''(z'))]] \\
              & = [[ |< {z in dom G} own(H,R(z),G(z)) + {a' |->  1}]] \\
@@ -1273,6 +1286,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     
     We must also show that the ownership invariant is preserved.
     Then, it's to show $[[forall a in H.F(a) <= 1]]$.
+    \AI{Needs a fix to use $[[Own]]$.}
     As $[[F0'=F1']]$ holds by pointwise application of \cref{lem:heapop}, and $[[forall a in H.F0(a) <= 1]]$, if $[[forall a' in H'. F1''(a') <= F0''(a')]]$, we can conclude that $[[F1(a') <= F0(a') <= 1]]$.
     
     Suppose for some arbitrary $[[a in H]]$, $[[a= a']]$, then:
@@ -1329,7 +1343,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     Similarly, we also have $[[SATv(H,R',v,Tq) ==> SATv(H,R',v,Tq1) /\ SATv(H,R',v,Tq2)]]$, where $[[v = H(R(y))=H(R(x))]]$.
     From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we then have $[[SATv(H,R,v,Tp) ==> SATv(H,R,v,Tq)]]$.
     Then from the reasoning above, the refinements of $[[Tq1]]$ and $[[Tq2]]$ are valid and $[[Cons(H, R, G'')]]$ holds.
-    
+
+    \AI{Needs a fix to use $[[Own]]$}
     Then, it's to show $[[forall a in H.F(a) <= 1]]$. Here $[[F0]]$ represents the $[[F(a)]]$ before transition, $[[F1]]$ represents the $[[F(a)]]$ after transition.
     To prove that $[[F0=F1]]$ follows from:
     \begin{align*}
@@ -1377,6 +1392,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[f |-> (x1, .., xn) e in D]] \\
       [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]] \\
     }
+    \AI{Fix needed after the typing rule for configurations is changed.  We should examine the use of $[[E]]$ and $[[CE]]$ carefully.}
     We must show that
     $[[ <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]$
     for some $[[G'']]$.
