@@ -40,21 +40,6 @@
   citecolor=red}
 \usepackage[capitalize,noabbrev]{cleveref}
 
-
-\lstdefinelanguage{Imp}{
-  keywords=[0]{ifz,then,else,alias,assert,mkref,let,in,null,ifnull},
-  morecomment=[l]{//},
-}
-\definecolor{comment-green}{rgb}{0,0.6,0}
-\lstset{
-  basicstyle=\ttfamily,
-  language=Imp,
-  columns=flexible,
-  keywordstyle=[0]{\normalfont\bfseries},
-  commentstyle=\color{comment-green},
-  mathescape,
-}
-
 % \input{../effgrad/def/ott/coe}
 \input{./lang}
 
