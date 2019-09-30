@@ -9,24 +9,14 @@ before describing our fractional ownership refinement types
 and finally close with our soundness statement
 (\cref{sec:soundness}).
 
-\AI{\rn{T-Let} loses information that $x$ is equal to $y$ (unlike \rn{T-LetInt}).}
-
-\AI{\rn{T-Let} discards all the refinement on \(x\).  Probably we should propagate it to $\tenv'$.}
-
-\AI{\rn{T-Let} and \rn{T-LetInt} can be merged.}
-
-\AI{\rn{T-Call} requires actual arguments to be variables introduced at the end of the type environment.  This is not a restriction because one can introduce let-expressions before a function call and alias-expressions after the call.}
-
-\AI{$\varepsilon$ in \rn{T-Prog} stands for the empty string.}
-
 \subsection{Background: Fractional Ownership Types}
 \label{sec:ownership}
 Before describing our type system in detail, we provide a brief
 overview of the fractional ownership type system upon which it
 is built. The fractional ownership system of
-Suenaga and Kobayashi \needcite 
+Suenaga and Kobayashi \cite{suenaga2009fractional}
 ensures safe memory access in low-level languages like C; it
-was later extended by Suenaga et al. \needcite to also guarantee
+was later extended by Suenaga et al. \cite{suenaga2012type} to also guarantee
 correct allocation/deallocation of shared resources in concurrent programs.
 Fractional ownership types elaborate reference
 types with an ownership $[[r]]$, which is a rational number that
@@ -37,7 +27,7 @@ indicates a pointer with shared ownership, through which
 a memory cell can be read but \emph{not} modified. Finally, a pointer
 with $0$ ownership may be neither read nor modified.
 
-The fractional ownership type systems in \needcite enforced the
+The fractional ownership type systems in \cite{suenaga2009fractional,suenaga2012type} enforced the
 following key invariant: the total ownership of all pointer types that
 point to the same memory cell never exceeds 1. As an immediate
 consequence, given a pointer $p$ with ownership $1$, no other readable
@@ -72,7 +62,10 @@ refinement cannot exist when an update occurs.
   However, as mentioned in \cref{sec:semantics}, our language
   does not support manually freeing memory which
   significantly simplifies some of the technical components
-  of our formalism.
+  of our formalism. In particular, our type system \emph{does}
+  allow reads of references with 0 ownerships. However,
+  such references provide no information about their contents
+  beyond simple types for reasons discussed below.
 \end{remark}
 
 \begin{figure}[t]
@@ -240,8 +233,10 @@ refinement to reflect any mutations through aliases.
   in $[[ [S T ] ]]$ may look like a parameter to this operation.}
 
 \begin{figure}[t]
+  \bcprulessavespacetrue
   \scriptsize
   \leavevmode
+  \begin{center}
   \infrule[WF-Env]{
     [[ forall x in G. G | B |- G(x) ]]
   }{
@@ -258,7 +253,7 @@ refinement to reflect any mutations through aliases.
     [[G | B |- T ref r ]]
   }
   \infrule[WF-Phi]{
-    [[FPV(ph)]] \subseteq \set{x \mid [[x in Gst /\ Gst(x) = int]]} \andalso
+    [[ forall x in FPV(ph).x in dom Gst /\ Gst(x) = int ]] \\
     [[FPCV(ph)]] \subseteq [[CV(B)]]
   }{
     [[Gst | B |- ph]]
@@ -279,6 +274,8 @@ refinement to reflect any mutations through aliases.
   }{
     [[ |- Th ]]
   }
+  \end{center}
+  \bcprulessavespacefalse
   \begin{minipage}[t]{0.48\textwidth}
   \[
     \begin{array}{lrcl}
@@ -484,8 +481,7 @@ proposition $[[ x = T y]]$, defined respectively as:
   \end{cases}
 \end{align*}
 \JT{The above is very ugly}
-Where $[[FPV(ph)]]$ are the free variables that appear in predicate
-$[[ph]]$.  \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
+\NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
 We do not track equalities between references or between
 the contents of reference cells, as doing so would violate
@@ -561,8 +557,10 @@ thus by well-formedness have the $[[Top]]$ refinement.
 \end{figure}
 
 As described thus far, the type system is quite strict: if ownership
-has been completely transferred from one location to another, the
-original location is effectively unusable.  \AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
+has been completely transferred from one reference to another, the
+refinement information found in the original reference is effectively useless.
+\AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
+\JT{This now just reads as obvious. Do better}
 Additionally, once
 a mutable pointer has been split through an assignment, there is no
 way to recover a mutable pointer. The typing rule for
