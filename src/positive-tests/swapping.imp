@@ -1,0 +1,12 @@
+{
+  let x = mkref 1 in
+  let y = x in {
+    x := *x + 1;
+	alias(y = x);
+	y := *y + 1;
+	alias(x = y);
+	x := *x + 1;
+	alias(x = y);
+	assert(*y = 4)
+  }
+}
