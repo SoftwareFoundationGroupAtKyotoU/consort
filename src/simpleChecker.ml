@@ -125,10 +125,14 @@ let abstract_type sub_ctxt t =
 
 let make_fenv uf fns =
   List.fold_left (fun acc {name; args; _} ->
-    StringMap.add name {
-      arg_types_v = List.map (fun _ -> UnionFind.new_node uf) args;
-      ret_type_v = UnionFind.new_node uf
-    } acc) StringMap.empty fns
+    if StringMap.mem name acc then
+      failwith @@ "Duplicate function definitions for: " ^ name
+    else
+      StringMap.add name {
+        arg_types_v = List.map (fun _ -> UnionFind.new_node uf) args;
+        ret_type_v = UnionFind.new_node uf
+      } acc
+  ) StringMap.empty fns
 
 let init_tyenv fenv { name; args; _ } =
   let { arg_types_v; _ } = StringMap.find name fenv in
