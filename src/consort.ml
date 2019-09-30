@@ -49,6 +49,7 @@ module Options = struct
     | Spacer
     | Z3SMT
     | Eldarica
+    | Parallel
     | Null
   
   type t = {
@@ -136,12 +137,13 @@ module Options = struct
     ([
       ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
-      ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica"], function
+      ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
          | "spacer" -> solver := Spacer
          | "hoice" -> solver := Hoice
          | "null" -> solver := Null
          | "z3" -> solver := Z3SMT
          | "eldarica" -> solver := Eldarica
+         | "parallel" -> solver := Parallel
          | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
     ], (fun ?(comb=default) () ->
        { comb with
@@ -285,6 +287,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       | Hoice -> HoiceBackend.solve
       | Null -> NullSolver.solve
       | Eldarica -> EldaricaBackend.solve
+      | Parallel -> ParallelBackend.solve
     in
     let res = solver
         ~opts:opts.solver_opts

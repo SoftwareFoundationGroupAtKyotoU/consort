@@ -5,6 +5,7 @@ module Options :
       | Spacer
       | Z3SMT
       | Eldarica
+      | Parallel
       | Null
 
     type t = {

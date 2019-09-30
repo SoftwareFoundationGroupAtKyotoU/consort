@@ -1,5 +1,5 @@
 module Ch = SolverBridge.Make(struct
-    type st = in_channel
+    type st = Process.t
     let name = "z3"
     let spawn i = i
     open Solver
@@ -13,7 +13,9 @@ module Ch = SolverBridge.Make(struct
         match save_cons with
         | Some f_name -> Printf.sprintf "tee %s | %s" f_name base_command
         | None -> base_command
-      in Unix.open_process cmd
+      in
+      let proc = Process.spawn cmd in
+      (proc,proc.Process.proc_stdin)
     let dispose _ = ()
   end)
     
