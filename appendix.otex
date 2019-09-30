@@ -541,7 +541,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 \end{lemma}
 \begin{proof}
   The forward case follows from straightforward induction on $[[T1 ~ T2]]$
-  and from the observation that if $[[ph1 <=> ph2]]$ then $[[ [R][v/x]ph1 <=> [R][v/x]ph2]]$. The
+  and from the observation that if $[[|= ph1 <=> ph2]]$ then $[[|= [R][v/x]ph1 <=> [R][v/x]ph2]]$. The
   backwards case follows by symmetric reasoning by induction on the shape of $[[T2]]$.
 \end{proof}
 
@@ -594,7 +594,8 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   \begin{rncase}{Tadd-Int}
     We have $[[ SATv(H, R, Rv, T1+T2) ]]$, where $[[ T1 + T2 = {nu:int | ph1/\ph2} ]]$,
     $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$, where $[[ T1= {nu:int | ph1} ]], [[ T2 = {nu:int | ph2} ]]$.
-    
+
+    \AI{The use of $\implies$ and $\iff$ in the metalanguage may cause confusion.}
     From the definition of $[[SATv]]$, we have $[[ SATv(H, R, Rv, T1) ==> [R][v/nu]ph1 ]]$ and $[[ SATv(H, R, Rv, T2) ==> [R][v/nu]ph2 ]]$, and 
     $[[ SATv(H, R, Rv, T1+T2) ==> [R][v/x](ph1 /\ ph2) ]]$.
     It is immediate that for any value $v$ such that $[[ [R][v/nu](ph1 /\ ph2) ]]$, we must have $[[ [R][v / nu]ph1 ]]$ and $[[ [R][v / nu]ph2 ]]$.
@@ -620,7 +621,9 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     [[ R |- T ]]
   }{
    [[ R |- T ref r ]]
-  }
+ }
+ \AI{Using $\sigma$, which is a metavariable, as a subscript may suggest that
+ the judgment is parameterized by $\sigma$, which is not the case here.}
 \end{definition}
 
 \begin{lemma} % L4
@@ -661,8 +664,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
 \begin{lemma}[Heap Update Ownership Preservation] % L6
   \label{lem:heapop}
-  Let $[[H]]$ and $[[H']]$ be two heaps such that $[[H ~ a H']]$ for
-  some $[[a]]$. If $[[own(H,v,T)(a) = 0]]$, then
+  If $[[H ~ a H']]$ and $[[own(H,v,T)(a) = 0]]$, then
   $[[own(H,v,T) = own(H',v,T)]]$.
 \end{lemma}
 \begin{proof}
@@ -691,14 +693,14 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   By induction on $[[n]]$. In the base case, by inversion on $[[ H |- v :~ top0]]$ we have
   $[[v is INT]]$ and as $[[ [R][v/nu]Top ==> Top ]]$, we conclude $[[ SATv(H,R,v,top0) ]]$.
 
-  For $[[ n ]]$, by inversion on $[[ H |- v :~ topn ]]$ we have that
+  For $[[ n ]] > 0$, by inversion on $[[ H |- v :~ topn ]]$ we have that
   $[[v = a]]$, $[[ a in dom H]]$, and $[[ H |- H(a) :~ topn-1]]$,
   whence the result holds from the inductive hypothesis.
 \end{proof}
   
 \begin{lemma}[Heap Update Consistency Preservation] % L8
   \label{lem:heapfor0}
-  Let $[[H ~ a H']]$ for some $[[a]]$. Then if $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H',R,v,T)]]$.
+  If $[[H ~ a H']]$ and $[[own(H,v,T)(a) = 0]]$ and $[[SATv(H,R,v,T)]]$, then $[[SATv(H',R,v,T)]]$.
 \end{lemma}
 \begin{proof}
   By induction on the shape of $[[T]]$. The base case where
@@ -709,7 +711,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
   $[[ T = T' ref 0 ]]$, whereby the $[[ T = topn ]]$ for some $[[n]]$.
   From $[[SATv(H,R,a,T)]]$ we must have that $[[ H |- a :~ T]]$,
-  and from $[[H ~ a H']]$, we therefoe have that $[[ H' |- a :~ T]]$
+  and from $[[H ~ a H']]$, we therefore have that $[[ H' |- a :~ T]]$
   whereby the result holds from \cref{lem:top-type-sat-all}.
 
   Otherwise, we have that $[[a' != a]]$, and by definition we must have that
@@ -764,7 +766,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     Immediate from the precondition of the typing rule.
   \end{namedcase}
   \begin{namedcase}{\casefont{Cases \rn{T-Seq} and \rn{T-Assert}}}
-    From the inductive hypothesis
+    From the inductive hypothesis.
   \end{namedcase}
   \begin{rncase}{T-If}
     From the assumed well-formedness of $[[G(x)]]$ we must have that
@@ -775,7 +777,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
   \begin{rncase}{T-Alias,T-AliasPtr}
     From the assumed well-formedness of $[[T1 ref r1]]$ and $[[T2 ref r2]]$, we have that
-    $[[ T1 ref r1 + T2 ref r2 ]]$ is well-formed, and thus from the definition of $[[~]]$
+    $[[ T1 ref r1 + T2 ref r2 ]]$ is well-formed, and thus from the definition of $[[~]]$,
     $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed. Then the IH gives us the desired
     result.
   \end{rncase}
@@ -795,6 +797,8 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
 \begin{lemma}[Environment Weakening] % L27
   \label{lem:tyenv-weaken}
+  \AI{Haven't really checked the proof (yet).  The statement is similar to
+  \cref{lem:subtype-transitive}; I'm wondering if we can merge...}
   Define the partial operation $[[G1 + G2]]$ for two environments such $[[dom G1 /\ dom G2 = null]]$:
   \[
     [[(G1 + G2)(x)]] = \begin{cases}
