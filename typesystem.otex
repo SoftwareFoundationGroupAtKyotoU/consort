@@ -207,11 +207,7 @@ in a typing derivation yields a valid type derivation under concrete context $[[
 
 \paragraph{Well Formedness}
 We impose two well-formedness conditions on types:
-refinement well-formedness and ownership well-formedness.
-Refinement well-formedness (defined in \cref{fig:type-wf})
-ensures that program and context variables in refinements
-are consistent with a typing context and type environment
-respectively.
+ownership well-formedness and refinement well-formedness.
 The ownership condition is purely syntactic:
 $[[ T ]]$ is ownership well-formed if $[[ T = T' ref 0 ]]$ implies
 $[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
@@ -229,6 +225,21 @@ well-formedness condition.  Our type system can also exploit aliasing
 information to restore the read/write capabilities to a pointer (i.e.,
 restore an ownership greater than 0) while simultaneously updating its
 refinement to reflect any mutations through aliases.
+
+Refinement well-formedness (defined in \cref{fig:type-wf})
+requires that any free program variables in a refinement
+are given integer types in the type environment $[[G]]$. This
+condition also ensures that the only context variable used
+in a refinement is $[[A]]$ when $[[B = A]]$ (no context variables
+may be used if $[[B = ll]]$). Notice this well-formedness conditions
+forbids refinements that explicitly refer to memory locations. Although
+ownership information can signal when the refinement on a mutably-aliased
+reference must be discarded, our current formulation
+provides no such information for refinements that mention
+mutably-aliased references. We therefore conservatively reject
+such refinements at the cost of some expressiveness in our type system.
+
+
 \AI{The subscript $\tau$
   in $[[ [S T ] ]]$ may look like a parameter to this operation.}
 

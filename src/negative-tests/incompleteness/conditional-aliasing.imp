@@ -1,0 +1,21 @@
+do_action(x, p, q) {
+  if x = 1 then {
+    p := *q + 1;
+	0
+  } else {
+    *p + *q
+  }
+}
+
+{
+  let y = mkref 1 in
+  let z = mkref 2 in
+  let y_ = y in
+  let g = do_action(0, y, y_) in
+  let d = do_action(0, y, z) in
+  let b = do_action(1, y, z) in {
+    assert(g = 2);
+	assert(d = 3);
+	assert(*y = 3);
+  }
+}
