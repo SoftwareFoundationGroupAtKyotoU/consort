@@ -1,0 +1,11 @@
+eq(p, q) {
+  assert(*p = *q)
+}
+
+{
+  let t = _ in
+  let p = mkref t in
+  let q = mkref t in {
+  eq(p,q)
+  }
+}

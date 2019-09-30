@@ -1,0 +1,15 @@
+pow(x, n) {
+  if n = 0 then 1
+  else x * pow(x, (n - 1))
+}
+
+{
+  let a = (_ : ~ > 0) in
+  let b = (_ : ~ > 0) in
+  let c = (_ : ~ > 0) in
+  let ap = pow(a, 3) in
+  let bp = pow(b, 3) in
+  let cp = pow(c, 3) in
+  let sum = ap + bp in
+  assert(sum != cp)
+}
