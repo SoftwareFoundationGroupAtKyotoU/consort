@@ -324,7 +324,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
 \end{lemma}
 \begin{proof}\leavevmode
   \begin{enumerate}
-  \item By straightforward cases analysis on the definition of $[[ T1 + T2 ]]$.
+  \item By straightforward case analysis on the definition of $[[ T1 + T2 ]]$.
   \item Observe that for any substitution $[[ [ll/A] ]]$, $[[ST([ll/A]G) = ST(G)]]$,
     so it suffices to show that $[[ FPCV ( [ll/A]ph ) ]] \subseteq [[CV(ll)]] = \emptyset$
     for any refinement $[[ph]]$ appearing in $[[T]]$ or a type in $[[G]]$.
@@ -336,7 +336,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
     variables appear in the refinement of $[[ [ll/A] T]]$ (resp. refinements of
     types in $[[ [ll/A] G]]$), trivially satisfying our requirement.
   \item If $[[A]]$ does not appear free in $[[T1]]$, $[[T2]]$ or $[[G]]$, then the result trivially holds. Let us then assume
-    $[[A]]$ appear free. We prove the result by induction on the subtyping derivation.
+    $[[A]]$ appears free. We prove the result by induction on the subtyping derivation.
 
     \begin{rneqncase}{Sub-Ref}{
         [[ T1 = T1' ref r1 ]] & [[ T2 = T2' ref r2 ]] \\
@@ -385,7 +385,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
       }
       By \cref{itm:ctxt-sub-distribute},
       $[[ ([ll/A]G)(y) = [ll/A](T1 + T2) = ([ll/A]T1 + [ll/A]T2) ]]$. We must then
-      show that $[[ Th | G1' | ll |- e : [ll/A]T => [ll/A]G'' ]]$
+      show that $[[ Th | G1' | ll |- e' : [ll/A]T => [ll/A]G'' ]]$
       where
       \[
         [[ G1' = ([ll/A]G)[y <- [ll/A]T1 /\ y y = x ],x:([ll/A]T2 /\ x x = y) ]]
@@ -404,16 +404,17 @@ substituting a well-typed expression matching a context's hole type yields a wel
     \end{rncase}
 
     \begin{rneqncase}{T-Call}{
+        [[ e = let x = f l (y1,,yn) in e']] \\
         [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
         [[ csub = [l:A/A'] ]] \\
-        [[ Th | G1 | A |- e : T => G2 ]] \\ [[ G' = G2 \ y ]] \\
+        [[ Th | G1 | A |- e' : T => G2 ]] \\ [[ G' = G2 \ y ]] \\
         [[ A |- T => G2 \ y  ]] \\
         [[ Th(f) = A' < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T' > ]]  \\
         [[ G1 = G[yi <- csub vsub Ti'], x : csub vsub T' ]]
       }
       We must first show that for $[[ csub' = [l:ll/A'] ]]$:
       \[
-        [[  Th | G3 | ll |- e : [ll/A]T => [ll/A]G2 ]]
+        [[  Th | G3 | ll |- e' : [ll/A]T => [ll/A]G2 ]]
       \]
       where $[[ G3 = ([ll/A]G)[yi <- csub' vsub Ti'], x: csub' vsub T']]$.
 
