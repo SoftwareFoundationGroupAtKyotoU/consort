@@ -495,8 +495,9 @@ We prove that subtyping preserves the consistency relation in the following sens
   \label{lem:subtyp-preserves-cons}
   If $[[ G <: G' ]]$ and $[[ Cons(H,R,G)]]$ then:
   \begin{enumerate}
-  \item If $[[G |- T1 <: T2 ]]$, then for any $[[v]]$, $[[ forall a in H.own(H,v,T1)(a) <= own(H,v,T2)(a) ]]$
-  \item Let $[[ F = |< { z in dom G' } own(H,R(z),G(z)) ]]$, $[[forall a in H.Own(H,R,G)(a) <= 1]]$
+%  \item If $[[G |- T1 <: T2 ]]$, then for any $[[v]]$, $[[ forall a in H.own(H,v,T1)(a) <= own(H,v,T2)(a) ]]$
+  \item For any $[[x in dom G']]$, $[[ own(H,R(x),G(x))(a) <= own(H,R(x),G'(x))(a) ]]$
+  \item Let $[[ F = |< { z in dom G' } own(H,R(z),G'(z)) ]]$, $[[forall a in H.Own(H,R,G)(a) <= 1]]$
   \item If $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$
   \item $[[SAT(H,R,G')]]$
   \item $[[Cons(H,R,G')]]$
@@ -504,10 +505,10 @@ We prove that subtyping preserves the consistency relation in the following sens
 \end{lemma}
 \begin{proof}
   \begin{enumerate}
-  \item By induction on $[[G |- T1 <: T2]]$.
+  \item By induction on $[[G |- G(x) <: G'(x)]]$.
   \item Direct consequence of 1.
   \item From $[[Cons(H,R,G)]]$ we have $[[SAT(H,R,G)]]$ which implies $[[ |= [R][G] ]]$.
-    We now proceed by induction on the shape of $[[T]]$.
+    We now proceed by induction on $[[G |- T <: T']]$.
     \begin{eqncase}{
         [[T = {nu:int |ph}]] & [[T' = {nu:int|ph'}]] \\
         [[|= [G] /\ ph ==> ph']] & [[ |= [R][v/nu]ph ]]
@@ -531,7 +532,7 @@ We prove that subtyping preserves the consistency relation in the following sens
 
 To show consistency is preserved during evaluation, \cref{lem:sattosat,lem:ownequiv-preserv}
 show types equivalent according to $[[~]]$ are equivalent for the purposes
-of $[[own]]$ and $[[SATv]]$. Then \cref{lem:ownadd,lem:satadd} shows that the
+of $[[own]]$ and $[[SATv]]$. Then \cref{lem:ownadd,lem:satadd} show that the
 type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
 \begin{lemma}[Type Equivalence Preserves Satisfiability] % L10
