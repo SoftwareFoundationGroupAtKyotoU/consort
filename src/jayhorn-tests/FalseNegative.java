@@ -22,6 +22,6 @@ class FalseNegative {
 		p.a = Havoc_Class.havoc_int();
 		int d = p.a;
 		rec(p, false);
-		assert d == p.a;
+		assert d != p.a;
 	}
 }
