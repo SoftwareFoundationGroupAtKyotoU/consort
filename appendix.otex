@@ -1020,20 +1020,14 @@ call cases respectively; we have separated them into separate lemmas for clarity
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CEn-1 : Es, x>]], [[<H, R, CEn-1 : Es, x> --> D <H, R, Es, CEn-1[x]> ]] \\
   }
-    \AI{Fix needed after the typing rule for configurations is changed.}
-    By the Inversion on configuration typing $[[ |- D <H, R, CEn-1 : Es, x>]]$ we obtain $[[E = [] /\ e = x ]]$, and thus
+  By the Inversion on configuration typing $[[ |- D <H, R, CEn-1 : Es, x>]]$, we have:
     \begin{align*}
-      & [[ T = Tn ]] \\
-      & [[ G' = Gn ]] \\
       & [[ Th | G | ll |- x : Tn => Gn ]] \\
       & \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]
     \end{align*}
     
     Using \cref{lem:stack-well-typed}, we can conclude that $[[ Th | G | lln-1 |- En-1[x] : Tn-1 => Gn-1 ]]$. We therefore take $[[ G'' = G ]]$.
-    
-    By \cref{lem:stack_var} and $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]]$, any decomposition of $[[En-1 [x] ]]$
-    into a context $[[E']]$ and expression $[[e']]$ will be well-typed with respect to the types expected by the hole type of $E_{n-2}$.
-    
+
     It remains to show that $[[Cons(H,R,G'')]]$ and $[[ lln-1 |- G ]]$, which follows
     immediately from $[[Cons(H,R,G)]]$ and $[[ ll |- G ]]$.
   \end{rneqncase}
@@ -1049,7 +1043,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[ ll |- G0 ]] && [[ Th | G0 | ll |- E[let x = *y in e] : Tn => Gn ]] \\
       [[ Cons(H,R,G) ]] &&
     \end{align*}
-    By \cref{lem:stack-var}, we have there exists some $[[T]], [[G0']]$ such that:
+    By \cref{lem:stack_var}, we have there exists some $[[T]], [[G0']]$ such that:
     \begin{align*}
       [[ Th | []: T => G0' | ll |-e E : Tn => Gn ]] && [[ Th | G0 | ll |- let x = *y in e : T => G0' ]]
     \end{align*}
@@ -1151,7 +1145,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[<H, R, Es, E[let x = y in e]> --> D <H, R { x' |-> R(y)}, Es, E[ [x'/x]e]> ]]\\
       [[ x' fresh in R ]] \andalso [[R'= R { x' |->  R(y) }]]
     }
-    By inversion (see \rn{R-Deref} we have that for some $[[G]]$ that:
+    By inversion (see \rn{R-Deref}) we have that for some $[[G]]$ that:
     \begin{align*}
       & [[ G(y) = T1 + T2 ]] \\
       & [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | ll |- e : T => G']] \\
@@ -1419,14 +1413,18 @@ call cases respectively; we have separated them into separate lemmas for clarity
   \begin{rneqncase}{R-Call}{
       [[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]\\
       [[f |-> (x1, .., xn) e in D]] \\
-      [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]] \\
+      [[ <H, R, Es, E[let x = f l (y1,,yn) in e']> \\
+      --> D <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]] \\
     }
-    \AI{Fix needed after the typing rule for configurations is changed.  We should examine the use of $[[E]]$ and $[[CE]]$ carefully.}
     We must show that
     $[[ <H, R, E[let x = [] l in e'] : Es, [y1/x1] ,, [yn/xn] e> ]]$
     for some $[[G'']]$.
     
     By inversion on the configuration typing, we have that, for some $[[G]]$:
+    \[
+      [[ Th | G | ll |- E[let x = f l (y1,,yn) in e'] : Tn => Gn ]] 
+    \]
+    By \cref{lem:stack_var}, we then have for some $[[ T ]]$, and $[[ G' ]]$ that:
     \begin{align*}
       & [[ Th | G | ll |- let x = f l (y1,,yn) in e' : T => G' ]] \\
       & [[ Th | [] : T => G' | ll |-e E : Tn => Gn ]]
@@ -1435,7 +1433,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     by \cref{lem:callfunc} we have, for some $[[T''']], [[G''']]$:
     \begin{align*}
       & [[ Th | G | l : ll |- vsub e : T''' => G''' ]] \\
-      & [[ Th | []: T''' => G''' | ll |-e E[let x = [] l in e'] : T => G' ]]
+      & [[ Th | []: T''' => G''' | ll |-e E[let x = [] l in e'] : Tn => Gn ]]
     \end{align*}
     where:
     \begin{align*}
@@ -1443,19 +1441,14 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[ Th(f) ]] & = [[ A <x1 : Ti ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | Tp > ]]
     \end{align*}
     We therefore take $[[ G'' = G ]]$. The well-formedness of $[[G'']]$
-    follows from $[[G'' = G]]$ and by inversion on the input configuration.
+    follows from $[[G'' = G]]$ and by inversion on the typing of the runtime configuration.
      
     We must also prove that $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$  where $[[ E'n = E[let x = [] l in e'] ]]$ and $[[ E'i = Ei ]] (0 \leq i < n)$,
     which can be divided into proving
     $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$. The first follows by inversion on $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$.
 
-    We define $[[Gn+1 = G''' ]]$ and $[[Tn+1 = T''' ]]$.
-    It remains to show $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$.
-    
-    As $[[En']]$ is $[[ E[let x = [] l in e'] ]]$,
-    from above we obtain $[[ Th | [] : Tn+1 => Gn+1 | ll |-e E[let x = [] l in e'] : Tn => Gn ]]$.
-    Next, by \cref{lem:stack_var} and $[[ Th | G | l:ll |- vsub e : Tn+1 => Gn+1 ]]$, any decomposition of $[[vsub e]]$ into a context $[[E']]$
-    and expression $[[e']]$ will be well-typed as $[[Tn+1]]$ and $[[Gn+1]]$, which are the return type and environment expected by the hole of return context $[[En']]$.
+    We define $[[Gn+1 = G''' ]]$ and $[[Tn+1 = T''' ]]$, whereby the
+    well-typing holds from the result of applying \cref{lem:callfunc} above.
     
     Finally, $[[Cons(H,R,G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ and $[[G''=G]]$.
   \end{rneqncase}
