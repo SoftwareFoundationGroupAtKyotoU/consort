@@ -454,19 +454,32 @@ and $[[Th]]$ is a finite map from function names to function types.
 The typing rules in \cref{fig:intra-type} handle the relatively
 standard features in our language. The most noteworthy feature is the
 type addition operator used in \rn{T-Let}, \rn{T-MkRef}, and
-\rn{T-Deref} forms. Intuitively, the type addition operator
-``splits'' the ownership \emph{and} refinement information
-between the assigned value and the newly bound value. 
-Formally, it is defined as the least commutative partial
-operation that satisfies the rules in \cref{fig:addition}.  According
-to the well-formedness condition, if the entirety of ownership is
-transferred to one of the result types, all refinements in the other
+\rn{T-Deref} forms. Intuitively, the type addition operator describes
+how to split a type into two components, dividing information in the original
+type between the two result types.
+Viewed another way, it describes how to combine two types for the same
+value such that the combination soundly incorporates all information from
+the two original types.
+A critical property of this split/combination operation
+is that the total ownership is unchanged from before the split/combination;
+in other words, the type addition operation cannot create or destroy
+ownership or refinement information, only combine or divide it between
+types. Formally, the type addition operator is defined as the least
+commutative partial operation that satisfies the rules in
+\cref{fig:addition}. Although not explicit in the rules,
+by the ownership well-formedness condition,
+when dividing types if the entirety of ownership is transferred to
+one of the result types, all refinements in the other
 type are $[[ Top ]]$.
 
 The let bindings (\rn{T-Let}, \rn{T-MkRef}, \rn{T-Deref}, and
-\rn{T-LetInt}) introduce new bindings based on the right hand side,
-and analyze the let body $[[e]]$, in this new environment. The typing
-rule for each form requires the type and result environment of the
+\rn{T-LetInt}) introduce new bindings based on the right hand side.
+The rules for \rn{T-Let}, \rn{T-MkRef} and \rn{T-Deref} also \emph{update}
+the type of the variable appearing on the right hand side; as some
+ownership from the high-hand side has been transferred to the new binding,
+retaining the original type would be unsound.
+The bindings rules then analyze the let body $[[e]]$ in this new environment.
+The typing rule for each form requires the type and result environment of the
 let body to be well-formed after the removal of the bound variable $[[x]]$.
 This requirement can be met by applying the subtyping rule (see below)
 to weaken refinements to no longer mention $[[x]]$. As in other refinement
@@ -573,24 +586,23 @@ refinement information found in the original reference is effectively useless.
 \AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
 \JT{This now just reads as obvious. Do better}
 Additionally, once
-a mutable pointer has been split through an assignment, there is no
-way to recover a mutable pointer. The typing rule for
+a mutable pointer has been split through an assignment or let binding, there is no
+way to recover mutability. The typing rule for
 must alias assertions, \rn{T-Alias} and \rn{T-AliasPtr}, overcomes this restriction
 by exploting the aliasing information to
-``shuffle'' ownerships \emph{and refinements} between two
+``shuffle'' or redistribute ownerships \emph{and refinements} between two
 aliased pointers. The typing rule assigns
-two fresh types $[[T1']]$ and $[[T2']]$ to the two operand pointers;
-the sum $[[T1' + T2']]$ must be equal modulo logical equivalence
-(denoted $[[~]]$) to the sum of the original types. Formally, $[[~]]$
-is defined as the least relation closed under the rules show in
-\cref{fig:equality}.
-
-The definition of $[[~]]$ ensures the total ownerships between
-the two types are equal, and as the two operands are assumed
-to alias, the type system may therefore freely redistribute
-ownerships of the two references withou violating the
-ownership invariant. This shuffling operation can also be used to
-propagate refinement updates caused by destructive updates.
+two fresh types $[[T1' ref r1']]$ and $[[T2' ref r2']]$ to the two operand pointers.
+The choice of $[[T1']], [[r1']], [[T2']]$, and $[[r2']]$ is left open,
+provided that the sum of the new types, $[[(T1' ref r1') + (T2' ref r2')]]$ is
+equivalent (denoted $[[~]]$) to the sum of the original types.
+Formally, $[[~]]$ is defined as the least relation closed under
+the rules show in \cref{fig:equality}.
+This redistribution is sound precisely because the two references are
+assumed to alias; the total ownership for the single memory cell pointed
+to by both references cannot be increased by this shuffling. Further,
+any refinements that hold for the contents of one reference must necessarily
+hold for contents of the other.
 
 \begin{example}[Shuffling ownerships and refinements]
   \begin{lstlisting}
@@ -603,6 +615,29 @@ propagate refinement updates caused by destructive updates.
     &[[top1 + {nu:int|ph} ref 1 = {nu:int|ph} ref 1]][[~]]\\
     \,\,\,\,&[[{nu:int|ph/\ph} ref 1 = {nu:int|ph} ref 0.5 + {nu:int|ph} ref 0.5 ]]
   \end{align*}
+\end{example}
+
+The aliasing rule gives fine-grained control over ownership information. In particular,
+this flexibility allows mutation through two aliased references within the same scope.
+Provided sufficient aliasing annotations, the type system may shuffle ownerships between
+one or more live references, enabling and disabling mutability as required. Although the
+reliance on these annotations appear to decrease the practicality of such a type system,
+we expect these aliasing annotations can be inserted by a conservative must-aliasing
+analysis, and empirical experience from prior work \cite{suenaga2009fractional} shows
+that only a small number of annotations are required for real-world programs.
+
+\begin{example}[Shuffling Mutability]
+  \begin{lstlisting}
+    let x = mkref 0 in
+    let y = x in (
+    x := 1;
+    alias(x = y);
+    y := 2;
+    alias(x = y);
+    assert(*x = 2)
+    )
+  \end{lstlisting}
+  \JT{todo: write something here}
 \end{example}
 
 \begin{figure}
