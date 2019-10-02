@@ -899,7 +899,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
 \begin{lemma} % L25
   \label{lem:stack-well-typed}
   For any $[[G0]]$ such that $[[Th | G0 | l:ll |- x: T => G]]$ and $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ then
-  $[[ Th | G0 | ll |- E[let y = [] l in e][x] : T' => G' ]]$
+  $[[ Th | G0 | ll |- E[let y = [] l in e][x] : T' => G' ]]$.
 \end{lemma}
 \begin{proof}
   It suffices to show that $[[ Th | G0 | ll |- let y = x in e : T1 => G1]]$
@@ -910,7 +910,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
   $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ we have
   \begin{align}
     & [[ Th | G, y: T | ll |- e : T2 => G2 ]] \label{eqn:let-body-ty} \\
-    & [[ Th | []: T2 => G2 \ y | B |-e E : T' => G' ]] \label{eqn:ctxt-typed}\\
+    & [[ Th | []: T2 => G2 | B |-e E : T' => G' ]] \label{eqn:ctxt-typed}\\
     & [[ ll |- T2 => G2 ]] \label{eqn:t2g2-wf} \\
     & [[ y not in dom G2 ]] \label{eqn:y-not-free-var}
   \end{align}
@@ -923,7 +923,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     & [[Gp(x) = Tp + Tp' ]] \label{eqn:gp-x-def}
   \end{align}
   
-  We take $[[ G1 = G2 \ y ]]$, $[[ T2 = T1 ]]$, and then \cref{eqn:ctxt-typed}
+  We take $[[ G1 = G2 ]]$, $[[ T2 = T1 ]]$, and then \cref{eqn:ctxt-typed}
   gives the necessary typing for $[[E]]$. To show that
   \[
     [[ Th | G0 | ll |- let y = x in e : T1 => G1 ]]
@@ -953,13 +953,13 @@ call cases respectively; we have separated them into separate lemmas for clarity
   \begin{bcpcasearray}
     [[ Th | G0 | ll |- let x = f l (y1,,yn) in e' : T1 => G1 ]] &  [[ csub = [l:ll/A] ]] \\
     [[ Th | [] : T1 => G1 | ll |-e E : T2 => G2 ]] & [[ vsub = [y1/x1],,[yn/xn] ]] \\
-    [[ f |-> ( x1, .. ,xn) e' in D]] & [[ Th |- f |-> (x1,..,xn) e ]] \\
+    [[ f |-> ( x1, .. ,xn) e in D]] & [[ Th |- f |-> (x1,..,xn) e ]] \\
     [[ ll |- G0 ]] &  [[ |- Th ]]
   \end{bcpcasearray}
 
   where $[[Th(f) = A < x1 : T1 ,, xn: Tn> -> <x1: T1',,xn:Tn' | Tq >]]$.
 
-  Then there exists some $[[T3]]$ and $[[G3]]$:
+  Then there exist some $[[T3]]$ and $[[G3]]$:
   \begin{align*}
     & [[ Th | G0 | l:ll |- vsub e : T3 => G3 ]] \\
     & [[ Th | [] : T3 => G3 | ll |-e E[let x = [] l in e] : T2 => G2 ]]
@@ -974,7 +974,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     & [[ Gp(yi) = csub vsub Ti ]] \label{eqn:arg-typed} \\
     & [[ Gp' = Gp0 \ x ]] \\
     & [[ Th | Gp[yi <- csub vsub Ti'],x: csub vsub Tq | ll |- e' : Tp => Gp0 ]] \label{eqn:let-body-well-typed} \\
-    & [[ ll |- Tp => Gp0 \ x ]]
+    & [[ ll |- Tp => Gp0 \ x ]] \\
     & [[ ll |- Gp ]] \label{eqn:sub-in-env-wf} \\
   \end{align}
   
@@ -986,6 +986,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
   We take $[[T3 = csub vsub Tq ]]$ and $[[ G3 = Gp[yi <- csub vsub Ti'] ]]$,
   By the well-formedness of function types, we must have that $[[ ll |- G3 ]]$
+  \AI{$[[l:ll]]$?}
   and by \cref{eqn:arg-typed,eqn:sub-in-env-wf,lem:tyenv-weaken} we have
   $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whence an application of \rn{T-Sub}
   using $[[ G0 <: Gp ]]$ gives $[[ Th | G0 | l:ll |- vsub e : T3 => G3 ]]$
