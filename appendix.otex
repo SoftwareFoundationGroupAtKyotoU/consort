@@ -1046,8 +1046,12 @@ call cases respectively; we have separated them into separate lemmas for clarity
     }
     By inversion on the configuration typing relationship, we have that:
     \begin{align*}
-      [[ ll |- G0 ]] && [[ Th | []: T => G0' | ll |-e E : Tn => Gn ]] \\
-      [[ Cons(H,R,G) ]] && [[ Th | G0 | ll |- let x = *y in e : T => G0' ]]
+      [[ ll |- G0 ]] && [[ Th | G0 | ll |- E[let x = *y in e] : Tn => Gn ]] \\
+      [[ Cons(H,R,G) ]] &&
+    \end{align*}
+    By \cref{lem:stack-var}, we have there exists some $[[T]], [[G0']]$ such that:
+    \begin{align*}
+      [[ Th | []: T => G0' | ll |-e E : Tn => Gn ]] && [[ Th | G0 | ll |- let x = *y in e : T => G0' ]]
     \end{align*}
     Using \cref{lem:inversion}, we have there exists some $[[Gp]]$, $[[Gp']]$ and $[[Tp]]$ such
     that:
