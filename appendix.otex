@@ -985,8 +985,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
   By \subref{lem:ctxt-substitution}{itm:ctxt-subst-well-typed} we then have
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
   We take $[[T3 = csub vsub Tq ]]$ and $[[ G3 = Gp[yi <- csub vsub Ti'] ]]$,
-  By the well-formedness of function types, we must have that $[[ ll |- G3 ]]$
-  \AI{$[[l:ll]]$?}
+  By the well-formedness of function types, we must have that $[[ l:ll |- G3 ]]$
   and by \cref{eqn:arg-typed,eqn:sub-in-env-wf,lem:tyenv-weaken} we have
   $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whence an application of \rn{T-Sub}
   using $[[ G0 <: Gp ]]$ gives $[[ Th | G0 | l:ll |- vsub e : T3 => G3 ]]$
