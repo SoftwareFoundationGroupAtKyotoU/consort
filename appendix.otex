@@ -4,11 +4,9 @@
   \leavevmode
   \infrule[TE-Seq]{
     [[ Th | [] : T => G | B |-e E : T' => G' ]] \andalso
-    [[ Th | G' | B |- e : T'' => G'' ]] \andalso
-    [[ G'', T'' <: G''', T''']] \\
-    [[ B |- T''' => G''' ]]
+    [[ Th | G' | B |- e : T'' => G'' ]]
   }{
-    [[ Th | [] : T => G | B |-e E; e : T''' => G''' ]]
+    [[ Th | [] : T => G | B |-e E; e : T'' => G'' ]]
   }
   \infrule[TE-Hole]{}{
     [[ Th | [] : T => G | B |-e [] : T => G ]]
@@ -73,8 +71,8 @@
     [[ [empty]ph ]] & = [[ ph ]] \\
     [[ [R { y |-> nn }]ph ]] & =  [[  [R][nn/y]ph ]] \\
     [[ [R { y |-> a }]ph ]] & =  [[ [R]ph ]] \\
-    [[Own(H,R,G)]] = &  \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
-    [[own(H,v,T)]] &  = \begin{cases}
+    [[Own(H,R,G)]] & =   \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
+    [[own(H,v,T)]] & = \begin{cases}
       [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
       \emptyset & o.w.
     \end{cases} \\
@@ -261,25 +259,31 @@ substituting a well-typed expression matching a context's hole type yields a wel
 \end{lemma}
 \begin{proof}
   By induction on the structure of $[[E]]$.
-  \begin{rncase}{E-Hole}
+  \begin{rncase}{TE-Hole}
     Trivial, by taking $[[T0 = T]]$ and $[[G0 = G']]$.
   \end{rncase}
-  \begin{rncase}{E-Seq}
-    Then $[[E = E'; e'']]$ and $[[E[e'] = E'[e']; e'' = e]]$, whence
-    $[[e = e1; e2]]$ where $[[E'[e'] = e1]]$ and $[[e'' = e2]]$. By
+  \begin{rncase}{TE-Seq}
+    Then $[[E = E'; e'']]$ and $[[E[e'] = E'[e']; e'' = e]]$. By
     \cref{lem:inversion} we have
-    $[[ Th | Gp | B |- e1 : T1 => G1]]$,
-    $[[Th | G1 | B |- e2: Tp => Gp']]$,
+    $[[ Th | Gp | B |- E'[e'] : T1 => G1]]$,
+    $[[Th | G1 | B |- e'': Tp => Gp']]$,
     $[[G <: Gp]]$,
+    $[[ B |- Gp ]]$,
+    $[[ B |- T => G' ]]$,
     $[[Gp', Tp <: G', T]]$ for some
     $[[Gp]]$, $[[Gp']]$, and $[[Tp]]$.
+    
     By the induction hypothesis
     we then have $[[ Th | Gp | B |- e' : T0 => G0 ]]$ and
-    $[[ Th | []: T0 => G0 | B |-e E' : T1 => G1 ]]$. Exploiting the equality
-    between $[[e2 = e'']]$, we use the proof rule \rn{TE-Seq}
-    to conclude $[[ Th | []: T0 => G0 | B |-e E'; e'' : T => G']]$.
-    By \rn{T-Sub}, we have
-    $[[ Th | G | B |- e' : T0 => G0 ]]$.
+    $[[ Th | []: T0 => G0 | B |-e E' : T1 => G1 ]]$.
+    
+    Next, as $[[ Gp', Tp <: G', T]]$ and $[[ B |- T => G' ]]$,
+    by an application of \rn{T-Sub}, we have
+    $[[ Th | G1 | B |- e'' : T => G' ]]$. By \rn{TE-Seq}, we therefore
+    have: $[[ Th | [] : T0 => G0 | B |-e E'; e'' : T => G' ]]$.
+
+    Finally, from $[[ G <: Gp ]]$, $[[ B |- Gp ]]$, $ [[ Th | Gp | B |- e' : T0 => G0 ]]$,
+    and application of \rn{T-Sub}, we have $[[ Th | G | B |- e' : T0 => G0 ]]$.
   \end{rncase}
 \end{proof}
 
