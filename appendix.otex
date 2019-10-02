@@ -233,12 +233,19 @@ handle the fact our typing rules are not syntax directed.
     \item $[[ Th | G[x <- T1' ref r1'][y <- (T2' ref r2') ref r] | B |- e : Tp => Gp' ]]$
     \end{itemize}
   \item If $[[ e0 = e1; e2 ]]$ then $[[ Th | Gp | B |- e1 : T1 => G1 ]]$ and $[[ Th | G1 | B |- e2 : Tp => Gp' ]]$
+  \item If $[[ e0 = x; e' ]]$ then $[[ Th | Gp[x: T' + T0] | B |- x : T1 => Gp[x <- T0] ]]$ and $[[ Th | Gp[x <- T0] | B |- e' : Tp => Gp' ]]$
   \item If $[[ e0 = assert(ph); e ]]$ then $[[ Gp |= ph ]]$ and $[[ Th | Gp | B |- e : Tp => Gp' ]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
   By straightforward induction on the typing relation and the
   transitivity of the subtyping relation \cref{lem:subtype-transitive}.
+
+  The only case of note is the case for $[[ e0 = x; e2 ]]$. If the subderivation for $[[x]]$
+  has applications of \rn{T-Sub} then the subtypings on the output environment can be pushed
+  into application subtyping on input environments when typing $[[e']]$. Similarly,
+  any input subtypings on the input environment of the derivation of $[[x]]$ can be pushed
+  into \rn{T-Sub} rules such that $[[G <: Gp[x : T' + T0] ]]$.
 \end{proof}
 
 \cref{lem:stack_var,lem:ectxt-sub-well-typed} prove some standard properties of execution contexts:
