@@ -71,7 +71,7 @@ grammar
 	| r1 + r2 :: :: add_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
-	| F ( a ) :: :: omap_lkp
+	| O ( a ) :: :: omap_lkp
 	| float :: :: float
 	| r [ x , nn , pp ] :: :: gen_var {{ tex [[r]]_{[[x]],[[nn]],[[pp]]} }}
 
@@ -381,15 +381,15 @@ grammar
 	| Cons ( H , R , G ) :: :: Cons
 	| SAT ( H , R , G ) :: :: SAT
 	| SATv ( H , R , Rv , T ) :: :: satv {{ tex [[SATv]]([[H]],[[R]],[[Rv]],[[T]]) }}
-	| F :: :: omap
+	| O :: :: omap
 
-   F :: 'OM_' ::=
+   O :: 'OM_' ::=
     | { a |-> r } :: :: omap
-	| F1 + F2 :: :: omap_add
+	| O1 + O2 :: :: omap_add
 	| own ( H , Rv , T ) :: :: own_fn
 	| Own ( H , R , G ) :: :: ownHRG_fn
 	| empty :: :: empty {{ tex \emptyset }}
-	| |< { x in VS } F :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[F]] }}
+	| |< { x in VS } O :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[O]] }}
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
@@ -431,7 +431,7 @@ grammar
 	| Gst :: :: stTenv
 	| H :: :: heap
 	| Th :: :: funenv
-	| F :: :: ownership_map
+	| O :: :: ownership_map
 
   VS :: 'VS_' ::= {{ com sets }}
     | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}

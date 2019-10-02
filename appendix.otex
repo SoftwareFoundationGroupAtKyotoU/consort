@@ -1016,10 +1016,10 @@ call cases respectively; we have separated them into separate lemmas for clarity
   The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
   $[[ |-D ]]$, and for that we must find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
   the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
-  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .Own(H,R,G)(a) <= 1]]$.
-  We give that $[[a in H]]$ and $[[F0]]$ represents the $[[Own(H,R,G)(a)]]$ before transition, $[[F1]]$ represents the $[[Own(H,R,G)(a)]]$ after transition.
-  We know that $[[forall a in H.F0(a) <= 1]]$ since the configuration is well typed before transition, and to prove $[[F0=F1]]$ in each case.
-
+  In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .Own(H,R,G'')(a) <= 1]]$.
+  In many cases, we will show that $[[ Own(H, R, G) = Own(H', R', G'') ]]$, whereby
+  from the assumption   that $[[ forall a in H.Own(H, R, G)(a) <= 1 ]]$ we will
+  then have the desired result.
   % FIXED
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CEn-1 : Es, x>]], [[<H, R, CEn-1 : Es, x> --> D <H, R, Es, CEn-1[x]> ]] \\
@@ -1110,20 +1110,20 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We therefore prove that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a in H.Own(H,R{ x' |-> v },G'')(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
+    Then, it's to show $[[forall a in H.Own(H,R',G'')(a) <= 1]]$. Define $[[O0']]$ and $[[O1']]$ as follows:
     \begin{align*}
-      [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\
-      [[F1]] & =[[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
-      [[F0']] &  = [[ |< {z in dom G \ {y}} own(H,R(z),G(z))]] \\
-      [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H,R'(z'),G''(z')) ]]
+      [[Own(H, R, G)]] & = [[O0' + own(H,R(y),G(y))]] \\
+      [[Own(H, R', G'')]] & =[[O1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
+      [[O0']] &  = [[ |< {z in dom G \ {y}} own(H,R(z),G(z))]] \\
+      [[O1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H,R'(z'),G''(z')) ]]
     \end{align*}
-    By \cref{lem:heapop}, $[[F0' = F1']]$ holds.
+    By \cref{lem:heapop}, $[[O0' = O1']]$ holds.
     From \cref{lem:ownadd}, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $[[v = H(R(y))]]$.
     We know that $[[R'(x')=H(R'(y))=H(R(y))]]$, so $[[ own(H,R'(x'),G''(x'))  = own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),G(y)) = own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) = own(H,H(R'(y)),T1) ]]$,
-    so we have $[[own(H,R(y),G(y))=own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $[[F0=F1]]$.
+    so we have $[[own(H,R(y),G(y))=own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $[[Own(H, R, G)=Own(H, R', G'')]]$.
   \end{rneqncase} % R-Deref
 
-  \begin{rneqncase}{R-Var}{
+  \begin{rneqncase}{R-Seq}{
       [[ |- D <H, R, Es, E[x; e]> ]]\\
       [[ <H, R, Es, E[x; e]> --> D <H, R, Es, E[e]> ]]\\
     }
@@ -1171,17 +1171,17 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a in H.Own(H,R',G'')(a) <= 1]]$. Define $[[F0]]$ and $[[F1]]$ as follows:
+    Then, it's to show $[[forall a in H.Own(H,R',G'')(a) <= 1]]$. Define $[[O0']]$ and $[[O1']]$ as follows:
     \begin{align*}
-    [[F0]] & = [[F0' + own(H,R(y),G(y))]] \\ 
-    [[F1]] & = [[F1' + own(H',R'(y),G''(y)) + own(H',R'(x'),G''(x'))]] \\
-    [[F0']] & = [[ |< {z in dom G \ {y}} own(H,R(z),G(z)) ]] \\
-    [[F1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H',R'(z'),G''(z'))]]
+    [[Own(H,R,G)]] & = [[O0' + own(H,R(y),G(y))]] \\ 
+    [[Own(H, R', G'')]] & = [[O1' + own(H,R'(y),G''(y)) + own(H,R'(x'),G''(x'))]] \\
+    [[O0']] & = [[ |< {z in dom G \ {y}} own(H,R(z),G(z)) ]] \\
+    [[O1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H,R'(z'),G''(z'))]]
     \end{align*}
-    By \cref{lem:heapop}, $[[F0' = F1']]$ holds.
+    By \cref{lem:heapop}, $[[O0' = O1']]$ holds.
     That $[[own(H,R'(x'),T2) + own(H,R'(y),T1) = own(H,R(y),T1+T2)]]$ follows immediately
     from \cref{lem:ownadd} and the condition $[[R(y)=R'(x')=R'(y)]]$.
-    We therefore conclude that $[[F0=F1]]$.
+    We therefore conclude that $[[Own(H,R,G)=Own(H, R', G'')]]$.
   \end{rneqncase} % R-Let
  
   \begin{rneqncase}{R-LetInt}{ % FIXED
@@ -1250,15 +1250,18 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We must also show that the ownership invariant is preserved.
     Then, it's to show $[[forall a in H.Own(H',R',G'')(a) <= 1]]$. We have:
     \begin{align*}
-      [[F1]] & = [[|< {z in dom G''} own(H',R'(z'),G''(z'))]] \\
+      [[Own(H', R', G'')]] & = [[|< {z in dom G''} own(H',R'(z'),G''(z'))]] \\
              & = [[ |< {z in dom G} own(H,R(z),G(z)) + {a' |->  1}]] \\
-             & = [[F0 + {a' |-> 1}]]
+             & = [[Own(H, R, G) + {a' |-> 1}]]
     \end{align*}
     with $[[a' not in H]]$.
     
-    We want to show that $[[forall]][[a in H']].F_1(a) \leq 1$.
-    Suppose $[[a != a']]$ (that is $[[a in H]]$): we have $[[F1(a)= F0(a)]]$ and thus $[[F1(a) <= 1]]$ by $[[Cons(H,R,G)]].$
-    Next, suppose $a=a'$; we have $[[F1(a)=1]]$ only if $[[a' not in F0]]$, where $[[F0= |< {z in dom G} own(H,R(z),G(z))]]$. This requirement immediately holds from $[[a' not in H]]$ by the definition of $[[own(H,v,T)]]$.
+    We want to show that $[[forall a in H'.Own(H', R', G'')(a) <= 1]]$.
+    Suppose $[[a != a']]$ (that is $[[a in H]]$): we have $[[Own(H, R, G)(a)= Own(H', R', G'')(a)]]$ and thus $[[Own(H', R', G'')(a) <= 1]]$ by $[[Cons(H,R,G)]].$
+    Next, suppose $a=a'$; we have $[[Own(H',R',G'')(a)=1]]$ only if $[[a' not in Own(H,R,G)]]$;
+    this requirement immediately holds from $[[a' not in H]]$ by the definition of
+    $[[own(H,v,T)]]$. \JT{We have been a little sloppy with our definition of + on
+      these ownership functions so the domains of these functions is a little unclear.}
   \end{rneqncase} % R-MkRef
 
   \begin{rneqncase}{R-Assign}{ % FIXED
@@ -1278,21 +1281,21 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We must therefore show that $[[ Cons(H'= H { a <- R(y) },R'= R,G'')]]$.
     To show that the output environment is consistent, we must show that $[[SATv(H',R,R(y),T1 /\ y y = x ref 1)]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
     By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
-    We define $[[F0]]$ and $[[F1]]$ as below:
+    We define $[[O0']], [[O0'']], [[O1']]$ and $[[O1'']]$ as below:
     \begin{align*}
-      [[F0]] & = [[F0' + own(H, R(y), G(y)) + own(H, R(x), G(x)) = F0' + F0'']] \\
-      [[F1]] & = [[F1' + own(H', R(y), G''(y)) + own(H', R(x), G''(x))= F1' + F1'' ]] \\
-      [[F0']] & = [[ |< {z in dom G \ {y,x} } own(H,R(z),G(z)) ]] \\
-      [[F1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]] \\
+      [[Own(H, R, G)]] & = [[O0' + own(H, R(y), G(y)) + own(H, R(x), G(x)) = O0' + O0'']] \\
+      [[Own(H', R, G'')]] & = [[O1' + own(H', R(y), G''(y)) + own(H', R(x), G''(x))= O1' + O1'' ]] \\
+      [[O0']] & = [[ |< {z in dom G \ {y,x} } own(H,R(z),G(z)) ]] \\
+      [[O1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]] \\
     \end{align*}
     By the definition of the ownership function and $[[G(y) = T' ref 1 /\ G(x) = T1 + T2]]$ we have:
     \begin{align*}
-      [[F0'']] & = [[own(H, H(R(y)), T') + {a |-> 1} + own(H, R(x), T1 + T2)]] \\
-      [[F1'']] & = [[own(H', H'(R(y)), T2) + {a |-> 1} + own(H',R(x), T1)]]
+      [[O0'']] & = [[own(H, H(R(y)), T') + {a |-> 1} + own(H, R(x), T1 + T2)]] \\
+      [[O1'']] & = [[own(H', H'(R(y)), T2) + {a |-> 1} + own(H',R(x), T1)]]
     \end{align*}
-    As $[[ F0(a) <= 1 ]]$ (from $[[Cons(H,R,G)]]$) and from
+    As $[[ Own(H, R, G)(a) <= 1 ]]$ (from $[[Cons(H,R,G)]]$) and from
     \[
-      [[F0(a)=F0'(a) + F''0(a) = F0'(a) + own(H, H(R(y)), T')(a) + 1 + own(H, R(x), T1 + T2)(a)]]
+      [[Own(H, R, G)(a)=O0'(a) + O0''(a) = O0'(a) + own(H, H(R(y)), T')(a) + 1 + own(H, R(x), T1 + T2)(a)]]
     \]
     we have $[[own(H, R(x), G(x))(a)=own(H, R(x), T1 + T2)(a)=0]]$.
     
@@ -1312,29 +1315,28 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a in H.F(a) <= 1]]$.
-    \AI{Needs a fix to use $[[Own]]$.}
-    As $[[F0'=F1']]$ holds by pointwise application of \cref{lem:heapop}, and $[[forall a in H.F0(a) <= 1]]$, if $[[forall a' in H'. F1''(a') <= F0''(a')]]$, we can conclude that $[[F1(a') <= F0(a') <= 1]]$.
+    Then, it's to show $[[forall a in H.Own(H', R, G'')(a) <= 1]]$.
+    As $[[O0'=O1']]$ holds by pointwise application of \cref{lem:heapop}, and $[[forall a in H.Own(H, R, G)(a) <= 1]]$, if $[[forall a' in H'. O1''(a') <= O0''(a')]]$, we can conclude that $[[Own(H', R, G'')(a') <= Own(H, R, G)(a') <= 1]]$.
     
     Suppose for some arbitrary $[[a in H]]$, $[[a= a']]$, then:
     \begin{align*}
-      [[F1''(a)]] & = [[own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1]] \\
-      [[F0''(a)]] & = [[own(H, R(x), T1 + T2)(a) + own(H, H(R(y)), T')(a)+1]]
+      [[O1''(a)]] & = [[own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1]] \\
+      [[O0''(a)]] & = [[own(H, R(x), T1 + T2)(a) + own(H, H(R(y)), T')(a)+1]]
     \end{align*}
-    We know $[[F0(a') <= 1]]$, hence $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
+    We know $[[Own(H, R, G)(a') <= 1]]$, hence $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
     By \cref{lem:heapop}, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
     Also by \cref{lem:ownadd}, we have $[[own(H', R(x), T2+T1) = own(H', R(x), T1)+own(H', R(x), T2)]]$.
     Then we have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$.
     Therefore, \[
-      [[F1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = F0''(a')]]
+      [[O1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = O0''(a)]]
     \]  
-    Next, suppose $a\neq a'$;
+    Next, suppose $[[a]]\neq [[a']]$;
     \begin{align*}
-      [[F1''(a')]] & = [[own(H', H'(R(y)), T2)(a') + own(H', R(x), T1)(a') ]] \\
-      [[F0''(a')]] & = [[own(H, R(x), T2 + T1)(a') + own(H, H(R(y)), T')(a') ]]
+      [[O1''(a')]] & = [[own(H', H'(R(y)), T2)(a') + own(H', R(x), T1)(a') ]] \\
+      [[O0''(a')]] & = [[own(H, R(x), T2 + T1)(a') + own(H, H(R(y)), T')(a') ]]
     \end{align*}
-    By reasoning similar to the case for $a= a'$, we have $[[F1''(a') <= own(H, R(x), T2 + T1)(a') <= F0''(a')]]$.
-    Finally, we conclude that $[[forall a' in H'.F1(a') <= 1]]$.
+    By reasoning similar to the case for $a= a'$, we have $[[O1''(a') <= own(H, R(x), T2 + T1)(a') <= O0''(a')]]$.
+    We therefore conclude that $[[forall a' in H'.Own(H', R, G'')(a') <= 1]]$.
   \end{rneqncase} % R-Assign
   
   \begin{rneqncase}{R-Alias}{
@@ -1371,9 +1373,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we then have $[[SATv(H,R,v,Tp) ==> SATv(H,R,v,Tq)]]$.
     Then from the reasoning above, the refinements of $[[Tq1]]$ and $[[Tq2]]$ are valid and $[[Cons(H, R, G'')]]$ holds.
 
-    \AI{Needs a fix to use $[[Own]]$}
-    Then, it's to show $[[forall a in H.F(a) <= 1]]$. Here $[[F0]]$ represents the $[[F(a)]]$ before transition, $[[F1]]$ represents the $[[F(a)]]$ after transition.
-    To prove that $[[F0=F1]]$ follows from:
+    Then, it's to show $[[forall a in H.Own(H, R, G'')(a) <= 1]]$.
+    To prove that $[[Own(H, R, G)=Own(H, R, G'')]]$ follows from:
     \begin{align*}
       &[[own(H,R(x),T1 ref r1) + own(H,R(y),T2 ref r2) ]] =  \\
       &\,\,\,\,[[ own(H,R(x),T1' ref r1') + own(H,R(y),T2' ref r2')]]
