@@ -1288,12 +1288,21 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We must therefore show that $[[ Cons(H',R',G'')]]$.
     To show that the output environment is consistent, we must show that $[[SATv(H',R,R(y),(T1 /\ y y = x) ref 1)]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
     By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
-    We define $[[O0']], [[O0'']], [[O1']]$ and $[[O1'']]$ as below:
+
+    From $[[Cons(H,R,G)]]$, we know that $[[SAT(H,R,G)]]$, in particular, $[[ SATv(H,R,R(x),G(x)) ]]$.
+    If we show that $[[own(H, R(x), T1 + T2)(a)=0]]$ and $[[ H ~ a H']]$,
+    then, by \cref{lem:heapfor0}, we will obtain $[[ SATv(H',R,R(x),T1+T2) ]]$,
+    from which, by \cref{lem:satadd},
+    $[[ SATv(H',R,R(x),T1) ]]$ and $[[ SATv(H',R,R(x),T2) ]]$ follow.
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
+
+    To show $[[own(H, R(x), T1 + T2)(a)=0]]$, 
+    we define $[[O0']], [[O0'']], [[O1']]$ and $[[O1'']]$ as below:
     \begin{align*}
       [[Own(H, R, G)]] & = [[O0' + own(H, R(y), G(y)) + own(H, R(x), G(x)) = O0' + O0'']] \\
       [[Own(H', R, G'')]] & = [[O1' + own(H', R(y), G''(y)) + own(H', R(x), G''(x))= O1' + O1'' ]] \\
       [[O0']] & = [[ |< {z in dom G \ {y,x} } own(H,R(z),G(z)) ]] \\
-      [[O1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]] \\
+      [[O1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]]
     \end{align*}
     By the definition of the ownership function and $[[G(y) = T' ref 1 /\ G(x) = T1 + T2]]$ we have:
     \begin{align*}
@@ -1306,9 +1315,6 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \]
     we have $[[own(H, R(x), G(x))(a)=own(H, R(x), T1 + T2)(a)=0]]$.
     
-    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> forall x in dom G.x in R /\ SATv(H,R,R(x),G(x)) ]]$.
-    If we show that $[[ H ~ a H']]$, then by \cref{lem:heapfor0} and $[[own(H, R(x), T1 + T2)(a)=0]]$, we will obtain $[[ SATv(H',R,v,T1+T2) ]]$.
-
     To show $[[H ~ a H']]$, it suffices to show that
     $[[H |- H(a) :~ T' <=> H {a <- v} |- v :~ T2]]$ (the other two conditions
     are immediate). From the condition that $[[T']]$ and $[[T2]]$ have similar shapes,
@@ -1318,12 +1324,10 @@ call cases respectively; we have separated them into separate lemmas for clarity
     pointer dereferences from either $[[v]]$ or $[[H(a)]]$; thus the value of $[[a]]$ is
     irrelevant to both derivations, giving us the desired result.
 
-    Then by \cref{lem:satadd}, we have $[[ SATv(H',R,v,T1) /\ SATv(H',R,v,T2) ]]$, where $[[v = R(x)]]$.
-    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ are satisfied.
-    
     We must also show that the ownership invariant is preserved.
+    \AI{I wasn't able to follow the following argument.}
     Then, it's to show $[[forall a in H.Own(H', R, G'')(a) <= 1]]$.
-    As $[[O0'=O1']]$ holds by pointwise application of \cref{lem:heapop}, and $[[forall a in H.Own(H, R, G)(a) <= 1]]$, if $[[forall a' in H'. O1''(a') <= O0''(a')]]$, we can conclude that $[[Own(H', R, G'')(a') <= Own(H, R, G)(a') <= 1]]$.
+    As $[[O0'=O1']]$ holds by pointwise application of \cref{lem:heapop}, \AI{$[[O0' = O1']]$ seems to hold but are you claiming $[[H ~ a H']]$ for any $[[a]]$ to use \cref{lem:heapop}?} and $[[forall a in H.Own(H, R, G)(a) <= 1]]$, if $[[forall a' in H'. O1''(a') <= O0''(a')]]$, we can conclude that $[[Own(H', R, G'')(a') <= Own(H, R, G)(a') <= 1]]$.  \AI{I'm not sure this step is valid.}
     
     Suppose for some arbitrary $[[a in H]]$, $[[a= a']]$, then:
     \begin{align*}
