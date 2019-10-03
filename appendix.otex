@@ -14,7 +14,7 @@
   \infrule[TE-Stack]{
     [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
     [[ Th | G, x : T | B |- e : T' => G' ]] \\
-    [[ x not in dom G' ]] \andalso [[ B |- T' => G' ]]
+`    [[ x not in dom G' ]] \andalso [[ B |- T' => G' ]]
   }{
     [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
   }
@@ -184,6 +184,47 @@ We first prove that the subtyping relations are transitive.
 We also prove a standard inversion lemma to
 handle the fact our typing rules are not syntax directed.
 
+
+\begin{lemma} % L29
+  \label{lem:type-result-wf}
+  If $[[ B |- G ]]$ and $[[ Th | G | B |- e : T => G' ]]$ then $[[ B |- T => G' ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on the typing derivation of $[[e]]$; in the following we say
+  ``well-formedness'' to mean ``refinement well-formedness''.
+  \begin{namedcase}{\casefont{Cases \rn{T-LetInt}, \rn{T-Let}, \rn{T-Mkref}, \rn{T-Deref}, \rn{T-Call}, and \rn{T-Sub}: }}
+    Immediate from the precondition of the typing rule.
+  \end{namedcase}
+  \begin{namedcase}{\casefont{Cases \rn{T-Seq} and \rn{T-Assert}}}
+    From the inductive hypothesis.
+  \end{namedcase}
+  \begin{rncase}{T-If}
+    From the assumed well-formedness of $[[G(x)]]$ we must have that
+    $[[G(x) /\ x x = 0]]$ is well-formed (and similarly for
+    $[[x != 0]]$, and thus the inductive hypothesis gives the desired
+    result.
+  \end{rncase}
+
+  \begin{rncase}{T-Alias,T-AliasPtr}
+    From the assumed well-formedness of $[[T1 ref r1]]$ and $[[T2 ref r2]]$, we have that
+    $[[ T1 ref r1 + T2 ref r2 ]]$ is well-formed, and thus from the definition of $[[~]]$,
+    $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed. Then the IH gives us the desired
+    result.
+  \end{rncase}
+
+  \begin{rncase}{T-Assign}
+    From the assumed well formedness of $[[T1 + T2]]$ we have that
+    $[[ T1 /\ y y = T1 x ]]$ is well formed (as $[[x]]$ must be bound
+    in $[[G]]$ and so is $[[T2]]$. Then the inductive hypothesis gives
+    the desired result.
+  \end{rncase}
+
+  \begin{rncase}{T-Var}
+    From the assumed well-formedness of $[[ T1 + T2 ]]$, $[[ B |- T2 => G[x <- T1] ]]$
+    is clearly well-formed.
+  \end{rncase}
+\end{proof}
+
 \begin{lemma}[Inversion] % L14
   \label{lem:inversion}
   If $[[ B |- G ]]$, and $[[ Th | G | B |- e0 : T => G' ]]$,
@@ -193,23 +234,22 @@ handle the fact our typing rules are not syntax directed.
   \begin{enumerate}
   \item If $[[e0 = x]]$ then $[[ Gp(x) = Tp + T']]$ and $[[Gp' = Gp[x <- T'] ]]$.
   \item If $[[e0 = let x = y in e]]$, then
-    $[[ Th | Gp [ y <- T1 /\ y y = T1 x ], x : (T2 /\ x x = T2 y) | B|- e : Tp => Gp0 /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x]]$
-    where $[[Gp(y) = T1 + T2]]$.
-  \item If $[[ e0 = let x = nn in e]]$ then $[[ Th | Gp, x : {nu: int | nu = nn } | B |- e : Tp => Gp0 /\ B |- Tp => Gp0 \ x /\ Gp' = Gp0 \ x ]]$
+    $[[ Th | Gp [ y <- T1 /\ y y = T1 x ], x : (T2 /\ x x = T2 y) | B|- e : Tp => Gp']]$ and $[[ x not in dom Gp' ]]$ where $[[Gp(y) = T1 + T2]]$.
+  \item If $[[ e0 = let x = nn in e]]$ then $[[ Th | Gp, x : {nu: int | nu = nn } | B |- e : Tp => Gp' ]]$ and $[[ x not in dom Gp' ]]$.
   \item If $[[e0 = ifz x then e1 else e2 ]]$ then:
     \begin{itemize}
     \item $[[ Gp(x) = { nu : int | ph } ]]$
     \item $[[ Th | Gp[ x <- {nu:int| ph /\ nu = 0}] | B |- e1 : Tp => Gp' ]]$
     \item $[[ Th | Gp[ x <- {nu:int| ph /\ nu != 0}] | B |- e2 : Tp => Gp' ]]$
     \end{itemize}
-  \item If $[[ e0 = let x = mkref y in e ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp0 /\ Gp' = Gp0 \ x ]]$.
+  \item If $[[ e0 = let x = mkref y in e ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp']]$ and $[[ x not in dom Gp' ]]$.
     
   \item If $[[ e0 = let x = *y in e ]]$, then:
     \begin{itemize}
     \item $[[Gp(y) = T1 + T2 ref r]]$
-    \item $[[Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp0]]$
+    \item $[[Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp']]$
     \item $[[r > 0]]$
-    \item $[[Gp' = Gp0 \ x]]$
+    \item $[[ x not in Gp' ]]$
     \item \[
         [[T'' ]] = \begin{cases}
           [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
@@ -220,11 +260,11 @@ handle the fact our typing rules are not syntax directed.
   \item If $[[ e0 = let x = f l (y1,,yn) in e]]$ then:
     \begin{itemize}
     \item $[[ Gp(yi) = csub vsub Ti ]]$ for each $i \in \set{1,\ldots,n}$
-    \item $[[ Th | Gp[yi <- csub vsub Ti'], x : csub vsub T | B |- e : Tp => Gp0 ]]$
-    \item $[[ Gp' = Gp0 \ x ]]$
+    \item $[[ Th | Gp[yi <- csub vsub Ti'], x : csub vsub T | B |- e : Tp => Gp' ]]$
     \item $[[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]]$
     \item $[[csub = [l:B/A] ]]$
     \item $[[ vsub = [y1/x1] ,, [yn/xn] ]]$
+    \item $[[ x not in dom Gp' ]]$
     \end{itemize}
   \item If $[[ e0 = y := x; e ]]$ then:
     \begin{itemize}
@@ -251,8 +291,8 @@ handle the fact our typing rules are not syntax directed.
   \end{enumerate}
 \end{lemma}
 \begin{proof}
-  By straightforward induction on the typing relation and the
-  transitivity of the subtyping relation \cref{lem:subtype-transitive}.
+  By straightforward induction on the typing relation, \cref{lem:type-result-wf}, and
+  the transitivity of the subtyping relation \cref{lem:subtype-transitive}.
 
   The only case of note is the case for $[[ e0 = x; e2 ]]$. If the subderivation for $[[x]]$
   has applications of \rn{T-Sub} then the subtypings on the output environment can be pushed
@@ -492,26 +532,6 @@ substituting a well-typed expression matching a context's hole type yields a wel
   By straightforward induction of typing rules.
   \AI{Do you need to assume $[[x' not in dom(G)]]$?}
 \end{proof}
-
-%% VARIABLE REMOVAL
-
-\begin{lemma} % L16
-  \label{lem:well-formed-rem-subtype}
-  If $[[ ll |- T => G \ x ]]$ then $[[ G,T <: G \ x,T ]]$
-\end{lemma}
-\begin{proof}
-  Immediate.
-\end{proof}
-
-\begin{lemma} % L17
-  \label{lem:remove-well-formed-same}
-  If $[[ ll |- T => G \ x]]$ then $[[ [x'/x]T = T ]]$ and $[[ ([x'/x]G) \ x' = G \ x ]]$.
-\end{lemma}
-\begin{proof}
-  By induction on the substitution operations. \JT{That we never
-    bothered to define anywhere, woops}
-\end{proof}
-
 
 % PROPERTIES OF SUBTYPING
 
@@ -794,45 +814,6 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   the induction hypothesis.
 \end{proof}
 
-\begin{lemma} % L29
-  \label{lem:type-result-wf}
-  If $[[ B |- G ]]$ and $[[ Th | G | B |- e : T => G' ]]$ then $[[ B |- T => G' ]]$.
-\end{lemma}
-\begin{proof}
-  By induction on the typing derivation of $[[e]]$; in the following we say ``well-formedness'' to mean ``refinement well-formedness''.
-  \begin{namedcase}{\casefont{Cases \rn{T-LetInt}, \rn{T-Let}, \rn{T-Mkref}, \rn{T-Deref}, \rn{T-Call}, and \rn{T-Sub}: }}
-    Immediate from the precondition of the typing rule.
-  \end{namedcase}
-  \begin{namedcase}{\casefont{Cases \rn{T-Seq} and \rn{T-Assert}}}
-    From the inductive hypothesis.
-  \end{namedcase}
-  \begin{rncase}{T-If}
-    From the assumed well-formedness of $[[G(x)]]$ we must have that
-    $[[G(x) /\ x x = 0]]$ is well-formed (and similarly for
-    $[[x != 0]]$, and thus the inductive hypothesis gives the desired
-    result.
-  \end{rncase}
-
-  \begin{rncase}{T-Alias,T-AliasPtr}
-    From the assumed well-formedness of $[[T1 ref r1]]$ and $[[T2 ref r2]]$, we have that
-    $[[ T1 ref r1 + T2 ref r2 ]]$ is well-formed, and thus from the definition of $[[~]]$,
-    $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed. Then the IH gives us the desired
-    result.
-  \end{rncase}
-
-  \begin{rncase}{T-Assign}
-    From the assumed well formedness of $[[T1 + T2]]$ we have that
-    $[[ T1 /\ y y = T1 x ]]$ is well formed (as $[[x]]$ must be bound
-    in $[[G]]$ and so is $[[T2]]$. Then the inductive hypothesis gives
-    the desired result.
-  \end{rncase}
-
-  \begin{rncase}{T-Var}
-    From the assumed well-formedness of $[[ T1 + T2 ]]$, $[[ B |- T2 => G[x <- T1] ]]$
-    is clearly well-formed.
-  \end{rncase}
-\end{proof}
-
 \begin{lemma}[Environment Weakening] % L27
   \label{lem:tyenv-weaken}
   \AI{Haven't really checked the proof (yet).  The statement is similar to
@@ -925,54 +906,61 @@ call cases respectively; we have separated them into separate lemmas for clarity
 
 \begin{lemma} % L25
   \label{lem:stack-well-typed}
-  For any $[[G0]]$ such that $[[Th | G0 | l:ll |- x: T => G]]$ and $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ then
-  $[[ Th | G0 | ll |- E[let y = [] l in e][x] : T' => G' ]]$.
+  For any $[[G0]]$ such that $[[Th | G0 | l:ll |- x: T1 => G1]]$ and $[[ Th | [] : T1 => G1 | ll |-e E[let y = [] l in e] : T2 => G2 ]]$ then
+  $[[ Th | G0 | ll |- E[let y = [] l in e][x] : T2 => G2 ]]$.
 \end{lemma}
 \begin{proof}
-  It suffices to show that $[[ Th | G0 | ll |- let y = x in e : T1 => G1]]$
-  and $[[ Th | [] : T1 => G1 | ll |-e E : T' => G']]$
+  It suffices to show that $[[ Th | G0 | ll |- let y = x in e : T1' => G1']]$
+  and $[[ Th | [] : T1' => G1' | ll |-e E : T2 => G2 ]]$ for some $[[ T1' ]]$ and $[[ G1' ]]$
   whence the result will hold from \cref{lem:ectxt-sub-well-typed}.
 
   By inversion on
-  $[[ Th | [] : T => G | ll |-e E[let y = [] l in e] : T' => G' ]]$ we have
+  $[[ Th | [] : T1 => G1 | ll |-e E[let y = [] l in e] : T2 => G2 ]]$ we have
   \begin{align}
-    & [[ Th | G, y: T | ll |- e : T2 => G2 ]] \label{eqn:let-body-ty} \\
-    & [[ Th | []: T2 => G2 | B |-e E : T' => G' ]] \label{eqn:ctxt-typed}\\
-    & [[ ll |- T2 => G2 ]] \label{eqn:t2g2-wf} \\
-    & [[ y not in dom G2 ]] \label{eqn:y-not-free-var}
+    & [[ Th | G1, y: T1 | ll |- e : T1'' => G1'' ]] \label{eqn:let-body-ty} \\
+    & [[ Th | []: T1'' => G1'' | B |-e E : T2 => G2 ]] \label{eqn:ctxt-typed} \\
+    & [[ ll |- T1'' => G1'' ]] \label{eqn:t2g2-wf} \\
+    & [[ y not in dom G1'' ]] \label{eqn:y-not-free-var}
   \end{align}
-  By \cref{lem:inversion}, from $[[ Th | G0 | l:ll |- x : T => G ]]$ we conclude there
+  We take $[[ G1' = G1'' ]]$, $[[ T1' = T1'' ]]$, and then \cref{eqn:ctxt-typed}
+  gives the necessary typing for $[[E]]$.
+
+  It remains to to show that
+  \[
+    [[ Th | G0 | ll |- let y = x in e : T1' => G1' ]]
+  \]
+  
+  By \cref{lem:inversion}, from $[[ Th | G0 | l:ll |- x : T1 => G1 ]]$ we conclude there
   exists some $[[Gp]]$, $[[Tp]]$, and $[[Gp']]$ such:
   \begin{align}
-    & [[G0 <: Gp]] \label{eqn:in-sub} \\
-    & [[Gp',Tp <: G,T]] \label{eqn:out-sub} \\
+    & [[G0 <: Gp]] \label{eqn:rin-sub} \\
+    & [[Gp',Tp <: G1,T1]] \label{eqn:rout-sub} \\
     & [[Gp' = Gp[x <- Tp'] ]] \label{eqn:gp-up-def} \\
-    & [[Gp(x) = Tp + Tp' ]] \label{eqn:gp-x-def}
-  \end{align}
-  
-  We take $[[ G1 = G2 ]]$, $[[ T2 = T1 ]]$, and then \cref{eqn:ctxt-typed}
-  gives the necessary typing for $[[E]]$. To show that
+    & [[Gp(x) = Tp + Tp' ]] \label{eqn:gp-x-def} \\
+    & [[ ll |- Gp ]] \label{eqn:renv-sub-in-wf} \\
+    & [[ ll |- T1 => G1 ]] \label{eqn:rout-env-wf}
+  \end{align} 
+
+  We first apply \rn{T-Sub} with \cref{eqn:rin-sub,eqn:renv-sub-in-wf}, so it remains to show
   \[
-    [[ Th | G0 | ll |- let y = x in e : T1 => G1 ]]
-  \]
-  we apply \rn{T-Sub} with $[[ G0 <: Gp ]]$ from \cref{eqn:in-sub} above, so it remains to show
-  \[
-    [[ Th | Gp[x: Tp + Tp'] | ll |- let y = x in e : T1 => G1 ]]
+    [[ Th | Gp[x: Tp + Tp'] | ll |- let y = x in e : T1' => G1' ]]
   \]
   which, by \rn{T-Let} holds if we show that:
   \[
-    [[ Th | Gp[x <- Tp' /\ x x = Tp' y],y: Tp /\ y y = Tp x | ll |- e : T2 => G2 ]]
+    [[ Th | Gp[x <- Tp' /\ x x = Tp' y],y: Tp /\ y y = Tp x | ll |- e : T1' => G1' ]]
   \]
-  (that $[[ ll |- T2 => G2 \ y]]$ follows from \cref{eqn:t2g2-wf,eqn:y-not-free-var} above).
-  
-  If necessary, we can first apply \rn{T-Sub} to weaken the type environment to:
+  ($[[ y not in dom G1' ]]$ follows from \cref{eqn:y-not-free-var},
+  and $[[ ll |- T1' => G1']]$ follows from \cref{eqn:t2g2-wf}.)
+    
+  We can first apply \rn{T-Sub} to weaken the type environment to:
   \[
-    [[ Th | Gp[x <- Tp'],y: Tp | ll |- e : T1 => G1 ]]
+    [[ Th | Gp[x <- Tp'],y: Tp | ll |- e : T1' => G1' ]]
   \]
-  From \cref{eqn:out-sub} above, we have that $[[ Gp[x <- Tp'],y : Tp <: G,y:T ]]$, whereby one
-  final application of \rn{T-Sub} allows us to use to \cref{eqn:let-body-ty} above.
-  
+  From \cref{eqn:rout-sub} above, we have that $[[ Gp[x <- Tp'],y : Tp <: G1,y:T1 ]]$,
+  whereby one final application of \rn{T-Sub} with \cref{eqn:rout-env-wf}
+  allows us to use to \cref{eqn:let-body-ty} above.
 \end{proof}
+
 \begin{lemma} % L28
   \label{lem:callfunc}
   Let $[[ E[let x = f l (y1,,yn) in e'] ]]$ be a term such that:
@@ -997,12 +985,13 @@ call cases respectively; we have separated them into separate lemmas for clarity
   $[[ Th | G0 | ll |- let x = f l (y1,,yn) in e' : T1 => G1 ]]$ we have, for some
   $[[ Gp ]], [[Tp]], [[Gp']]$, that:
   \begin{align}
-    & [[ G0 <: Gp /\ Gp',Tp <: G1,T1 ]] \\
+    & [[ G0 <: Gp ]] \label{eqn:in-sub} \\
+    & [[ Gp',Tp <: G1,T1 ]] \label{eqn:out-sub} \\
     & [[ Gp(yi) = csub vsub Ti ]] \label{eqn:arg-typed} \\
-    & [[ Gp' = Gp0 \ x ]] \\
-    & [[ Th | Gp[yi <- csub vsub Ti'],x: csub vsub Tq | ll |- e' : Tp => Gp0 ]] \label{eqn:let-body-well-typed} \\
-    & [[ ll |- Tp => Gp0 \ x ]] \\
     & [[ ll |- Gp ]] \label{eqn:sub-in-env-wf} \\
+    & [[ Th | Gp[yi <- csub vsub Ti'],x: csub vsub Tq | ll |- e' : Tp => Gp' ]] \label{eqn:let-body-well-typed} \\
+    & [[ x not in dom Gp' ]] \\
+    & [[ ll |- T1 => G1 ]] \label{eqn:out-type-wf}
   \end{align}
   
   To prove the first part, from the well-typing of the function body, we have
@@ -1011,32 +1000,24 @@ call cases respectively; we have separated them into separate lemmas for clarity
   $[[ Th | y1:vsub T1,,yn:vsub Tn | A |- vsub e : vsub Tq => y1:vsub T1',,yn:vsub Tn']]$.
   By \subref{lem:ctxt-substitution}{itm:ctxt-subst-well-typed} we then have
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
-  We take $[[T3 = csub vsub Tq ]]$ and $[[ G3 = Gp[yi <- csub vsub Ti'] ]]$,
-  By the well-formedness of function types, we must have that $[[ l:ll |- G3 ]]$
-  and by \cref{eqn:arg-typed,eqn:sub-in-env-wf,lem:tyenv-weaken} we have
-  $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whence an application of \rn{T-Sub}
-  using $[[ G0 <: Gp ]]$ gives $[[ Th | G0 | l:ll |- vsub e : T3 => G3 ]]$
-  gives the first result.
+  We take $[[T3 = csub vsub Tq ]]$ and $[[ G3 = Gp[yi <- csub vsub Ti'] ]]$.
+  
+  By the well-formedness of function types and well-formedness of $[[ Gp ]]$,
+  we must have that $[[ l:ll |- G3 ]]$.
+  Then by \cref{eqn:arg-typed,eqn:sub-in-env-wf,lem:tyenv-weaken} we have
+  $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whereby \cref{eqn:in-sub,eqn:sub-in-env-wf}
+  and an application of \rn{T-Sub}
+  gives $[[ Th | G0 | l:ll |- vsub e : T3 => G3 ]]$, i.e., the first result.
 
   To prove the second part, from the typing rule for \rn{TE-Stack} we must show:
   \begin{align}
     & [[ Th | [] : T1 => G1 | ll |-e E : T2 => G2]] \label{eqn:context-well-typed} \\
-    & [[ Th | G3, x: T3 | ll |- e' : T1 => G1 ]] \label{eqn:let-body-sub-typed} \\
     & [[ ll |- T1 => G1 ]] \label{eqn:t1g1-wf} \\
-    & [[ x not in dom G1 ]] \label{eqn:x-not-free}
+    & [[ x not in dom G1 ]] \label{eqn:x-not-free} \\
+    & [[ Th | G3, x: T3 | ll |- e' : T1 => G1 ]] \label{eqn:let-body-sub-typed}
   \end{align}
-  \cref{eqn:t1g1-wf} follows from the well-typing of the function call
-  and \cref{lem:type-result-wf}, and \cref{eqn:context-well-typed} is
-  by assumption. From $[[ ll |- Tp => Gp0 \x ]]$,
-  \cref{eqn:let-body-well-typed}, and
-  \cref{lem:well-formed-rem-subtype}, we have
-  $[[ Th | G3, x :T3 | ll |- e' : Tp => Gp' ]]$ by application of
-  \rn{T-Sub}. Then, from $[[ Gp',Tp <: G1,T1 ]]$ we have
-  $[[ Th | G3, x: T3 | ll |- e' : T1 => G1 ]]$ with a final
-  application of \rn{T-Sub}.
-
-  Finally, \cref{eqn:x-not-free} holds as, by definition $[[ x not in dom Gp' ]]$
-  and $[[ Gp' <: G1 ==> dom G1 <= dom Gp' ]]$.
+  \cref{eqn:context-well-typed} holds by assumption, and \cref{eqn:t1g1-wf,eqn:x-not-free}
+  follows from the inversion lemma above. From \cref{eqn:out-sub,eqn:let-body-well-typed,eqn:out-type-wf} we then have \cref{eqn:let-body-sub-typed} via an application of \rn{T-Sub}.
 \end{proof}
 
 \begin{proof}[\cref{lem:preservation}]
@@ -1083,8 +1064,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \begin{mathpar}
       [[ G0 <: Gp ]] \and [[ Gp',Tp <: G0',T ]] \and
       [[ ll |- Gp ]] \and [[ Gp(y) = (T1 + T2) ref r ]] \and
-      [[ Gp' = G' \ x ]] \and [[ ll |- Tp => Gp' ]] \and
-      [[ Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => G' ]] \and
+      [[ ll |- T => G0' ]] \and
+      [[ Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp' ]] \and
       [[T'' ]] = \begin{cases}
           [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
           [[T1]] & [[r = 0]]
@@ -1095,21 +1076,17 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \begin{align}
       \label{eqn:new-tyenv-cons} & [[Cons(H,R { x' |-> v },G'')]] \\
       \label{eqn:new-tyenv-wf}  & [[ll |- G'']] \\
-      & [[Th | G'' | ll |- [x'/x]e : [x'/x]Tp => [x'/x]G' ]]
+      & [[Th | G'' | ll |- [x'/x]e : [x'/x]Tp => [x'/x]Gp' ]]
     \end{align}
     where $[[ G'' = Gp[y <- T'' ref r], x' : T2]]$.
+
+    From $[[Th | G'' | ll |- [x'/x]e : [x'/x]Tp => [x'/x]Gp' ]]$ we can
+    derive $[[ Th | G'' | ll |- [x'/x]e : T => G0' ]]$.
+    From $[[ x not in Gp' ]]$ and $[[ ll |- Tp => Gp' ]]$, we have that
+    $[[ [x'/x]Tp = Tp ]]$ and $[[ [x'/x]Gp' = Gp' ]]$. As $[[ Gp',Tp <: G0',T ]]$
+    and $[[ ll |- T => G0' ]]$, an application of \rn{T-Sub} gives
+    $[[ Th | G'' | ll |- [x'/x]e : T => G0' ]]$.
     
-    This is sufficient to establish that
-    $[[ |- D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$.  To see how, we
-    observe that as $[[ ll |- Tp => G' \ x ]]$, by \cref{lem:remove-well-formed-same}
-    we have $[[ [x'/x]Tp = Tp]]$ and $[[ ([x'/x]G') \ x' = G' \ x ]]$. Then by
-    \cref{lem:well-formed-rem-subtype} and $[[ Gp' = G' \ x = ([x'/x]G') \ x']]$
-    we have that $[[ [x'/x]G',Tp <: Gp',Tp]]$.
-    From the inversion lemma, we have that $[[ G' \ x,Tp <: G0',T ]]$ and thus
-    with two applications of \rn{T-Sub} we can derive:
-    \[
-      [[Th | G'' | ll |- [x'/x]e : T => G0']]
-    \]
     As $[[E]]$ and the stack $[[Es]]$ remained unchanged, combined with
     \cref{eqn:new-tyenv-cons,eqn:new-tyenv-wf} this gives
     $[[ |- D <H, R { x' |-> v }, Es, E[ [x'/x]e]> ]]$ as required.
@@ -1118,8 +1095,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     for the \rn{T-Sub} rule, with the understanding that the subtyping rule
     is handled with an argument identical to the above.
     
-    We now want to show $[[ Th | G'' | ll |- [x'/x]e : Tp => [x'/x]G' ]]$, $[[ ll |- G'' ]]$,
-    and $[[Cons(H,R { x' |-> v }, G'')]]$.
+    We now want to show $[[ Th | G'' | ll |- [x'/x]e : [x/x']Tp => [x'/x]G' ]]$,
+    $[[ ll |- G'' ]]$, and $[[Cons(H,R { x' |-> v }, G'')]]$.
     The first is easy to obtain using \cref{lem:substitution}, and the second
     follows almost immediately from $[[ ll |- G ]]$.
     

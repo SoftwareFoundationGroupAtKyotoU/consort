@@ -325,14 +325,14 @@ such refinements at the cost of some expressiveness in our type system.
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
   }
   \infrule[T-Let]{
-    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \andalso
-    [[B |- T => G' \ x]]
+    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \\
+    [[B |- T => G']] \andalso [[ x not in dom G' ]]
   }{
-    [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G' \ x]]
+    [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G']]
   }
   \infrule[T-LetInt]{
-    [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \andalso
-    [[B |- T => G' \ x]]
+    [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \\
+    [[B |- T => G' ]] \andalso [[ x not in dom G' ]]
   }{
     [[ Th | G | B |- let x = nn in e : T => G' \ x]]
   }
@@ -344,18 +344,18 @@ such refinements at the cost of some expressiveness in our type system.
   }
   \infrule[T-MkRef]{
     [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \andalso
-    [[ B |- T => G' \ x ]]
+    [[ B |- T => G' ]] \andalso [[ x not in dom G' ]]
   }{
-    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' \ x ]]
+    [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' ]]
   }
   \infrule[T-Deref]{
     [[ Th | G[y <- T' ref r], x : T2 | B |- e : T => G']] \andalso
-    [[ B |- T => G' \ x ]] \andalso [[ T' ]] = \begin{cases}
+    [[ B |- T => G' ]] \andalso [[ x not in dom G' ]] \andalso [[ T' ]] = \begin{cases}
       [[ T1 /\ y y = T1 x ]] & [[r > 0]] \\
       [[ T1 ]] & [[ r = 0 ]]
     \end{cases} 
   }{
-    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' \ x ]]
+    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' ]]
   }
   \infrule[T-Seq]{
     [[ Th | G | B |- e1 : T' => G' ]] \andalso
@@ -370,9 +370,6 @@ such refinements at the cost of some expressiveness in our type system.
   }{
     [[ Th | G | B |- assert(ph); e : T => G']]
   }
-  \[
-    [[ G \ x = G' <=> dom G' U {x} = dom G /\ forall y in dom G'. G'(y) = G(y) ]]
-  \]
   \caption{Expression typing rules.}
   \label{fig:intra-type}
 \end{figure}
