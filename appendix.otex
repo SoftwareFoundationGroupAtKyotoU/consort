@@ -71,10 +71,10 @@
     [[ [empty]ph ]] & = [[ ph ]] \\
     [[ [R { y |-> nn }]ph ]] & =  [[  [R][nn/y]ph ]] \\
     [[ [R { y |-> a }]ph ]] & =  [[ [R]ph ]] \\
-    [[Own(H,R,G)]] & =   \Sigma_{[[ x in G ]]}\,[[own(H,R(x),G(x))]] \\
+    [[Own(H,R,G)]] & =   [[ |< { x in dom G } own(H,R(x),G(x))]] \\
     [[own(H,v,T)]] & = \begin{cases}
       [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
-      \emptyset & o.w.
+      [[ empty ]] & o.w.
     \end{cases} \\
   \end{align*}
   \caption{State consistency}
@@ -87,6 +87,11 @@ We first define a typing relation for machine configurations $[[ < H, R, Es, e>]
 Intuitively, $[[Cons]]$ expresses that the current heap and registers are consistent with the ownership
 and refinement information implied by $[[G]]$. We say triple $( [[H]],[[R]],[[G]] )$ is \emph{consistent},
 and write $[[Cons(H,R,G)]]$; the definition of this relation is shown in \cref{fig:consistency}.
+In the definitions for $[[own]]$ we write $[[ { a |-> r } ]]$ to denote a function $\textbf{Addr} \rightarrow [0,1]$
+which returns $[[r]]$ for $[[a]]$, and $0$ otherwise. We write $[[empty]]$ to denote a constant
+function $\textbf{Addr} \rightarrow [0,1]$ which always returns $0$. We define the addition between
+two functions $[[O1]], [[O2]]: \textbf{Addr} \rightarrow [0,1]$ as: $[[ (O1 + O2)(a) = O1(a) + O2(a) ]]$.
+Finally, if a summation $[[|<]]$ has no summands, we take its result to be $[[empty]]$.
 
 The proof of \cref{thm:soundness} requires the following three key lemmas. These lemmas are stated
 with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
@@ -165,6 +170,16 @@ We first prove that the subtyping relations are transitive.
   \end{enumerate}
 \end{proof}
 
+\begin{definition}
+  A value $[[Rv]]$ reaches an integer with $[[nn]]$ dereferences in heap $[[H]]$ when it is in the relation  $[[ H |- Rv ~> nn ]]$
+  defined as the smallest relation closed under the following rules:
+  \begin{enumerate}
+  \item If $[[ Rv is INT ]]$ then $[[ H |- Rv ~> 0 ]]$
+  \item If $[[ H |- Rv ~> nn ]]$ and $[[ H(a) = Rv ]]$ then $[[ H |- a ~> nn + 1 ]]$
+  \end{enumerate}
+  We will write $[[ H |- Rv ~> |T| ]]$ to indicate a value $[[Rv]]$ is shape consistent with $[[T]]$ in heap $[[H]]$, where
+  $[[|T|]]$ is the number of reference constructors in the type $[[T]]$.
+\end{definition}
 
 We also prove a standard inversion lemma to
 handle the fact our typing rules are not syntax directed.
@@ -216,7 +231,7 @@ handle the fact our typing rules are not syntax directed.
     \item $[[ Gp(x) = T1 + T2 ]]$
     \item $[[ Gp(y) = T' ref 1 ]]$
     \item $[[ Th | Gp[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : Tp => Gp' ]]$
-    \item The shapes of $[[T']]$ and $[[T2]]$ are similar, i.e, $\forall [[H]],[[Rv]].[[H |- Rv :~ T' <=> H |- Rv :~ T2 ]]$.
+    \item The shapes of $[[T']]$ and $[[T2]]$ are similar, i.e, $[[|T'| = |T2|]]$.
     \end{itemize}
   \item If $[[ e0 = alias(x = y); e ]]$ then there exist some $[[T1]], [[T2]], [[T1']], [[T2']], [[r1]], [[r2]], [[r1']], [[r2']]$ such that:
     \begin{itemize}
@@ -508,7 +523,7 @@ We prove that subtyping preserves the consistency relation in the following sens
   \begin{enumerate}
 %  \item If $[[G |- T1 <: T2 ]]$, then for any $[[v]]$, $[[ forall a in H.own(H,v,T1)(a) <= own(H,v,T2)(a) ]]$
   \item For any $[[x in dom G']]$, $[[ own(H,R(x),G(x))(a) <= own(H,R(x),G'(x))(a) ]]$
-  \item Let $[[ F = |< { z in dom G' } own(H,R(z),G'(z)) ]]$, $[[forall a in H.Own(H,R,G)(a) <= 1]]$
+  \item Let $[[ O = |< { z in dom G' } own(H,R(z),G'(z)) ]]$, $[[forall a in H.Own(H,R,G)(a) <= 1]]$
   \item If $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$
   \item $[[SAT(H,R,G')]]$
   \item $[[Cons(H,R,G')]]$
@@ -657,21 +672,24 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 \end{definition}
 
 \begin{definition}
-  A value $[[Rv]]$ is \emph{shape consistent with $[[T]]$ in heap $[[H]]$}, written $[[ H |- Rv :~ T ]]$, iff:
-  \begin{enumerate}
-  \item $[[ T = T' ref r /\ Rv = a ==> H |- H(a) :~ T' ]]$
-  \item $[[ T = {nu:int|ph} /\ v is INT ]]$
-  \end{enumerate}
-\end{definition}
-
-\begin{definition}
   Two heaps $[[H]]$ and $[[H']]$ are \emph{equivalent modulo $[[a]]$}, written $[[H ~ a H']]$ if:
   \begin{enumerate}
   \item $[[dom H = dom H']]$
   \item $[[forall a' in dom H.a' != a ==> H(a) = H(a')]]$
-  \item $[[ H |- a :~ T <=> H' |- a :~ T ]]$
+  \item For any $[[nn]]$, $[[ H |- a ~> nn]]$ iff $[[H' |- a ~> nn ]]$
   \end{enumerate}
 \end{definition}
+
+\begin{lemma}
+  \label{lem:top-type-empty-omap}
+  For any type $[[ T = topn ]]$, $[[H]], [[v]]$, $[[own(H, v, topn) = empty ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on $[[T]]$. In the base case, the result is trivial.
+  Then consider the case where $[[ T = topn-1 ref 0]]$. If $[[ v not in Addr ]]$,
+  or if $[[ v = a ]]$ and $[[ a not in dom H ]]$, then the result trivially holds.
+  Otherwise the result holds from the inductive hypothesis, the definition of $+$ and $[[{ a |-> 0 }]]$.
+\end{proof}
 
 \begin{lemma}[Heap Update Ownership Preservation] % L6
   \label{lem:heapop}
@@ -682,13 +700,13 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   By induction on the shape of $[[T]]$. If $[[T = {nu:int |ph}]]$ then
   the result trivially holds. Otherwise, $[[T = T' ref r]]$. We assume
   that $[[v = a'']]$ and $[[a'' in H]]$ (otherwise the result
-  trivially holds). Consider the case where $[[a'' =
-  a]]$. By definition
+  trivially holds, as $[[ dom H = dom H' ]]$ by $[[ H ~ a H']]$).
+  Consider the case where $[[a'' = a]]$. By definition
   $[[own(H,a,T) = {a |-> r} + own(H,H(a),T')]]$, and by the
   assumption that $[[own(H,a,T)(a) = 0]]$ we must have that
-  $[[r = 0]]$. Further, by the well-formedness of types, all
-  ownerships that appear in $[[T']]$ must be $[[0]]$, thus we have that
-  $[[own(H,H(a),T') = own(H',H'(a), T')]]$.
+  $[[r = 0]]$. Further, by the ownership well-formedness of types,
+  we must have $[[ T' = topn ]]$ for some $n$, thus by \cref{lem:top-type-empty-omap}
+  we have $[[own(H,v,T) = empty = { a |-> 0 } + own(H',H'(a), topn) = own(H',v,T)]]$.
 
   Finally, consider the case where $[[a'' != a]]$. Then from the
   definition of $[[own(H,a'',T)]]$ and our assumption that
@@ -696,17 +714,25 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   and the result holds from the inductive hypothesis.
 \end{proof}
 
-\begin{lemma} % L7
-  \label{lem:top-type-sat-all}
-  For any $[[n]]$, if $[[H |- v :~ topn]]$ then for any $[[R]]$, $[[ SATv(H,R,v,topn) ]]$.
+\begin{lemma}
+  \label{lem:sat-implies-shape-cons}
+  For any $[[H]]$, $[[R]]$, $[[v]]$, and $[[T]]$, if $[[ SATv(H, R, v, T) ]]$ then $[[ H |- v ~> |T| ]]$
 \end{lemma}
 \begin{proof}
-  By induction on $[[n]]$. In the base case, by inversion on $[[ H |- v :~ top0]]$ we have
+  By induction on $[[T]]$ and the definition of $[[SATv]]$.
+\end{proof}
+
+\begin{lemma} % L7
+  \label{lem:top-type-sat-all}
+  For any $[[nn]]$, if $[[H |- Rv ~> nn]]$ then for any $[[R]]$, $[[ SATv(H,R,v,topn) ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on $[[nn]]$. In the base case, by inversion on $[[ H |- v ~> 0]]$ we have
   $[[v is INT]]$ and as $[[ [R][v/nu]Top ==> Top ]]$, we conclude $[[ SATv(H,R,v,top0) ]]$.
 
-  For $[[ n ]] > 0$, by inversion on $[[ H |- v :~ topn ]]$ we have that
-  $[[v = a]]$, $[[ a in dom H]]$, and $[[ H |- H(a) :~ topn-1]]$,
-  whence the result holds from the inductive hypothesis.
+  For $[[ nn ]] > 0$, by inversion on $[[ H |- Rv ~> nn ]]$ we have that
+  $[[v = a]]$, $[[ a in dom H]]$, and $[[ H |- H(a) ~> nn-1]]$,
+  whereby the result holds from the inductive hypothesis.
 \end{proof}
   
 \begin{lemma}[Heap Update Consistency Preservation] % L8
@@ -721,8 +747,9 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   We first consider the case where $[[a' = a]]$, then by
   our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
   $[[ T = T' ref 0 ]]$, whereby the $[[ T = topn ]]$ for some $[[n]]$.
-  From $[[SATv(H,R,a,T)]]$ we must have that $[[ H |- a :~ T]]$,
-  and from $[[H ~ a H']]$, we therefore have that $[[ H' |- a :~ T]]$
+  From $[[SATv(H,R,a,T)]]$ and \cref{lem:sat-implies-shape-cons}, we must have that
+  $[[ H |- a ~> |T|]]$,
+  and from $[[H ~ a H']]$, we therefore have that $[[ H' |- a ~> |T|]]$
   whereby the result holds from \cref{lem:top-type-sat-all}.
 
   Otherwise, we have that $[[a' != a]]$, and by definition we must have that
@@ -1310,43 +1337,64 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[O1'']] & = [[own(H', H'(R(y)), T2) + {a |-> 1} + own(H',R(x), T1)]]
     \end{align*}
     As $[[ Own(H, R, G)(a) <= 1 ]]$ (from $[[Cons(H,R,G)]]$) and from
-    \[
-      [[Own(H, R, G)(a)=O0'(a) + O0''(a) = O0'(a) + own(H, H(R(y)), T')(a) + 1 + own(H, R(x), T1 + T2)(a)]]
-    \]
-    we have $[[own(H, R(x), G(x))(a)=own(H, R(x), T1 + T2)(a)=0]]$.
-    
-    To show $[[H ~ a H']]$, it suffices to show that
-    $[[H |- H(a) :~ T' <=> H {a <- v} |- v :~ T2]]$ (the other two conditions
-    are immediate). From the condition that $[[T']]$ and $[[T2]]$ have similar shapes,
-    if we can show that $[[ H { a <- v } |- H(a) :~ T']]$ and $[[ H |- v :~ T2 ]]$,
-    we will have the desired result.
-    It is a simple inductive argument to show that $[[a]]$ cannot be reached through
-    pointer dereferences from either $[[v]]$ or $[[H(a)]]$; thus the value of $[[a]]$ is
-    irrelevant to both derivations, giving us the desired result.
+    \begin{align*}
+      [[Own(H, R, G)(a) ]] & = [[ O0'(a) + O0''(a) ]] \\
+                           & = [[O0'(a) + own(H, H(R(y)), T')(a) + 1 + own(H, R(x), T1 + T2)(a)]] \\
+                           & = 1
+    \end{align*}
+    we have that:
+    \begin{align*}
+      [[own(H, H(R(y)), T')(a) & = own(H, R(x), G(x))(a) ]] \\
+                               & = [[ own(H, R(x), T1 + T2)(a) ]] \\
+                               & = [[O0'(a) = 0]]
+    \end{align*}
 
-    We must also show that the ownership invariant is preserved.
-    \AI{I wasn't able to follow the following argument.}
-    Then, it's to show $[[forall a in H.Own(H', R, G'')(a) <= 1]]$.
-    As $[[O0'=O1']]$ holds by pointwise application of \cref{lem:heapop}, \AI{$[[O0' = O1']]$ seems to hold but are you claiming $[[H ~ a H']]$ for any $[[a]]$ to use \cref{lem:heapop}?} and $[[forall a in H.Own(H, R, G)(a) <= 1]]$, if $[[forall a' in H'. O1''(a') <= O0''(a')]]$, we can conclude that $[[Own(H', R, G'')(a') <= Own(H, R, G)(a') <= 1]]$.  \AI{I'm not sure this step is valid.}
-    
-    Suppose for some arbitrary $[[a in H]]$, $[[a= a']]$, then:
+    We now show that $[[ H ~ a H' ]]$. The first two conditions are clear, so it
+    remains to show that for any $[[nn]]$ $[[ H |- a ~> nn ]]$ iff $[[ H' |- a ~> nn ]]$.
+    From \cref{lem:sat-implies-shape-cons}, we have $[[ H |- a ~> |T' ref 1| ]]$, and
+    a proof by contradiction gives that $[[ |T' ref 1| ]]$ is the only such $[[ nn ]]$
+    for which $[[ H |- a ~> nn ]]$. We now argue the forward case for the bi-implication,
+    the backwards case follows similar reasoning.
+
+    Given $[[ H |- a ~> |T' ref 1|]]$, we  must show $[[ H { a <- R(x) } |- a ~> |T2 ref 1| ]]$, for which it suffices to show
+    $[[ H { a <- R(x) } |- R(x) ~> |T2| ]]$. 
+    From our requirement that $[[T']]$ and $[[T2]]$
+    (and therefore $[[ T1 + T2 ]]$) have similar shapes, we have $[[ |T'| = |T2| = |T1 + T2| ]]$.
+    By inverting the well-typing of the input configuration, we must have $[[ SATv(H, R, R(x), T1 + T2) ]]$,
+    thus by \cref{lem:sat-implies-shape-cons} we must have $[[ H |- R(x) ~> |T2| ]]$.
+    As $[[|T2| = |T'|]] < [[|T' ref 1|]]$, $[[a]]$ cannot be reachable from $[[R(x)]]$ in $[[H]]$
+    (otherwise we would have $[[a]]$ reaches an integer along multiple heap paths of differing lengths,
+    a clear contradiction).
+    Then the value of $[[a]]$ in $[[H]]$ is irrelevant to the derivation of $[[ H |- R(x) ~> |T2| ]]$,
+    whereby $[[ H { a <- R(x) } |- R(x) ~> |T2| ]]$ must hold.
+
+    Then, it's to show $[[forall a' in H'.Own(H', R, G'')(a') = (O1' + O1'')(a') = O1'(a') + O1''(a') <= 1]]$.
+    For every $[[ z in dom G \ { y, x } ]]$ (and similarly for $[[G'']]$), we have
+    $[[G(z) = G''(z)]]$. Further, from $[[O0'(a) = 0]]$ above, we must have $[[own(H, R(z), G(z))(a) = 0]]$
+    for all such $[[z]]$. As $[[ H ~ a H' ]]$, by \cref{lem:heapop}, we have that $[[ O0' = O1' ]]$.
+    Then, from $[[ forall a' in H.Own(H, R, G'')(a') = O0'(a') + O0''(a') <= 1 ]]$, it suffices to show
+    that $[[ forall a' in H.O1''(a') <= O0''(a') ]]$.
+       
+    We first consider the case for $[[a]]$:
     \begin{align*}
       [[O1''(a)]] & = [[own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1]] \\
       [[O0''(a)]] & = [[own(H, R(x), T1 + T2)(a) + own(H, H(R(y)), T')(a)+1]]
     \end{align*}
-    We know $[[Own(H, R, G)(a') <= 1]]$, hence $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
-    By \cref{lem:heapop}, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
+    From above, we have $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
+    By \cref{lem:heapop} and $[[ H ~ a H' ]]$, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
     Also by \cref{lem:ownadd}, we have $[[own(H', R(x), T2+T1) = own(H', R(x), T1)+own(H', R(x), T2)]]$.
-    Then we have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$.
-    Therefore, \[
+    From $[[ H'(R(y)) = R(x) ]]$, we therefor have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$,
+    and thus:
+    \[
       [[O1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = O0''(a)]]
-    \]  
-    Next, suppose $[[a]]\neq [[a']]$;
+    \]
+    
+    Next, consider some $[[a != a']]$;
     \begin{align*}
       [[O1''(a')]] & = [[own(H', H'(R(y)), T2)(a') + own(H', R(x), T1)(a') ]] \\
       [[O0''(a')]] & = [[own(H, R(x), T2 + T1)(a') + own(H, H(R(y)), T')(a') ]]
     \end{align*}
-    By reasoning similar to the case for $a= a'$, we have $[[O1''(a') <= own(H, R(x), T2 + T1)(a') <= O0''(a')]]$.
+    By reasoning similar to the case for $a = a'$, we have $[[O1''(a') <= own(H, R(x), T2 + T1)(a') <= O0''(a')]]$.
     We therefore conclude that $[[forall a' in H'.Own(H', R, G'')(a') <= 1]]$.
   \end{rneqncase} % R-Assign
   

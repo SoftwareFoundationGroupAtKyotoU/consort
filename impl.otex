@@ -33,7 +33,7 @@ also generates ownership well-formedness constraints. Specifically,
 for a type template of the form $[[ {nu:int|ph(x,nn+1,pp)[FV pp]} ref r[x,nn,pp] ]]$
 \consort emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[FV pp] ]]$
 and for a type template $[[ (T ref r[x,nn+1,pp]) ref r[x,nn,pp] ]]$
-\consort emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] ]]$.
+\consort emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] = 0 ]]$.
 \JT{Consort doesn't actually generate that final constraint: it
   uses the old rules which are effectively equivalent to the new approach.}
 

@@ -89,6 +89,8 @@ grammar
   nn {{ tex n }} :: I_ ::=
     | DL :: :: I
 	| nn1 + nn2 :: :: plus
+	| nn1 - nn2 :: :: minus
+	| '|' T '|' :: :: type_size {{ tex |[[T]]| }}
    
   l {{ tex \ell}} :: 'L' ::= {{ com location label }}
     | DL :: :: conr
@@ -286,7 +288,7 @@ grammar
 	| G1 + G2 :: :: env_comb {{ tex [[G1]] \uplus [[G2]] }}
 
   rel_op :: Rel ::=
-    | <= :: :: ge
+    | <= :: :: le
 	| < :: :: lt
 	| = :: :: eq
 	| != :: :: neq
@@ -383,12 +385,13 @@ grammar
 	| SATv ( H , R , Rv , T ) :: :: satv {{ tex [[SATv]]([[H]],[[R]],[[Rv]],[[T]]) }}
 	| O :: :: omap
 
-   O :: 'OM_' ::=
+   O :: 'OM_' ::= {{ com ownership map }}
     | { a |-> r } :: :: omap
 	| O1 + O2 :: :: omap_add
 	| own ( H , Rv , T ) :: :: own_fn
 	| Own ( H , R , G ) :: :: ownHRG_fn
 	| empty :: :: empty {{ tex \emptyset }}
+	| ( O ) :: :: paren
 	| |< { x in VS } O :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[O]] }}
 
   judgment :: 'j_' ::=
@@ -415,7 +418,7 @@ grammar
 	| Th | [] : T => G | B |-e CE : T' => G' :: :: ectxt_typing
 	| |- Th :: :: funenvWf {{ tex [[|-]]_{\wf} [[Th]] }}
 	| |- FT :: :: ftWf {{ tex [[|-]]_{\wf} [[FT]] }}
-	| H |- Rv :~ T :: :: shape_cons_t {{ tex [[H]][[|-]] [[Rv]] \smodels [[T]] }}
+	| H |- Rv ~> nn :: :: shape_move {{ tex [[H]][[|-]] [[Rv]] \Downarrow [[nn]] }}
 
   bind :: 'Bin_' ::= {{ com mapping function domains }}
     | x :: :: pvar
@@ -443,6 +446,7 @@ grammar
 	| dom MF :: :: dom_mf {{ tex \DOM([[MF]]) }}
 	| VS1 '\' VS2 :: :: minus {{ tex [[VS1]] \setminus [[VS2]] }}
 	| null :: :: eset {{ tex \emptyset }}
+	| Addr :: :: addresses {{ tex \textbf{Addr} }}
 
   EqT :: 'EqT_' ::= {{ com equatable terms }}
     | e :: :: expt
@@ -467,6 +471,7 @@ grammar
 	| functions :: :: func
 	| logic_judgment :: :: lj
     | r1 rel_op r2 :: :: own_ge {{ tex [[r1]] [[rel_op]] [[r2]] }}
+    | r1 & rel_op r2 :: :: own_align {{ tex [[r1]] & [[rel_op]] [[r2]] }}
 	| formula1 <=> formula2 :: :: meta_biimpl
 	| formula1 ==> formula2 :: :: meta_entail
 	| formula ( x in dom ( G ) ) :: :: quantified {{ tex [[formula]]\,\,(x \in \DOM([[G]])) }}
@@ -480,10 +485,10 @@ grammar
 	| Rv is INT :: :: in_int {{ tex [[Rv]] \in [[INT]] }}
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
-	| EqT1 = EqT2 :: :: equate
-	| EqT1 = EqT2 ... = EqT3 :: :: eq_list 
+	| EqT1 = ... = EqT2 :: :: equate
+	| r1 <= ... <= r2 :: :: rel_list
+	| r1 = ... = r2 rel_op r3 :: :: own_rel_list
 	| EqT1 != EqT2 :: :: ineq {{ tex [[EqT1]] \neq [[EqT2]] }}
-	| r1 <= ... <= r3 :: :: rel_list
 	| formula1 /\ formula2 :: :: meta_conj
 	| forall formula1 . formula2 :: :: uq
 	| exists Rv . formula :: :: eq
