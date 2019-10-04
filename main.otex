@@ -83,6 +83,22 @@
 \item Running example.
 \item \textbf{DONE} Context-Sensitiveness example. (Look at the JayHorn paper and Naoki's note.)
 \item \textbf{DONE???} Some missing definitions, especially $\Gamma \models \varphi$.  (This can be done by reading previous work about refinement-type based static verification.  Ask Atsushi or Naoki which paper to look at.)
+See e.g., page 4 (left) of ``Hiroshi Unno, Naoki Kobayashi:
+Dependent type inference with interpolants. PPDP 2009: 277-288'' (caution: this is not an original
+paper that introduces this kind of definition), where we define \([\![\Gamma]\!]\);
+using that, $\Gamma \models \varphi$ is defined as \(\models [\![\Gamma]\!] \Rightarrow \varphi\).
+There is an issue, however, on how to define \([\![\Gamma, x\COL\tau\ \textbf{ref}^r]\!]\) for \(r>0\).
+One way is to define it as \(\exists y. ([\![\Gamma, y\COL\tau]\!]\),
+and the other way is to define it as \([\![\Gamma]\!]\), ignoring the refinements inside reference types.
+The latter is more conservative. The former can be unsound in the presence of null pointers.
+For example, in the former definition, 
+\([\![x\COL \{r:\textbf{int}\mid \textbf{false}\}\ \textbf{ref}^1]\!]= \textbf{false}\),
+so any expression is typable under \(x\COL \{r:\textbf{int}\mid \textbf{false}\}\ \textbf{ref}^1\).
+A rationale for this is that there can be no environment that respects the type environment
+(since the type environment says that \(x\) is a pointer to a cell holding an integer of type 
+\(\{r:\textbf{int}\mid \textbf{false}\}\), but there is no such integer). If we have null pointers
+and allow them to have type \(\{r:\textbf{int}\mid \textbf{false}\}\ \textbf{ref}^1\), then
+the former is unsound.
 \item \textbf{DONE} Soundness statement.
 \item \textbf{DONE} Extension to "general" references: e.g., $\set{r : \TINT \mid \varphi} \TREF^1 \TREF^1 \TREF^1$ or $\mu\alpha. \set{r : \TINT \mid \varphi} \TREF^1$.
 \item \textbf{DONE} Inference (constraint generation) algorithm.
