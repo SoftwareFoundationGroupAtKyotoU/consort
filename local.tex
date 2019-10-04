@@ -98,13 +98,8 @@
 \mkDraftFn{RS}{teal}
 \usepackage{xspace}
 \makeatletter
-\ifdraftComments
-\def\needcite@with[#1]{\textcolor{blue}{[citation needed #1]}\xspace}
-\def\needcite@bare{\textcolor{blue}{[citation needed]}\xspace}
-\else
-\def\needcite@with#1{\xspace}
-\def\needcite@bare{\xspace}
-\fi
+\def\needcite@with[#1]{\ifdraftComments\textcolor{blue}{[citation needed #1]}\else\empty\fi\xspace}
+\def\needcite@bare{\ifdraftComments\textcolor{blue}{[citation needed]}\else\empty\fi\xspace}
 \def\needcite{\@ifnextchar[{\needcite@with}{\needcite@bare}}
 \makeatother
 
