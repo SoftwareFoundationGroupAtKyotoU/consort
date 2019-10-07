@@ -15,9 +15,18 @@ end = struct
 
   let pred_name p = p
 
+  let pp_int i =
+    if i < 0 then
+      pg "-" [
+       pl @@ string_of_int @@ ~- i
+      ]
+    else
+      pl @@ string_of_int i
+        
+
   let pp_imm o ff = match o with
     | RAp ap -> atom ff @@ Paths.to_z3_ident ap
-    | RConst i -> atom ff @@ string_of_int i
+    | RConst i -> pp_int i ff
 
   let pp_relop ?nu r ff = match nu,r with
     | Some binding,Nu -> atom ff binding
@@ -50,7 +59,11 @@ end = struct
       in
       print_string_list (pred_name i::c_string @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ]) ff
     | _,Top -> atom ff "true"
-    | Some binding,ConstEq n -> print_string_list [ "="; binding; string_of_int n ] ff
+    | Some binding,ConstEq n ->
+      pg "=" [
+          pl binding;
+          pp_int n
+        ] ff
     | _,Relation { rel_op1; rel_cond = cond_name; rel_op2 } ->
       let intr = StringMap.find cond_name interp in
       pg intr [
