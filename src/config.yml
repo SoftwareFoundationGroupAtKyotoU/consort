@@ -1,0 +1,10 @@
+jayhorn_bench:
+  consort_imp: "benchmarks/jayhorn"
+  jayhorn_imp: "/home/jtoman/sources/benchmarks/lpar17-benchmarks/jayhorn-benchmark"
+jayhorn: "/home/jtoman/sources/jayhorn/jayhorn/build/libs/jayhorn.jar"
+consort_bench:
+  - { name: "Array-List", path: "positive-tests/arrays/array_list_loop.imp" }
+  - { name: "Sorted-List", path: "positive-tests/recursive-tests/sorted-list-test-nondet.imp" }
+  - { name: "Shuffle", path: "positive-tests/swapping.imp" }
+  - { name: "Mutable-List", path: "positive-tests/recursive-tests/simple-list.imp" }
+  - { name: "Array-Inv", path: "positive-tests/arrays/array_rec.imp" }
