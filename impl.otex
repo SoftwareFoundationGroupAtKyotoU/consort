@@ -82,7 +82,8 @@ currently supports Spacer \needcite (part of the Z3 solver \needcite) and HoICE 
 
 \subsubsection{Encoding Context Sensitivity}
 To make inference tractable, we require the user to fix \emph{a
-  priori} the maximum length of prefix queries to a constant $k$.  We
+  priori} the maximum length of prefix queries to a constant $k$ (this
+choice is easily controlled with a command line parameter to our tool). We
 supplement the free variables used in every predicate with a set of
 context variables $[[CC k]]$; these variables are assumed to not
 overlap with any program variables.
@@ -142,10 +143,12 @@ in subtyping constraints.
 \JT{This whole section can be significantly shortened}
 
 \paragraph{Recursive Types}
-Our language also support unbounded heap structures via recursive
+Our language also supports some unbounded heap structures via recursive
 reference types. To keep inference tractable, we forbid nested
-recursive types and fix the shape of refinements that occur within a
-recursive type. Our approach for refinements
+recursive types, multiple instances of a type variable,
+and fix the shape of refinements that occur within a
+recursive type. For recursive refinements that fit the
+above restriction, our approach for refinements
 is broadly similar to that in \cite{kawaguchi2009type}, and we use
 the ownership scheme of \cite{suenaga2009fractional} for handling
 ownership. We first use simple type inference
