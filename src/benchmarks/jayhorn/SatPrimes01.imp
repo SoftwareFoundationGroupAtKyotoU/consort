@@ -1,4 +1,4 @@
-/** fail: imprecision */
+/** fail: broken */
 mult(n, m) {
   if m < 0 then
     mult(n, (-1 * m))
@@ -17,9 +17,9 @@ multiple_of(n, m) {
   else if n < 0 then
     multiple_of((-1 * n), m)
   else if m = 0 then
-    0
+    false
   else if n = 0 then
-    1
+    true
   else
     multiple_of((n - m), m)
 }
@@ -30,15 +30,15 @@ is_prime(n) {
 
 is_prime_(n, m) {
   if n <= 1 then
-   0
+   false
   else if n = 2 then
-   1
+   true
   else if m <= 1 then
-   1
+   true
   else
     let ret = multiple_of(n, m) in
-	if ret = 0 then
-	  0
+	if ret = true then
+	  false
 	else
 	  is_prime_(n, (m - 1))
 }
@@ -50,6 +50,6 @@ is_prime_(n, m) {
   let result = is_prime(n) in
   let m_res = mult(f1, f2) in
   if m_res = n then
-    assert(result = 0)
+    assert(1 = 0)
   else ()
 }
