@@ -21,7 +21,13 @@ let spawn ?env cmd =
 let dispose ?(kill=true) t =
   close_in t.proc_stdout;
   close_in t.proc_stderr;
-  (if kill then Unix.kill t.pid Sys.sigkill);
+  begin
+    if kill then begin
+      (if Sys.unix then
+         ignore @@ Sys.command @@ Printf.sprintf "pkill -P %d" t.pid);
+      Unix.kill t.pid Sys.sigkill
+    end
+  end;
   ignore @@ Unix.waitpid [] t.pid
 
 let select_pool ~timeout ~prock ~acc ~finish p =
