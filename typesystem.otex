@@ -624,6 +624,7 @@ analysis, and empirical experience from prior work \cite{suenaga2009fractional} 
 that only a small number of annotations are required for real-world programs.
 
 \begin{example}[Shuffling Mutability]
+  \label{exmp:shuffle-example}
   \begin{lstlisting}
     let x = mkref 0 in
     let y = x in (

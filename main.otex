@@ -6,6 +6,7 @@
 \documentclass[runningheads]{llncs}
 %
 \usepackage{bcprules}\typicallabel{T-Hoge}
+\usepackage{booktabs}
 \usepackage{bcpproof}
 \usepackage{graphicx,color}
 % Used for displaying a sample figure. If possible, figure files should

@@ -1,5 +1,78 @@
+\begin{table}
+  \input{benchmark_table}
+  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
+    that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
+    checks for null pointers, checking pointer equality, etc. Finally, \textbf{Bug} includes test programs
+    we discovered were actually incorrect.}
+  \label{tab:breakdown}
+\end{table}
+
 \section{Initial Experiments}
 \label{sec:eval}
+
+We now present the results of experiments performed with the implementation
+described in \cref{sec:infr}. The goal of these experiments are two-fold:
+\begin{enumerate}
+\item Is the type system (and extensions of \cref{sec:infr}) expressive enough to type and verify non-trivial programs?
+\item Is type inference for the type system feasible?
+\end{enumerate}
+
+To answer these questions, we evaluated our prototype implementation
+on two sets of benchmarks. The first are a set of data structure
+implementations and microbenchmarks written directly in our low-level
+imperative language. We developed this suite to
+demonstrate the expressive power of our type system and inference.
+The programs included in this suite are:
+\begin{itemize}
+\item \textbf{Array-List} Implementation of an unbounded list backed by an array.
+\item \textbf{Sorted-List} Implementation of an in-place insertion sort algorithm
+\item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \cref{exmp:shuffle-example}
+\item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
+\item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
+\end{itemize}
+
+For our second benchmark suite, we adapted the benchmark suite
+of JayHorn \needcite, a verification tool suite for Java.
+This test suite contains 82 safe and unsafe programs written in
+Java. We chose this benchmark suite as, like \name, JayHorn
+is concerned with the automated, flow-sensitive verification of
+programs in a language with mutable, managed memory.
+Further, although some of their benchmark programs tested Java
+specific features, most \textbf{could} be adapted
+into our low-level language. Those programs we could adapt
+provided a valuable baseline against which we could measure
+our implementation.
+A detailed breakdown of the adapted benchmark suite can be found in \cref{tab:breakdown}
+
+\begin{remark}
+  The original JayHorn paper includes two additional benchmark sets, Mine Pump and CBMC.
+  Both our tool and the most recent version (v0.6.1) of JayHorn time out on the Mine Pump benchmark. Further,
+  the CBMC tests were either subsumed by our own test programs, tested Java specific
+  features, or tested program synthesis functionalty. We therefore omitted both of these
+  benchmarks from our evaluation as we considered the results uninteresting.
+\end{remark}
+
+\subsection{Results}
+The results of our experiments are shown in \cref{tab:jh-results}. On the JayHorn benchmark
+suite \name performs competitively with JayHorn, correctly identifying 29 of the 32 safe programs
+as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception.
+For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds; in contrast,
+JayHorn timed out after 60 seconds on one test, and answered \textsc{Unknown} for the remaining 6.
+
+On our own benchmark set, \name correctly verifies all programs within
+60 seconds. We also introduced several mutations to these programs to
+make them incorrect.  \name was able to quickly determine these programs
+were unsafe. \JT{Actually do this experiement}
+
+\begin{table}
+  \begin{center}
+    \input{jayhorn_table}
+    \input{consort_table}
+  \end{center}
+  \caption{Comparison of \name to JayHorn on the benchmark set of ...}
+  \label{tab:jh-results}
+\end{table}
+
 
 %%% Local Variables:
 %%% mode: latex
