@@ -429,7 +429,7 @@ let generate_refinement =
       in
       let%bind ind_pred = make_fresh_pred ~ground:true ~mu:true ~pred_vars:(ind_pred_fv,path) ~loc in
       let%bind local_pred = make_fresh_pred ~ground:true ~mu:false ~pred_vars:(local_pred_fv,path) ~loc in
-      return_with_path (Paths.PathMap.add path local_pred path_set,fv_manager) (And (ind_pred,local_pred))
+      return_with_path (Paths.PathMap.add path ind_pred path_set,fv_manager) (And (ind_pred,local_pred))
 
 let is_max_ref pos = (List.nth_opt pos.olist 0) = Some false
 
