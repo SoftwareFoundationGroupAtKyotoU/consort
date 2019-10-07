@@ -253,6 +253,9 @@ let process_call ~loc lkp ctxt { callee; arg_names; _ } =
     with
       Not_found -> failwith @@ "No function definition for " ^ callee
   in
+  let len = List.compare_lengths arg_types_v arg_names in
+  if len <> 0 then
+     Locations.raise_errorf ~loc "mismatched argument arities for call to %s" callee;
   List.iter2 (fun a_var t_var ->
     unify ~loc ctxt.sub (lkp a_var) @@ `Var t_var) arg_names arg_types_v;
   `Var ret_type_v
