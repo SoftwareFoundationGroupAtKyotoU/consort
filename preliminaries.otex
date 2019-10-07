@@ -49,7 +49,8 @@ Modeling a mutable variable declaration \texttt{int x = 1} in a language like C 
 \[
   [[ let y = 1 in (let x = mkref y in etc) ]]
 \]
-in our language.
+in our language. As a convenience, we assume all variable names
+introduced with let bindings and function parameters are distinct.
 
 Unlike ML (and like C or Java) we do not allow general expressions as right hand side of
 let bindings. The simplest right-hand forms are a variable $[[y]]$, or an integer value.
@@ -186,6 +187,9 @@ we refresh the bound variable $[[x]]$ in a let expression to $[[x']]$.
 Take expression $[[let x=y in e]]$ as an example;
 we substitute a fresh variable $[[x']]$ for $[[x]]$ in $[[e]]$, then bind $[[x']]$ to the value
 of variable $[[y]]$.
+We assume this refreshing of variables preserves our assumption that all variable
+bindings introduced with let and function parameters are unique, i.e. $[[x']]$ does
+not overlap with a variable name that occurs in the program.
 Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not
 provide any mechanism to reclaim memory.
 We consider memory reclamation an orthogonal concern and

@@ -531,12 +531,11 @@ substituting a well-typed expression matching a context's hole type yields a wel
 
 \begin{lemma}[Substitution] % L19
   \label{lem:substitution}
-  If $\funenv \mid \tenv\mid \beta\vdash e \COL \tau  \produces \tenv'$, we can obtain
-  $\funenv \mid [x'/x]\tenv \mid \beta \vdash [x'/x]e \COL [x'/x]\tau \produces [x'/x]\tenv'$.
+  If $[[ Th | G | B |- e : T => G' ]]$ and $[[ x' not in G ]]$, then
+  $[[ Th | [x'/x]G | B |- e : [x'/x]T => [x'/x]G']]$.
 \end{lemma}
 \begin{proof}
   By straightforward induction of typing rules.
-  \AI{Do you need to assume $[[x' not in dom(G)]]$?}
 \end{proof}
 
 % PROPERTIES OF SUBTYPING
@@ -1019,7 +1018,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
   
   To prove the first part, from the well-typing of the function body, we have
   $[[ Th | x1:T1,,xn:Tn | A |- e : Tq => x1:T1',,xn:Tn' ]]$.
-  By $n$ applications of the substitution lemma we have:
+  From our assumption that all variable names are distinct,
+  by $n$ applications of the substituion lemma \cref{lem:substituion} we have:
   $[[ Th | y1:vsub T1,,yn:vsub Tn | A |- vsub e : vsub Tq => y1:vsub T1',,yn:vsub Tn']]$.
   By \subref{lem:ctxt-substitution}{itm:ctxt-subst-well-typed} we then have
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
@@ -1123,7 +1123,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     
     We now want to show $[[ Th | G'' | ll |- [x'/x]e : [x/x']Tp => [x'/x]G' ]]$,
     $[[ ll |- G'' ]]$, and $[[Cons(H,R { x' |-> v }, G'')]]$.
-    The first is easy to obtain using \cref{lem:substitution}, and the second
+    The first is easy to obtain using \cref{lem:substitution} (observe that by \cref{lem:r-valid-subst} and our
+    choice that $[[ x' not in dom R ]]$ we have $[[ x not in dom G ]]$), and the second
     follows almost immediately from $[[ ll |- G ]]$.
     
     It therefore remains to show $[[Cons(H,R { x' |-> v }, G'')]]$. To show that the output environment is consistent, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$
@@ -1136,7 +1137,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     then we must only show that $[[ SATv(H,R',H(R'(y)),T1) ]]$.
     
     From $[[Cons(H,R,Gp)]]$, we know that $[[SAT(H,R,Gp)]]$, in particular, $[[SATv(H,R,R(y),Gp(y)) ]] $.
-    From \cref{lem:satadd,lem:r-valid-subst,lem:register} and that $[[ R < R' ]]$, we obtain $[[ SATv(H,R,v,T1+T2) ==> SATv(H,R',v,T1) /\ SATv(H,R',v,T2) ]]$, where $[[v = H(R(y))]]$.
+    From \cref{lem:satadd,lem:r-valid-subst,lem:register} and that $[[ R < R' ]]$, we obtain from
+    $[[ SATv(H,R,v,T1+T2)]]$ that $[[ SATv(H,R',v,T1)]]$ and $[[ SATv(H,R',v,T2) ]]$, where $[[v = H(R(y))]]$.
     We thus have that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
@@ -1190,9 +1192,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     It suffices to show (see \rn{R-Deref})
     that $[[ Th | G'' | ll |- [x'/x]e : T => G' ]]$, $[[ ll |- G'']]$,
     and $[[Cons(H,R { x' |->  R(y) }, G'')]]$.
-    The first is easy to obtain using \cref{lem:substitution}
-    and the fact that $[[ ll |- T => G' ]]$, $[[ x not in dom G' ]]$ implies $[[ [x'/x]G' = G ]]$ and similarly
-    for $[[T]]$. The second follows from the assumed well-formedness of $[[ T1 ]]$ and $[[ T2 ]]$.
+    The first is easy to obtain using reasoning as in the \rn{R-Deref} casse.
+    The second follows from the assumed well-formedness of $[[ T1 ]]$ and $[[ T2 ]]$.
     It therefore remains to show $[[Cons(H,R',G'')]]$.
     
     To show that the output environment is consistent, we must show that $[[SATv(H,R',R'(x'),T2 /\ x' x' = y)]]$ and $[[SATv(H,R',R'(y),T1 /\ y y=x')]]$.
@@ -1229,7 +1230,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We give that $[[ G''= G,x':{nu:int | nu = nn}]]$, and it thus suffices to show
     that $[[ Th | G'' | ll |- [x'/x]e : T => G' ]]$, $[[ ll |- G'' ]]$,
     and $[[ Cons(H, R { x' |-> nn }, G'') ]]$.
-    The first one is easy to obtain using the \cref{lem:substitution}
+    The first one is easy to obtain using the \cref{lem:substitution} (see \rn{R-Deref}
     and the reasoning of \rn{R-Let} above, and the final two items are trivial.
   \end{rneqncase} % R-LetInt
   
