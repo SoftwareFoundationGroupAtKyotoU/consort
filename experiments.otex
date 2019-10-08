@@ -61,8 +61,9 @@ JayHorn timed out after 60 seconds on one test, and answered \textsc{Unknown} fo
 
 On our own benchmark set, \name correctly verifies all programs within
 60 seconds. We also introduced several mutations to these programs to
-make them incorrect.  \name was able to quickly determine these programs
-were unsafe. \JT{Actually do this experiement}
+make them unsafe (rows with suffix ``BUG'').
+In all cases, \name was able to quickly and definitively
+determine these programs were unsafe.
 
 \begin{table}
   \begin{center}

@@ -77,27 +77,40 @@ for u in unsat:
             unsat_precise += 1
             unsat_out_performed += 1
 
+def print_jayhorn_line(table, name, pref, nl = ''):
+    # don't try this at home kids
+    g = globals()
+    correct = g[pref + "_correct"]
+    timeout = g[pref + "_timeout"]
+    out_performed = g[pref + "_out_performed"]
+    finished = g[pref + "_finished"]
+    robust = g[pref + "_robustness"]
+    precision = g[pref + "_precise"]
+    print >> table, r'\textbf{%s} & %d & %d & %d &  %d &  %d &  %d & %d%s' % (
+        name,
+        correct + timeout, correct, timeout,
+        (correct + timeout) - out_performed, finished, robust, precision, nl
+    )
+            
 with open(sys.argv[2], 'w') as result_table:
     print >> result_table, r'\begin{tabular}{cc||cc||cccc}\toprule'
     print >> result_table, r'\textbf{Set} & \textbf{N. Tests} & \multicolumn{2}{l}{\textbf{\name}} & \multicolumn{4}{c}{\textbf{JayHorn}} \\'
     print >> result_table, r'& & \emph{Correct} & \emph{T/O} & \emph{Correct} & \emph{T/O} & \emph{Err.} & \emph{Imprecise} \\ \midrule'
-    print >> result_table, r'\textbf{Safe} & %d & %d & %d &  %d &  %d &  %d & %d \\' % (
-        sat_correct + sat_timeout, sat_correct, sat_timeout,
-        (sat_correct + sat_timeout) - sat_out_performed, sat_finished, sat_robustness, sat_precise
-    )
-    print >> result_table, r'\textbf{Unsafe} & %d & %d & %d &  %d &  %d &  %d & %d' % (
-        unsat_correct + unsat_timeout, unsat_correct, unsat_timeout,
-        (unsat_correct + unsat_timeout) - unsat_out_performed, unsat_finished, unsat_robustness, unsat_precise
-    )
+    print_jayhorn_line(result_table, "Safe", "sat", r'\\')
+    print_jayhorn_line(result_table, "Unsafe", "unsat")
     print >> result_table, r'\end{tabular}'
 
 with open(sys.argv[3], 'w') as consort_table:
-    print >> consort_table, r'\begin{tabular}{ccc}\toprule'
+    print >> consort_table, r'\begin{tabular}{lcc}\toprule'
     print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time} \\ \midrule'
-    l = sorted(data["consort"], key = lambda d: d["name"])
+    l = sorted(data["consort"]["pos"], key = lambda d: d["name"])
     for d in l:
         assert d["result"]
         print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f \\' % (d["name"], d["elapsed"])
+    l = sorted(data["consort"]["neg"], key = lambda d: d["name"])
+    for d in l:
+        assert not d["result"]
+        print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f \\' % (d["name"], d["elapsed"])
     print >> consort_table, r'\end{tabular}'
 
 def print_bench_line(benchmark_table, nm, stat):

@@ -32,8 +32,13 @@ mklist(len) {
   mkref (0,len,arr)
 }
 
+push_loop(l) {
+  push(l, _);
+  push_loop(l)
+}
+
 {
   let g = (_ : ~ >= 0) in
   let l = mklist(g) in
-  push(l, _)
+  push_loop(l)
 }
