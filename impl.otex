@@ -117,6 +117,21 @@ over the concrete values of $[[ci]]$.
 We now describe some extensions to our core language supported within
 our implementation.
 
+\paragraph{Primitive Operations}
+As defined in \cref{sec:prelim}, our language can compare integers to zero and load
+and store them from memory, but can perform no meaningful computation
+over these numbers. To promote the flexibility of our type system and simplify
+our soundness statement, we do not
+fix a set of primitive operations and their static semantics.
+Instead, we assume any set of primitive operations
+used in a program are given sound function types in $[[Th]]$.
+For example, under the assumption that $+$ has its usual semantics
+and the underlying logic supports $+$, we can give $+$ the type
+$[[A <x:top, y:top> -> <x:top, y:top|{nu:int|nu = x + y>}]]$.
+Note that interactions with a nondeterministic environment
+or unknown program inputs can then be modeled with a primitive
+that returns an integer with the $[[Top]]$ refinement.
+
 \paragraph{Dependent Tuples}
 Our implementation supports types of the form:
 $[[ (x1: T1 ,, xn: Tn) ]]$, where $[[xi]]$ is free within $[[Tj]]$
