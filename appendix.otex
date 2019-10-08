@@ -105,7 +105,7 @@ with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
 
 \begin{lemma}
   \label{lem:assertfail}
-  $[[ |- D C ==> C != AssertFail ]]$
+  $[[ |- D C ]]$ implies $[[ C != AssertFail ]]$
 \end{lemma}
 \begin{proof}
   Simple proof by contradiction, as the $[[AssertFail]]$ is not well-typed.
@@ -113,7 +113,7 @@ with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
   
 \begin{lemma}
   \label{lem:preservation}
-  $[[ |- D <H,R,Es,e> /\ <H,R,Es,e> --> D C ==> |- D C ]]$
+  If $[[ |- D <H,R,Es,e> ]]$ and $[[ <H,R,Es,e> --> D C ]]$, then $[[ |- D C ]]$
 \end{lemma}
 \cref{lem:preservation} is the heart of proof effort, give its proof in \cref{sec:preservation-proof}.
 
@@ -834,8 +834,8 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   
   Then, for any $[[G]]$ and $[[ G'' ]]$ where $[[ dom G /\ dom G'' = null ]]$:
   \begin{enumerate}
-  \item $[[ G |- T1 <: T2 ==> G + G'' |- T1 <: T2 ]]$
-  \item $[[G <: G' ==> G + G'' <: G' + G'']]$
+  \item $[[ G |- T1 <: T2]]$ implies $[[ G + G'' |- T1 <: T2 ]]$
+  \item $[[G <: G']]$ implies $[[ G + G'' <: G' + G'']]$
   \item If $[[ Th | G | B |- e : T => G' ]]$, $[[ B |- G + G' ]]$ and $[[ B |- G' + G'']]$, then $[[ Th | G + G'' | B |- e : T => G'' + G]]$
   \end{enumerate}
 \end{lemma}
@@ -902,7 +902,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
       that are not in the domain of $[[G'']]$. From the assumed well-formedness of
       $[[ B |- G' + G'' ]]$, we must have that
       $\forall x \in \mathcal{LV}.[[x in dom G' /\ [S G'(x) ] = int ]]$. Thus,
-      $\mathcal{LV} \subseteq [[G3]] [[/\]] \mathcal{LV} \subseteq [[G4]]$. Further, by definition,
+      $\mathcal{LV} \subseteq [[G3]]$ and $\mathcal{LV} \subseteq [[G4]]$. Further, by definition,
     for any $[[ Gp <: Gq ]]$, then $[[forall x in dom Gp. [S Gp(x)] = [S Gq(x)] ]]$.
     We conclude that $[[ B |- G3 + G'' ]]$ and
       $[[ B |- G4 + G'']]$, whereby the inductive hypothesis gives
@@ -1163,7 +1163,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \begin{align*}
       & [[ Th | G[x : T0 + T1] | ll |- x : T0 => G[x <- T1] ]] \\
       & [[ Th | G[x <- T1] | ll |- e : T' => G' ]] \\
-      & [[ Cons(H,R,G) /\ ll |- G ]]
+      & [[ Cons(H,R,G) ]] \andalso [[ ll |- G ]]
     \end{align*}
     We take $[[G'' = G[x <- T1] ]]$.
     
@@ -1198,9 +1198,9 @@ call cases respectively; we have separated them into separate lemmas for clarity
     
     To show that the output environment is consistent, we must show that $[[SATv(H,R',R'(x'),T2 /\ x' x' = y)]]$ and $[[SATv(H,R',R'(y),T1 /\ y y=x')]]$.
     By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$.
-    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
-    As $[[ R < R']]$, from \cref{lem:satadd} and \cref{lem:register}, we obtain $[[ SATv(H,R,v,T1+T2) ==>  SATv(H,R',v,T1) /\ SATv(H,R',v,T2) ]]$
-    where $v = R(y)$.
+    We know that $[[Cons(H,R,G)]]$, from which me have $[[SAT(H,R,G)]]$, in particular $[[y in R]]$ and $[[SATv(H,R,R(y),G(y))]]$.
+    As $[[ R < R']]$, from \cref{lem:satadd} and \cref{lem:register}, we obtain from $[[ SATv(H,R,v,T1+T2) ]]$ that
+    $[[ SATv(H,R',v,T1)]]$ and $[[ SATv(H,R',v,T2) ]]$ where $v = R(y)$.
     We then have $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',R'(y),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
@@ -1245,7 +1245,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \end{align*}
     We take $[[ G'' = G[x <- {nu:int | ph /\ nu = 0 }] ]]$, and want to show that $[[ Cons(H, R, G'') ]]$ (that $[[ Th | G'' | ll |- e1 : T => G' ]]$ and $[[ ll |- G'' ]]$ is immediate).
     
-    By definition $[[Cons(H,R,G) ==> SAT(H,R,G) ==> x in R /\ R(x) is INT /\  [R][R(x)/nu]ph]]$, here $[[ G(x) = {nu:int | ph}]]$.
+    By definition, from $[[Cons(H,R,G) ]]$ we have $[[ SAT(H,R,G) ]]$, in particular $[[ x in R ]]$, $[[ R(x) is INT ]]$ and $[[ [R][R(x)/nu]ph]]$,
+    here $[[ G(x) = {nu:int | ph}]]$.
     The refinement predicates $[[ph]]$ still holds in the output environment, since nothing changes in the register after transition.
     Also from precondition of $\rn{R-IfTrue}$, we have $[[R(x)=0]]$, thus $[[x]]$ satisfies the refinement that $[[nu=0]]$.
     Thus $[[ [R][R(x)/nu](ph /\ nu = 0)]]$ is trivially satisfied.
@@ -1276,9 +1277,9 @@ call cases respectively; we have separated them into separate lemmas for clarity
     It remains to show $[[Cons(H',R',G'')]]$.
     To show that the output environment is consistent, we must show that $[[SATv(H',R',R'(x'),(T2 /\ x' x'=y) ref 1)]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
     By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$.
-    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]] $.
-    As $[[ R < R' ]]$, from \cref{lem:register}, we obtain $[[ SATv(H,R,R(y),T1+T2) ==> SATv(H,R',R'(y),T1+T2) ]]$.
-    By \cref{lem:newaddheap}, we have $[[ SATv(H',R',R(y),T1+T2) ]]$.
+    We know that $[[Cons(H,R,G)]]$, from which we have $[[ SAT(H,R,G) ]]$, in particular $[[ y in R]]$ and $[[ SATv(H,R,R(y),G(y)) ]] $.
+    As $[[ R < R' ]]$, from \cref{lem:register}, we have $[[ SATv(H,R,R(y),T1+T2) ]]$ implies $[[ SATv(H,R',R'(y),T1+T2) ]]$.
+    By \cref{lem:newaddheap}, we then have $[[ SATv(H',R',R(y),T1+T2) ]]$.
     Then by \cref{lem:satadd}, we have $[[ SATv(H',R',v,T1)]]$ and $[[SATv(H',R',v,T2) ]]$ where $[[v = R(y)]]$.
     We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.
     
@@ -1313,7 +1314,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \begin{align*}
       & [[ Th | G[x: T1 + T2][y : T' ref 1] | ll |- y := x; e : T => G']] \\
       & [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | ll |- e : T => G']] \\
-      & [[Cons(H,R,G) /\ ll |- G ]]
+      & [[Cons(H,R,G) ]] \andalso [[ ll |- G ]]
     \end{align*}
     We give $[[ G'' = G[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] ]]$. That
     $[[ Th | G'' | ll |- e : T => G' ]]$ and $[[ ll |- G'' ]]$ is immediate.
@@ -1337,7 +1338,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[O0']] & = [[ |< {z in dom G \ {y,x} } own(H,R(z),G(z)) ]] \\
       [[O1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]]
     \end{align*}
-    By the definition of the ownership function and $[[G(y) = T' ref 1 /\ G(x) = T1 + T2]]$ we have:
+    By the definition of the ownership function, $[[G(y) = T' ref 1 ]]$ and $[[ G(x) = T1 + T2]]$ we have:
     \begin{align*}
       [[O0'']] & = [[own(H, H(R(y)), T') + {a |-> 1} + own(H, R(x), T1 + T2)]] \\
       [[O1'']] & = [[own(H', H'(R(y)), T2) + {a |-> 1} + own(H',R(x), T1)]]
@@ -1414,7 +1415,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
       & [[ Th | G[x : T1 ref r1][y: T2 ref r2] | ll |- alias(x = y); e : T => G']] \\
       & [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | ll |- e : T => G']] \\
       & [[ T1 ref r1 + T2 ref r2 ~ T1' ref r1' + T2' ref r2' ]] \\
-      & [[ Cons(H,R,G) /\ ll |- G ]]
+      & [[ Cons(H,R,G) ]] \andalso [[ ll |- G ]]
     \end{align*}
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$, and must show
     $[[ Th | G'' | ll |- e : T => G' ]]$, $[[ ll |- G'']]$, $[[Cons(H, R, G'')]]$.
@@ -1432,11 +1433,14 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \end{align*}
     We thus have $[[Tq ~ Tp]]$.
     
-    We know that $[[Cons(H,R,G) ==> SAT(H,R,G) ==> y in R /\ SATv(H,R,R(y),G(y)) ]]$.
+    We know that $[[Cons(H,R,G) ]]$, from which we have $[[ SAT(H,R,G) ]]$, in particular
+    $[[ SATv(H,R,R(y),G(y) = T2 ref r2) ]]$ and $[[ SATv(H, R, R(x), G(x) + T1 ref r1) ]]$.
     From $[[Tp1 + Tp2 = Tp]]$ and \cref{lem:satadd}, we have
-    $[[SATv(H,R,v,Tp1) /\ SATv(H,R,v,Tp2) ==> SATv(H,R,v,Tp)]]$, where $[[v = H(R(y))=H(R(x))]]$.
-    Similarly, we also have $[[SATv(H,R,v,Tq) ==> SATv(H,R,v,Tq1) /\ SATv(H,R,v,Tq2)]]$, where $[[v = H(R(y))=H(R(x))]]$.
-    From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we then have $[[SATv(H,R,v,Tp) ==> SATv(H,R,v,Tq)]]$.
+    $[[SATv(H,R,v,Tp1)]]$ and $[[SATv(H,R,v,Tp2)]]$ imply $[[SATv(H,R,v,Tp)]]$, where $[[v = H(R(y))=H(R(x))]]$.
+    From $[[Tq ~ Tp]]$ and \cref{lem:sattosat}, we have that $[[SATv(H,R,v,Tp)]]$ implies $[[ SATv(H,R,v,Tq)]]$.
+    From \cref{lem:satadd} we also have that $[[SATv(H,R,v,Tq)]]$ implies $[[ SATv(H,R,v,Tq1) ]]$ and $[[ SATv(H,R,v,Tq2)]]$, where
+    again $[[v = H(R(y))=H(R(x))]]$.
+
     Then from the reasoning above, the refinements of $[[Tq1]]$ and $[[Tq2]]$ are valid and $[[Cons(H, R, G'')]]$ holds.
 
     Then, it's to show $[[forall a in H.Own(H, R, G'')(a) <= 1]]$.
