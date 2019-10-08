@@ -486,6 +486,7 @@ grammar
 	| d in D :: :: funDef {{ tex [[d]] \in [[D]] }}
 	| formula1 ... formulan :: :: dots
 	| EqT1 = ... = EqT2 :: :: equate
+	| EqT1 & = EqT2 :: :: eq_align {{ tex [[EqT1]] & = [[EqT2]] }}
 	| r1 <= ... <= r2 :: :: rel_list
 	| r1 = ... = r2 rel_op r3 :: :: own_rel_list
 	| EqT1 != EqT2 :: :: ineq {{ tex [[EqT1]] \neq [[EqT2]] }}

@@ -1181,10 +1181,23 @@ call cases respectively; we have separated them into separate lemmas for clarity
       [[O0']] &  = [[ |< {z in dom G \ {y}} own(H,R(z),Gp(z))]] \\
       [[O1']] & = [[ |< {z in dom G'' \ {y,x'}} own(H,R'(z'),G''(z')) ]]
     \end{align*}
-    By \cref{lem:heapop}, $[[O0' = O1']]$ holds.
-    From \cref{lem:ownadd}, we have $[[ own(H,v,T1+T2) ]] = [[ own(H,v,T1) ]] + [[ own(H,v,T2) ]]$, where $[[v = H(R(y))]]$.
-    We know that $[[R'(x')=H(R'(y))=H(R(y))]]$, so $[[ own(H,R'(x'),G''(x'))  = own(H,R'(x'),T2) ]]$, $[[ own(H,R(y),Gp(y)) = {a |-> r} + own(H,v,T1+T2) ]]$ and $[[ own(H,R'(y),G''(y)) = {a |-> r} + own(H,H(R'(y)),T1) ]]$,
-    so we have $[[own(H,R(y),G(y))=own(H,R'(y),G''(y))]]+ [[own(H,R'(x'),G''(x'))]]$, and conclude that $[[Own(H, R, G)=Own(H, R', G'')]]$.
+    By \cref{lem:heapop}, $[[O0' = O1']]$ holds. Then, it suffices to show that
+    $[[ own(H, R(y), Gp(y)) = own(H,R'(y),G''(y)) + own(H,R'(x'),G''(x')) ]]$.
+    
+    As $[[R'(x')=H(R'(y))=H(R(y))]]$ and from the definition of $[[ G'' ]]$, we have:
+    \begin{align*}
+      [[ own(H,R'(x'),G''(x')) & = own(H,H(R(y)),T2) ]] \\
+      [[ own(H,R'(y),G''(y)) & = {a |-> r} + own(H,H(R(y)),T1) ]] \\
+    \end{align*}
+    From the definition of the ownership function, we have that
+    \[
+      [[ own(H,R(y),Gp(y)) = {a |-> r} + own(H,H(R(y)),T1+T2) ]]
+    \]
+    which, by \cref{lem:ownadd}, is equivalent to:
+    \[
+      [[ {a |-> r} + own(H,H(R(y)),T1) + own(H,H(R(y)),T2) ]]
+    \]
+    We therefore have $[[own(H,R(y),G(y))=own(H,R'(y),G''(y))+ own(H,R'(x'),G''(x'))]]$, and conclude that $[[Own(H, R, G)=Own(H, R', G'')]]$.
   \end{rneqncase} % R-Deref
 
   \begin{rneqncase}{R-Seq}{
