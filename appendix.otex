@@ -198,39 +198,8 @@ handle the fact our typing rules are not syntax directed.
   If $[[ B |- G ]]$ and $[[ Th | G | B |- e : T => G' ]]$ then $[[ B |- T => G' ]]$.
 \end{lemma}
 \begin{proof}
-  By induction on the typing derivation of $[[e]]$; for economy of space, in the following we say
-  ``well-formedness'' to mean ``refinement well-formedness''.
-  \begin{namedcase}{\casefont{Cases \rn{T-LetInt}, \rn{T-Let}, \rn{T-Mkref}, \rn{T-Deref}, \rn{T-Call}, and \rn{T-Sub}: }}
-    Immediate from the precondition of the typing rule.
-  \end{namedcase}
-  \begin{namedcase}{\casefont{Cases \rn{T-Seq} and \rn{T-Assert}}}
-    From the inductive hypothesis.
-  \end{namedcase}
-  \begin{rncase}{T-If}
-    From the assumed well-formedness of $[[G(x)]]$ we must have that
-    \JT{Fix this weird typesetting}
-    $[[G(x) /\ x x = 0]]$ is well-formed (and similarly for
-    $[[x != 0]]$, and thus the inductive hypothesis gives the desired
-    result.
-  \end{rncase}
-
-  \begin{rncase}{T-Alias,T-AliasPtr}
-    From the assumed well-formedness of $[[T1']]$ and $[[T2']]$, we have that
-    we must have $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed.
-    Then the IH gives us the desired result.
-  \end{rncase}
-
-  \begin{rncase}{T-Assign}
-    From the assumed well-formedness of $[[T1 + T2]]$ we have that
-    $[[ T1 /\ y y = T1 x ]]$ is well formed (as $[[x]]$ must be bound
-    in $[[G]]$) and so is $[[T2]]$. Then the inductive hypothesis gives
-    the desired result.
-  \end{rncase}
-
-  \begin{rncase}{T-Var}
-    From the assumed well-formedness of $[[ T1 + T2 ]]$, $[[ B |- T2 => G[x <- T1] ]]$
-    is clearly well-formed.
-  \end{rncase}
+  By induction on the typing derivation of $[[e]]$, that well-formed types split with $+$ remain well-formed,
+  and that the strengthening operation preserves well-formedness.
 \end{proof}
 
 \begin{lemma}[Inversion] % L14
