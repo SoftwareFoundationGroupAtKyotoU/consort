@@ -215,10 +215,9 @@ handle the fact our typing rules are not syntax directed.
   \end{rncase}
 
   \begin{rncase}{T-Alias,T-AliasPtr}
-    From the assumed well-formedness of $[[T1 ref r1]]$ and $[[T2 ref r2]]$, we have that
-    $[[ T1 ref r1 + T2 ref r2 ]]$ is well-formed, and thus from the definition of $[[~]]$,
-    $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed. Then the IH gives us the desired
-    result.
+    From the assumed well-formedness of $[[T1']]$ and $[[T2']]$, we have that
+    we must have $[[ T2' ref r2' ]]$ and $[[ T1' ref r1']]$ are well-formed.
+    Then the IH gives us the desired result.
   \end{rncase}
 
   \begin{rncase}{T-Assign}
@@ -607,9 +606,12 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   If $[[T1 ~ T2]]$, then $[[SATv(H,R,v,T1) <=> SATv(H,R,v,T2)]]$.
 \end{lemma}
 \begin{proof}
-  The forward case follows from straightforward induction on $[[T1 ~ T2]]$
-  and from the observation that if $[[|= ph1 <=> ph2]]$ then $[[|= [R][v/x]ph1 <=> [R][v/x]ph2]]$. The
-  backwards case follows by symmetric reasoning.
+  We prove the forward case by induction on $[[ empty |- T1 <: T2 ]]$ as implied by
+  $[[ T1 ~ T2 ]]$. The inductive case follows from the IH, and the base case
+  where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2}]]$ follows
+  from $[[ ph1 ==> ph2 ]]$ holding under any valuation of variables.
+
+  The backwards case follows similar reasoning by induction on $[[ empty |- T2 <: T1 ]]$.
 \end{proof}
 
 \begin{lemma} % L12
@@ -617,7 +619,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   If $[[ T1 ~ T2]]$, then $[[ own(H,v,T1) = own(H,v,T2)]]$.
 \end{lemma}
 \begin{proof}
-  Straightforward induction on $[[T1 ~ T2]]$.
+  By reasoning similar to that in \cref{lem:sattosat}.
 \end{proof}
 
 \begin{lemma} % L11

@@ -374,37 +374,16 @@ such refinements at the cost of some expressiveness in our type system.
   \label{fig:intra-type}
 \end{figure}
 
-\begin{figure}
-  \scriptsize
+\begin{figure}[t]
   \leavevmode
-    \infrule[T-Assign]{
-    (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
-    [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : T => G']] \\
-  }{
-    [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
+  \infax[Tadd-Int]{
+    [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]]
   }
-  \infrule[T-Alias]{
-    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
-    [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
-  }{
-    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
+  \infax[Tadd-Ref]{
+    [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
   }
-  \infrule[T-AliasPtr]{
-    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
-    [[ Th | G[x <- T1' ref r1][y <- (T2' ref r2') ref r] | B |- e : T => G' ]]
-  }{
-    [[ Th | G[x : T1 ref r1][y: (T2 ref r2) ref r] | B |- alias(x = *y); e : T => G' ]]
-  }
-  \infrule[T-Sub]{
-    [[ G <: G' ]] \andalso
-    [[ Th | G' | B |- e : T => G'' ]] \andalso
-    [[ G'',T <: G''',T' ]] \\
-    [[ B |- G' ]] \andalso [[ B |- T' => G''' ]]
-  }{
-    [[ Th | G | B |- e : T' => G''' ]]
-  }
-  \caption{Pointer manipulation and subtyping}
-  \label{fig:pointer-typing}
+  \caption{Rules for $[[ T1 + T2 ]]$.}
+  \label{fig:addition}
 \end{figure}
 
 \subsection{Intraprocedural Type System}
@@ -435,18 +414,6 @@ and $[[Th]]$ is a finite map from function names to function types.
   higher-order functions; all arguments are bound simultaneously
   in our abstract semantics.
 \end{remark}
-
-\begin{figure}[t]
-  \leavevmode
-  \infax[Tadd-Int]{
-    [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]]
-  }
-  \infax[Tadd-Ref]{
-    [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
-  }
-  \caption{Rules for $[[ T1 + T2 ]]$.}
-  \label{fig:addition}
-\end{figure}
 
 The typing rules in \cref{fig:intra-type} handle the relatively
 standard features in our language. The most noteworthy feature is the
@@ -530,6 +497,76 @@ This intuition forms the foundation of our
 soundness claim (\cref{sec:soundness}).
 \AI{We could allow an assertion $[[ph]]$ to mention $[[ B ]]$.}
 
+\begin{figure}[t]
+  \scriptsize
+  \leavevmode
+    \infrule[T-Assign]{
+    (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
+    [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : T => G']] \\
+  }{
+    [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
+  }
+  \infrule[T-Alias]{
+    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
+    [[ G | B |- T2' ]] \andalso [[ G | B |- T1' ]] \\
+    [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
+  }{
+    [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
+  }
+  \infrule[T-AliasPtr]{
+    [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
+    [[ G | B |- T2' ]] \andalso [[ G | B |- T1' ]] \\
+    [[ Th | G[x <- T1' ref r1][y <- (T2' ref r2') ref r] | B |- e : T => G' ]]
+  }{
+    [[ Th | G[x : T1 ref r1][y: (T2 ref r2) ref r] | B |- alias(x = *y); e : T => G' ]]
+  }
+  \infrule[T-Sub]{
+    [[ G <: G' ]] \andalso
+    [[ Th | G' | B |- e : T => G'' ]] \andalso
+    [[ G'',T <: G''',T' ]] \\
+    [[ B |- G' ]] \andalso [[ B |- T' => G''' ]]
+  }{
+    [[ Th | G | B |- e : T' => G''' ]]
+  }
+  \begin{center}
+    $[[ T1 ~ T2]]$ iff $[[ empty |- T1 <: T2  ]]$ and $[[ empty |- T2 <: T1 ]]$.
+  \end{center}
+  \caption{Pointer manipulation and subtyping}
+  \label{fig:pointer-typing}
+\end{figure}
+
+\begin{figure}[t]
+  \leavevmode
+  \bcprulessavespacetrue
+  \begin{center}
+  \infrule[Sub-Int]{
+  [[G |= ph1 ==> ph2]]
+  }{
+   [[G |- {nu:int|ph1} <: {nu:int|ph2}]]
+  }
+  \infrule[Sub-Ref]{
+    [[r1 >= r2]]
+    \andalso
+    [[ G |- T1 <: T2 ]]
+  }{
+    [[ G |- T1 ref r1 <: T2 ref r2 ]]
+  }
+  \infrule[Sub-TyEnv]{
+    [[ forall x in G'.G|- G(x) <: G'(x) ]]
+  }{
+    [[ G <: G' ]]
+  }
+  \infrule[Sub-Result]{
+    [[G,x:T <: G',x:T']] \andalso [[ x not in dom G ]]
+  }{
+    [[G,T <: G,T']]
+  }
+  \end{center}
+  \bcprulessavespacefalse
+  \caption{Rules for subtyping.}
+  \label{fig:subtyping}
+\end{figure}
+
 \paragraph{Destructive Updates, Aliasing, and Subtyping}
 We now discuss the handling of assignment, aliasing annotations,
 and subtyping as described in \cref{fig:pointer-typing}.
@@ -560,23 +597,6 @@ thus by well-formedness have the $[[Top]]$ refinement.
   \end{lstlisting}
 \end{example}
 
-\begin{figure}
-  \leavevmode
-  \infrule[TEq-Ref]{
-    [[T1 ~ T2]] \andalso [[r1]] = [[r2]]
-  }{
-    [[T1 ref r1 ~ T2 ref r2]]
-  }
-
-  \infrule[TEq-Int]{
-    [[|= ph1 <=> ph2]] \andalso [[ FPV(ph1) = FPV(ph2) ]] \andalso [[ FPCV(ph1) = FPCV(ph2) ]]
-  }{
-    [[ {nu:int | ph1} ~ {nu:int | ph2} ]]
-  }
-  \caption{Rules for type equality}
-  \label{fig:equality}
-\end{figure}
-
 As described thus far, the type system is quite strict: if ownership
 has been completely transferred from one reference to another, the
 refinement information found in the original reference is effectively useless.
@@ -593,8 +613,9 @@ two fresh types $[[T1' ref r1']]$ and $[[T2' ref r2']]$ to the two operand point
 The choice of $[[T1']], [[r1']], [[T2']]$, and $[[r2']]$ is left open,
 provided that the sum of the new types, $[[(T1' ref r1') + (T2' ref r2')]]$ is
 equivalent (denoted $[[~]]$) to the sum of the original types.
-Formally, $[[~]]$ is defined as the least relation closed under
-the rules show in \cref{fig:equality}.
+Formally, $[[~]]$ is defined as in \cref{fig:pointer-typing}; it implies
+that any refinements in the two types must be logically equivalent and
+that ownerships must also be equal.
 This redistribution is sound precisely because the two references are
 assumed to alias; the total ownership for the single memory cell pointed
 to by both references cannot be increased by this shuffling. Further,
@@ -642,34 +663,6 @@ that only a small number of annotations are required for real-world programs.
   that transferring all ownership from $[[y]]$ to $[[x]]$ would also yield a
   valid typing.
 \end{example}
-
-\begin{figure}
-\leavevmode
-\infrule[Sub-Int]{
-  [[G |= ph1 ==> ph2]]
-  }{
-   [[G |- {nu:int|ph1} <: {nu:int|ph2}]]
-  }
-  \infrule[Sub-Ref]{
-    [[r1 >= r2]]
-    \andalso
-    [[ G |- T1 <: T2 ]]
-  }{
-    [[ G |- T1 ref r1 <: T2 ref r2 ]]
-  }
-  \infrule[Sub-TyEnv]{
-    [[ forall x in G'.G|- G(x) <: G'(x) ]]
-  }{
-    [[ G <: G' ]]
-  }
-  \infrule[Sub-Result]{
-    [[G,x:T <: G',x:T']] \andalso [[ x not in dom G ]]
-  }{
-    [[G,T <: G,T']]
-  }
-  \caption{Rules for subtyping.}
-  \label{fig:subtyping}
-\end{figure}
 
 Finally, we describe the subtyping rule. The rules for subtyping types
 and environments are shown in \cref{fig:subtyping}. For base integer types,
