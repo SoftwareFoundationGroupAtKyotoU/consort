@@ -625,17 +625,22 @@ that only a small number of annotations are required for real-world programs.
 
 \begin{example}[Shuffling Mutability]
   \label{exmp:shuffle-example}
+  The following program uses two live, aliased references to mutate the same memory location:
   \begin{lstlisting}
     let x = mkref 0 in
     let y = x in (
-    x := 1;
-    alias(x = y);
-    y := 2;
-    alias(x = y);
-    assert(*x = 2)
+      x := 1; alias(x = y); // $\color{comment-green}{[[x:{nu:int|nu = 0} ref 1,y:top1]]}$
+      y := 2; alias(x = y); // $\color{comment-green}{[[x:top1,y:{nu:int|nu = 1} ref 1]]}$
+      assert(*x = 2) // $\color{comment-green}{[[x:{nu:int|nu = 2} ref 0.5,y:{nu:int|nu=2} ref 0.5]]}$
     )
   \end{lstlisting}
-  \JT{todo: write something here}
+  The types shown in the comments give the type environment under
+  which the first statement on the line is typed. After the first aliasing
+  statement the type system shuffles the (exclusive) mutability between $[[x]]$
+  and $[[y]]$ to enable write to $[[y]]$. After the second aliasing statement
+  the ownership in $[[y]]$ is split with $[[x]]$; notice
+  that transferring all ownership from $[[y]]$ to $[[x]]$ would also yield a
+  valid typing.
 \end{example}
 
 \begin{figure}
