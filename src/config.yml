@@ -6,5 +6,10 @@ consort_bench:
   - { name: "Array-List", path: "positive-tests/arrays/array_list_loop.imp" }
   - { name: "Sorted-List", path: "positive-tests/recursive-tests/sorted-list-test-nondet.imp" }
   - { name: "Shuffle", path: "positive-tests/swapping.imp" }
-  - { name: "Mutable-List", path: "positive-tests/recursive-tests/simple-list.imp" }
+  - { name: "Mutable-List", path: "positive-tests/recursive-tests/simple-list-nondet.imp" }
   - { name: "Array-Inv", path: "positive-tests/arrays/array_rec.imp" }
+consort_neg_bench:
+  - { name: "Array-List-BUG", path: "negative-tests/arrays/array_list_BAD.e-imp" }
+  - { name: "Sorted-List-BUG", path: "negative-tests/recursive-tests/sorted-list-test-nondet-BAD1.imp" }
+  - { name: "Mutable-List-BUG", path: "negative-tests/recursive-tests/simple-list_BAD.imp" }
+  - { name: "Array-Inv-BUG", path: "negative-tests/arrays/array_rec_BAD.imp" }

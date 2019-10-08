@@ -198,6 +198,7 @@ def run_jayhorn_bench(config):
     assert all([e.startswith("Unsat") for e in unsat ])
     build_consort(config["consort"])
     if os.path.isfile("/tmp/jayhornv.yml"):
+        print "Using cached results, be sure this isn't the final paper run..."
         with open("/tmp/jayhornv.yml", 'r') as y:
             sat_result, unsat_result = yaml.load(y)
     else:
@@ -218,13 +219,11 @@ def run_jayhorn_bench(config):
         with open("/tmp/jayhornv.yml", 'w') as o:
             yaml.dump((sat_result, unsat_result), o)
     stats = collect_test_stats(config, consort_imp, sat, unsat, fail, trivial)
-    with open("/tmp/scratch.yml", 'w') as o:
-        yaml.dump((sat_result, unsat_result, stats), o)
     return (sat_result,unsat_result,stats)
 
-def run_consort_bench(config):
+def run_consort_bench(config, bench_name):
     consort_res = []
-    for l in config["consort_bench"]:
+    for l in config[bench_name]:
         f = l["path"]
         if not os.path.isabs(f):
             f = os.path.join(config["path"], f)
@@ -251,9 +250,10 @@ def main(args):
         config["timeout"] = 60
     config["path"] = os.path.dirname(args.config)
     jayhorn_results = run_jayhorn_bench(config)
-    consort_results = run_consort_bench(config)
+    consort_results = run_consort_bench(config, "consort_bench")
+    consort_neg_results = run_consort_bench(config, "consort_neg_bench")
     with open(args.output, 'w') as f:
-        yaml.dump({"jayhorn": jayhorn_results, "consort": consort_results }, f)
+        yaml.dump({"jayhorn": jayhorn_results, "consort": { "pos": consort_results, "neg": consort_neg_results }}, f)
     return 0
 
 if __name__ == "__main__":
