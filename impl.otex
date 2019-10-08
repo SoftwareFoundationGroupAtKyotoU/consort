@@ -183,9 +183,13 @@ $[[ ((M alpha. T ref r2)) ref r2 ref r1 ]]$.
 As in Java or C++, our language does not support sum types,
 and thus any instantiation of a recursive type must use a null pointer.
 Our implementation therefore supports an \lstinline{ifnull} construct
-and a distinguished null constant. At present, our implementation
-does \emph{not} detect null pointer dereferences, and all soundness
-guarantees are made modulo freedom of null dereferences.
+and a distinguished null constant. Our implementation allows any refinement
+to hold for the null constant, including $\bot$. Currectly, our implementation
+currently does \emph{not} detect null pointer dereferences, and all soundness
+guarantees are made modulo freedom of null dereferences. However, as $[[ [G] ]]$
+omits the refinements on  reference type variables, such refinements cannot lead to
+spurious verification of programs that are free of null pointer dereferences.
+\JT{This still seems insufficient...}
 
 \paragraph{Arrays}
 Our implementation supports arrays of integers. Each array is given
