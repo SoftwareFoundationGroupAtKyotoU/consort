@@ -32,7 +32,7 @@ The programs included in this suite are:
 \end{itemize}
 
 For our second benchmark suite, we adapted the benchmark suite
-of JayHorn \needcite, a verification tool suite for Java.
+of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool suite for Java.
 This test suite contains 82 safe and unsafe programs written in
 Java. We chose this benchmark suite as, like \name, JayHorn
 is concerned with the automated, flow-sensitive verification of
@@ -69,7 +69,7 @@ were unsafe. \JT{Actually do this experiement}
     \input{jayhorn_table}
     \input{consort_table}
   \end{center}
-  \caption{Comparison of \name to JayHorn on the benchmark set of ...}
+  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified}.}
   \label{tab:jh-results}
 \end{table}
 

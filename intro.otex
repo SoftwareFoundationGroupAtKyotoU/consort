@@ -127,7 +127,7 @@ complex programs, including sorted lists and an array list data structure.
 
 The rest of this paper is organized as follows. \cref{sec:prelim} defines the
 imperative language targeted by \name and defines its semantics. \cref{sec:typesystem}
-provides a brief overview on the ownership type system of \cref{suenaga2009fractional},
+provides a brief overview on the ownership type system of \cite{suenaga2009fractional},
 defines our type system, and provdes our soundness statement. \cref{sec:infr} outlines
 the inference process used by our inference tool and its current limitations.
 \cref{sec:eval} describes an initial evaluation of our prototype, \cref{sec:rw} outlines

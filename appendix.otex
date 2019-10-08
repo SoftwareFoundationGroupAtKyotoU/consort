@@ -391,7 +391,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
     \item If $[[ A |- T => G ]]$ then $[[ ll |- [ll/A] T => [ll/A]G ]]$
     \end{enumerate}
   \item \label{itm:ctxt-sub-subtype} For any $[[G]]$, $[[T1]]$, $[[T2]]$, $[[A]]$ and $[[ll]]$, If $[[ G |- T1 <: T2 ]]$, then $[[ [ll/A]G |- [ll/A]T1 <: [ll/A]T2 ]]$
-  \item If $[[ Th | G | A |- e : T => G' ]]$ then $[[ Th | [ ll / A ] G | ll |- e : [ ll / A ] T => [ ll / A ] G' ]]$
+  \item \label{itm:ctxt-subst-well-typed} If $[[ Th | G | A |- e : T => G' ]]$ then $[[ Th | [ ll / A ] G | ll |- e : [ ll / A ] T => [ ll / A ] G' ]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}\leavevmode
@@ -1019,7 +1019,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
   To prove the first part, from the well-typing of the function body, we have
   $[[ Th | x1:T1,,xn:Tn | A |- e : Tq => x1:T1',,xn:Tn' ]]$.
   From our assumption that all variable names are distinct,
-  by $n$ applications of the substituion lemma \cref{lem:substituion} we have:
+  by $n$ applications of the substituion lemma (\cref{lem:substitution}) we have:
   $[[ Th | y1:vsub T1,,yn:vsub Tn | A |- vsub e : vsub Tq => y1:vsub T1',,yn:vsub Tn']]$.
   By \subref{lem:ctxt-substitution}{itm:ctxt-subst-well-typed} we then have
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
