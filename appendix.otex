@@ -538,6 +538,20 @@ substituting a well-typed expression matching a context's hole type yields a wel
   By straightforward induction of typing rules.
 \end{proof}
 
+We now prove that if every variable satisfies its refinement in a type environment $[[ G ]]$,
+we must have $[[ |= [R][G] ]]$.
+
+\begin{lemma}
+  \label{lem:sat-implies-gamma}
+  If $[[ SAT(H, R, G) ]]$ then $[[ |= [R][G] ]]$.
+\end{lemma}
+\begin{proof}
+  To show $[[ |= [R][G] ]]$, it suffices to show that for any $[[ x in dom G ]]$ where $[[ G(x) = { nu:int|ph } ]]$
+  $[[ |= [R] [x/nu]ph ]]$ holds. From $[[ SAT(H, R, G) ]]$, we must have $[[ SATv(H, R, R(x), G(x)) ]]$, whereby
+  we have $[[ R(x) is INT ]]$ and $[[ [R][R(x)/nu]ph ]]$. As $[[ [R][x/nu]ph ]]$ is equivalent to $[[ [R][R(x)/nu]ph ]]$,
+  and we have the desired result.
+\end{proof}
+
 % PROPERTIES OF SUBTYPING
 
 We prove that subtyping preserves the consistency relation in the following sense.
@@ -558,7 +572,7 @@ We prove that subtyping preserves the consistency relation in the following sens
   \begin{enumerate}
   \item By induction on $[[G |- G(x) <: G'(x)]]$.
   \item Direct consequence of 1.
-  \item From $[[Cons(H,R,G)]]$ we have $[[SAT(H,R,G)]]$ which implies $[[ |= [R][G] ]]$.
+  \item From $[[Cons(H,R,G)]]$ we have $[[SAT(H,R,G)]]$ which by \cref{lem:sat-implies-gamma} we have $[[ |= [R][G] ]]$.
     We now proceed by induction on $[[G |- T <: T']]$.
     \begin{eqncase}{
         [[T = {nu:int |ph}]] & [[T' = {nu:int|ph'}]] \\
@@ -883,9 +897,9 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     We now prove the relevant cases.
 
     \begin{rneqncase}{T-Let}{
-        [[ Th | G | B |- let x = y in e : T => G' ]] & [[ G(y) = T1 + T2 ]] \\
-        [[ Th | G[y <- T1 /\ y y = T1 x],x: T2 /\ x x = T2 y | B |- e : T => G' ]] & [[ x not in dom G' ]] \\
-        [[ B |- T => G' ]]
+        [[ Th | G | B |- let x = y in e : T => G' ]] \\
+        [[ Th | G[y <- T1 /\ y y = T1 x],x: T2 /\ x x = T2 y | B |- e : T => G' ]] \\
+        [[ G(y) = T1 + T2 ]] \andalso [[ x not in dom G' ]] \andalso [[ B |- T => G' ]]
       }
       We assume that the variable $[[x]]$ is not in the domain of $[[ G'' ]]$,
       this requirement can be enforced with consistent renaming if necessary.
@@ -1492,12 +1506,11 @@ $ and $[[ Th | G | ll |- e : T => G' ]]$, and
     By inversion (see the \rn{R-Deref} case) we have that
     $[[ G |= ph ]]$, i.e., $[[ |= [G] ==> ph ]]$,
     for some $[[G]]$ such that $[[Cons(H,R,G)]]$ and
-    $[[ ll |- G ]]$. We therefore have $[[ |= [R][G] ]]$.
+    $[[ ll |- G ]]$. From \cref{lem:sat-implies-gamma} we therefore have $[[ |= [R][G] ]]$.
     From the precondition of \rn{R-AssertFail} we have that
     $[[  !|= [R]ph ]]$. But from $[[ |= [G] ==> ph ]]$ and $[[ |= [R][G] ]]$
     we can conclude that $[[ |= [R]ph ]]$, yielding a contradiction.
     We therefore conclude that this case is impossible.
-    \AI{Maybe we should state ``$[[SAT(H,R,G)]]$ implies $[[ |= [R][G] ]]$'' as a separate lemma.}
   \end{rneqncase} % R-AssertFail
   
   \begin{rneqncase}{R-Call}{
