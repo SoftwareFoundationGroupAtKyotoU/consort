@@ -221,7 +221,7 @@ handle the fact our typing rules are not syntax directed.
   \end{rncase}
 
   \begin{rncase}{T-Assign}
-    From the assumed well formedness of $[[T1 + T2]]$ we have that
+    From the assumed well-formedness of $[[T1 + T2]]$ we have that
     $[[ T1 /\ y y = T1 x ]]$ is well formed (as $[[x]]$ must be bound
     in $[[G]]$) and so is $[[T2]]$. Then the inductive hypothesis gives
     the desired result.
@@ -819,6 +819,23 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   the induction hypothesis.
 \end{proof}
 
+\begin{lemma}[Heap Extension Ownership Preservation]
+  \label{lem:ownaddheap}
+  If $[[ SATv(H, R, v, T) ]]$, then for any $[[ a not in dom H ]]$
+  $[[ own(H, v, T) = own(H { a |-> v' }, v, T) ]]$ for any value $[[ v' ]]$.
+\end{lemma}
+\begin{proof}
+  By induction on $[[ T ]]$. The base case is trivial as $[[ own(H, v, {nu:int|ph}) = empty = own(H { a |-> v }, v, {nu:int|ph}) ]]$.
+  We therefore consider the case where $[[ T = T' ref r ]]$.
+
+  From $[[ SATv(H, R, v, T) ]]$ we must have that $[[ v = a' ]]$ and
+  $[[ a' in dom H ]]$ (and by extension $[[ a' in dom H { a |-> v' } ]]$).
+  From the definition of the ownership function, we have that $[[ own(H, v, T) = own(H, H(a), T') + { a' |-> r } ]]$.
+  and $[[ own(H { a |-> v' }, v, T) = own(H { a |-> v' }, H { a |-> v' }(a'), T') + { a' |-> r } ]]$
+  Then from our requirement that  $[[ a not in dom H ]]$, we have $[[ a != a' ]]$ and therefore
+  $[[ H(a') = H{ a |-> v' } (a') ]]$, whereby the result holds from the inductive hypothesis.
+\end{proof}
+
 \begin{lemma}[Environment Weakening] % L27
   \label{lem:tyenv-weaken}
   \AI{Haven't really checked the proof (yet).  The statement is similar to
@@ -1284,15 +1301,12 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We then have $[[ SATv(H',R',R'(x'),T2 ref 1) ]]$ and $[[ SATv(H',R',R'(y),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
-    Then, it's to show $[[forall a' in H.Own(H',R',G'')(a') <= 1]]$. We have:
+    Then, it's to show $[[forall a' in H.Own(H',R',G'')(a') <= 1]]$. From $[[ Cons(H, R, G) ]]$ and \cref{lem:ownaddheap,lem:ownadd} we have:
     \begin{align*}
       [[Own(H', R', G'')]] & = [[|< {z in dom G''} own(H',R'(z),G''(z))]] \\
              & = [[ |< {z in dom G} own(H,R(z),G(z)) + {a |->  1}]] \\
-             & = [[Own(H, R, G) + {a |-> 1}]] .
+             & = [[Own(H, R, G) + {a |-> 1}]]
     \end{align*}
-    \AI{It seems that we are using Lemma 15 on the way.}
-    \JT{We're actually using another property, that adding a heap binding doesn't effect ownership. To be safe,
-      let's prove another lemma}
 
     Since $[[a not in H]]$ and $[[forall a' in H.Own(H,R,G)(a') <= 1]]$,
     we have $[[forall a' in H.Own(H',R',G'')(a') <= 1]]$.  \AI{Right?  Then, the following paragraph is not needed.}
@@ -1328,7 +1342,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     then, by \cref{lem:heapfor0}, we will obtain $[[ SATv(H',R,R(x),T1+T2) ]]$,
     from which, by \cref{lem:satadd},
     $[[ SATv(H',R,R(x),T1) ]]$ and $[[ SATv(H',R,R(x),T2) ]]$ follow.
-    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ as $[[H'(R(y)) = R(x) ]]$.
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ as $[[H'(R(y)) = R(x) ]]$.a
 
     To show $[[own(H, R(x), T1 + T2)(a)=0]]$, 
     we define $[[O0']], [[O0'']], [[O1']]$ and $[[O1'']]$ as below:
@@ -1418,7 +1432,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
       & [[ Cons(H,R,G) ]] \andalso [[ ll |- G ]]
     \end{align*}
     We give $[[ G'' = G[x <- T1' ref r1'][y <- T2' ref r2'] ]]$, and must show
-    $[[ Th | G'' | ll |- e : T => G' ]]$, $[[ ll |- G'']]$, $[[Cons(H, R, G'')]]$.
+    $[[ Th | G'' | ll |- e : T => G' ]]$, and $[[ ll |- G'']]$, $[[Cons(H, R, G'')]]$.
     The first is immediate, and the second follows from the definition of $[[~]]$ and the
     assumed well-formedness of $[[ T1 ]]$ and $[[ T2 ]]$.
     
