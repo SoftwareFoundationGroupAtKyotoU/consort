@@ -84,7 +84,7 @@ refinement cannot exist when an update occurs.
       \text{\footnotesize Context Variables} & \CVar & ::= & [[A1]], [[A2]], \ldots \\
       \text{\footnotesize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
       \text{\footnotesize Parameterized Context} & [[ plhs ]] & ::= & [[ ll ]] \mid [[ ll A ]] \\
-      \text{\footnotesize Context Query Predicates} & [[CQP]] & ::= & [[ plhs != ll ? ]] \mid [[ plhs = ll ? ]] \\
+      \text{\footnotesize Context Query Predicates} & [[CQP]] & ::= & [[ plhs = ll ? ]] \\
       \text{\footnotesize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
     \end{array}
   \]

@@ -164,9 +164,10 @@ We first prove that the subtyping relations are transitive.
     By inversion on $[[ G |- T2 <: T3 ]]$ we therefore have:
     
     \begin{bcpcasearray}
-      [[ T3 = { nu:int|ph3}]] & \\      
+      [[ T3 = { nu:int|ph3}]] & \\
       [[ |= [G] /\ ph1 ==> ph2 ]] & [[ |= [G] /\ ph2 ==> ph3 ]]
     \end{bcpcasearray}
+    
     From which it is immediate that we must have $[[ |= [G] /\ ph1 ==> ph3 ]]$, whereby by \rn{Sub-Int} we can derive $[[ G |- T1 <: T3 ]]$.
   \item By induction on $[[ G |- T1 <: T2 ]]$. The case for reference types is immediate from the inductive hypothesis, we focus
     on the base case where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2 } ]]$, and where $[[ |= [G'] /\ ph1 ==> ph2 ]]$.
