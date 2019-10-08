@@ -1118,16 +1118,17 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \end{align*}
     Using \cref{lem:inversion}, we have some $[[Gp]]$, $[[Gp']]$ and $[[Tp]]$ such
     that:
-    \begin{mathpar}
-      [[ G0 <: Gp ]] \and [[ Gp',Tp <: G0',T ]] \and
-      [[ ll |- Gp ]] \and [[ Gp(y) = (T1 + T2) ref r ]] \and
-      [[ ll |- T => G0' ]] \and [[ x not in Gp' ]] \and
-      [[ Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp' ]] \and
+    
+    \begin{bcpcasearray}
+      [[ G0 <: Gp ]] \andalso [[ ll |- Gp ]] \andalso [[ Gp',Tp <: G0',T ]] \andalso [[ ll |- T => G0' ]] \\
+      [[ Gp(y) = (T1 + T2) ref r ]] \andalso [[ x not in Gp' ]] \\
+      [[ Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp' ]]  \\
       [[T'' ]] = \begin{cases}
-          [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
-          [[T1]] & [[r = 0]]
-        \end{cases}
-    \end{mathpar}
+        [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
+        [[T1]] & [[r = 0]]
+      \end{cases}
+    \end{bcpcasearray}
+    
     From \cref{lem:subtyp-preserves-cons}, we then have $[[Cons(H,R,Gp)]]$.
     We will now show that:
     \begin{align}

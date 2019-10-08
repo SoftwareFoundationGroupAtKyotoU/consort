@@ -20,7 +20,6 @@
 \usepackage{amssymb}
 \usepackage{stmaryrd}
 \usepackage{parcolumns}
-\usepackage{mathpartir}
 \usepackage{cases}
 \usepackage{listings}% http://ctan.org/pkg/listings
 \usepackage{etoolbox}
