@@ -2,12 +2,13 @@
 \label{sec:intro}
 Driven by the increasing power of automated theorem provers,
 fully automated program verification has seen a surge of interest
-in recent years \needcite. \iffalse For example, automated program \emph{verification}
-has been applied in the fields ... \needcite\fi
-In particular, refinement type systems have been shown to be a practical
-approach for program verification which is amenable
-to automatic inference, an extremely desirable property
-for program verification \needcite[liquid haskell, liquid types, ...].
+in recent years \needcite.
+In particular, refinement type systems \cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement}
+have been shown to be a practical
+approach for program verification and are amenable
+to automatic type inference and verification
+\cite{rondon2008liquid,vazou2014refinement,vazou2013abstract},
+an extremely desirable property for program verification.
 However, even state of the art automated program verifiers (including
 refinement type systems) struggle in settings with mutable, aliased references
 and heaps of unbounded size. Most such type systems Given the wide deployment
@@ -30,13 +31,14 @@ not only affect the invariants of the static name of the updated memory location
 (e.g., the name of the pointer being updated) but the invariants on other pieces
 of program state.
 Handling such updates would be straightforward given perfect aliasing information, but it is
-undecidable whether two pointers must- or may-alias \needcite. As a compromise,
+undecidable whether two pointers must- or may-alias \cite{ramalingam1994undecidability}. As a compromise,
 static verifiers often resort to over-approximate aliasing information,
 and \emph{weakly update} the invariants of all memory locations that may-alias according
 to the approximation. Weak updates adversely affect precision, as the automated verifier
 cannot tell whether the old or new invariant holds at the weakly updated location.
 
-A related approach employed by some static verifiers/analyses \needcite[Jayhorn, Ltll]
+A related approach employed by some static verifiers/analyses
+\cite{kahsai2016jayhorn,kahsai2017quantified,rondon2010low,chugh2012dependent}
 is to model the heap explicitly and bound the size heap size
 by employing \emph{summary locations} to represent many possible
 concrete memory locations. However, as summary locations do not correspond
@@ -52,7 +54,7 @@ of imperative languages with mutability and aliasing.  Critically,
 \name does not make the tradeoffs described above, and
 supports strong updates of mutable memory even in the presence of aliasing.
 Our type system is supports these strong updates via the synthesis of
-refinement types \needcite and fractional ownership types
+refinement types and fractional ownership types
 \cite{suenaga2009fractional,suenaga2012type}.  Fractional ownership
 types attach an \emph{ownership} in the range $[0,1]$
 to every reference type constructor. These ownerships represent
@@ -74,15 +76,16 @@ aliased references as all refinement information on such aliases
 must have been discarded in place of the $[[Top]]$ refinement.
 \name may later propagate (potentially updated) refinement information
 from a mutable reference to its aliases, provided the mutable reference
-also divides its exclusive ownership with those aliases. Much
-like mutable borrows in languages like Rust, ownerships
+also divides its exclusive ownership with those aliases, i.e., the exclusive
+ownership of the reference must be consumed. Much
+like mutability in languages like Rust, ownerships
 behave linearly, and programs are forbidden from synthesizing ownership
 information ``from thin air'', protecting our critical invariant.
-However, unlike Rust and other languages that use region based ownership or
-borrow information \needcite[cyclone et al.], \name supports
-\emph{fine-grained, per-statement} tracking of aliases. In particular,
-references may gain and lose mutability throughout their lifetime. This
-feature is particularly critical for the verification of programs
+However, unlike Rust and other languages that use lexical region based ownership
+information \cite{grossman2002region,jim2002cyclone,matsakis2014rust,tofte1994implementation},
+\name supports \emph{fine-grained, per-statement} ownership tracking.
+In particular, references may gain and lose mutability during program execution.
+This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
 
 \begin{figure}[t]

@@ -111,7 +111,7 @@ The base types of our type system are integers that are refined with a
 predicate $[[ph]]$.  The language of predicates is built using the
 standard logical connectives of first-order logic,
 with (in)equality between variables and integers, and atomic predicate symbols
-$[[pfun]]$ as the basic atoms. As is standard \needcite,
+$[[pfun]]$ as the basic atoms. As is standard,
 we include a special ``value'' variable $[[nu]]$, which represents the
 value being refined by the predicate. For simplicity, we omit the
 connectives $[[ ph /\ ph ]]$ and $[[ ph ==> ph ]]$; they can be written

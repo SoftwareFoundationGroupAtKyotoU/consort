@@ -75,9 +75,10 @@ and then sent to an automated solver. Due to recursion,
 the above constraints may be recursive, so we use a
 constrained horn clause \needcite solver to solve the generated constraints.
 Our implementation generates the above constraints in the industry standard
-SMT-Lib2 format \needcite, so any solver that understands
+SMT-Lib2 format \cite{BarFT-SMTLIB}, so any solver that understands
 this format can be used as a backend for \consort. Our implementation
-currently supports Spacer \needcite (part of the Z3 solver \needcite) and HoICE \needcite
+currently supports Spacer \cite{komuravelli2013automatic} (part of the Z3 solver \cite{de2008z3}),
+HoICE \cite{champion2018hoice}, and Eldarica \cite{rummer2013disjunctive}
 (adding a new backend requires only a handful of lines of ML glue code).
 
 \subsubsection{Encoding Context Sensitivity}
