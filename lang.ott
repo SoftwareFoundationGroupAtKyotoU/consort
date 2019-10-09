@@ -201,6 +201,7 @@ grammar
   pval {{ tex \widehat{v} }} :: 'LV_' ::= 
   	| pvar :: :: var
     | Rv :: :: concr_value
+	| pval1 + pval2 :: :: addition
 
   csub {{ tex \sigma_{\alpha} }} :: 'C_' ::= {{ com context sub }}
   	| [ B / A ] :: M :: subst_ctxt

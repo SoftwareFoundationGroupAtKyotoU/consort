@@ -128,10 +128,11 @@ Instead, we assume any set of primitive operations
 used in a program are given sound function types in $[[Th]]$.
 For example, under the assumption that $+$ has its usual semantics
 and the underlying logic supports $+$, we can give $+$ the type
-$[[A <x:top, y:top> -> <x:top, y:top|{nu:int|nu = x + y>}]]$.
+$[[A <x:top, y:top> -> <x:top, y:top|{nu:int|nu = x + y}>]]$.
 Note that interactions with a nondeterministic environment
 or unknown program inputs can then be modeled with a primitive
 that returns an integer with the $[[Top]]$ refinement.
+
 
 \paragraph{Dependent Tuples}
 Our implementation supports types of the form:

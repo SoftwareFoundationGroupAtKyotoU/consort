@@ -32,8 +32,8 @@ The programs included in this suite are:
 \end{itemize}
 
 For our second benchmark suite, we adapted the benchmark suite
-of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool suite for Java.
-This test suite contains 82 safe and unsafe programs written in
+of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool for Java.
+This test suite contains a combination of 82 safe and unsafe programs written in
 Java. We chose this benchmark suite as, like \name, JayHorn
 is concerned with the automated, flow-sensitive verification of
 programs in a language with mutable, managed memory.
