@@ -6,7 +6,7 @@ TEX=intro.tex preliminaries.tex typesystem.tex appendix.tex	\
 
 all: main.pdf src/all
 
-main.pdf: main.tex lang.tex local.tex $(TEX) jayhorn_table.tex benchmark_table.tex consort_table.tex
+main.pdf: main.tex lang.tex local.tex $(TEX) jayhorn_table.tex benchmark_table.tex consort_table.tex main.bib
 	latexmk $<
 
 lang.tex: $(OTTNAME).ott
