@@ -1,20 +1,20 @@
 \section{Introduction}
 \label{sec:intro}
-Driven by the increasing power of automated theorem provers,
+Driven by the increasing power of automated theorem provers and increasingly
+high profile software failures,
 fully automated program verification has seen a surge of interest
 in recent years \needcite.
 In particular, refinement type systems
-\cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement}
-have been shown to be a practical
-approach for program verification and are amenable
-to automatic type inference and verification
-\cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent},
-an extremely desirable property for program verification.
-However, even state of the art automated program verifiers (including
-refinement type systems) struggle in settings with mutable, aliased references
-and heaps of unbounded size. Most such type systems Given the wide deployment
-of systems written in languages where such code is common, such as Java, C++, Ruby, etc.
-this limitation of existing verification techniques prevents their
+\cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement},
+which refine base types with logical predicates, have been shown to be a practical
+approach for program verification that are also amenable to
+(sometimes full) automation \cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent}.
+However, even state of the art automated program verifiers, including
+refinement type systems, struggle in the presence of mutable, aliased references
+Given the wide deployment
+of systems written in languages where aliasing and mutability
+is common, such as Java, C++, Ruby, etc. this limitation of existing
+automated verification techniques prevents their
 application to a wide range of systems where program safety is extremely
 important.
 
@@ -22,70 +22,81 @@ One of the primary challenges posed by language with mutable aliased
 references is the need to support \emph{strong updates}.
 Unlike purely functional languages, the invariants that
 hold on a memory location may evolve and change as the program
-mutates that memory location. To accurately model the \emph{evolving, changing state}
+mutates that memory location. To accurately model the
+\emph{evolving, changing state}
 common in languages with mutability, automated program verifiers must update
-invariants on program values in ways that are incompatible with previous invariants.
+invariants on memory locations in ways that are incompatible with previous invariants.
 
 Unfortunately, such updates are difficult to soundly effect in a setting
-with aliasing. Due to aliasing relationships between memory locations, a write may
-not only affect the invariants of the static name of the updated memory location
-(e.g., the name of the pointer being updated) but the invariants on other pieces
-of program state.
+with aliasing where memory locations are identified with the program names which
+point to that location. In such settings, strongly updating the invariant on a memory
+location entails updating the invariant on all program names which point to that location.
+However, due to aliasing between program names, it is difficult to determine
+which program names must/may be updated in response to a write.
 Handling such updates would be straightforward given perfect aliasing information, but it is
-undecidable whether two pointers must- or may-alias \cite{ramalingam1994undecidability}. As a compromise,
-static verifiers often resort to over-approximate aliasing information,
-and \emph{weakly update} the invariants of all memory locations that may-alias according
-to the approximation. Weak updates adversely affect precision, as the automated verifier
+undecidable whether two pointers must- or may-alias \cite{ramalingam1994undecidability}.
+As a compromise, static verifiers often resort to over-approximate aliasing information,
+and \emph{weakly update} the invariants of memory locations (i.e., program names)
+that may-alias according to the approximation.
+Weak updates adversely affect precision, as the automated verifier
 cannot tell whether the old or new invariant holds at the weakly updated location.
 
-A related approach employed by some static verifiers/analyses
-\cite{kahsai2016jayhorn,kahsai2017quantified,rondon2010low,chugh2012dependent}
-is to model the heap explicitly and bound the size heap size
-by employing \emph{summary locations} to represent many possible
+Further, approaches that model memory locations directly (e.g., \cite{kahsai2016jayhorn,kahsai2017quantified,rondon2010low,chugh2012dependent})
+also suffer from this imprecision. To make analysis
+tractable in the presence of a statically unbounded number of allocations,
+these approaches must employ \emph{summary locations} to abstract many possible
 concrete memory locations. However, as summary locations do not correspond
-to a single location in memory, strong updates can \emph{never} used to model
-the effects of mutation on static program names with summary locations. Given that
+to a single location in memory, strong updates cannot generally be used
+on the invariants or refinements associated with a summary location. Given that
 many programs in settings with mutability and aliasing frequently have unbounded
-memory allocations, this restriction can also have a significantly adverse
-on precision.
+memory allocations, this restriction is far from theoretical.
 
 This paper presents \name (CONtext Sensitive Ownership Refinement Types):
 a novel type system for the automated verification
-of imperative languages with mutability and aliasing.  Critically,
-\name does not make the tradeoffs described above, and
+of program safety for imperative languages with mutability and aliasing.  Critically,
+\name does not make the trade-offs described above, and
 supports strong updates of mutable memory even in the presence of aliasing.
-Our type system is supports these strong updates via the synthesis of
+Our type system is supports these strong updates via the \emph{synthesis} of
 refinement types and fractional ownership types
 \cite{suenaga2009fractional,suenaga2012type}.  Fractional ownership
 types attach an \emph{ownership} in the range $[0,1]$
-to every reference type constructor. These ownerships represent
-the read/write capabilities of the reference;
-only references with exclusive ownership $1$ may modify
-reference contents.  The ownership type systems of
-\cite{suenaga2009fractional,suenaga2012type} also maintain a critical
-invariant exploited by our type system: at most one reference with
-exclusive ownership may exist for a given location at any time. Further,
-the ownership of all references that alias with an exclusive ownership pointer
-are given the empty ownership $0$.
+to every reference type constructor. These ownerships serve two
+roles in our type system. First, they represent the capabilities of the reference
+itself; only references with exclusive ownership $1$ may modify
+reference contents and all other ownerships may only read from
+the reference. Second, a reference's ownership also expresses
+the capabilities of all extant aliases: an ownership of $0$
+indicates some alias may mutate the referenced memory, and all
+other ownerships guarantee that no mutation through aliases may occur.
+Like, the systems in \cite{suenaga2009fractional,suenaga2012type}
+\name enforces a critical invariant: the sum of all ownerships
+on references that point to the same location never exceeds one.
+This guarantees that at most one reference with
+exclusive ownership may exist for a given location at any time and
+that aliases with a mutable pointer are given ownership $0$.
 
-Our type system detects these empty ownerships and discards refinement
-information on such references as they have mutable aliases.
-\name may thus strongly update refinement
-information under a reference type with exclusive ownership
-\emph{without} needing to update or invalidate refinements on
-aliased references as all refinement information on such aliases
-must have been discarded in place of the $[[Top]]$ refinement.
+Our refinement type system interprets these $0$ ownerships
+and discards refinement information (i.e., assigns the maximal refinement
+$\top$) to such references.
+Combined with the invariant that mutation must happen
+through references with ownership $1$, \name may thus strongly update
+refinements under reference types in response to mutation without jeopardizing
+soundness and without propagating this new refinement to all aliases;
+all refinement information on aliases \emph{must} have been discarded by
+the invariant of the ownership system.
 \name may later propagate (potentially updated) refinement information
 from a mutable reference to its aliases, provided the mutable reference
-also divides its exclusive ownership with those aliases, i.e., the exclusive
-ownership of the reference must be consumed. Much
-like mutability in languages like Rust, ownerships
+also divides its ownership with those aliases, i.e., the reference must
+lose its capability to mutate memory. Ownerships
 behave linearly, and programs are forbidden from synthesizing ownership
 information ``from thin air'', protecting our critical invariant.
 However, unlike Rust and other languages that use lexical region based ownership
 information \cite{grossman2002region,jim2002cyclone,matsakis2014rust,tofte1994implementation},
 \name supports \emph{fine-grained, per-statement} ownership tracking.
-In particular, references may gain and lose mutability during program execution.
+In particular, references may gain and lose mutability at any point
+during program execution; the exclusive ownership $1$ may be distributed among
+many references, and then later collected into a single reference, restoring
+mutability.
 This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
 
@@ -109,22 +120,20 @@ where memory is mutated through multiple, live references.
 \name is also \emph{context-sensitive}, and can thus precisely
 summarize the different behaviors a function may exhibit when called
 from different points in the program. Consider the simple example in
-\cref{fig:running-example}. The function \imp{get} is called in two
+\cref{fig:running-example} written in an ML like language. The function \imp{get} is called in two
 locations, lines \labelcref{line:get1,line:get2}. To precise verify
-this program, an automated reasoning tool cannot use a monolithic
-summary of \imp{get}'s behavior. On line \labelcref{line:get1}
-\imp{get} must be typed as a function that takes a reference whose
-contents are exactly equal to 0 and then returns 0. Similarly, on line
+this program, on line \labelcref{line:get1}
+\imp{get} must be typed as a function that takes a reference that
+contains 0 and which returns 0. Similarly, on line
 \labelcref{line:get2}, \imp{get} must be typed as a function that
-takes a reference to the integer 1, and which then returns 1. \name can
+takes a reference to 1 and which returns 1. \name can
 infer a type for \imp{get} that distinguish between these two calling
 contexts and type \imp{get} differently at the different call-sites in
 this program.
 
 We have formalized \name as a type system for a small imperative calculus
 and proved the system sound: i.e., well-typed program never encounter assertion
-failures during execution. \JT{perhaps we should make it clear earlier that our
-  goal is ensuring program safety (and not, e.g., liveness)} We have
+failures during execution. We have
 implemented a prototype type inference tool for targeting this
 imperative language and found it can verify several interesting,
 complex programs, including sorted lists and an array list data structure.
@@ -132,7 +141,7 @@ complex programs, including sorted lists and an array list data structure.
 The rest of this paper is organized as follows. \cref{sec:prelim} defines the
 imperative language targeted by \name and defines its semantics. \cref{sec:typesystem}
 provides a brief overview on the ownership type system of \cite{suenaga2009fractional},
-defines our type system, and provdes our soundness statement. \cref{sec:infr} outlines
+defines our type system, and provides our soundness statement. \cref{sec:infr} outlines
 the inference process used by our inference tool and its current limitations.
 \cref{sec:eval} describes an initial evaluation of our prototype, \cref{sec:rw} outlines
 related work, and \cref{sec:concl} concludes.
@@ -141,3 +150,5 @@ related work, and \cref{sec:concl} concludes.
 %%% mode: latex
 %%% TeX-master: t
 %%% End:
+
+%  LocalWords:  provers verifiers verifier CONtext ownerships

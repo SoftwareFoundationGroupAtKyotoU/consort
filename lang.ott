@@ -395,6 +395,9 @@ grammar
 	| ( O ) :: :: paren
 	| |< { x in VS } O :: :: sum {{ tex [[|<]]_{[[x]]\in[[VS]]}\,[[O]] }}
 
+  step_relation :: 'sr_' ::= {{ com step relation }}
+    | reduction D :: :: red {{ tex [[reduction]]_{[[D]]} }}
+
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
 	| R |- T :: :: valid_sub {{ tex [[R]][[|-]]_{\sigma} [[T]] }}
@@ -402,9 +405,9 @@ grammar
     | G1 <: G2            ::   :: subG
 	| G1 , T1 <: G2 , T2 :: :: subRes
     | Th | G1 | B |- e : T => G2   ::   :: exp
-    | C1 reduction D C2         ::   :: red        {{ tex [[C1]] [[reduction]]_[[D]] [[C2]] }}
-    | C1 \\ reduction D C2      ::   :: red_newline {{ tex \begin{array}{l}[[C1]] \\ \quad [[reduction]]_[[D]] [[C2]]\end{array} }}
-    | C1 reduction D \\ C2      ::   :: red_newline2 {{ tex \begin{array}{r}[[C1]] [[reduction]]_[[D]] \\ [[C2]]\end{array} }}
+    | C1 step_relation C2         ::   :: red        {{ tex [[C1]] [[step_relation]] [[C2]] }}
+    | C1 \\ step_relation C2      ::   :: red_newline {{ tex \begin{array}{l}[[C1]] \\ \quad [[step_relation]] [[C2]]\end{array} }}
+    | C1 step_relation \\ C2      ::   :: red_newline2 {{ tex \begin{array}{r}[[C1]] [[step_relation]] \\ [[C2]]\end{array} }}
 	
 	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{\wf} [[ G ]] }}
 	| G | B |- T :: :: twf {{ tex [[G]] [[|]] [[B]] [[|-]]_{\wf} [[T]] }}

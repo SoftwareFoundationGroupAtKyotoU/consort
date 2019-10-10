@@ -1,8 +1,8 @@
 \section{Preliminaries}
 \label{sec:prelim}
-This sections describes a simple imperative language with mutable memory. Unlike
-our prior work on fractional ownerships, we explicitly include integers as base
-values in the language definition.
+This sections describes a simple imperative language with mutable references and first
+order, recursive functions. Unlike our prior work on fractional ownerships,
+we  explicitly include integers as base values in the language definition.
 
 \subsection{Notation}
 For a function $f$ we will write $\DOM(f)$ to indicate the domain of
@@ -10,7 +10,7 @@ the function. For a function (sometimes called a map) $f$, we will write
 $f \{ x \mapsto v \}$ (where $x \not\in\DOM(f)$) to denote a map
 which takes all values in $\DOM(f)$ to their corresponding values in $f$ and which
 additionally takes $x$ to $v$. We will write $ f \{ x \hookleftarrow v \}$
-(where $x\in\DOM(f)$) to denote a new map with $f(x) = v$.
+(where $x\in\DOM(f)$) to denote a map equivalent to $f$ except that $f(x) = v$.
 \JT{This is almost certainly not a sufficient overview. write more later.}
 
 \subsection{Language}
@@ -36,16 +36,15 @@ The grammar of the language is as follows.
     [[l]] &\in& \textbf{Labels}\\
   \end{array}
 \]
-$[[ph]]$ stands for a logical formula over variables, integers and context strings;
-we discuss these formulas later in %section 
-\cref{sec:types}.
+$[[ph]]$ stands for a logical formula over variables, integers and context;
+we discuss these formulas later in \cref{sec:types}.
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$ and
 a set of labels ranged over by $[[l1]], [[l2]], \dots$.
 
 Variables are introduced by function parameters or let bindings.
 Like ML, the variable bindings introduced by let-expression and parameters
 are immutable.
-Modeling a mutable variable declaration \texttt{int x = 1} in a language like C is achieved with
+Modeling the mutable variable declaration \texttt{int x = 1} in a language like C is achieved with
 \[
   [[ let y = 1 in (let x = mkref y in etc) ]]
 \]
@@ -81,9 +80,9 @@ of the language as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state, and aborts the program otherwise.
 $[[alias(x = y); e]]$ is a specialized type of assertion for asserting
-must-aliasing relationship between two references $x$ and $y$. Our
-type system uses these must-alias annotations to accurately track
-aliases.
+must-aliasing relationship between two references $x$ and $y$. $[[alias]]$ statements
+are effectively \emph{annotations} that our type system exploits to gain
+added flexibility.
 $[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$
 with the contents of $[[y]]$. For simplicity, we do not include an explicit
 null value in our formalism.
@@ -91,10 +90,20 @@ In addition to the above continuations, our language supports general sequencing
 $[[e1 ; e2]]$. In the remainder of this paper we will rely on context to disambiguate
 between continuations and general sequencing.
 
-A program is a pair of $[[<{d1,...,dn}, e>]]$, where
+\begin{remark}
+  Although we include \imp{alias} annotations in the
+  source language for expository purposes, we expect that practical implementations
+  may use implicit annotations provided by a conservative must-alias analysis.
+  \JT{That we mention must-alias analyses here seems to contradict our claim in
+    the intro.}
+  \JT{What is the preference for remark vs. footnote?}
+\end{remark}
+
+A program is a pair $[[<{d1,...,dn}, e>]]$, where
 $[[ {d1,...,dn} ]]$ is a set of function definitions, and $[[e]]$
-is the program entry point. The definition
-of function maps a function name to a tuple of argument names that are
+is the program entry point. A function definition $[[d]]$
+maps the function name to a tuple of argument names $[[x1,...,xn]]$
+that are
 bound within the function body $[[e]]$. Unlike ML, functions are not
 higher order, nor do we allow pointers to functions.
 
@@ -148,7 +157,7 @@ a context $[[E]]$ and redex $[[e]]$, as is standard.
 The grammar for evaluation contexts and return contexts are defined
 in \cref{fig:eval-context-grammar}.
 Our operational semantics is given in \cref{fig:transitionRules1,fig:transitionRules2}.
-Notice that the step relation is parameterized
+Notice that the step relation  $[[ --> D ]]$ is parameterized
 by a set of function defitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
@@ -160,12 +169,15 @@ function call with label $[[l]]$, and indicates that the return value of the
 callee should be bound to $[[y]]$ in $[[e]]$, within the larger exectuion context $[[E]]$.
 The call stack $[[Es]]$ is a sequence of these contexts, with
 the first such return context indicating the most recent function call.
-For a function call $[[ E[let x = f l (y1,,yn) in e] ]]$, where $f$ is defined as $[[(x1,..., xn)e']]$,
-we first push the return context $[[ E[let y = [] l in e] ]]$ onto the stack $[[Es]]$.
-We then substitute the formal arguments for parameters in $e'$, denoted by $[[ [y1/x1],,[yn/xn]e' ]]$.
-The result of this substitution becomes the currently reducing expression.
+The stack grows at function calls as described by rule \rn{R-Call}.
+For a call $[[ E[let x = f l (y1,,yn) in e] ]]$ where
+and $f$ is defined as $[[(x1,..., xn)e']]$, the return context $[[ E[let y = [] l in e] ]]$ is
+prepended onto the stack of the input configuration.
+The substitution of formal arguments for parameters in $e'$, denoted by $[[ [y1/x1],,[yn/xn]e' ]]$,
+becomes the currently reducing expression in the output configuration.
 Function returns are handled by \rn{R-Var}.
-Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$, we substitue $x$ into the return context on the top of the stack,
+Our semantics return values by name; when the currently executing function fully reduces to a single variable $x$,
+$x$ is substituted into the return context on the top of the stack,
 denoted by $[[ E[let y = [] l in e] ]][x]$.
 
 In the rules \rn{R-Assert} we write $[[|= [R]ph]]$ to mean the formula
@@ -179,7 +191,8 @@ execution of a well-typed program may reach this configuration.
 The \imp{alias} form checks whether the two references actually reference;
 i.e., if the must alias assertion provided by the programmer is correct.
 If not, our semantics step to the distinguished $[[AliasFail]]$ configuration.
-Our type system does \emph{not} guarantee that $[[AliasFail]]$ is unreachable.
+Our type system does \emph{not} guarantee that $[[AliasFail]]$ are unreachable; recall
+that aliasing assertions are effectively trusted annotations and are assumed to hold.
 
 When the expression is a let-binding, in order to better handle conflicts
 with recursive functions and duplicates variable names in our single register file,
