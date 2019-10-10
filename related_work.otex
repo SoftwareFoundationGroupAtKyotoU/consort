@@ -1,7 +1,6 @@
 \section{Related Work}
 \label{sec:rw}
 
-\paragraph{Verification of Mutable Memory}
 The difficulty in handling programs with mutable references and
 aliasing has been well-studied. As mentioned in \cref{sec:intro}, a
 commond approach is to model the heap explicitly at analysis time, approximating
@@ -18,10 +17,25 @@ This information is cached in local variables as long as possible, until memory 
 location. At each push back into the heap, the information cached in local variables must satisfy
 the (unchanging) object invariant for the summary location. The work of
 of \cite{rondon2010low,chugh2012dependent} take a similar approach, temporarily
-allowing violations of the unchaing invariant on a summary location
-provided the type system can prove no references to that location are used. However, despite
-these work arounds, these systems ultimately cannot precisely handle programs that require
+allowing strong updates to refinements on program names that contain summary locations.
+The new refinements on these program names may be inconsistent with the (unchanging)
+refinement on the summary location.
+However, like JayHorn, these systems allow strong updates (and inconsistent refinements)
+only so long as they can prove the summary location is not used while the refinements
+are out of sync. The programmer must therefore eventually ensure the strongly update
+refinements are brought back in sync with the summary location.
+As a result These systems ultimately cannot precisely handle programs that require
 evolving invariants on mutable memory locations. \JT{This comes off as pretty uncharitable}
+
+Another related approach can be found in the work on strong updates in
+CQual \cite{foster2002flow} by Aiken et al. \cite{aiken2003checking}. Their goal
+was to enable strong updates to type qualifiers when pointers are represented with
+abstract locations. The accomplished this with an explicit \emph{restrict}
+binding for variables. Within the restrict binding for a variable $x$
+with abstract location $l$, the program is forbidden from accessing $l$
+except through $x$. This approach is broadly similar with the temporary 
+refinement violations described above, although their approach does not appear
+to model abstract heaps directly.
 
 A related technique used in the field of object-oriented verification is
 to declare object invariants at the class level and allow these
@@ -54,6 +68,35 @@ mutable, aliased references with non-trivial refinement information. Unfortunate
 expressivity comes at the cost of automated inference and verification; an embedding
 of this system into Liquid Haskell \cite{vazou2014refinement} described in
 \cite{gordon2017verifying} was forced to sacrifice strong updates.
+
+The fractional ownerships in \name and their counterparts in
+\cite{suenaga2009fractional,suenaga2012type} have a clear relation to
+linear type systems. Many authors have explored the use of linear type
+systems to reason in contexts with aliased mutable references
+\cite{fahndrich2002adoption,deline2001enforcing,smith2000alias}, and
+in particular with the goal of supporting strong updates
+\cite{ahmed20073}.
+
+The issue of context-sensitivity (sometimes called \emph{polyvariance})
+is well-studied in the field of abstract interpretation
+(e.g., \cite{kashyap2014jsai,hardekopf2014widening,shivers1991control,smaragdakis2011pick,milanova2005parameterized}, see \cite{gilray2013survey}
+for a recent survey).
+Polyvariance has also been used in type systems to assign
+different behaviors to the same function depending on its call site
+\cite{banerjee1997modular,wells2002calculus,amtoft2000faithful}.
+In the area of refinement type systems, work by Zhu and Jagannathan in
+\cite{zhu2013compositional} combined a dependent type system for a functional
+language with context sensitivity.
+In their formalism, function types are indexed by a set of labels that are
+also attached to call-sites; the type used for checking a function call
+is thus determined by the label of the call site. Our
+context-sensitivity approach was inspired by this work; the type of \imp{get} in
+\cref{exmp:1cfa} is effectively two function types indexed by call-site labels.
+In fact, our context-polymorphism could be \JT{is???} formalized within dependent type
+theory by threading a call-string through the program with dependent argument
+types. However, we chose the current presentation based on
+context query predicates to simplify the formal presentation and 
+the encoding to SMT formulae. 
 
 %%% Local Variables:
 %%% mode: latex

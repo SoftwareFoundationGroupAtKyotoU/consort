@@ -3,11 +3,12 @@
 Driven by the increasing power of automated theorem provers,
 fully automated program verification has seen a surge of interest
 in recent years \needcite.
-In particular, refinement type systems \cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement}
+In particular, refinement type systems
+\cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement}
 have been shown to be a practical
 approach for program verification and are amenable
 to automatic type inference and verification
-\cite{rondon2008liquid,vazou2014refinement,vazou2013abstract},
+\cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent},
 an extremely desirable property for program verification.
 However, even state of the art automated program verifiers (including
 refinement type systems) struggle in settings with mutable, aliased references

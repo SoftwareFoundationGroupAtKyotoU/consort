@@ -815,6 +815,10 @@ which is reflected in the typing context of $[[e]]$.
 \end{example}
 
 \begin{remark}
+  \label{rem:cfa}
+  \JT{This comes late, and should probably be mentioned earlier. The important
+    thing to emphasize is that we can interrogate the context, and thereby
+    gain context-sensitivity.}
   The context sensitivity scheme described in this section corresponds
   to the standard CFA approach without \emph{a priori} call-string limiting.
   However, this scheme cannot distinguish between calls
