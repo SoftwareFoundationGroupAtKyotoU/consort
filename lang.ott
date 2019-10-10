@@ -439,6 +439,7 @@ grammar
 	| H :: :: heap
 	| Th :: :: funenv
 	| O :: :: ownership_map
+	| D :: :: fun_impl
 
   VS :: 'VS_' ::= {{ com sets }}
     | VS1 U VS2 :: :: union {{ tex [[VS1]] \cup [[VS2]] }}
@@ -467,6 +468,7 @@ grammar
 	| H :: :: heap
 	| E :: :: ctxt
 	| r :: :: own
+	| Es :: :: context_stacks
 
   formula :: formula_ ::=
     | logical_frag1 = logical_frag2 :: :: eq_form

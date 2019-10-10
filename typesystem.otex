@@ -694,7 +694,7 @@ any aliased pointers have the maximal type and provide no information about thei
     [[ Th |- f |-> (x1,..,xn) e ]]
   }
   \infrule[T-Funs]{
-    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]]
+    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]] \andalso [[ dom D = dom Th ]]
   }{
     [[ Th |-  D ]]
   }

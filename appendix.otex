@@ -1543,6 +1543,135 @@ $ and $[[ Th | G | ll |- e : T => G' ]]$, and
   \end{rneqncase}
 \end{proof}
 
+
+\section{Proof of Progress}
+\label{sec:progress-proof}
+
+We first state the standard decomposition lemma.
+\begin{lemma}[Decomposition]
+  \label{lem:decomposition}
+  For any term $[[e]]$, either $[[ e = v]]$ or there exists some $[[E]]$ and $[[e']]$ where $[[E[e'] = e]]$ and one of the following
+  cases hold:
+  \begin{enumerate}
+  \item $[[ e' = let x = mkref y in e'' ]]$
+  \item $[[ e' = let x = y in e'' ]]$
+  \item $[[ e' = let x = nn in e'' ]]$
+  \item $[[ e' = let x = *y in e'' ]]$
+  \item $[[ e' = let x = f l (y1,,yn) in e'' ]]$
+  \item $[[ e' = x; e'' ]]$
+  \item $[[ e' = alias(x = y); e'' ]]$
+  \item $[[ e' = alias(x = *y); e'' ]]$
+  \item $[[ e' = ifz x then e1 else e2 ]]$
+  \item $[[ e' = assert(ph); e'' ]]$
+  \item $[[ e' = x := y; e ]]$
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  Straightforward induction on $[[e]]$
+\end{proof}
+
+\begin{lemma}
+  For a well-typed configuration $[[ |- D C ]]$, one of the following holds:
+  \begin{enumerate}
+  \item $[[ C = AliasFail ]]$
+  \item $[[ C = < H, R, ., x> ]]$
+  \item There exists some $[[ C' ]]$ such that $[[ C --> D C' ]]$.
+  \end{enumerate}
+\end{lemma}
+\begin{proof}
+  By inversion on $[[ |- D C ]]$, either $[[ C = AliasFail ]]$ or $[[ C = < H, R, Es, e> ]]$.
+  In the former case the result is immediate. In the latter case we have
+  that $[[ Th | G | ll |- e : T => G' ]]$ for some $[[ T ]], [[G]]$ and $[[G']]$,
+  and further from   \cref{lem:decomposition}, we have that either $[[ e = v ]]$ or there exists
+  some $[[ E ]]$ or $[[ e' ]]$ where $[[ e = E[e'] ]]$ and $[[ e' ]]$ meets one of the cases in
+  \cref{lem:decomposition}.
+
+  Then either $[[ Es = . ]]$ or $[[ Es = CE : Es' ]]$. In the former
+  case the result is immediate and in the latter case the configuration can step
+  to $[[ <H, R, Es, CE[x]> ]]$ according to \rn{R-Var}.
+  For the remaining cases where $[[ e = E[e'] ]]$,
+  by the well-typing of $[[ e ]]$ with respect to $[[ G ]]$ and \cref{lem:stack_var},
+  we have that $[[ Th | G | B |- e' : T0 => G0 ]]$ some $[[T0]]$ and $[[G0]]$.
+
+  We now treat the remaining forms of $[[e']]$
+  \begin{eqncase}{
+      [[ e' = let x = *y in e'' ]]
+    }
+    By inversion (\cref{lem:inversion}) and \cref{lem:subtyp-preserves-cons} we must have
+    that for some $[[Gp]]$ where $[[ Cons(H, R, Gp) ]]$ that $[[ y in dom G ]]$ and
+    $[[ G(y) = T' ref r ]]$. From $[[ Cons(H, R, Gp) ]]$ we must have $[[ y in dom R ]]$
+    and further $[[ SATv(H, R, R(y), T' ref r') ]]$, from which we must have
+    $[[ R(y) = a ]]$ and  $[[ a in dom H]]$. Then $[[ C ]]$ can step according to \rn{R-Deref}.
+  \end{eqncase}
+  
+  \begin{eqncase}{[[ e' = let x = y in e'' ]]}
+    Again, by \cref{lem:inversion,lem:subtyp-preserves-cons} and the definition
+    of $[[ Cons ]]$, we must have that $[[ y in dom R ]]$, and the system can step
+    according to \rn{R-LetVar}.
+  \end{eqncase}
+
+  \begin{eqncase}{[[ e' = let x = mkref y in e'' ]]}
+    Similar to the \rn{R-LetVar} case above.
+  \end{eqncase}
+
+  \begin{eqncase}{
+      [[ e' = let x = nn in e'' ]] \\
+      [[ e' = x; e'' ]] \\
+      [[ e' = assert(ph); e'' ]]
+    }
+    The first two can trivially step according to \rn{R-LetInt} and \rn{R-Seq} respectively.
+    the last can step according to \rn{R-Assert} or \rn{R-AssertFalse} (although
+    by \cref{lem:preservation,lem:assertfail} the latter is impossible).
+  \end{eqncase}
+  
+  \begin{eqncase}{
+      [[ e' = alias(x = y); e'' ]]
+    }
+    Again by \cref{lem:inversion,lem:subtyp-preserves-cons} and that
+    $[[Cons(H, R, G)]]$ implies $[[x]]$ and $[[y]]$ are bound to addresses
+    in the register file, we have that the configuration can step according to \rn{R-Alias}
+    or \rn{R-AliasFail}
+  \end{eqncase}
+
+  \begin{eqncase}{
+      [[ e' = alias(x = *y); e'' ]] 
+    }
+    Similar to the case above, we must have that $[[x]]$ is bound to an address
+    in the register file, and that $[[y]]$ is bound to an address that
+    is itself mapped to an address in the heap $[[H]]$. Then the configuration may
+    step according to \rn{R-AliasPtr} or \rn{R-AliasPtrFail}
+  \end{eqncase}
+
+  \begin{eqncase}{
+      [[ e = ifz x then e1 else e2 ]]
+    }
+    As above, from the well-typing we must have that $[[x]]$ is bound in $[[R]]$
+    to some integer $[[nn]]$. Then the configuration may step according to \rn{R-IfTrue}
+    or \rn{R-IfFalse} depending on whether
+    $[[nn = 0]]$ or $[[nn != 0 ]]$.
+  \end{eqncase}
+  
+  \begin{eqncase}{
+      [[ e' = x:=y;e'' ]]
+    }
+    From the well-typing of $[[e']]$,
+    \cref{lem:inversion,lem:subtyp-preserves-cons} and the definition
+    of $[[Cons]]$, we must have that $[[ y in dom R ]]$ and
+    $[[ x in dom R ]]$. From the typing rule for assignments, we must have
+    that $[[ y ]]$ is a reference type from we which can conclude that $[[ R(y) = a ]]$
+    and $[[ a in dom H ]]$. Then the configuration can step according \rn{R-Assign}.
+  \end{eqncase}
+
+  \begin{eqncase}{
+      [[ e' = let x = f l (y1,,yn) in e'' ]]
+    }
+    From the well-typing of the function call we must have that $[[ f in dom Th ]]$.
+    From $[[ Th |- D ]]$ in the precondition of $[[ |- D C ]]$, we must have that
+    $[[ f |-> (x1,..,xj) e''' in D ]]$. Then from \rn{T-FunDef} we must have that
+    $ j = n $ whereby the configuration can step according to \rn{R-Call}.
+  \end{eqncase}
+\end{proof}
+
 %%% Local Variables:
 %%% mode: latex
 %%% TeX-master: t
