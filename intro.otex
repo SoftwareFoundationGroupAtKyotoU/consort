@@ -120,7 +120,7 @@ where memory is mutated through multiple, live references.
 \name is also \emph{context-sensitive}, and can thus precisely
 summarize the different behaviors a function may exhibit when called
 from different points in the program. Consider the simple example in
-\cref{fig:running-example} written in an ML like language. The function \imp{get} is called in two
+\Cref{fig:running-example} written in an ML like language. The function \imp{get} is called in two
 locations, lines \labelcref{line:get1,line:get2}. To precise verify
 this program, on line \labelcref{line:get1}
 \imp{get} must be typed as a function that takes a reference that
@@ -138,13 +138,13 @@ implemented a prototype type inference tool for targeting this
 imperative language and found it can verify several interesting,
 complex programs, including sorted lists and an array list data structure.
 
-The rest of this paper is organized as follows. \cref{sec:prelim} defines the
-imperative language targeted by \name and defines its semantics. \cref{sec:typesystem}
+The rest of this paper is organized as follows. \Cref{sec:prelim} defines the
+imperative language targeted by \name and defines its semantics. \Cref{sec:typesystem}
 provides a brief overview on the ownership type system of \cite{suenaga2009fractional},
-defines our type system, and provides our soundness statement. \cref{sec:infr} outlines
+defines our type system, and provides our soundness statement. \Cref{sec:infr} outlines
 the inference process used by our inference tool and its current limitations.
-\cref{sec:eval} describes an initial evaluation of our prototype, \cref{sec:rw} outlines
-related work, and \cref{sec:concl} concludes.
+\Cref{sec:eval} describes an initial evaluation of our prototype, \Cref{sec:rw} outlines
+related work, and \Cref{sec:concl} concludes.
 
 %%% Local Variables:
 %%% mode: latex

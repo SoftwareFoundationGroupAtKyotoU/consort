@@ -2,7 +2,7 @@
 \label{sec:rw}
 
 The difficulty in handling programs with mutable references and
-aliasing has been well-studied. As mentioned in \cref{sec:intro}, a
+aliasing has been well-studied. As mentioned in \Cref{sec:intro}, a
 commond approach is to model the heap explicitly at analysis time, approximating
 concrete heap locations with allocation site labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low}
 \JT{There must be many more of these papers, find them, and cite them}.
@@ -91,7 +91,7 @@ In their formalism, function types are indexed by a set of labels that are
 also attached to call-sites; the type used for checking a function call
 is thus determined by the label of the call site. Our
 context-sensitivity approach was inspired by this work; the type of \imp{get} in
-\cref{exmp:1cfa} is effectively two function types indexed by call-site labels.
+\Cref{exmp:1cfa} is effectively two function types indexed by call-site labels.
 In fact, our context-polymorphism could be \JT{is???} formalized within dependent type
 theory by threading a call-string through the program with dependent argument
 types. However, we chose the current presentation based on

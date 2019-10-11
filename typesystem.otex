@@ -3,11 +3,11 @@
 We now introduce a refinement type system combined
 with fraction ownership types that guarantees runtime
 assertion failures do not occur. We first present
-a brief background on ownership types (\cref{sec:ownership}),
+a brief background on ownership types (\Cref{sec:ownership}),
 before describing our fractional ownership refinement types
-(\cref{sec:types}), the type system (\cref{sec:intra-types,sec:cs}),
+(\Cref{sec:types}), the type system (\Cref{sec:intra-types,sec:cs}),
 and finally close with our soundness statement
-(\cref{sec:soundness}).
+(\Cref{sec:soundness}).
 
 \subsection{Background: Fractional Ownership Types}
 \label{sec:ownership}
@@ -59,7 +59,7 @@ refinement cannot exist when an update occurs.
   ensure the memory referenced by a pointer was eventually
   freed. Further, a $0$ ownership was used for pointers that
   had been freed to ensure dangling pointers were not used.
-  However, as mentioned in \cref{sec:semantics}, our language
+  However, as mentioned in \Cref{sec:semantics}, our language
   does not support manually freeing memory which
   significantly simplifies some of the technical components
   of our formalism. In particular, our type system \emph{does}
@@ -94,7 +94,7 @@ refinement cannot exist when an update occurs.
 
 \subsection{Types and Contexts}
 \label{sec:types}
-The grammar of types is given in \cref{fig:types}.
+The grammar of types is given in \Cref{fig:types}.
 Our type system has two type constructors: references and integers. $[[ T ref r ]]$ is the
 type of a (non-null) reference to a value of type $[[ T ]]$.
 $[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a
@@ -183,7 +183,7 @@ the following equivalences:
 Additionally, a context query predicate over a concrete context can always be
 immediately reduced to either $[[Top]]$ or $[[Bot]]$. We therefore do not expect
 such predicates to be used directly in refinements, but include them for the purposes
-of proving soundness (see \cref{sec:soundness} and the appendix for details).
+of proving soundness (see \Cref{sec:soundness} and the appendix for details).
 
 \begin{example}
   The type $[[ {nu:int| (A = l1? ==> nu > 0) /\ (A != l1? ==> nu < 0)} ]]$ represents
@@ -226,7 +226,7 @@ information to restore the read/write capabilities to a pointer (i.e.,
 restore an ownership greater than 0) while simultaneously updating its
 refinement to reflect any mutations through aliases.
 
-Refinement well-formedness (defined in \cref{fig:type-wf})
+Refinement well-formedness (defined in \Cref{fig:type-wf})
 requires that any free program variables in a refinement
 are given integer types in the type environment $[[G]]$. This
 condition also ensures that the only context variable used
@@ -391,7 +391,7 @@ such refinements at the cost of some expressiveness in our type system.
 We now introduce the type system for the intra-procedural fragment of
 our language. Accordingly, this section focuses on interplay of
 mutability and refinement types. The typing rules are given in
-\cref{fig:intra-type,fig:pointer-typing}.  
+\Cref{fig:intra-type,fig:pointer-typing}.  
 A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
@@ -403,7 +403,7 @@ We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
 that $[[x in dom G /\ G(x) = T]]$, $[[G,x:T]]$ to indicate the
 extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
 to indicate the type environment $[[G]]$ with the binding of $[[x]]$
-updated to $[[T]]$. $[[B]]$ is defined as in \cref{sec:types}
+updated to $[[T]]$. $[[B]]$ is defined as in \Cref{sec:types}
 and $[[Th]]$ is a finite map from function names to function types.
 
 \begin{remark}
@@ -415,7 +415,7 @@ and $[[Th]]$ is a finite map from function names to function types.
   in our abstract semantics.
 \end{remark}
 
-The typing rules in \cref{fig:intra-type} handle the relatively
+The typing rules in \Cref{fig:intra-type} handle the relatively
 standard features in our language. The most noteworthy feature is the
 type addition operator used in \rn{T-Let}, \rn{T-MkRef}, and
 \rn{T-Deref} forms. Intuitively, the type addition operator describes
@@ -430,7 +430,7 @@ in other words, the type addition operation cannot create or destroy
 ownership or refinement information, only combine or divide it between
 types. Formally, the type addition operator is defined as the least
 commutative partial operation that satisfies the rules in
-\cref{fig:addition}. Although not explicit in the rules,
+\Cref{fig:addition}. Although not explicit in the rules,
 by the ownership well-formedness condition,
 when dividing types if the entirety of ownership is transferred to
 one of the result types, all refinements in the other
@@ -494,7 +494,7 @@ the refinements in $[[ [G] ]]$, the predicate $[[ph]]$ must be true and the
 assertion may not fail. (From the well-formedness requirement on $[[ph]]$
 any free program variables within $[[ph]]$ must be bound within $[[G]]$).
 This intuition forms the foundation of our
-soundness claim (\cref{sec:soundness}).
+soundness claim (\Cref{sec:soundness}).
 \AI{We could allow an assertion $[[ph]]$ to mention $[[ B ]]$.}
 
 \begin{figure}[t]
@@ -569,7 +569,7 @@ soundness claim (\cref{sec:soundness}).
 
 \paragraph{Destructive Updates, Aliasing, and Subtyping}
 We now discuss the handling of assignment, aliasing annotations,
-and subtyping as described in \cref{fig:pointer-typing}.
+and subtyping as described in \Cref{fig:pointer-typing}.
 Although apparently unrelated, all three program forms concern
 updating the refinements of (potentially) aliased reference cells.
 
@@ -613,7 +613,7 @@ two fresh types $[[T1' ref r1']]$ and $[[T2' ref r2']]$ to the two operand point
 The choice of $[[T1']], [[r1']], [[T2']]$, and $[[r2']]$ is left open,
 provided that the sum of the new types, $[[(T1' ref r1') + (T2' ref r2')]]$ is
 equivalent (denoted $[[~]]$) to the sum of the original types.
-Formally, $[[~]]$ is defined as in \cref{fig:pointer-typing}; it implies
+Formally, $[[~]]$ is defined as in \Cref{fig:pointer-typing}; it implies
 that any refinements in the two types must be logically equivalent and
 that ownerships must also be equal.
 This redistribution is sound precisely because the two references are
@@ -665,7 +665,7 @@ that only a small number of annotations are required for real-world programs.
 \end{example}
 
 Finally, we describe the subtyping rule. The rules for subtyping types
-and environments are shown in \cref{fig:subtyping}. For base integer types,
+and environments are shown in \Cref{fig:subtyping}. For base integer types,
 the rules require the refinement of a supertype is a logical consequence of
 the subtype's refinement; i.e., the subtyping rule allows weakening the refinement
 on integer types. The subtype rule for references is \emph{covariant} in the type
@@ -712,7 +712,7 @@ any aliased pointers have the maximal type and provide no information about thei
 \label{sec:cs}
 We now turn to a discussion of the interprocedural fragment of our
 language, and how our type system propagates context information. The remaining
-typing rules for our language are shown in \cref{fig:progTyping}.
+typing rules for our language are shown in \Cref{fig:progTyping}.
 These rules concern the typing of function calls, function bodies, and
 entire programs.
 
@@ -724,7 +724,7 @@ is the label of the callsite. If $[[B]]$
 is itself a context variable $[[A']]$, this substitution effectively
 transforms any context prefix queries over $[[A]]$ in the argument/return types
 into a queries over $[[A']]$. These new queries may be simplified using the
-equivalences described in \cref{sec:types}.  Intuitively, this substitution
+equivalences described in \Cref{sec:types}.  Intuitively, this substitution
 and simplification represents incrementally refining the behavior of
 the callee function with partial context information. Although the exact
 concrete execution context of the callee (and therefore exact behavior)
@@ -784,13 +784,13 @@ which is reflected in the typing context of $[[e]]$.
 \end{example}
 \begin{example}[Simple 2-CFA]
   To see how to compose context information across multiple calls, consider
-  the following change to code in \cref{exmp:1cfa}:
+  the following change to code in \Cref{exmp:1cfa}:
   \begin{lstlisting}
     get_real(z) { *z }
 
     get(z) { get_real$^{[[l3]]}$(z) }
   \end{lstlisting}
-  The type of \imp{get} remains as in \cref{exmp:1cfa}, and taking $[[T]]$
+  The type of \imp{get} remains as in \Cref{exmp:1cfa}, and taking $[[T]]$
   to be \[
     [[ {nu:int| (A' = l3 l2 ? ==> nu < 0) /\ (A' = l3 l1 ? ==> nu > 0) } ]]
   \]

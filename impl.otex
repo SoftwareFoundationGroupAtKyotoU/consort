@@ -4,7 +4,7 @@ We now briefly describe the inference algorithm implemented in
 our tool \consort. We first run a standard, simple type inference
 algorithm to generate type templates for every function parameter
 type, return type, and for every live variable at each program point.
-For a variable $x$ of simple type $[[ST]]$ (as defined in \cref{fig:type-wf})
+For a variable $x$ of simple type $[[ST]]$ (as defined in \Cref{fig:type-wf})
 at program point $p$ we generate a type template $[[ [ST](x,0,pp) ]]$
 as follows:
 \begin{align*}
@@ -119,7 +119,7 @@ We now describe some extensions to our core language supported within
 our implementation.
 
 \paragraph{Primitive Operations}
-As defined in \cref{sec:prelim}, our language can compare integers to zero and load
+As defined in \Cref{sec:prelim}, our language can compare integers to zero and load
 and store them from memory, but can perform no meaningful computation
 over these numbers. To promote the flexibility of our type system and simplify
 our soundness statement, we do not
@@ -211,7 +211,7 @@ arrays of pointers to future work.
 
 \subsection{Limitations}
 Our current approach is not complete; there are safe programs that will be
-rejected by our type system. As mentioned in \cref{sec:types}, our well-formedness
+rejected by our type system. As mentioned in \Cref{sec:types}, our well-formedness
 condition forbids refinements that refer to memory locations. As a result,
 \name cannot in general express, e.g., that the contents of two references are equal.
 Further, like other verification techniques built upon automated theorem provers,

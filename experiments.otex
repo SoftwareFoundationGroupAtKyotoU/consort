@@ -11,9 +11,9 @@
 \label{sec:eval}
 
 We now present the results of experiments performed with the implementation
-described in \cref{sec:infr}. The goal of these experiments are two-fold:
+described in \Cref{sec:infr}. The goal of these experiments are two-fold:
 \begin{enumerate}
-\item Is the type system (and extensions of \cref{sec:infr}) expressive enough to type and verify non-trivial programs?
+\item Is the type system (and extensions of \Cref{sec:infr}) expressive enough to type and verify non-trivial programs?
 \item Is type inference for the type system feasible?
 \end{enumerate}
 
@@ -26,7 +26,7 @@ The programs included in this suite are:
 \begin{itemize}
 \item \textbf{Array-List} Implementation of an unbounded list backed by an array.
 \item \textbf{Sorted-List} Implementation of an in-place insertion sort algorithm
-\item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \cref{exmp:shuffle-example}
+\item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \Cref{exmp:shuffle-example}
 \item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
 \end{itemize}
@@ -42,7 +42,7 @@ specific features, most \textbf{could} be adapted
 into our low-level language. Those programs we could adapt
 provided a valuable baseline against which we could measure
 our implementation.
-A detailed breakdown of the adapted benchmark suite can be found in \cref{tab:breakdown}
+A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}
 
 \begin{remark}
   The original JayHorn paper includes two additional benchmark sets, Mine Pump and CBMC.
@@ -53,7 +53,7 @@ A detailed breakdown of the adapted benchmark suite can be found in \cref{tab:br
 \end{remark}
 
 \subsection{Results}
-The results of our experiments are shown in \cref{tab:jh-results}. On the JayHorn benchmark
+The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
 suite \name performs competitively with JayHorn, correctly identifying 29 of the 32 safe programs
 as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception.
 For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds; in contrast,

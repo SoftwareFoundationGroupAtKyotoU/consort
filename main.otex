@@ -38,7 +38,7 @@
 \hypersetup{colorlinks,
   linkcolor=red,
   citecolor=red}
-\usepackage[capitalize,noabbrev]{cleveref}
+\usepackage[noabbrev]{cleveref}
 
 % \input{../effgrad/def/ott/coe}
 \input{./lang}
