@@ -24,7 +24,7 @@ However, like JayHorn, these systems allow strong updates (and inconsistent refi
 only so long as they can prove the summary location is not used while the refinements
 are out of sync. The programmer must therefore eventually ensure the strongly update
 refinements are brought back in sync with the summary location.
-As a result These systems ultimately cannot precisely handle programs that require
+As a result these systems ultimately cannot precisely handle programs that require
 evolving invariants on mutable memory locations. \JT{This comes off as pretty uncharitable}
 
 Another related approach can be found in the work on strong updates in
@@ -96,7 +96,7 @@ In fact, our context-polymorphism could be \JT{is???} formalized within dependen
 theory by threading a call-string through the program with dependent argument
 types. However, we chose the current presentation based on
 context query predicates to simplify the formal presentation and 
-the encoding to SMT formulae. 
+the encoding to SMT formulae.
 
 %%% Local Variables:
 %%% mode: latex

@@ -80,7 +80,7 @@ of the language as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state, and aborts the program otherwise.
 $[[alias(x = y); e]]$ is a specialized type of assertion for asserting
-must-aliasing relationship between two references $x$ and $y$. $[[alias]]$ statements
+must-aliasing relationship between two references $x$ and $y$. \imp{alias} statements
 are effectively \emph{annotations} that our type system exploits to gain
 added flexibility.
 $[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$
