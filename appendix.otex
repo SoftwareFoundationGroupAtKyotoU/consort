@@ -1334,7 +1334,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     $[[ Th | G'' | ll |- e : T => G' ]]$ and $[[ ll |- G'' ]]$ is immediate.
     
     We must therefore show that $[[ Cons(H',R',G'')]]$.
-    To show that the output environment is consistent, we must show that $[[SATv(H',R,R(y),(T1 /\ y y = x) ref 1)]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
+    To show that the output environment is consistent, we must show that $[[SATv(H',R,R(y),(T2 /\ y y = x) ref 1)]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
     By reasoning similar to that in $\rn{R-Deref}$, it suffices to show that $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$.
 
     From $[[Cons(H,R,G)]]$, we know that $[[SAT(H,R,G)]]$, in particular, $[[ SATv(H,R,R(x),G(x)) ]]$.
@@ -1342,17 +1342,19 @@ call cases respectively; we have separated them into separate lemmas for clarity
     then, by \Cref{lem:heapfor0}, we will obtain $[[ SATv(H',R,R(x),T1+T2) ]]$,
     from which, by \Cref{lem:satadd},
     $[[ SATv(H',R,R(x),T1) ]]$ and $[[ SATv(H',R,R(x),T2) ]]$ follow.
-    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ as $[[H'(R(y)) = R(x) ]]$.a
+    We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ as $[[H'(R(y)) = R(x) ]]$.
 
     To show $[[own(H, R(x), T1 + T2)(a)=0]]$, 
     we define $[[O0']], [[O0'']], [[O1']]$ and $[[O1'']]$ as below:
     \begin{align*}
-      [[Own(H, R, G)]] & = [[O0' + own(H, R(y), G(y)) + own(H, R(x), G(x)) = O0' + O0'']] \\
-      [[Own(H', R, G'')]] & = [[O1' + own(H', R(y), G''(y)) + own(H', R(x), G''(x))= O1' + O1'' ]] \\
+      [[Own(H, R, G)]] & = [[O0' + O0'']] \\
+      [[Own(H', R, G'')]] & = [[O1' + O1'' ]] \\
       [[O0']] & = [[ |< {z in dom G \ {y,x} } own(H,R(z),G(z)) ]] \\
-      [[O1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]]
+      [[O0'']] &= [[ own(H, R(y), G(y)) + own(H, R(x), G(x)) ]] \\
+      [[O1']] & = [[ |< {z in dom G'' \ {y,x}} own(H',R(z),G''(z)) ]] \\
+      [[O1'']] &= [[ own(H', R(y), G''(y)) + own(H', R(x), G''(x)) ]]
     \end{align*}
-    By the definition of the ownership function, $[[G(y) = T' ref 1 ]]$ and $[[ G(x) = T1 + T2]]$ we have:
+    By the definition of the ownership function, $[[G(y) = T' ref 1 ]]$ and $[[ G(x) = T1 + T2]]$, we have:
     \begin{align*}
       [[O0'']] & = [[own(H, H(R(y)), T') + {a |-> 1} + own(H, R(x), T1 + T2)]] \\
       [[O1'']] & = [[own(H', H'(R(y)), T2) + {a |-> 1} + own(H',R(x), T1)]]
@@ -1371,7 +1373,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \end{align*}
 
     We now show that $[[ H ~ a H' ]]$. The first two conditions are clear, so it
-    remains to show that for any $[[nn]]$ $[[ H |- a ~> nn ]]$ iff $[[ H' |- a ~> nn ]]$.
+    remains to show that, for any $[[nn]]$, $[[ H |- a ~> nn ]]$ iff $[[ H' |- a ~> nn ]]$.
     From \Cref{lem:sat-implies-shape-cons}, we have $[[ H |- a ~> |T' ref 1| ]]$, and
     a proof by contradiction gives that $[[ |T' ref 1| ]]$ is the only such $[[ nn ]]$
     for which $[[ H |- a ~> nn ]]$. We now argue the forward case for the bi-implication,
@@ -1393,7 +1395,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     For every $[[ z in dom G \ { y, x } ]]$ (and similarly for $[[G'']]$), we have
     $[[G(z) = G''(z)]]$. Further, from $[[O0'(a) = 0]]$ above, we must have $[[own(H, R(z), G(z))(a) = 0]]$
     for all such $[[z]]$. As $[[ H ~ a H' ]]$, by \Cref{lem:heapop}, we have that $[[ O0' = O1' ]]$.
-    Then, from $[[ forall a' in H.Own(H, R, G'')(a') = O0'(a') + O0''(a') <= 1 ]]$, it suffices to show
+    Then, from $[[ forall a' in H.Own(H, R, G'')(a') = O0'(a') + O0''(a') <= 1 ]]$, \AI{$[[G'']]$ should be $[[G]]$?  I didn't see where it came from.} it suffices to show
     that $[[ forall a' in H.O1''(a') <= O0''(a') ]]$.
        
     We first consider the case for $[[a]]$:
