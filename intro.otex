@@ -35,20 +35,20 @@ are representing the invariants on memory locations with
 types on the static program names which point to those locations,
 i.e., \imp{p} and \imp{q}.
 
-Let us first consider the write to \imp{p}.
+Let us first consider the write to \imp{p} on \cref{line:first-p-write}.
 As we are mutating memory through the name \imp{p},
 it is clearly sound to \emph{strongly} update \imp{p}'s
-type to $[[ {nu:int|nu=4}]]\TREF$, stating the memory cell must
-hold the value 4.
+type to $[[ {nu:int|nu=4}]]\TREF$, i.e., the memory cell pointed
+to by \imp{p} must hold the value 4.
 What about the refinement on \imp{*q}? \imp{p} and \imp{*q}
 do not alias on \cref{line:first-p-write} and it is thus correct to
 retain \imp{q}'s original type. However, suppose we made the conservative
 assumption that all references allocated at the same syntactic program point
-(i.e., \cref{line:mk}) may alias (such assumptions are common as in \needcite).
+(i.e., \cref{line:mk} in \imp{mk}) may alias (such assumptions are common as in \needcite).
 We must therefore update the refinement on \imp{q}.
 However, given the uncertainty about whether \imp{p} and \imp{*q} alias,
 we would only be able to \emph{weakly} update \imp{q}'s type to be
-$([[{nu:int|nu = 5 \/ nu = 4}]] \TREF) \TREF$, which states \imp{**q} may be
+$([[{nu:int|nu = 5 \/ nu = 4}]] \TREF) \TREF$, i.e., \imp{**q} may be
 5 \emph{or} 4. Although this choice is \emph{sound} it becomes
 impossible to prove the assertion statement on
 \cref{line:assert-statement}.
@@ -103,12 +103,13 @@ fractional ownership types \cite{suenaga2009fractional,suenaga2012type}.
 Fractional ownership types are used to flow-sensitively and precisely
 determine when a reference has a mutable alias; our type system
 ensures that only the trivial refinement $[[Top]]$ is used within the
-type of such references. As a consequence, at mutations it is sufficient for our
+type of such references. As a consequence, at memory mutations
+it is sufficient for our
 type system to strongly update \emph{only} the refinements associated with the
 static program name used to mutate memory.
 From the soundness of the ownership type system and the above condition
 enforced by \name, the types of any aliases must exclusively use the
-refinement $[[Top]]$, and thus already soundly describe the new contents.\footnote{This
+refinement $[[Top]]$, and thus already soundly describe all possible contents.\footnote{This
   assumption holds only if updates do not change simple types, a condition our type-system enforces.}
 
 Ownership types track mutable aliases by attaching a rational number
@@ -122,7 +123,7 @@ is mutable, \emph{and} that all aliases must have ownership $0$.
 References with an ownership between these extremes may have any number of
 \emph{immutable} aliases.
 Ownerships cannot be duplicated at assignments,
-only \emph{split} or divided when aliases are created. Thus, when copying
+only \emph{split} when aliases are created. Thus, when copying
 a mutable pointer, the new alias can have non-trivial refinement information
 only if the mutable pointer loses mutability.
 Unlike systems which treat aliasing at the level of lexical regions
@@ -135,15 +136,15 @@ mutability.
 This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
 
-To demonstrate the flexibility of fractional ownerships, consider again the example
+To demonstrate our, consider again the example
 in \Cref{fig:strong-update-example}. \imp{p} and \imp{q} are both references
-with no aliases, can can be given types
+with no aliases, and can be given types
 $[[ {nu:int|nu=3} ref 1 ]]$ and $[[ ({nu:int|nu = 5} ref 1) ref 1 ]]$ respectively.
 From the invariants maintained by our type system,
-on \cref{line:first-p-write} it is sound to strongly update
-\imp{p}'s type without regard for any other pointers in the program; as \imp{p}
-has ownership 1, all aliases must already have types consistent with the new contents.
-On \cref{line:q-alias-start}, our type system must \emph{split}
+it is sound to strongly update
+\imp{p}'s type on \cref{line:first-p-write} without regard for any other pointers in the program;
+as \imp{p} has ownership 1, all aliases must already have types consistent with the new contents.
+At the pointer assignment on \cref{line:q-alias-start}, our type system must \emph{split}
 the ownership of \imp{p} between \imp{*q} and \imp{p}.
 As \imp{*q} is later used for mutation, our type system transfers \emph{all} ownership from
 \imp{p} to \imp{*q}, giving \imp{q} type  $[[ ({nu:int|nu=4} ref 1) ref 1 ]]$ and \imp{p} type
@@ -167,15 +168,14 @@ this program, on line \labelcref{line:get1}
 \imp{get} must be typed as a function that takes a reference that
 contains 3 and which returns 3. Similarly, on line
 \labelcref{line:get2}, \imp{get} must be typed as a function that
-takes a reference to 4 and which returns 4. \name can
-infer a type for \imp{get} that distinguish between these two calling
-contexts and type \imp{get} differently at the different call-sites in
-this program.
+takes a reference to 4 and which returns 4. Our type system can
+give \imp{get} a function type that distinguishes between these two calling
+contexts and selects the appropriate summary of \imp{get}'s behavior.
 
 We have formalized \name as a type system for a small imperative calculus
 and proved the system sound: i.e., well-typed program never encounter assertion
 failures during execution. We have
-implemented a prototype type inference tool for targeting this
+implemented a prototype type inference tool targeting this
 imperative language and found it can verify several interesting,
 complex programs, including sorted lists and an array list data structure.
 
