@@ -144,7 +144,7 @@ drawn from a finite domain $\CVar$ and ranged over by $[[A1]], [[A2]], \ldots$,
 represent an arbitrary, unknown context.
 
 Function types in our language are context polymorphic,
-expessed by universally quantifying
+expressed by universally quantifying
 over a context variable. Intuitively,
 this context variable represents the many different execution contexts
 under which a function may be called.
@@ -190,7 +190,7 @@ may be dependent upon the context using context query predicates described above
 Accordingly, function bodies are typed under the context variable
 universally quantified over in the corresponding function type; i.e.,
 no assumptions can be made about the exact execution context of the function body.
-As in parametric polymorphism, our type rules are designed such that consistenct
+As in parametric polymorphism, our type rules are designed such that consistent
 substitution of a concrete context $[[ll]]$ for a context variable $[[A]]$
 in a typing derivation yields a valid type derivation under concrete context $[[ll]]$.
 
@@ -396,7 +396,7 @@ A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
 environment $[[Th]]$, and typing context $[[B]]$
-and evalutes to a type $[[T]]$ and modifies the input environment
+and evaluates to a value of type $[[T]]$ and modifies the input environment
 according to $[[G']]$. A type environment $[[G]]$ is a finite
 mapping from variable names to refinement types $[[T]]$.
 We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
@@ -455,7 +455,7 @@ branches to indicate whether the variable must be zero. By requiring
 both branches produce the same output type environment, we guarantee
 that these conflicting refinements are rectified within the
 type derivations of the two branches. Further, when creating bindings our
-type system can track equalities between integer values. We use the
+type system can track equality between integer values. We use the
 strengthening operation $[[ T /\ x ph ]]$ and typed equality
 proposition $[[ x = T y]]$, defined respectively as:
 \begin{align*}
@@ -471,7 +471,7 @@ proposition $[[ x = T y]]$, defined respectively as:
 \JT{The above is very ugly}
 \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
-We do not track equalities between references or between
+We do not track equality between references or between
 the contents of reference cells as doing so would violate
 our refinement well-formedness condition. Notice also that the
 equality tracking in the \rn{T-Deref} case is \emph{conditionally}
@@ -480,7 +480,7 @@ applied depending on the ownership of the dereferenced pointer.
 The rule for type checking assert statements has the precondition
 $[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
 lifts the refinements on the integer valued variables into a proposition
-in the deciable logic used for verification. This denotation
+in the decidable logic used for verification. This denotation
 operation is defined as:
 \[
 \begin{array}{rlcrl}
@@ -606,7 +606,7 @@ Additionally, once
 a mutable pointer has been split through an assignment or let binding, there is no
 way to recover mutability. The typing rule for
 must alias assertions, \rn{T-Alias} and \rn{T-AliasPtr}, overcomes this restriction
-by exploting the must-aliasing information to
+by exploiting the must-aliasing information to
 ``shuffle'' or redistribute ownerships \emph{and refinements} between two
 aliased pointers. The typing rule assigns
 two fresh types $[[T1' ref r1']]$ and $[[T2' ref r2']]$ to the two operand pointers.
@@ -722,7 +722,7 @@ We first explain the \rn{T-Call} rule. The rule uses two substitution
 maps. $[[vsub]]$ translates between the parameter names used in the
 function type and actual argument names at the call-site. $[[csub]]$
 instantiates all occurrences of $[[A]]$ with $[[ l : B ]]$, where $[[l]]$
-is the label of the callsite and $[[B]]$ the typing context of the call. If $[[B]]$
+is the label of the call-site and $[[B]]$ the typing context of the call. If $[[B]]$
 is itself a context variable $[[A']]$, this substitution effectively
 transforms any context prefix queries over $[[A]]$ in the argument/return types
 into a queries over $[[A']]$. Intuitively, this substitution
@@ -758,7 +758,7 @@ which is reflected in the typing context of $[[e]]$.
 \begin{example}[Simple 1-CFA]
   \label{exmp:1cfa}
   Recall the program in \Cref{fig:running-example} in \Cref{sec:intro}; assume
-  the function calls are labelled as follows:
+  the function calls are labeled as follows:
 \begin{lstlisting}
 // ...
 p := 1 + get$^{\ell1}$(p);
@@ -837,3 +837,6 @@ We formalize this claim with the following soundness theorem.
 %%% mode: latex
 %%% TeX-master: t
 %%% End:
+
+%  LocalWords:  Suenaga Kobayashi deallocation ownerships CFA
+%  LocalWords:  Formedness formedness supertype subtype's covariant

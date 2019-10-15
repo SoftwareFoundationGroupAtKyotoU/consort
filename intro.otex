@@ -11,7 +11,7 @@ approach for program verification that are amenable to
 (sometimes full) automation \cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent}.
 However, despite promising advances \needcite,
 the sound and precise application of refinement types (and program
-verifiction in general) in settings with mutability and aliasing
+verification in general) in settings with mutability and aliasing
 (e.g., Java, C++, Ruby, etc.) remains difficult.
 
 One of the primary challenges in this setting
@@ -133,7 +133,7 @@ Unlike systems which treat aliasing at the level of lexical regions
 \name supports \emph{fine-grained, per-statement} ownership tracking.
 In particular, references may gain and lose mutability at any point
 during program execution. For example, the ownership of
-a mutable reference may be distributed amongst
+a mutable reference may be distributed among
 many aliases, and then later collected into a single (potentially different)
 reference, restoring mutability.
 This feature is particularly critical for the verification of programs
@@ -194,4 +194,5 @@ related work, and \Cref{sec:concl} concludes.
 %%% TeX-master: t
 %%% End:
 
-%  LocalWords:  provers verifiers verifier CONtext ownerships
+%  LocalWords:  provers verifiers verifier CONtext ownerships mkref
+%  LocalWords:  mk

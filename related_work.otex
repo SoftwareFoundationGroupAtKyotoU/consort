@@ -10,7 +10,7 @@ these \emph{abstract locations} are associated with a refinement.
 However, as these abstract locations summarize many concrete locations, this approach
 comes at the cost of strong updates and flow-sensitivity; in particular, the refinement
 associated with an abstract location is fixed for the lifetime of the program.
-The techniques cited above include various work arounds for this limitation. For
+The techniques cited above include various workarounds for this limitation. For
 example, \cite{rondon2010low,chugh2012dependent} temporarily allow
 breaking these invariants through a distinguished program name
 as long as the abstract location is not accessed through another name.
@@ -46,7 +46,7 @@ al. \cite{gordon2013rely,gordon2017verifying} uses refinement
 types in a language mutable references and aliasing without relying on
 an abstract heap. Their approach extends reference types with rely/guarantee predicates;
 the rely predicate describes the ways the value of the reference may be mutated via aliases,
-and the guarantee predicate describes the admissable mutations through the reference.
+and the guarantee predicate describes the admissible mutations through the reference.
 If two references may alias, then guarantee predicate of one of
 the references implies the rely of the other and vice versa. 
 This invariant is maintained by way of a linear ``splitting'' operation that
@@ -55,7 +55,7 @@ Further, their type system allows strong updates to reference content refinement
 provided that mutations admitted by the rely guarantee do not
 invalidate the new refinement. Thus, rely-guarantee refinements can support multiple
 mutable, aliased references with non-trivial refinement information. Unfortunately this
-expressivity comes at the cost of automated inference and verification; an embedding
+expressiveness comes at the cost of automated inference and verification; an embedding
 of this system into Liquid Haskell \cite{vazou2014refinement} described in
 \cite{gordon2017verifying} was forced to sacrifice strong updates.
 
@@ -92,3 +92,5 @@ the encoding to SMT formulae.
 %%% mode: latex
 %%% TeX-master: t
 %%% End:
+
+%  LocalWords:  ownerships

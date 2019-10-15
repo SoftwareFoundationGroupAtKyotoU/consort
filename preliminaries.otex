@@ -58,7 +58,7 @@ $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
 $[[*y]]$ accesses the contents of reference $[[y]]$.
 Function calls must occur on the right hand side of a variable binding,
 and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is
-(unqiue) label drawn from \textbf{Labels}. These labels are used to make our type system context sensitive, as
+(unique) label drawn from \textbf{Labels}. These labels are used to make our type system context sensitive, as
 discussed in \Cref{sec:cs}.
 
 The single base case for expressions is a single variable.
@@ -67,7 +67,7 @@ then the value of that variable is the return value of the function,
 otherwise the value is ignored.
 
 The only control-flow operation in our language are if statements.
-If $[[ifz]]$ checkes whether the condition variable $[[x]]$ equals zero and chooses
+$[[ifz]]$ checks whether the condition variable $[[x]]$ equals zero and chooses
 the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
 
@@ -124,7 +124,7 @@ as syntactic sugar for:
   assert(tmp = 4); let dummy = 0 in dummy
 \end{lstlisting}
 Notice that we use a dummy continuation for the
-assert statement in the desguring.
+assert statement in the desugaring.
 
 \begin{figure}[t]
 \[
@@ -153,13 +153,13 @@ of addresses to runtime values. The runtime stack represents pending
 function calls as a sequence of return contexts, which we
 describe below.
 While the final configuration component is an expression,
-the rewritting rules are defined in terms of $[[ E[e] ]]$, which is
+the rewriting rules are defined in terms of $[[ E[e] ]]$, which is
 a context $[[E]]$ and redex $[[e]]$, as is standard.
 The grammar for evaluation contexts and return contexts are defined
 in \Cref{fig:eval-context-grammar}.
 Our operational semantics is given in \Cref{fig:transitionRules1,fig:transitionRules2}.
 Notice that the step relation  $[[ --> D ]]$ is parameterized
-by a set of function defitions $[[D]]$; a program $[[<D, e>]]$ is executed
+by a set of function definitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
 The semantics are mostly standard; we highlight some import points below.
@@ -217,3 +217,5 @@ do not support it in our language or formalism.\JT{Do we want
 %%% mode: latex
 %%% TeX-master: t
 %%% End:
+
+%  LocalWords:  ownerships mkref redex

@@ -23,6 +23,7 @@
 \usepackage{cases}
 \usepackage{listings}% http://ctan.org/pkg/listings
 \usepackage{etoolbox}
+\usepackage{microtype}
 \input{local}
 % generate nice pdf index when compiling in draft mode
 \ifdraftComments

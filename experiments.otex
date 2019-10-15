@@ -11,7 +11,7 @@
 \label{sec:eval}
 
 We now present the results of some preliminary experiments performed with the implementation
-described in \Cref{sec:infr}. The goal of these experiements was to answer the following questions:
+described in \Cref{sec:infr}. The goal of these experiments was to answer the following questions:
 \begin{enumerate}
 \item Is the type system (and extensions of \Cref{sec:infr}) expressive enough to type and verify non-trivial programs?
 \item Is type inference for the type system feasible?
@@ -50,7 +50,7 @@ A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:br
   The original JayHorn paper includes two additional benchmark sets, Mine Pump and CBMC.
   Both our tool and the most recent version (v0.6.1) of JayHorn time out on the Mine Pump benchmark. Further,
   the CBMC tests were either subsumed by our own test programs, tested Java specific
-  features, or tested program synthesis functionalty. We therefore omitted both of these
+  features, or tested program synthesis functionality. We therefore omitted both of these
   benchmarks from our evaluation as we considered the results uninteresting.
 \end{remark}
 
@@ -59,7 +59,8 @@ We first ran \name on each program in our benchmark suite. For each program in o
 we recorded the output of our tool as well as the end-to-end runtime. For the JayHorn suite,
 we first ran our tool on the adapted version of the program and then ran the most recent\footnote{As of October 15, 2019}
 development build of JayHorn\footnote{We did not use the most recent official release of JayHorn as
-  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the Java version. As comparison of runtimes is meaningless,
+  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the Java version.
+Given the differences in problem domains, a comparison of run times is meaningless so
 we collected only the final verification result for this set of experiments. All tests
 were run on a machine \JT{...} and we imposed timeout of 60 seconds.
 
@@ -88,3 +89,5 @@ of the programs within 60 seconds. For the unsafe variants,
 %%% mode: latex
 %%% TeX-master: t
 %%% End:
+
+%  LocalWords:  JayHorn
