@@ -1,30 +1,21 @@
 \section{Related Work}
 \label{sec:rw}
 
+\JT{Talk about axiomatic reasoning about the heap, a al F*}
 The difficulty in handling programs with mutable references and
-aliasing has been well-studied. As mentioned in \Cref{sec:intro}, a
-commond approach is to model the heap explicitly at analysis time, approximating
-concrete heap locations with allocation site labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low}
-\JT{There must be many more of these papers, find them, and cite them}.
-To support programs with unbounded allocations while keeping verification tractable,
-these techniques use \emph{summary} locations to abstract multiple concrete
-locations. However, this abstraction comes at the cost of strong updates and flow-sensitivity.
+aliasing has been well-studied. A common approach is to model the heap explicitly
+at analysis time, approximating concrete heap locations with allocation site
+labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low};
+these \emph{abstract locations} are associated with a refinement.
+However, as these abstract locations summarize many concrete locations, this approach
+comes at the cost of strong updates and flow-sensitivity; in particular, the refinement
+associated with an abstract location is fixed for the lifetime of the program.
 The techniques cited above include various work arounds for this limitation. For
-example, in addition to inlining, JayHorn \cite{kahsai2016jayhorn,kahsai2017quantified} ``pulls'' information
-from mutable, aliased memory into local variables which can be strongly updated.
-This information is cached in local variables as long as possible, until memory interaction
-(e.g., a read through a may-aliased heap location) forces a ``push'' back into the heap
-location. At each push back into the heap, the information cached in local variables must satisfy
-the (unchanging) object invariant for the summary location. The work of
-of \cite{rondon2010low,chugh2012dependent} take a similar approach, temporarily
-allowing strong updates to refinements on program names that contain summary locations.
-The new refinements on these program names may be inconsistent with the (unchanging)
-refinement on the summary location.
-However, like JayHorn, these systems allow strong updates (and inconsistent refinements)
-only so long as they can prove the summary location is not used while the refinements
-are out of sync. The programmer must therefore eventually ensure the strongly update
-refinements are brought back in sync with the summary location.
-As a result these systems ultimately cannot precisely handle programs that require
+example, \cite{rondon2010low,chugh2012dependent} temporarily allow
+breaking these invariants through a distinguished program name
+as long as the abstract location is not accessed through another name.
+The programmer must therefore eventually bring the invariant back in sync with the summary location.
+As a result, these systems ultimately cannot precisely handle programs that require
 evolving invariants on mutable memory locations. \JT{This comes off as pretty uncharitable}
 
 Another related approach can be found in the work on strong updates in
@@ -44,7 +35,7 @@ invariants on object fields to be broken during a limited period of time
 Spec\# \cite{barnett2011specification} uses an ownership system which tracks
 whether object $a$ owns object $b$; like \name's ownership system these ownerships
 are used to track when states may be inconsistent. However, Spec\#'s ownership
-is quite strict, and does admit references to $b$ outside of owning object $a$.
+is quite strict, and does admit references to $b$ outside of the owning object $a$.
 Further, these techniques implicitly use \emph{type-based} abstract heap; the boundaries during
 which an object invariant can be broken are similar to the regions described
 above during which strong updates are permitted. Thus, these techniques also cannot
@@ -55,13 +46,12 @@ al. \cite{gordon2013rely,gordon2017verifying} uses refinement
 types in a language mutable references and aliasing without relying on
 an abstract heap. Their approach extends reference types with rely/guarantee predicates;
 the rely predicate describes the ways the value of the reference may be mutated via aliases,
-and the guarantee predicate describes the admissable mutations through the reference. A key invariant
-of their type system is that if two references may alias, the guarantee predicate of one of
+and the guarantee predicate describes the admissable mutations through the reference.
+If two references may alias, then guarantee predicate of one of
 the references implies the rely of the other and vice versa. 
 This invariant is maintained by way of a linear ``splitting'' operation that
 bears many similarities to the behavior of our $+$ operator.
-In particular, their split operation could express that a mutable reference two immutable references.
-Further, their type system allows strong updates to reference context refinements
+Further, their type system allows strong updates to reference content refinements
 provided that mutations admitted by the rely guarantee do not
 invalidate the new refinement. Thus, rely-guarantee refinements can support multiple
 mutable, aliased references with non-trivial refinement information. Unfortunately this
