@@ -150,10 +150,9 @@ grammar
 	| ?= :: :: unk_eq {{ tex \overset{?}{\subseteq} }}
 
   plhs {{ tex \mathcal{C} }} :: 'PLhs_' ::=
-    | A :: :: var
-	| ll A :: :: param_pref {{ tex [[ll]] \circ [[A]] }}
-	| csub plhs :: :: sub
-	| ll :: :: concr
+    | B :: :: ty_con
+	| l : plhs :: :: param_pref {{ tex [[l]] : [[plhs]] }}
+	| ll : A :: :: abbrv_concat
 
   prhs :: 'PRhs_' ::=
     | ll :: :: prefix {{ tex [[ll]] }}
@@ -169,6 +168,7 @@ grammar
     | . :: :: empty {{ tex \epsilon }}
 	| l :: :: singleton
 	| l : ll :: :: cons
+	| l1 ,, l2 :: :: abbrv {{ tex [[l1]]\ldots[[l2]] }}
 	| l1 ... ln :: :: inline
 
   B {{ tex \mathcal{L}^{\alpha} }} :: B_ ::= {{ com type contexts }}

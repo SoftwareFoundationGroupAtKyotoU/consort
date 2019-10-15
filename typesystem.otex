@@ -97,13 +97,15 @@ refinement cannot exist when an update occurs.
 The grammar of types is given in \Cref{fig:types}.
 Our type system has two type constructors: references and integers. $[[ T ref r ]]$ is the
 type of a (non-null) reference to a value of type $[[ T ]]$.
-$[[r]]$ is an \emph{ownership}, which ranges from $[[0]]$ indicating a
-pointer that provides no refinement information and cannot be
-written, to $[[1]]$ indicating a pointer with exclusive
-ownership that can be read and written. Ownership values between these two
-extremes indicate a pointer that is readable but not writable and which
-has up-to-date refinement information. Further,
-the ownership type system described above ensures that no mutable aliases
+$[[r]]$ is an ownership which is a rational number in the
+range $[0,1]$. An ownership of $[[0]]$ indicates a
+reference that provides no refinement information, cannot be written,
+and for which there exists a mutable alias; whereas
+$[[1]]$ indicates a pointer with exclusive
+ownership that can be read and written. Reference types with ownership values between
+these two extremes indicate a pointer that is readable but not writable, which
+has non-trivial refinement information, and for which no mutable aliases exist.
+Further, like the ownership type system described above, \name ensures that no mutable aliases
 exist for a pointer with ownership in the range $(0,1]$. \NK{I do not quite understand the part
  ``and for which ...''}
 
@@ -129,7 +131,7 @@ explained below.
 
 \paragraph{Contexts and Context Polymorphism}
 Our type system achieves context sensitivity
-by having function types to depend on where and how a function
+by allowing function types to depend on where and how a function
 is called, i.e., the \emph{execution context} of the function invocation.
 Our system represents a \emph{concrete} execution contexts with
 string of call site labels (or just ``call strings''),
@@ -137,27 +139,22 @@ defined as $[[ll]] ::= [[.]] \mid [[l : ll ]]$.
 As is standard, the string $[[ l : ll ]]$ abstracts
 an execution context where the most recent, active function call occurred
 at call site $[[ l ]]$ which itself was executed in a context abstracted
-by $[[ ll ]]$. In addition our system includes \emph{context variables}
-drawn from a finite domain $\CVar$ and ranged over by $[[A1]], [[A2]], \ldots$.
-A context variable (like type variables in parametric polymorphism \needcite[?])
-represents an arbitrary, unknown context. Function types in our language
-are polymorphic over a distinguished context variable, and argument
-and return types may depend on that context varaible. Intuitively,
+by $[[ ll ]]$; $[[.]]$ is the context under which program execution begins. \emph{Context variables},
+drawn from a finite domain $\CVar$ and ranged over by $[[A1]], [[A2]], \ldots$,
+represent an arbitrary, unknown context.
+
+Function types in our language are context polymorphic,
+expessed by universally quantifying
+over a context variable. Intuitively,
 this context variable represents the many different execution contexts
 under which a function may be called.
-As a result, a function may have different behaviors depending on the
-choice of concrete context used to instantiate the context variable,
-i.e., depending on where the function is called.
-
-Our language of function types expreses this polymorphism by universally quantifying
-over a context variable $[[A]]$; the argument, output, and return types may depend
-on this $[[A]]$ with \emph{context predicates} described below. A function type
-takes a tuple of zero or more argument types $[[Ti]]$ to the same number of \emph{output types}
-$[[Ti']]$. These output types express the side effects that may occur within a method.
-Recall that our type system language supports destructive updates to refinements
-on memory locations; these output types express these changes. In addition, function types
-have a direct return value $[[T']]$. Notice that the argument and output types are given
-names: the refinements of the argument and output types may refer to these variable
+Argument and return types may then depend on this context variable with
+\emph{context query predicates} described below.
+The arguments of a function are an $n$-ary tuple of types $[[Ti]]$.
+To model side-effects, the function type includes the same number of \emph{output types}
+$[[Ti']]$. In addition, function types have a direct return value $[[T']]$. Notice that
+the argument and output types are given names: the refinements of the argument and
+output types may refer to these variable
 names in their refinements.
 
 Types within a function type may depend on the function's calling context
@@ -171,10 +168,9 @@ Intuitively, a refinement $[[ ll <= A ==> ph ]]$ on a value
 asserts $[[ ph ]]$ holds in any concrete execution context
 with prefix $[[ll]]$, and provides no information in any other
 context. Notice that in full generality, a context query predicate may
-be of the form $[[ ll1 <= ll2 ]]$ or $[[ ll1 <= ll2 A ]]$; these
-forms may be immediately simplified to $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
-We include these constructions to ensure context query predicates
-are closed under subtitution for $[[ A ]]$.
+be of the form $[[ ll1 <= ll2 ]]$ or $[[ ll1 <= l1,,ln:A ]]$;
+these forms may be immediately simplified to
+$[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
 
 \begin{example}
   \label{exmp:cs-type-example}
@@ -187,7 +183,7 @@ are closed under subtitution for $[[ A ]]$.
 As types in our type system may contain context variables, our typing judgment
 (introduced below) includes a typing context $[[B]]$, which is either a single
 context variable $[[A]]$ or a concrete context $[[ll]]$. This typing context
-represents the assumptions about the \emph{execution} context of the term being
+represents the assumptions about the \emph{concrete} execution context of the term being
 typed. If the typing context is a context variable $[[A]]$, then no assumptions
 can be made about the execution context of the term, although types
 may be dependent upon the context using context query predicates described above.
@@ -198,6 +194,17 @@ As in parametric polymorphism, our type rules are designed such that consistenct
 substitution of a concrete context $[[ll]]$ for a context variable $[[A]]$
 in a typing derivation yields a valid type derivation under concrete context $[[ll]]$.
 
+
+\begin{remark}
+  \label{rem:cfa}
+  The context-sensitivity scheme described here corresponds
+  to the standard CFA approach \cite{shivers1991control} without \emph{a priori} call-string limiting.
+  We chose this scheme as it can be easily encoded with equality over integer variables (see \Cref{sec:infr}),
+  but in principle another context-sensitivity strategy could be used instead. The important
+  feature of our type system is the inclusion of predicates $[[CQP]]$ over
+  contexts, not the specific choice for these predicates.
+\end{remark}
+
 \paragraph{Well Formedness}
 We impose two well-formedness conditions on types:
 ownership well-formedness and refinement well-formedness.
@@ -207,8 +214,8 @@ $[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
 of a chain of $[[i]]$ references, and is defined inductively as
 $[[top0 = {nu:int|Top}]], [[topi = topi-1 ref 0]]$.
 
-The ownership well-formedness condition ensures that aliases introduced with heap writes do not
-violate the ownership invariant \emph{and} that refinements remain consistent
+The ownership well-formedness condition ensures that aliases introduced via
+heap writes do not violate the invariant of ownership types \emph{and} that refinements remain consistent
 in the presence of heap writes. Recall that the ownership type system ensures
 that the ownership of a reference drops to 0 when a mutable alias to that
 reference is created.
@@ -225,10 +232,10 @@ are given integer types in the type environment $[[G]]$. This
 condition also ensures that the only context variable used
 in a refinement is $[[A]]$ when $[[B = A]]$ (no context variables
 may be used if $[[B = ll]]$). Notice this well-formedness conditions
-forbids refinements that explicitly refer to memory locations. Although
+forbids refinements that refer to references. Although
 ownership information can signal when the refinement on a mutably-aliased
 reference must be discarded, our current formulation
-provides no such information for refinements that mention
+provides no such information for refinements that include
 mutably-aliased references. We therefore conservatively reject
 such refinements at the cost of some expressiveness in our type system.
 
@@ -299,8 +306,8 @@ such refinements at the cost of some expressiveness in our type system.
                             & [[FPCV(!ph)]] & = [[ FPCV(ph) ]] \\
                             & [[FPCV(pval1 = pval2)]] & = [[FPCV(pfun(pval1,..,pvaln)) = null ]] \\
                             & [[FPCV(ll <= plhs)]] & = [[FPCV(plhs)]] \\
-                            & [[FPCV(ll A)]] & = [[ {A} ]] \\
-                            & [[FPCV(ll) ]] & = [[ null ]] \\
+                            & [[FPCV(l : plhs)]] & = [[ FPCV(plhs) ]] \\
+                            & [[FPCV(B) ]] & = [[ CV(B) ]] \\
       \text{Ctxt Vars} & [[CV(ll)]] & = [[ null ]] \\
                             & [[ CV(A)]] & = [[{A}]]
     \end{array}
@@ -390,7 +397,7 @@ form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
 environment $[[Th]]$, and typing context $[[B]]$
 and evalutes to a type $[[T]]$ and modifies the input environment
-to produce $[[G']]$. A type environment $[[G]]$ is a finite
+according to $[[G']]$. A type environment $[[G]]$ is a finite
 mapping from variable names to refinement types $[[T]]$.
 We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
 that $[[x in dom G /\ G(x) = T]]$, $[[G,x:T]]$ to indicate the
@@ -425,9 +432,9 @@ types. Formally, the type addition operator is defined as the least
 commutative partial operation that satisfies the rules in
 \Cref{fig:addition}. Although not explicit in the rules,
 by the ownership well-formedness condition,
-when dividing types if the entirety of ownership is transferred to
-one of the result types, all refinements in the other
-type are $[[ Top ]]$.
+if the entirety of a reference's ownership is transferred to
+another type during a split, all refinements in the remaining
+type must be $[[ Top ]]$.
 
 The let bindings (\rn{T-Let}, \rn{T-MkRef}, \rn{T-Deref}, and
 \rn{T-LetInt}) introduce new bindings based on the right hand side.
@@ -437,14 +444,14 @@ ownership from the high-hand side has been transferred to the new binding,
 retaining the original type would be unsound.
 The bindings rules then analyze the let body $[[e]]$ in this new environment.
 The typing rule for each form requires the type and result environment of the
-let body to be well-formed after the removal of the bound variable $[[x]]$.
+let body to no longer mention the bound variable $[[x]]$.
 This requirement can be met by applying the subtyping rule (see below)
 to weaken refinements to no longer mention $[[x]]$. As in other refinement
 type systems \needcite, this requirement is critical for ensuring soundness.
 
 Our type system also tracks path information. Specifically, In the \rn{T-If}
 rule, we update the refinement on the condition variable in the respective
-branches to indicate whether said variable must be zero. By requiring
+branches to indicate whether the variable must be zero. By requiring
 both branches produce the same output type environment, we guarantee
 that these conflicting refinements are rectified within the
 type derivations of the two branches. Further, when creating bindings our
@@ -465,10 +472,10 @@ proposition $[[ x = T y]]$, defined respectively as:
 \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
 We do not track equalities between references or between
-the contents of reference cells, as doing so would violate
+the contents of reference cells as doing so would violate
 our refinement well-formedness condition. Notice also that the
 equality tracking in the \rn{T-Deref} case is \emph{conditionally}
-applied, depending on the ownership of the dereferenced pointer. 
+applied depending on the ownership of the dereferenced pointer. 
 
 The rule for type checking assert statements has the precondition
 $[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
@@ -577,9 +584,9 @@ In a system with unrestricted aliasing, this
 typing rule would be unsound, as it could invalidate the refinements on
 references that alias with the left hand side. However, the assignment rule
 requires that the updated reference has an ownership of $1$,
-which by the ownership system invariant guarantees any pointers
-that alias with the updated reference have $0$ ownership, and
-thus by well-formedness have the $[[Top]]$ refinement.
+which by the ownership system invariant guarantees aliases
+with the updated reference have $0$ ownership, and
+thus by well-formedness may only contain the $[[Top]]$ refinement.
 
 \begin{example}
   We can type the program as follows:
@@ -599,7 +606,7 @@ Additionally, once
 a mutable pointer has been split through an assignment or let binding, there is no
 way to recover mutability. The typing rule for
 must alias assertions, \rn{T-Alias} and \rn{T-AliasPtr}, overcomes this restriction
-by exploting the aliasing information to
+by exploting the must-aliasing information to
 ``shuffle'' or redistribute ownerships \emph{and refinements} between two
 aliased pointers. The typing rule assigns
 two fresh types $[[T1' ref r1']]$ and $[[T2' ref r2']]$ to the two operand pointers.
@@ -613,7 +620,7 @@ This redistribution is sound precisely because the two references are
 assumed to alias; the total ownership for the single memory cell pointed
 to by both references cannot be increased by this shuffling. Further,
 any refinements that hold for the contents of one reference must necessarily
-hold for contents of the other.
+hold for contents of the other and vice versa.
 
 \begin{example}[Shuffling ownerships and refinements]
   \begin{lstlisting}
@@ -623,7 +630,7 @@ hold for contents of the other.
   \end{lstlisting}
   Taking $[[ph]]$ to be $[[nu = 4]]$, the final type assignment for $[[x]]$ and $[[y]]$ is justified by
   \begin{align*}
-    &[[top1 + {nu:int|ph} ref 1 = {nu:int|ph} ref 1]][[~]]\\
+    &[[top1 + {nu:int|ph} ref 1 = {nu:int|Top /\ ph} ref 1]][[~]]\\
     \,\,\,\,&[[{nu:int|ph/\ph} ref 1 = {nu:int|ph} ref 0.5 + {nu:int|ph} ref 0.5 ]]
   \end{align*}
 \end{example}
@@ -668,7 +675,8 @@ a write into the coerced pointer may cause a later read through an aliased point
 yield a value that does not match the type of reference contents. However, as in
 the assign case, the ownership type system prevents this scenario; a write to the
 coerced pointer requires the pointer to have ownership 1, which guarantees
-any aliased pointers have the maximal type and provide no information about their contents.
+any aliased pointers have the maximal type and provide no information about their contents
+beyond simple types.
 
 \begin{figure}[t]
   \leavevmode
@@ -714,7 +722,7 @@ We first explain the \rn{T-Call} rule. The rule uses two substitution
 maps. $[[vsub]]$ translates between the parameter names used in the
 function type and actual argument names at the call-site. $[[csub]]$
 instantiates all occurrences of $[[A]]$ with $[[ l : B ]]$, where $[[l]]$
-is the label of the callsite. If $[[B]]$
+is the label of the callsite and $[[B]]$ the typing context of the call. If $[[B]]$
 is itself a context variable $[[A']]$, this substitution effectively
 transforms any context prefix queries over $[[A]]$ in the argument/return types
 into a queries over $[[A']]$. Intuitively, this substitution
@@ -723,8 +731,6 @@ the callee function with partial context information. Although the exact
 concrete execution context of the callee (and therefore exact behavior)
 is unknown, we at least know the exact context begins with $[[l]]$ and
 can potentially use this knowledge to rule out certain behaviors.
-Notice that if $[[B]]$ is concrete, then any prefix
-queries can be immediately simplified to $[[Top]]$ or $[[Bot]]$.
 The formal arguments are required to match the parameter
 types (post substitution), and then the body of the let binding is
 checked with the argument types updated to reflect the changes in the
@@ -792,31 +798,13 @@ our syntax.
   Applying the substitution $[[ [l3 : A / A'] ]]$ to the argument
   type of \imp{get_real} yields the expected type:
   \begin{align*}
-    & [[ {nu:int|(l3 l1 <= l3 A ==> nu = 3) /\ (l3 l2 <= l3 A ==> nu = 4)} ref 1 ]][[~]] \\
+    & [[ {nu:int|(l3 l1 <= l3:A ==> nu = 3) /\ (l3 l2 <= l3:A ==> nu = 4)} ref 1 ]][[~]] \\
     & \,\,\,\,\, [[ {nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)} ref 1]]
   \end{align*}
   which is exactly the type of \imp{z}.
   A similar derivation applies to
   give the return type of \imp{get_real} and thus \imp{get}.
 \end{example}
-
-\begin{remark}
-  \label{rem:cfa}
-  \JT{This comes late, and should probably be mentioned earlier. The important
-    thing to emphasize is that we can interrogate the context, and thereby
-    gain context-sensitivity.}
-  The context sensitivity scheme described in this section corresponds
-  to the standard CFA approach without \emph{a priori} call-string limiting.
-  However, this scheme cannot distinguish between calls
-  that occur within a recursive cycle. In principle we could the language
-  of refinements to include more complex context query operations, such
-  as checking whether a context matches a given context free language.
-  However, it seems unlikely such an extension would be amenable to
-  automated type inference, a major goal of this work. Further,
-  we are able to verify several interesting examples even with this
-  relatively simple approach. We leave the rigorous exploration
-  of other context sensitivity schemes to future work.
-\end{remark}
 
 \subsection{Soundness}
 \label{sec:soundness}
