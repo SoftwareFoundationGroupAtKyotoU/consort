@@ -1,7 +1,7 @@
 \section{Introduction}
 \label{sec:intro}
-Driven by the increasing power of automated theorem provers and increasingly
-high-profile and expensive software failures,
+Driven by the increasing power of automated theorem provers and
+recent high-profile, expensive software failures,
 fully automated program verification has seen a surge of interest
 in recent years \needcite.
 In particular, refinement types
@@ -9,13 +9,13 @@ In particular, refinement types
 which refine base types with logical predicates, have been shown to be a practical
 approach for program verification that are amenable to
 (sometimes full) automation \cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent}.
-However, despite promising advances in recent years \needcite,
+However, despite promising advances \needcite,
 the sound and precise application of refinement types (and program
 verifiction in general) in settings with mutability and aliasing
 (e.g., Java, C++, Ruby, etc.) remains difficult.
 
-One of the primary challenges posed by language with mutable, aliased
-references is the need to support \emph{strong updates}.
+One of the primary challenges in this setting
+is how to support \emph{strong updates}.
 Unlike purely functional languages, the invariants that
 hold on a memory location may evolve and change as the program
 mutates that memory location. To accurately model the
@@ -32,7 +32,7 @@ $[[ {nu:int|nu = 3}]]\TREF$, indicating \imp{p} is a reference to an integer tha
 is exactly 3. Similarly, \imp{q} can be given the type
 $([[ {nu:int|nu = 5}]] \TREF) \TREF$. As is common, we
 are representing the invariants on memory locations with
-types on the static program names which point to those locations,
+types on the static program names that point to those locations,
 i.e., \imp{p} and \imp{q}.
 
 Let us first consider the write to \imp{p} on \cref{line:first-p-write}.
@@ -44,12 +44,13 @@ What about the refinement on \imp{*q}? \imp{p} and \imp{*q}
 do not alias on \cref{line:first-p-write} and it is thus correct to
 retain \imp{q}'s original type. However, suppose we made the conservative
 assumption that all references allocated at the same syntactic program point
-(i.e., \cref{line:mk} in \imp{mk}) may alias (such assumptions are common as in \needcite).
-We must therefore update the refinement on \imp{q}.
+(i.e., \cref{line:mk} in \imp{mk}) may alias (such assumptions are common, e.g., as in
+\cite{rondon2010low,kahsai2017quantified});
+we would have to update the refinement on \imp{q}.
 However, given the uncertainty about whether \imp{p} and \imp{*q} alias,
-we would only be able to \emph{weakly} update \imp{q}'s type to be
+we could only \emph{weakly} update \imp{q}'s type to be
 $([[{nu:int|nu = 5 \/ nu = 4}]] \TREF) \TREF$, i.e., \imp{**q} may be
-5 \emph{or} 4. Although this choice is \emph{sound} it becomes
+5 \emph{or} 4. Although this choice is sound it becomes
 impossible to prove the assertion statement on
 \cref{line:assert-statement}.
 
@@ -79,7 +80,7 @@ q := p;$\label{line:q-alias-start}$
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.45\textwidth}
-  \begin{lstlisting}[numbers=left,numberstyle=\tiny\color{black},numberblanklines=false]
+  \begin{lstlisting}[numbers=left,numbersep=3pt,numberstyle=\tiny\color{black},numberblanklines=false]
 get(p) { *p }
 
 let p = mkref 3 in
@@ -107,36 +108,38 @@ type of such references. As a consequence, at memory mutations
 it is sufficient for our
 type system to strongly update \emph{only} the refinements associated with the
 static program name used to mutate memory.
-From the soundness of the ownership type system and the above condition
+From the soundness of ownership types and the above condition
 enforced by \name, the types of any aliases must exclusively use the
 refinement $[[Top]]$, and thus already soundly describe all possible contents.\footnote{This
   assumption holds only if updates do not change simple types, a condition our type-system enforces.}
 
 Ownership types track mutable aliases by attaching a rational number
-in the range $[0,1]$ (called an ownerhsip) to each
+in the range $[0,1]$ (called an ownership) to each
 reference type constructor.
-An ownership of $0$ indicates that a reference
-may have a mutable alias, and thus only $[[Top]]$ may be used in
-refinements as described above.
+An ownership of $0$ indicates that an immutable reference
+that may have a mutable alias; \name therefore requires
+that only the $[[Top]]$ refinement may appear within the type.
 Ownership $1$ indicates a that reference
-is mutable, \emph{and} that all aliases must have ownership $0$.
+is mutable, \emph{and} that the types of aliases must have ownership $0$.
 References with an ownership between these extremes may have any number of
-\emph{immutable} aliases.
-Ownerships cannot be duplicated at assignments,
-only \emph{split} when aliases are created. Thus, when copying
-a mutable pointer, the new alias can have non-trivial refinement information
+\emph{immutable} aliases and may contain non-trivial refinements.
+
+Ownerships behave linearly; they cannot be duplicated only \emph{split}
+when aliases are created. Thus, when copying
+a mutable pointer, the new alias may have non-trivial refinement information
 only if the mutable pointer loses mutability.
 Unlike systems which treat aliasing at the level of lexical regions
 \cite{grossman2002region,jim2002cyclone,matsakis2014rust,tofte1994implementation},
 \name supports \emph{fine-grained, per-statement} ownership tracking.
 In particular, references may gain and lose mutability at any point
-during program execution; the exclusive ownership $1$ may be distributed among
-many references, and then later collected into a single reference, restoring
-mutability.
+during program execution. For example, the ownership of
+a mutable reference may be distributed amongst
+many aliases, and then later collected into a single (potentially different)
+reference, restoring mutability.
 This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
 
-To demonstrate our, consider again the example
+To demonstrate the interplay of ownership and mutability, consider again the example
 in \Cref{fig:strong-update-example}. \imp{p} and \imp{q} are both references
 with no aliases, and can be given types
 $[[ {nu:int|nu=3} ref 1 ]]$ and $[[ ({nu:int|nu = 5} ref 1) ref 1 ]]$ respectively.
@@ -147,11 +150,10 @@ as \imp{p} has ownership 1, all aliases must already have types consistent with 
 At the pointer assignment on \cref{line:q-alias-start}, our type system must \emph{split}
 the ownership of \imp{p} between \imp{*q} and \imp{p}.
 As \imp{*q} is later used for mutation, our type system transfers \emph{all} ownership from
-\imp{p} to \imp{*q}, giving \imp{q} type  $[[ ({nu:int|nu=4} ref 1) ref 1 ]]$ and \imp{p} type
-$[[ {nu:int|Top} ref 0 ]]$.
-\iffalse As \imp{p} has a mutable alias, to maintain our invariant and soundness our
-type system has effectively discarded the refinement information on \imp{p}'s contents.\fi
-As a result, the type system may soundly update \imp{*q}'s refinement on \cref{line:q-incr}
+\imp{p} to \imp{*q} (recall that only references with ownership $1$ may be mutated).
+Thus, after the assignment, \imp{q} has type  $[[ ({nu:int|nu=4} ref 1) ref 1 ]]$ and \imp{p} is
+given type $[[ {nu:int|Top} ref 0 ]]$.
+The type system may now soundly update \imp{*q}'s type on \cref{line:q-incr}
 despite the existence of alias \imp{p}. Our type system can later
 use static aliasing information to propagate the updated refinement in
 \imp{*q} back to \imp{p} if necessary. \JT{This is maybe too detailed for
@@ -166,9 +168,9 @@ the contents of a pointer, and is called in two
 locations, \cref{line:get1,line:get2}. To precise verify
 this program, on line \labelcref{line:get1}
 \imp{get} must be typed as a function that takes a reference that
-contains 3 and which returns 3. Similarly, on line
+contains 3 and returns 3. Similarly, on line
 \labelcref{line:get2}, \imp{get} must be typed as a function that
-takes a reference to 4 and which returns 4. Our type system can
+takes a reference to 4 and returns 4. Our type system can
 give \imp{get} a function type that distinguishes between these two calling
 contexts and selects the appropriate summary of \imp{get}'s behavior.
 
