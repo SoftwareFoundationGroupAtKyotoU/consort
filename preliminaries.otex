@@ -1,16 +1,16 @@
 \section{Preliminaries}
 \label{sec:prelim}
-This sections describes a simple imperative language with mutable references and first
+This section describes a simple imperative language with mutable references and first
 order, recursive functions. Unlike our prior work on fractional ownerships,
 we  explicitly include integers as base values in the language definition.
 
 \subsection{Notation}
 For a function $f$ we will write $\DOM(f)$ to indicate the domain of
 the function. For a function (sometimes called a map) $f$, we will write
-$f \{ x \mapsto v \}$ (where $x \not\in\DOM(f)$) to denote a map
-which takes all values in $\DOM(f)$ to their corresponding values in $f$ and which
+$f \{ x \mapsto v \}$ where $x \not\in\DOM(f)$ to denote a map
+which takes all values in $\DOM(f)$ to their values in $f$ and which
 additionally takes $x$ to $v$. We will write $ f \{ x \hookleftarrow v \}$
-(where $x\in\DOM(f)$) to denote a map equivalent to $f$ except that $f(x) = v$.
+where $x\in\DOM(f)$ to denote a map equivalent to $f$ except that $x$ takes value $v$.
 \JT{This is almost certainly not a sufficient overview. write more later.}
 
 \subsection{Language}
@@ -37,7 +37,7 @@ The grammar of the language is as follows.
   \end{array}
 \]
 $[[ph]]$ stands for a formula in propositional first order
-logic, over variables, integers and contexts;
+logic over variables, integers and contexts;
 we discuss these formulas later in \Cref{sec:types}.
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$ and
 a set of labels ranged over by $[[l1]], [[l2]], \dots$.
@@ -53,9 +53,9 @@ in our language. As a convenience, we assume all variable names
 introduced with let bindings and function parameters are distinct.
 
 Unlike ML (and like C or Java) we do not allow general expressions as right hand side of
-let bindings. The simplest right-hand forms are a variable $[[y]]$, or an integer value.
+let bindings. The simplest right-hand forms are a variable $[[y]]$ or an integer literal $[[nn]]$.
 $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
-$[[*y]]$ accesses the contents of $[[y]]$.
+$[[*y]]$ accesses the contents of reference $[[y]]$.
 Function calls must occur on the right hand side of a variable binding,
 and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is
 (unqiue) label drawn from \textbf{Labels}. These labels are used to make our type system context sensitive, as
@@ -79,7 +79,7 @@ We impose this requirement for technical reasons to ease our formal
 presentation; note that this requirement does not reduce the expressiveness
 of the language as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
-$[[ph]]$ holds in the current state, and aborts the program otherwise.
+$[[ph]]$ holds in the current state and aborts the program otherwise.
 $[[alias(x = y); e]]$ is a specialized type of assertion for asserting
 must-aliasing relationship between two references $x$ and $y$. \imp{alias} statements
 are effectively \emph{annotations} that our type system exploits to gain
@@ -94,7 +94,7 @@ between continuations and general sequencing.
 \begin{remark}
   Although we include \imp{alias} annotations in the
   source language for expository purposes, we expect that practical implementations
-  may use implicit annotations provided by a conservative must-alias analysis.
+  may use also implicit annotations provided by a conservative must-alias analysis.
   \JT{That we mention must-alias analyses here seems to contradict our claim in
     the intro.}
   \JT{What is the preference for remark vs. footnote?}
@@ -172,7 +172,7 @@ The call stack $[[Es]]$ is a sequence of these contexts, with
 the first such return context indicating the most recent function call.
 The stack grows at function calls as described by rule \rn{R-Call}.
 For a call $[[ E[let x = f l (y1,,yn) in e] ]]$ where
-and $f$ is defined as $[[(x1,..., xn)e']]$, the return context $[[ E[let y = [] l in e] ]]$ is
+$f$ is defined as $[[(x1,..., xn)e']]$, the return context $[[ E[let y = [] l in e] ]]$ is
 prepended onto the stack of the input configuration.
 The substitution of formal arguments for parameters in $e'$, denoted by $[[ [y1/x1],,[yn/xn]e' ]]$,
 becomes the currently reducing expression in the output configuration.
@@ -189,7 +189,7 @@ The substitution operation $[[ [R]ph ]]$ is defined inductively as $[[ [empty] p
 In the case of an assertion failure, the semantics step to a distinguished
 configuration $[[AssertFail]]$. The goal of our type system to show that no
 execution of a well-typed program may reach this configuration.
-The \imp{alias} form checks whether the two references actually reference;
+The \imp{alias} form checks whether the two references actually alias;
 i.e., if the must alias assertion provided by the programmer is correct.
 If not, our semantics step to the distinguished $[[AliasFail]]$ configuration.
 Our type system does \emph{not} guarantee that $[[AliasFail]]$ are unreachable; recall
@@ -197,7 +197,7 @@ that aliasing assertions are effectively trusted annotations and are assumed to 
 
 When the expression is a let-binding, in order to better handle conflicts
 with recursive functions and duplicates variable names in our single register file,
-we refresh the bound variable $[[x]]$ in a let expression to $[[x']]$.
+we refresh the bound variable $[[x]]$ in a \imp{let} expression to $[[x']]$.
 Take expression $[[let x=y in e]]$ as an example;
 we substitute a fresh variable $[[x']]$ for $[[x]]$ in $[[e]]$, then bind $[[x']]$ to the value
 of variable $[[y]]$.
@@ -207,7 +207,11 @@ not overlap with a variable name that occurs in the program.
 Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not
 provide any mechanism to reclaim memory.
 We consider memory reclamation an orthogonal concern and
-do not support it in our language or formalism.
+do not support it in our language or formalism.\JT{Do we want
+  to say that we could have explicit free and use suenaga's
+  approach, but don't want to because it unnecessarily complicates
+  the system?}
+  
 
 %%% Local Variables:
 %%% mode: latex
