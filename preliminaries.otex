@@ -36,7 +36,8 @@ The grammar of the language is as follows.
     [[l]] &\in& \textbf{Labels}\\
   \end{array}
 \]
-$[[ph]]$ stands for a logical formula over variables, integers and context;
+$[[ph]]$ stands for a formula in propositional first order
+logic, over variables, integers and contexts;
 we discuss these formulas later in \Cref{sec:types}.
 We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$ and
 a set of labels ranged over by $[[l1]], [[l2]], \dots$.
