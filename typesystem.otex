@@ -685,9 +685,10 @@ any aliased pointers have the maximal type and provide no information about thei
     [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
     [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
     [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \\
-    [[ B |- T' => G' \ x]]
+    [[ x not in dom G' ]] \andalso
+    [[ B |- T' => G' ]]
   }{
-    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G' \ x]]
+    [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G']]
   }
   \infrule[T-FunDef]{
     [[ Th (f) = A <x1 : T1 ,, xn : Tn > -> < x1: T1' ,, xn : Tn' | T> ]] \\
