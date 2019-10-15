@@ -10,8 +10,8 @@
 \section{Initial Experiments}
 \label{sec:eval}
 
-We now present the results of experiments performed with the implementation
-described in \Cref{sec:infr}. The goal of these experiments are two-fold:
+We now present the results of some preliminary experiments performed with the implementation
+described in \Cref{sec:infr}. The goal of these experiements was to answer the following questions:
 \begin{enumerate}
 \item Is the type system (and extensions of \Cref{sec:infr}) expressive enough to type and verify non-trivial programs?
 \item Is type inference for the type system feasible?
@@ -30,6 +30,8 @@ The programs included in this suite are:
 \item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
 \end{itemize}
+We also introduced several mutations to these programs to make them unsafe to
+check our tool for unsoundness.
 
 For our second benchmark suite, we adapted the benchmark suite
 of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool for Java.
@@ -38,7 +40,7 @@ Java. We chose this benchmark suite as, like \name, JayHorn
 is concerned with the automated, flow-sensitive verification of
 programs in a language with mutable, managed memory.
 Further, although some of their benchmark programs tested Java
-specific features, most \textbf{could} be adapted
+specific features, most could be adapted
 into our low-level language. Those programs we could adapt
 provided a valuable baseline against which we could measure
 our implementation.
@@ -52,18 +54,25 @@ A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:br
   benchmarks from our evaluation as we considered the results uninteresting.
 \end{remark}
 
+\subsubsection{Experimental Setup}
+We first ran \name on each program in our benchmark suite. For each program in our suite,
+we recorded the output of our tool as well as the end-to-end runtime. For the JayHorn suite,
+we first ran our tool on the adapted version of the program and then ran the most recent\footnote{As of October 15, 2019}
+development build of JayHorn\footnote{We did not use the most recent official release of JayHorn as
+  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the Java version. As comparison of runtimes is meaningless,
+we collected only the final verification result for this set of experiments. All tests
+were run on a machine \JT{...} and we imposed timeout of 60 seconds.
+
 \subsection{Results}
 The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
 suite \name performs competitively with JayHorn, correctly identifying 29 of the 32 safe programs
 as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception.
 For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds; in contrast,
-JayHorn timed out after 60 seconds on one test, and answered \textsc{Unknown} for the remaining 6.
+JayHorn timed out on one test, and answered \textsc{Unknown} for the remaining 6.
 
-On our own benchmark set, \name correctly verifies all programs within
-60 seconds. We also introduced several mutations to these programs to
-make them unsafe (rows with suffix ``BUG'').
-In all cases, \name was able to quickly and definitively
-determine these programs were unsafe.
+On our own benchmark set, \name correctly verifies all safe versions
+of the programs within 60 seconds. For the unsafe variants,
+\name was able to quickly and definitively determine these programs unsafe.
 
 \begin{table}
   \begin{center}
