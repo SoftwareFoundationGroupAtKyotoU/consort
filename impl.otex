@@ -1,60 +1,61 @@
 \section{Inference and Extensions}
 \label{sec:infr}
 We now briefly describe the inference algorithm implemented in
-our tool \consort. We first run a standard, simple type inference
+our tool \name. We sketch some extensions needed to type more
+interesting programs and close with a discussion of limitations of
+our prototype.
+
+\subsection{Inference}
+Our tool first runs a standard, simple type inference
 algorithm to generate type templates for every function parameter
 type, return type, and for every live variable at each program point.
 For a variable $x$ of simple type $[[ST]]$ (as defined in \Cref{fig:type-wf})
-at program point $p$ we generate a type template $[[ [ST](x,0,pp) ]]$
+at program point $p$ \name generates a type template $[[ [ST](x,0,pp) ]]$
 as follows:
 \begin{align*}
   [[ [int](x,nn,pp) ]] & = [[{nu:int|ph(x,nn,pp)[FV pp]}]] \\
   [[ [ST ref](x,nn,pp) ]] & = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
 \end{align*}
-where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh predicate symbol
+where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh relation symbol
 whose arguments are $[[nu]]$ and the free variables of simple type $[[int]]$
-at program point $[[pp]]$, and $[[r[x,nn,pp] ]]$ is a
+at program point $[[pp]]$ (denoted $[[FV pp]]$), and $[[r[x,nn,pp] ]]$ is a
 fresh ownership variable. For each function definition $[[f]]$,
 there are two synthetic program points, $[[f st]]$ and $[[f end]]$
 for the beginning and end respectively of the function.
-At both points, we generate type template for each argument, where $[[FV f st]]$
+At both points, \name generates type template for each argument, where $[[FV f st]]$
 and $[[FV f end]]$ are the names of integer typed parameters.
-Further, at $[[f end]]$, we generate a type template for the return
+Further, at $[[f end]]$, \name generates a type template for the return
 value using the synthetic variable name $\RETVAR$.
-Finally, we write $[[ G@pp ]]$ to indicate the type environment at point $[[pp]]$,
+We write $[[ G@pp ]]$ to indicate the type environment at point $[[pp]]$,
 where every variable is mapped to the appropriate type template.
 Then $[[ [G@pp] ]]$ is equivalent to:
 \[
   [[ /\ { x in FV pp } [x/nu]ph(x,0,pp)[FV pp] ]]
 \]
 
-When generating these type template, our implementation
+When generating these type templates, our implementation
 also generates ownership well-formedness constraints. Specifically,
 for a type template of the form $[[ {nu:int|ph(x,nn+1,pp)[FV pp]} ref r[x,nn,pp] ]]$
-\consort emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[FV pp] ]]$
+\name emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[FV pp] ]]$
 and for a type template $[[ (T ref r[x,nn+1,pp]) ref r[x,nn,pp] ]]$
-\consort emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] = 0 ]]$.
-\JT{Consort doesn't actually generate that final constraint: it
-  uses the old rules which are effectively equivalent to the new approach.}
+\name emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] = 0 ]]$.
 
-\consort then walks the program, generating constraints according to
+\name then walks the program, generating constraints between
+relation symbols and ownership variables according to
 the typing rules. These constraints take three forms, ownership
 constraints, subtyping constraints, and assertion constraints.
 Ownership constraints are simple linear (in)equalities over ownership variables
 and constants, according to conditions imposed by the typing
 rules. For example, if variable $[[x]]$ has the type template
 $[[T ref r[x,0,pp] ]]$ for the expression $[[ x := y; e ]]$ at point
-$[[pp]]$, we generate the constraint $[[r[x,0,pp] = 1]]$.
+$[[pp]]$, \name generates the constraint $[[r[x,0,pp] = 1]]$.
 
-\consort emits subtyping constraints between the predicate symbols
+ \name emits subtyping constraints between the relation symbols
 at related program points according to the rules of the type system.
-For example, consider the following assignment statement at program point
-$[[pp]]$, where $[[e]]$ is at program point $[[pp']]$, and $[[x]]$ has simple type
-$[[int ref]]$:
-\[
-  [[ let x = y in e ]]
-\]
-\consort generates the following subtyping constraint:
+For example, consider the let binding $[[ let x = y in e ]]$
+at program point $[[pp]]$, where $[[e]]$ is at program point $[[pp']]$, and $[[x]]$ has simple type
+$[[int ref]]$.
+\name generates the following subtyping constraint:
 \[
   [[ [G@pp] /\ ph(y,1,pp)[FV pp] ==> ph(y,1,pp')[FV pp'] /\ ph(x,1,pp')[FV pp'] ]]
 \]
@@ -70,13 +71,21 @@ in scope are sufficient to prove $[[ph]]$. (\consort
 can easily check at inference time that $[[ph]]$ is well-formed
 in the current environment without emitting a constraint.)
 
-The free variables in the above constraints are universally quantified over
-and then sent to an automated solver. Due to recursion,
-the above constraints may be recursive, so we use a
-constrained horn clause \needcite solver to solve the generated constraints.
+\subsubsection{Solving}
+The result of the above process are two systems of constraints; non-linear real arithmetic constraints over
+ownership variables and constrained horn clauses over the refinement relations.
+These systems are not independent; the relation constraints may mention the value
+of ownership variables due to the well-formedness constraints described above.
+The ownership constraints are thus first solved with Z3 \cite{de2008z3}.
+When solving, we constrain the solver to maximize the number of non-zero ownership
+variables; this ensures minimal
+refinement information is lost due to $0$ ownerships.
+The inferred values for ownership variables are then substituted into the
+constrained horn clauses, and the resulting system is checked
+for satisfiability with an off-the-shelf constrained horn clause solver.
 Our implementation generates the above constraints in the industry standard
 SMT-Lib2 format \cite{BarFT-SMTLIB}, so any solver that understands
-this format can be used as a backend for \consort. Our implementation
+this format can be used as a backend for \name. Our implementation
 currently supports Spacer \cite{komuravelli2013automatic} (part of the Z3 solver \cite{de2008z3}),
 HoICE \cite{champion2018hoice}, and Eldarica \cite{rummer2013disjunctive}
 (adding a new backend requires only a handful of lines of ML glue code).
@@ -105,14 +114,8 @@ $[[ csub ]]$ in the \rn{T-Call} rule. The above constraint effectively
 constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
 If $[[f]]$ calls another function $[[g]]$, the above rule
 propagates this value of $[[c0]]$ to $[[c1]]$ within $[[g]]$ and so on.
-The solver is then free to generate predicates that are conditional
-over the concrete values of $[[ci]]$.
-\JT{What we're glossing over entirely here is that the solver may generate
-  constraints of the form $[[c1]] = [[c2]]$ which is technically not within
-  our grammar of constraints (although you can technically generate a finite
-  number of constraints that encode the above relatively simply if you need to.)
-  Whether we address this or leave it for the rebuttals if we come up is something to
-  consider.}
+The solver may then instantiate relation symbols with predicates
+that are conditional over the concrete values of $[[ci]]$.
 
 \subsection{Extensions}
 We now describe some extensions to our core language supported within
@@ -177,7 +180,7 @@ dependent tuple names bound by the enclosing type. These recursive
 types can therefore express the invariant, e.g., of a (mutable)
 sorted list. Adapting the approach in \cite{suenaga2009fractional},
 given a recursive type with references we unfold the type once and
-assign fresh ownership variables to all reference types. We do \emph{not}
+assign fresh ownership variables to all reference constructors. We do \emph{not}
 generate fresh ownership variables when unfolding a recursive type;
 the unfolding of $[[ ((M alpha. T ref r2)) ref r1 ]]$ is
 $[[ ((M alpha. T ref r2)) ref r2 ref r1 ]]$.
@@ -199,8 +202,8 @@ an ownership describing the ownership of memory allocated for the entire array.
 The array type contains two refinements: the first refines the length of the array itself,
 and the second refines the entire array contents.
 The content refinement predicate may refer to a symbolic index variable,
-enabling precise, per-index refinements. At reads and writes to the
-array \consort instantiates the refinement's symbolic index variable with
+for precise, per-index refinements. At reads and writes to the
+array \name instantiates the refinement's symbolic index variable with
 the concrete index variable used at the read/wite.
 
 As in \cite{suenaga2009fractional}, our restriction to arrays of integers
