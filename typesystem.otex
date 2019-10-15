@@ -84,7 +84,7 @@ refinement cannot exist when an update occurs.
       \text{\footnotesize Context Variables} & \CVar & ::= & [[A1]], [[A2]], \ldots \\
       \text{\footnotesize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
       \text{\footnotesize Parameterized Context} & [[ plhs ]] & ::= & [[ ll ]] \mid [[ ll A ]] \\
-      \text{\footnotesize Context Query Predicates} & [[CQP]] & ::= & [[ plhs = ll ? ]] \\
+      \text{\footnotesize Context Query Predicates} & [[CQP]] & ::= & [[ ll <= plhs ]] \\
       \text{\footnotesize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
     \end{array}
   \]
@@ -162,32 +162,23 @@ names in their refinements.
 
 Types within a function type may depend on the function's calling context
 by including \emph{context query predicates} in their refinements.
-A context query predicate $[[CQP]]$ takes the
-form $[[ plhs = ll? ]]$, and is true iff $[[ll]]$ is a
-prefix of $[[plhs]]$. We will also write $[[ plhs != ll? ]]$ as a more convenient
-syntax for $[[ !(plhs = ll?) ]]$.
-$[[plhs]]$ is a parameterized context, which
-may be a concrete context $[[ll]]$ or an unknown context $[[A]]$
-with a (potentially empty) concrete prefix; we abbreviate $[[ . A ]]$ as
-$[[A]]$.
-Intuitively, a refinement $[[ A = ll ? ==> ph ]]$ on a value
+A context query predicate $[[CQP]]$ usually takes the
+form $[[ ll <= A ]]$, and is true iff $[[ll]]$ is a
+prefix of the concrete context represented by $[[A]]$.
+We will also write $[[ ll </= A ]]$ as a more convenient
+syntax for $[[ !(ll <= A) ]]$.
+Intuitively, a refinement $[[ ll <= A ==> ph ]]$ on a value
 asserts $[[ ph ]]$ holds in any concrete execution context
 with prefix $[[ll]]$, and provides no information in any other
-context. Notice that while our grammar allows context query predicates
-of the form $[[ ll2 A = ll1 ? ]]$, any such query can be reduced
-to a predicate of the form $[[ A = ll2' ? ]], [[Top]], [[Bot]]$ using
-the following equivalences:
-\begin{align*}
-  [[ A = .? <=> Top ]] && [[ l1 : ll1' A = l1 : ll2' ? <=> ll1' A = ll2' ? ]] && [[ l1 : ll1' A = l2 : ll2' ? <=> Bot ]]
-\end{align*}
-Additionally, a context query predicate over a concrete context can always be
-immediately reduced to either $[[Top]]$ or $[[Bot]]$. We therefore do not expect
-such predicates to be used directly in refinements, but include them for the purposes
-of proving soundness (see \Cref{sec:soundness} and the appendix for details).
+context. Notice that in full generality, a context query predicate may
+be of the form $[[ ll1 <= ll2 ]]$ or $[[ ll1 <= ll2 A ]]$; these
+forms may be immediately simplified to $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
+We include these constructions to ensure context query predicates
+are closed under subtitution for $[[ A ]]$.
 
 \begin{example}
   \label{exmp:cs-type-example}
-  The type $[[ {nu:int| (A = l1? ==> nu = 3) /\ (A = l2? ==> nu = 4)} ]]$ represents
+  The type $[[ {nu:int| (l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)} ]]$ represents
   an integer that is 3 if the most recent active
   function call site is $[[l1]]$, 4 if the most recent call site is $[[l2]]$,
   and is otherwise unconstrained.
@@ -307,7 +298,7 @@ such refinements at the cost of some expressiveness in our type system.
       \text{Free Ctxt Vars} & [[FPCV(ph1 \/ ph2)]] & = [[FPCV(ph1) U FPCV(ph2) ]] \\
                             & [[FPCV(!ph)]] & = [[ FPCV(ph) ]] \\
                             & [[FPCV(pval1 = pval2)]] & = [[FPCV(pfun(pval1,..,pvaln)) = null ]] \\
-                            & [[FPCV(plhs = ll ?)]] & = [[FPCV(plhs)]] \\
+                            & [[FPCV(ll <= plhs)]] & = [[FPCV(plhs)]] \\
                             & [[FPCV(ll A)]] & = [[ {A} ]] \\
                             & [[FPCV(ll) ]] & = [[ null ]] \\
       \text{Ctxt Vars} & [[CV(ll)]] & = [[ null ]] \\
@@ -726,16 +717,15 @@ instantiates all occurrences of $[[A]]$ with $[[ l : B ]]$, where $[[l]]$
 is the label of the callsite. If $[[B]]$
 is itself a context variable $[[A']]$, this substitution effectively
 transforms any context prefix queries over $[[A]]$ in the argument/return types
-into a queries over $[[A']]$. These new queries may be simplified using the
-equivalences described in \Cref{sec:types}.  Intuitively, this substitution
-and simplification represents incrementally refining the behavior of
+into a queries over $[[A']]$. Intuitively, this substitution
+represents incrementally refining the behavior of
 the callee function with partial context information. Although the exact
 concrete execution context of the callee (and therefore exact behavior)
 is unknown, we at least know the exact context begins with $[[l]]$ and
 can potentially use this knowledge to rule out certain behaviors.
 Notice that if $[[B]]$ is concrete, then any prefix
-queries can be immediately simplified to $[[Top]]$ or $[[Bot]]$. In
-either case however, the formal arguments are required to match the parameter
+queries can be immediately simplified to $[[Top]]$ or $[[Bot]]$.
+The formal arguments are required to match the parameter
 types (post substitution), and then the body of the let binding is
 checked with the argument types updated to reflect the changes in the
 function call (again, post substitution).
@@ -769,17 +759,16 @@ p := 1 + get$^{\ell1}$(p);
 // ...
 *q := 1 + get$^{\ell2}$(*q);
 \end{lstlisting}
-Notice that both invocations of \imp{get} have been given distinct labels as required by
+Both invocations of \imp{get} have been given distinct labels as required by
 our syntax.
-
   Taking $[[T]]$ to be the type shown in \Cref{exmp:cs-type-example}:
   \[
-    [[{nu:int|(A = l1? ==> nu = 3) /\ (A = l2? ==> nu = 4)}]]
+    [[{nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)}]]
   \]
   we can give \lstinline{get} the function type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$
 \end{example}
 \begin{example}[Simple 2-CFA]
-  To see how to compose context information across multiple calls, consider
+  To see how to propagate context information across multiple calls, consider
   the following change to code in \Cref{exmp:1cfa}:
   \begin{lstlisting}
     get_real(z) { *z }
@@ -788,7 +777,7 @@ our syntax.
   \end{lstlisting}
   The type of \imp{get} remains as in \Cref{exmp:1cfa}, and taking $[[T]]$
   to be \[
-    [[ {nu:int| (A' = l3 l1 ? ==> nu = 3) /\ (A' = l3 l2 ? ==> nu = 4) } ]]
+    [[ {nu:int| (l3 l1 <= A' ==> nu = 3) /\ (l3 l2 <= A' ==> nu = 4) } ]]
   \]
   the type of \imp{get_real} is:
   \[
@@ -798,13 +787,13 @@ our syntax.
   The call is typed in context $[[A]]$ and a type environment where
   \imp{z} is given type:
   \[
-    [[ {nu:int|(A = l1? ==> nu = 3) /\ (A = l2? ==> nu = 4)} ref 1]]
+    [[ {nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)} ref 1]]
   \]
   Applying the substitution $[[ [l3 : A / A'] ]]$ to the argument
   type of \imp{get_real} yields the expected type:
   \begin{align*}
-    & [[ {nu:int|(l3 A = l3 l1 ? ==> nu = 3) /\ (l3 A = l3 l2 ? ==> nu = 4)} ref 1 ]][[~]] \\
-    & \,\,\,\,\, [[ {nu:int|(A=l1? ==> nu = 3) /\ (A=l2? ==> nu = 4)} ref 1]]
+    & [[ {nu:int|(l3 l1 <= l3 A ==> nu = 3) /\ (l3 l2 <= l3 A ==> nu = 4)} ref 1 ]][[~]] \\
+    & \,\,\,\,\, [[ {nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)} ref 1]]
   \end{align*}
   which is exactly the type of \imp{z}.
   A similar derivation applies to

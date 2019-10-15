@@ -156,10 +156,14 @@ grammar
 	| ll :: :: concr
 
   prhs :: 'PRhs_' ::=
-    | ll ? :: :: prefix {{ tex [[ll]] }}
+    | ll :: :: prefix {{ tex [[ll]] }}
+
+  prefix_op :: 'Pop_' ::= {{ com prefix operator }}
+    | <= :: :: subset {{ tex \subseteq }}
+	| </= :: :: not_subseteq {{ tex \not\subseteq }}
 
   CQP {{ tex \mathcal{CP} }}:: 'PQ_' ::= {{ com prefix query }}
-    | plhs ineq prhs :: :: query {{ tex [[prhs]] [[ineq]] [[plhs]] }}
+    | prhs prefix_op plhs :: :: query {{ tex [[prhs]] [[prefix_op]] [[plhs]] }}
 
   ll {{ tex \oldvec{\ell} }} :: 'LL_' ::= {{ com concrete contexts }}
     | . :: :: empty {{ tex \epsilon }}
