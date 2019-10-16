@@ -1,12 +1,3 @@
-\begin{table}
-  \input{benchmark_table}
-  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
-    that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
-    checks for null pointers, checking pointer equality, etc. Finally, \textbf{Bug} includes test programs
-    we discovered were actually incorrect.}
-  \label{tab:breakdown}
-\end{table}
-
 \section{Initial Experiments}
 \label{sec:eval}
 
@@ -32,6 +23,17 @@ The programs included in this suite are:
 \end{itemize}
 We also introduced several mutations to these programs to make them unsafe to
 check our tool for unsoundness.
+
+\begin{table}[t]
+  \begin{center}
+    \input{benchmark_table}
+  \end{center}
+  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
+    that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
+    checks for null pointers, checking pointer equality, etc. Finally, \textbf{Bug} includes test programs
+    we discovered were actually incorrect.}
+  \label{tab:breakdown}
+\end{table}
 
 For our second benchmark suite, we adapted the benchmark suite
 of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool for Java.
@@ -60,7 +62,7 @@ we recorded the output of our tool as well as the end-to-end runtime. For the Ja
 we first ran our tool on the adapted version of the program and then ran the most recent\footnote{As of October 15, 2019}
 development build of JayHorn\footnote{We did not use the most recent official release of JayHorn as
   it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the Java version.
-Given the differences in problem domains, a comparison of run times is meaningless so
+As run time comparisons are meaningless given the differences in problem domains,
 we collected only the final verification result for this set of experiments. All tests
 were run on a machine \JT{...} and we imposed timeout of 60 seconds.
 
@@ -75,12 +77,12 @@ On our own benchmark set, \name correctly verifies all safe versions
 of the programs within 60 seconds. For the unsafe variants,
 \name was able to quickly and definitively determine these programs unsafe.
 
-\begin{table}
+\begin{table}[t]
   \begin{center}
     \input{jayhorn_table}
     \input{consort_table}
   \end{center}
-  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified}.}
+  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and the results on our custom benchmark suite.}
   \label{tab:jh-results}
 \end{table}
 
