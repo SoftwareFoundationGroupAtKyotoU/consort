@@ -72,10 +72,9 @@ $[[ifz]]$ checks whether the condition variable $[[x]]$ equals zero and chooses
 the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
 
-Our grammar requires that side-effecting, result free statements, \lstinline{assert($[[ph]]$)}
-\lstinline{alias($[[x]]$ = $[[y]]$)}, \lstinline{alias($[[x]]$ = *$[[y]]$)} and
-assignment \lstinline{$[[x]]$ := $[[y]]$} are followed by a continuation expression.
-\AI{Commands should be typeset in italic.} \JT{done}
+Our grammar requires that side-effecting, result free statements, \lstinline{assert}($[[ph]]$)
+\lstinline{alias}($[[x]]$ = $[[y]]$), \lstinline{alias}($[[x]] = *[[y]]$) and
+assignment $[[x]] := [[y]]$ are followed by a continuation expression.
 We impose this requirement for technical reasons to ease our formal
 presentation; note that this requirement does not reduce the expressiveness
 of the language as dummy continuations can be inserted as needed.
@@ -146,7 +145,6 @@ We assume a finite domain of heap addresses \textbf{Addr}:
 we denote an arbitrary address with $[[a]]$.
 A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consist of a heap,
 register file, stack, and currently reducing expression respectively.
-\AI{A stack should be a sequence of $[[CE]]$, not $[[E]]$.} \JT{done}
 The register file maps variables to runtime values, which are
 either integers $[[nn]]$ or addresses $[[a]]$. The heap maps a subset
 of addresses to runtime values. The runtime stack represents pending
