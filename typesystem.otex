@@ -47,12 +47,6 @@ This guarantee enables our combined type system to destructively
 readable pointers that expect values constrained by the previous
 refinement cannot exist when an update occurs.
 
-\AI{We should discuss how the meaning of ownership has changed.
-  Unlike previous work, we do allow reading from a reference with 0 ownership, although there is no useful refinement information.
-  It relies on the fact that we disallow strong update of the underlying
-  simple type and the language has no construct for deallocation.
-} \JT{Addressed (maybe?) in the following remark}
-
 \begin{remark}
   In the fractional ownership type systems cited above,
   an ownership also represents an \emph{obligation} to
@@ -135,6 +129,9 @@ explained below.
   positive.  $[[{nu:int | nu = 3} ref 0.5]]$ is the type of immutable,
   readable references to integers that are exactly equal to $3$.
 \end{example}
+
+\AI{If we are desperate for space, we might want to omit ``$[[pval1 = pval2]]$'' (which could be assumed in $[[pfun]]$) and ``$[[Top]]$'' (which could be expressed by, say, $[[0=0]]$) from the syntax of refinements.}
+
 
 \paragraph{Contexts and Context Polymorphism}
 Our type system achieves context sensitivity
@@ -246,9 +243,7 @@ provides no such information for refinements that include
 mutably-aliased references. We therefore conservatively reject
 such refinements at the cost of some expressiveness in our type system.
 
-
-\AI{The subscript $\tau$
-  in $[[ [S T ] ]]$ may look like a parameter to this operation.} \JT{removed}
+\AI{We can safely omit \Cref{fig:type-wf} (or put it in Appendix of the submission, if allowed).  This prose description looks sufficient.  We should present the judgment form, though, to understand the typing rules.}
 
 \begin{figure}[t]
   \bcprulessavespacetrue
@@ -339,7 +334,7 @@ such refinements at the cost of some expressiveness in our type system.
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G']]
   }
   \infrule[T-LetInt]{
-    [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \\
+    [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \andalso
     [[B |- T => G' ]] \andalso [[ x not in dom G' ]]
   }{
     [[ Th | G | B |- let x = nn in e : T => G']]
@@ -385,17 +380,17 @@ such refinements at the cost of some expressiveness in our type system.
   \label{fig:intra-type}
 \end{figure}
 
-\begin{figure}[t]
-  \leavevmode
-  \infax[Tadd-Int]{
-    [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]]
-  }
-  \infax[Tadd-Ref]{
-    [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
-  }
-  \caption{Rules for $[[ T1 + T2 ]]$.}
-  \label{fig:addition}
-\end{figure}
+% \begin{figure}[t]
+%   \leavevmode
+%   \infax[Tadd-Int]{
+%     [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]]
+%   }
+%   \infax[Tadd-Ref]{
+%     [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
+%   }
+%   \caption{Rules for $[[ T1 + T2 ]]$.}
+%   \label{fig:addition}
+% \end{figure}
 
 \subsection{Intraprocedural Type System}
 \label{sec:intra-types}
@@ -428,7 +423,7 @@ and $[[Th]]$ is a finite map from function names to function types.
 
 The typing rules in \Cref{fig:intra-type} handle the relatively
 standard features in our language. The most noteworthy feature is the
-type addition operator used in \rn{T-Let}, \rn{T-MkRef}, and
+type addition operator $[[T1 + T2]]$ used in \rn{T-Let}, \rn{T-MkRef}, and
 \rn{T-Deref} forms. Intuitively, the type addition operator describes
 how to split a type into two components, dividing information in the original
 type between the two result types.
@@ -440,8 +435,12 @@ is that the total ownership is unchanged from before the split/combination;
 in other words, the type addition operation cannot create or destroy
 ownership or refinement information, only combine or divide it between
 types. Formally, the type addition operator is defined as the least
-commutative partial operation that satisfies the rules in
-\Cref{fig:addition}. Although not explicit in the rules,
+commutative partial operation that satisfies the following rules:
+\begin{gather*}
+  [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]] \\
+  [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
+\end{gather*}
+Although not explicit in the rules,
 by the ownership well-formedness condition,
 if the entirety of a reference's ownership is transferred to
 another type during a split, all refinements in the remaining
@@ -451,7 +450,7 @@ The let bindings (\rn{T-Let}, \rn{T-MkRef}, \rn{T-Deref}, and
 \rn{T-LetInt}) introduce new bindings based on the right hand side.
 The rules for \rn{T-Let}, \rn{T-MkRef} and \rn{T-Deref} also \emph{update}
 the type of the variable appearing on the right hand side; as some
-ownership from the high-hand side has been transferred to the new binding,
+ownership from the right-hand side has been transferred to the new binding,
 retaining the original type would be unsound.
 The bindings rules then analyze the let body $[[e]]$ in this new environment.
 The typing rule for each form requires the type and result environment of the
@@ -459,6 +458,7 @@ let body to no longer mention the bound variable $[[x]]$.
 This requirement can be met by applying the subtyping rule (see below)
 to weaken refinements to no longer mention $[[x]]$. As in other refinement
 type systems \needcite, this requirement is critical for ensuring soundness.
+\AI{\rn{T-Let} already uses $[[ T /\ y ph' ]]$ and it's not for tracking path information.}
 
 Our type system also tracks path information. Specifically, In the \rn{T-If}
 rule, we update the refinement on the condition variable in the respective
@@ -482,6 +482,13 @@ proposition $[[ x = T y]]$, defined respectively as:
 \JT{The above is very ugly}
 \NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
 \JT{unfortunate ambiguity in the rules, fixed with parens}
+\AI{How about this?}
+\begin{align*}
+  [[ { nu: int | ph } /\ y ph' ]] & = [[ { nu: int | ph /\ [nu/y]ph' }]] &
+  [[ (x = {nu:int|ph} y) ]] & =  [[ (x = y) ]] \\ 
+    [[ T ref r /\ y ph' ]] & = [[T ref r]] &
+    [[ (x = T ref r y) ]] & = [[Top]]
+\end{align*}
 We do not track equality between references or between
 the contents of reference cells as doing so would violate
 our refinement well-formedness condition. Notice also that the
@@ -611,8 +618,6 @@ thus by well-formedness may only contain the $[[Top]]$ refinement.
 As described thus far, the type system is quite strict: if ownership
 has been completely transferred from one reference to another, the
 refinement information found in the original reference is effectively useless.
-\AI{I don't really understand what you mean by ``effectively unusable''.  Those pointers are still readable.}
-\JT{This now just reads as obvious. Do better}
 Additionally, once
 a mutable pointer has been split through an assignment or let binding, there is no
 way to recover mutability. The typing rule for
@@ -627,6 +632,9 @@ equivalent (denoted $[[~]]$) to the sum of the original types.
 Formally, $[[~]]$ is defined as in \Cref{fig:pointer-typing}; it implies
 that any refinements in the two types must be logically equivalent and
 that ownerships must also be equal.
+\AI{It's a bit unfortunate that $[[~]]$ is menioned before subtyping is discussed (but the following description seems sufficient to understand the intuition).}
+\AI{Why does $[[~]]$ compare two types under the empty type environment?
+Could it use assumptions on other integer variables in $[[G]]$?}
 This redistribution is sound precisely because the two references are
 assumed to alias; the total ownership for the single memory cell pointed
 to by both references cannot be increased by this shuffling. Further,
@@ -712,6 +720,7 @@ beyond simple types.
   }{
     [[ Th |-  D ]]
   }
+  \hfil
   \infrule[T-Prog]{
     [[ Th |- D ]] \andalso [[ |- Th ]] \\
     [[ Th | empty | . |- e : T => G ]]
@@ -784,7 +793,7 @@ our syntax.
   \[
     [[{nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)}]]
   \]
-  we can give \lstinline{get} the function type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$
+  we can give \lstinline{get} the function type $[[ A <z: T ref 1> -> <z: T ref 1 | T>]]$.
 \end{example}
 \begin{example}[Simple 2-CFA]
   To see how to propagate context information across multiple calls, consider
@@ -827,6 +836,7 @@ We formalize this claim with the following soundness theorem.
   For any program $[[ <D, e> ]]$ such that $[[ |- <D, e> ]]$ then
   $[[ <empty, empty, ., e> !-->*D AssertFail ]]$.
 \end{theorem}
+\AI{Do we want emphasize that a well typed program doesn't get stuck, either?}
 \begin{proof}[Proof Sketch]
   We omit a full proof for space details, the full proof can be found
   in the accompanying appendix.
