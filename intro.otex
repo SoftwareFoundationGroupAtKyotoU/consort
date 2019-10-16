@@ -30,36 +30,36 @@ with mutable references; references are updated with \imp{:=} and
 created with \imp{mkref}. \imp{p} can initially be given the type
 $[[ {nu:int|nu = 3}]]\TREF$, indicating \imp{p} is a reference to an integer that
 is exactly 3. Similarly, \imp{q} can be given the type
-$([[ {nu:int|nu = 5}]] \TREF) \TREF$. As is common, we
+$[[ {nu:int|nu = 5}]] \TREF$. \iffalse As is common, we
 are representing the invariants on memory locations with
 types on the static program names that point to those locations,
-i.e., \imp{p} and \imp{q}.
+i.e., \imp{p} and \imp{q}.\fi
 
-Let us first consider the write to \imp{p} on \cref{line:first-p-write}.
+Let us now consider the write to \imp{p} on \cref{line:first-p-write}.
 As we are mutating memory through the name \imp{p},
 it is clearly sound to \emph{strongly} update \imp{p}'s
 type to $[[ {nu:int|nu=4}]]\TREF$, i.e., the memory cell pointed
 to by \imp{p} must hold the value 4.
-What about the refinement on \imp{*q}? \imp{p} and \imp{*q}
+What about the refinement on \imp{q}? \imp{p} and \imp{q}
 do not alias on \cref{line:first-p-write} and it is thus correct to
 retain \imp{q}'s original type. However, suppose we made the conservative
 assumption that all references allocated at the same syntactic program point
-(i.e., \cref{line:mk} in \imp{mk}) may alias (such assumptions are common, e.g., as in
+(i.e., \cref{line:mk} in \imp{mk}) may alias (such assumptions are common as in, e.g.,
 \cite{rondon2010low,kahsai2017quantified});
 we would have to update the refinement on \imp{q}.
-However, given the uncertainty about whether \imp{p} and \imp{*q} alias,
+However, given the uncertainty about whether \imp{p} and \imp{q} alias,
 we could only \emph{weakly} update \imp{q}'s type to be
-$([[{nu:int|nu = 5 \/ nu = 4}]] \TREF) \TREF$, i.e., \imp{**q} may be
-5 \emph{or} 4. Although this choice is sound it becomes
-impossible to prove the assertion statement on
-\cref{line:assert-statement}.
+$([[{nu:int|nu = 5 \/ nu = 4}]] \TREF$, i.e., the contents of \imp{q} may be
+5 \emph{or} 4. This choice is sound, but it becomes
+impossible to prove the assertion statement on \cref{line:rq-eq-assert} must
+succeed.
 
 Further complicating matters, aliasing relationships may change
-during program execution;
-after \cref{line:q-alias-start} \imp{p} and \imp{**q} now \emph{must}
-alias. Thus, it is sound to strongly update the invariants on both
-\imp{p} and \imp{*q}. However, under the conservative assumption
-described above, we would be forced once again to settle
+during program execution; after \cref{line:r-alias}, \imp{p} and \imp{r} \emph{must}
+alias. Thus, at the write to \imp{r} on \cref{line:r-write}
+it is sound to strongly update the invariants on both
+\imp{p} and \imp{r}. However, under the conservative assumption
+described above, we would be forced to settle
 for a \emph{weak} update of \imp{p}'s refinement.
 
 \begin{figure}[t]
@@ -67,15 +67,15 @@ for a \emph{weak} update of \imp{p}'s refinement.
   \begin{lstlisting}[numbers=left, numbersep=3pt, numberstyle=\tiny\color{black},numberblanklines=false]
 mk(n) { mkref n }$\label{line:mk}$
 
-let p = mk 3 in$\label{line:main-start}$
-let q = mkref (mk 5) in
-p := 1 + *p;$\label{line:first-p-write}$
-assert(*p + 1 = **q);$\label{line:assert-statement}$
-q := p;$\label{line:q-alias-start}$
-*q := (**q) + 1;$\label{line:q-incr}$
+let p = mk(3) in$\label{line:main-start}$
+let q = mk(5) in
+p := *p + 1;$\label{line:first-p-write}$
+let r = p in$\label{line:r-alias}$
+r := *r + 1;$\label{line:r-write}$
+assert(*r = *q);$\label{line:rq-eq-assert}$
   \end{lstlisting}
   \caption{Example demonstrating the difficulty of effecting strong updates in the presence of aliasing. The function \imp{mk} is
-    bound in the program from \crefrange{line:main-start}{line:q-incr}; its body is given within the braces. \imp{:=} indicates destructive update.}
+    bound in the program from \crefrange{line:main-start}{line:rq-eq-assert}; its body is given within the braces. \imp{:=} indicates destructive update.}
   \label{fig:strong-update-example}
 \end{minipage}
 \hfill
@@ -84,12 +84,11 @@ q := p;$\label{line:q-alias-start}$
 get(p) { *p }
 
 let p = mkref 3 in
-let q = mkref (mkref 5) in
-p <- 1 + get(*p);$\label{line:get1}$
-assert(*p + 1 = **q);
-q <- p;
-*q <- 1 + get(*q);$\label{line:get2}$
-assert(**q = 5);
+let q = mkref 5 in
+p := get(p) + 1;$\label{line:get1}$
+let r = p in
+r := get(r) + 1;$\label{line:get2}$
+assert(*r = *q);
   \end{lstlisting}
   \caption{Running example}
   \label{fig:running-example}
@@ -142,21 +141,21 @@ where memory is mutated through multiple, live references.
 To demonstrate the interplay of ownership and mutability, consider again the example
 in \Cref{fig:strong-update-example}. \imp{p} and \imp{q} are both references
 with no aliases, and can be given types
-$[[ {nu:int|nu=3} ref 1 ]]$ and $[[ ({nu:int|nu = 5} ref 1) ref 1 ]]$ respectively.
+$[[ {nu:int|nu=3} ref 1 ]]$ and $[[ {nu:int|nu = 5} ref 1 ]]$ respectively.
 From the invariants maintained by our type system,
 it is sound to strongly update
 \imp{p}'s type on \cref{line:first-p-write} without regard for any other pointers in the program;
 as \imp{p} has ownership 1, all aliases must already have types consistent with the new contents.
-At the pointer assignment on \cref{line:q-alias-start}, our type system must \emph{split}
-the ownership of \imp{p} between \imp{*q} and \imp{p}.
-As \imp{*q} is later used for mutation, our type system transfers \emph{all} ownership from
-\imp{p} to \imp{*q} (recall that only references with ownership $1$ may be mutated).
-Thus, after the assignment, \imp{q} has type  $[[ ({nu:int|nu=4} ref 1) ref 1 ]]$ and \imp{p} is
+At alias creation on \cref{line:r-alias}, our type system must \emph{split}
+the ownership of \imp{p} between \imp{p} and \imp{r}.
+As \imp{r} is later used for mutation, our type system transfers \emph{all} ownership from
+\imp{p} to \imp{r} (recall that only references with ownership $1$ may be mutated).
+Thus, after the binding, \imp{p} has type  $[[ {nu:int|nu=4} ref 1 ]]$ and \imp{p} is
 given type $[[ {nu:int|Top} ref 0 ]]$.
-The type system may now soundly update \imp{*q}'s type on \cref{line:q-incr}
+The type system may now soundly update \imp{r}'s type on \cref{line:r-write}
 despite the existence of alias \imp{p}. Our type system can later
 use static aliasing information to propagate the updated refinement in
-\imp{*q} back to \imp{p} if necessary. \JT{This is maybe too detailed for
+\imp{r} back to \imp{p} before any reads through \imp{p}. \JT{This is maybe too detailed for
   the introduction}
 
 \name is also \emph{context-sensitive}, and can thus precisely
