@@ -4,7 +4,7 @@ Driven by the increasing power of automated theorem provers and
 recent high-profile, expensive software failures,
 fully automated program verification has seen a surge of interest
 in recent years \cite{leino2010dafny,cousot2005astree,ball2011decade,zave2012using,hawblitzel2015ironfleet,bhargavan2017everest}.
-In particular, refinement types
+In particular, refinement types \KS{Put in emph?}
 \cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement},
 which refine base types with logical predicates, have been shown to be a practical
 approach for program verification that are amenable to

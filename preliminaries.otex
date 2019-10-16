@@ -3,6 +3,7 @@
 This section describes a simple imperative language with mutable references and first
 order, recursive functions. Unlike our prior work on fractional ownerships,
 we  explicitly include integers as base values in the language definition.
+\KS{Put the last sentence near Section~\ref{sec:ownership} as a remark or a footnote.}
 
 \subsection{Notation}
 For a function $f$ we will write $\DOM(f)$ to indicate the domain of
@@ -81,7 +82,7 @@ of the language as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state and aborts the program otherwise.
 $[[alias(x = y); e]]$ is a specialized type of assertion for asserting
-must-aliasing relationship between two references $x$ and $y$. \imp{alias} statements
+must-aliasing relationship between two references $x$ and $y$. \imp{alias} statements \KS{Statement \imp{alias}?}
 are effectively \emph{annotations} that our type system exploits to gain
 added flexibility.
 $[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$

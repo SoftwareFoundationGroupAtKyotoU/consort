@@ -67,7 +67,7 @@ in scope are sufficient to prove $[[ph]]$.
 
 \subsubsection{Solving}
 The result of the above process are two systems of constraints; non-linear real arithmetic constraints over
-ownership variables and constrained horn clauses over the refinement relations.
+ownership variables and constrained horn \KS{Horn} clauses over the refinement relations.
 These systems are not independent; the relation constraints may mention the value
 of ownership variables due to the well-formedness constraints described above.
 The ownership constraints are first solved with Z3 \cite{de2008z3}.
@@ -75,8 +75,8 @@ When solving, we constrain the solver to maximize the number of non-zero ownersh
 variables; this ensures minimal
 refinement information is lost due to $0$ ownerships.
 The inferred values for ownership variables are then substituted into the
-constrained horn clauses, and the resulting system is checked
-for satisfiability with an off-the-shelf constrained horn clause solver.
+constrained horn \KS{Horn} clauses, and the resulting system is checked
+for satisfiability with an off-the-shelf constrained horn \KS{Horn} clause solver.
 Our implementation generates the above constraints in the industry standard
 SMT-Lib2 format \cite{BarFT-SMTLIB}, so any solver that understands
 this format can be used as a backend for \name. Our implementation

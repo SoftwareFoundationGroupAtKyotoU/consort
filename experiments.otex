@@ -1,5 +1,6 @@
 \section{Initial Experiments}
 \label{sec:eval}
+\KS{Let's say "Experiments" instaed of "Initial Experiments."}
 
 We now present the results of some preliminary experiments performed with the implementation
 described in \Cref{sec:infr}. The goal of these experiments was to answer the following questions:
@@ -35,6 +36,7 @@ check our tool for unsoundness.
   \label{tab:breakdown}
 \end{table}
 
+\KS{Can we put Table~\ref{tab:breakdown} to more appropriate place?}
 For our second benchmark suite, we adapted the benchmark suite
 of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool for Java.
 This test suite contains a combination of 82 safe and unsafe programs written in
