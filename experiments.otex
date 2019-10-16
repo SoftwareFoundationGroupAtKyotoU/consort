@@ -16,8 +16,8 @@ demonstrate the expressive power of our type system and inference.
 The programs included in this suite are:
 \begin{itemize}
 \item \textbf{Array-List} Implementation of an unbounded list backed by an array.
-\item \textbf{Sorted-List} Implementation of an in-place insertion sort algorithm
-\item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \Cref{exmp:shuffle-example}
+\item \textbf{Sorted-List} Implementation of an in-place insertion sort algorithm.
+\item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \Cref{exmp:shuffle-example}.
 \item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
 \end{itemize}

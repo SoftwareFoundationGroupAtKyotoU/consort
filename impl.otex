@@ -157,7 +157,7 @@ adjusted.
 \paragraph{Recursive Types}
 Our language also supports some unbounded heap structures via recursive
 reference types. To keep inference tractable, we forbid nested
-recursive types, multiple instances of a type variable,
+recursive types, multiple instances of a type variable, \AI{What are they?}
 and fix the shape of refinements that occur within a
 recursive type. For recursive refinements that fit the
 above restriction, our approach for refinements

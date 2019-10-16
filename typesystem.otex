@@ -236,7 +236,7 @@ requires that any free program variables in a refinement
 are given integer types in the type environment $[[G]]$. This
 condition also ensures that the only context variable used
 in a refinement is $[[A]]$ when $[[B = A]]$ (no context variables
-may be used if $[[B = ll]]$). Notice this well-formedness conditions
+may be used if $[[B = ll]]$). Notice this well-formedness condition
 forbids refinements that refer to references. Although
 ownership information can signal when the refinement on a mutably-aliased
 reference must be discarded, our current formulation
@@ -255,8 +255,6 @@ the argument, result, and output types are well-formed with respect
 to each other and the context variable quantified over in $[[FT]]$.
 As the formal definition refinement well-formedness is fairly standard, we
 omit it for space reasons (the full definition may be found in \Cref{sec:aux-defn-lem}).
-
-\AI{We can safely omit \Cref{fig:type-wf} (or put it in Appendix of the submission, if allowed).  This prose description looks sufficient.  We should present the judgment form, though, to understand the typing rules.} \JT{done}
 
 \begin{figure}[t]
   \bcprulessavespacetrue
