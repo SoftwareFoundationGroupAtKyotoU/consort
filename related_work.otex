@@ -38,7 +38,7 @@ are used to track when states may be inconsistent. However, Spec\#'s ownership
 is quite strict, and does admit references to $b$ outside of the owning object $a$.
 Further, these techniques implicitly use \emph{type-based} abstract heap; the boundaries during
 which an object invariant can be broken are similar to the regions described
-above during which strong updates are permitted. Thus, these techniques also cannot
+above during which strong updates to inconsistent refinement are permitted. Thus, these techniques also cannot
 provide per-object invariants nor support evolving invariants.
 
 The work on rely-guarantee reference types by Gordon et
@@ -52,7 +52,7 @@ the references implies the rely of the other and vice versa.
 This invariant is maintained by way of a linear ``splitting'' operation that
 bears many similarities to the behavior of our $+$ operator.
 Further, their type system allows strong updates to reference content refinements
-provided that mutations admitted by the rely guarantee do not
+provided that mutations admitted by the rely predicate do not
 invalidate the new refinement. Thus, rely-guarantee refinements can support multiple
 mutable, aliased references with non-trivial refinement information. Unfortunately this
 expressiveness comes at the cost of automated inference and verification; an embedding

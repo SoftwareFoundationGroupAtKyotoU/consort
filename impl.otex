@@ -61,10 +61,7 @@ $[[int ref]]$.
 in addition to the ownership constraint $[[r[y,0,pp] = r[y,0,pp'] + r[x,0,pp'] ]]$.
 
 Finally for each \lstinline[mathescape]{assert($[[ph]]$)} in the program \name emits an assertion
-constraint of the form:
-\[
-  [[ [G@pp] ==> ph ]]
-\]
+constraint of the form: $[[ [G@pp] ==> ph ]]$
 which requires the refinements on integer typed variables
 in scope are sufficient to prove $[[ph]]$.
 
@@ -73,7 +70,7 @@ The result of the above process are two systems of constraints; non-linear real 
 ownership variables and constrained horn clauses over the refinement relations.
 These systems are not independent; the relation constraints may mention the value
 of ownership variables due to the well-formedness constraints described above.
-The ownership constraints are thus first solved with Z3 \cite{de2008z3}.
+The ownership constraints are first solved with Z3 \cite{de2008z3}.
 When solving, we constrain the solver to maximize the number of non-zero ownership
 variables; this ensures minimal
 refinement information is lost due to $0$ ownerships.
@@ -112,7 +109,7 @@ constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
 If $[[f]]$ calls another function $[[g]]$, the above rule
 propagates this value of $[[c0]]$ to $[[c1]]$ within $[[g]]$ and so on.
 The solver may then instantiate relation symbols with predicates
-that are conditional over the concrete values of $[[ci]]$.
+that are conditional over the values of $[[ci]]$.
 
 \subsection{Extensions}
 We now describe some extensions to our core language supported within
@@ -129,9 +126,9 @@ used in a program are given sound function types in $[[Th]]$.
 For example, under the assumption that $+$ has its usual semantics
 and the underlying logic supports $+$, we can give $+$ the type
 $[[A <x:top, y:top> -> <x:top, y:top|{nu:int|nu = x + y}>]]$.
-Note that interactions with a nondeterministic environment
+Interactions with a nondeterministic environment
 or unknown program inputs can then be modeled with a primitive
-that returns an integer with the $[[Top]]$ refinement.
+that returns integers with refinement $[[Top]]$.
 
 
 \paragraph{Dependent Tuples}
@@ -153,11 +150,9 @@ $[[xi:Ti]]$ is performed in a type environment elaborated with
 types of other tuple elements.
 The extension to type inference is also
 straightforward; the free variables for a
-predicate symbol depend on the enclosing tuple types
-and \name includes the refinements for related tuple elements
-in subtyping constraints.
-
-\JT{This whole section can be significantly shortened}
+predicate symbol include any enclosing dependent tuple names
+and the environment in subtyping constraints are likewise
+adjusted.
 
 \paragraph{Recursive Types}
 Our language also supports some unbounded heap structures via recursive
@@ -176,11 +171,8 @@ the refinements within an unfolding of a recursive type may refer to
 dependent tuple names bound by the enclosing type. These recursive
 types can therefore express the invariant, e.g., of a (mutable)
 sorted list. Adapting the approach in \cite{suenaga2009fractional},
-given a recursive type with references we unfold the type once and
-assign fresh ownership variables to all reference constructors. We do \emph{not}
-generate fresh ownership variables when unfolding a recursive type;
-the unfolding of $[[ ((M alpha. T ref r2)) ref r1 ]]$ is
-$[[ ((M alpha. T ref r2)) ref r2 ref r1 ]]$.
+all recursive types are unfolded once before assigning ownership variables.
+Further unfoldings simply copy existing ownership variables.
 
 As in Java or C++, our language does not support sum types,
 and thus any instantiation of a recursive type must use a null pointer.
@@ -188,9 +180,9 @@ Our implementation therefore supports an \lstinline{ifnull} construct
 and a distinguished null constant. Our implementation allows any refinement
 to hold for the null constant, including $\bot$. Currently, our implementation
 currently does \emph{not} detect null pointer dereferences, and all soundness
-guarantees are made modulo freedom of null dereferences. However, as $[[ [G] ]]$
-omits the refinements on  reference type variables, such refinements cannot lead to
-spurious verification of programs that are free of null pointer dereferences.
+guarantees are made modulo freedom of null dereferences. As $[[ [G] ]]$
+omits the refinements on reference types, these refinements do not affect
+the verification of programs free of null pointer dereferences.
 \JT{This still seems insufficient...}
 
 \paragraph{Arrays}
@@ -220,7 +212,7 @@ refinement predicates. For example, from the undecidability of non-linear intege
 \name cannot verify a program that requires a proof of Fermat's last theorem.
 \name also does not support conditional or context-sensitive ownerships, and therefore
 cannot in general verify programs that have conditional aliasing relationships
-or only conditionally write into a reference.
+or only conditionally mutate a reference.
 
 %%% Local Variables:
 %%% mode: latex

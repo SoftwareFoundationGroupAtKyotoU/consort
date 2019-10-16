@@ -11,6 +11,7 @@ $f \{ x \mapsto v \}$ where $x \not\in\DOM(f)$ to denote a map
 which takes all values in $\DOM(f)$ to their values in $f$ and which
 additionally takes $x$ to $v$. We will write $ f \{ x \hookleftarrow v \}$
 where $x\in\DOM(f)$ to denote a map equivalent to $f$ except that $x$ takes value $v$.
+We also write $\emptyset$ as a function with an empty domain.
 \JT{This is almost certainly not a sufficient overview. write more later.}
 
 \subsection{Language}
@@ -56,7 +57,7 @@ Unlike ML (and like C or Java) we do not allow general expressions as right hand
 let bindings. The simplest right-hand forms are a variable $[[y]]$ or an integer literal $[[nn]]$.
 $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
 $[[*y]]$ accesses the contents of reference $[[y]]$.
-Function calls must occur on the right hand side of a variable binding,
+Function calls must occur on the right hand side of a variable binding
 and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is
 (unique) label drawn from \textbf{Labels}. These labels are used to make our type system context sensitive, as
 discussed in \Cref{sec:cs}.
@@ -123,8 +124,7 @@ as syntactic sugar for:
   let tmp = *x in
   assert(tmp = 4); let dummy = 0 in dummy
 \end{lstlisting}
-Notice that we use a dummy continuation for the
-assert statement in the desugaring.
+We have used a dummy continuation for the assert statement in the desugaring.
 
 \begin{figure}[t]
 \[
@@ -144,17 +144,17 @@ assert statement in the desugaring.
 We now introduce the operational semantics for our language.
 We assume a finite domain of heap addresses \textbf{Addr}:
 we denote an arbitrary address with $[[a]]$.
-A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which are a heap,
+A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consist of a heap,
 register file, stack, and currently reducing expression respectively.
 \AI{A stack should be a sequence of $[[CE]]$, not $[[E]]$.} \JT{done}
 The register file maps variables to runtime values, which are
 either integers $[[nn]]$ or addresses $[[a]]$. The heap maps a subset
 of addresses to runtime values. The runtime stack represents pending
-function calls as a sequence of return contexts, which we
+function calls as a sequence of return contexts which we
 describe below.
 While the final configuration component is an expression,
 the rewriting rules are defined in terms of $[[ E[e] ]]$, which is
-a context $[[E]]$ and redex $[[e]]$, as is standard.
+an evaluation context $[[E]]$ and redex $[[e]]$, as is standard.
 The grammar for evaluation contexts and return contexts are defined
 in \Cref{fig:eval-context-grammar}.
 Our operational semantics is given in \Cref{fig:transitionRules1,fig:transitionRules2}.
@@ -162,7 +162,7 @@ Notice that the step relation  $[[ --> D ]]$ is parameterized
 by a set of function definitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
-The semantics are mostly standard; we highlight some import points below.
+The semantics are mostly standard; we highlight some important points below.
 
 First we introduce return contexts, which
 take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pending
@@ -204,10 +204,11 @@ of variable $[[y]]$.
 We assume this refreshing of variables preserves our assumption that all variable
 bindings introduced with let and function parameters are unique, i.e. $[[x']]$ does
 not overlap with a variable name that occurs in the program.
-Finally, notice that although $\rn{R-MkRef}$ allocates new memory, our language does not
+\JT{Do we want to mention this at all?}
+Finally, although $\rn{R-MkRef}$ allocates new memory, our language does not
 provide any mechanism to reclaim memory.
-We consider memory reclamation an orthogonal concern and
-do not support it in our language or formalism.\JT{Do we want
+We assume a garbage collected environment and consider memory reclamation an orthogonal concern.
+\JT{Do we want
   to say that we could have explicit free and use suenaga's
   approach, but don't want to because it unnecessarily complicates
   the system?}

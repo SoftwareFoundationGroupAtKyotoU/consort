@@ -21,7 +21,7 @@ The programs included in this suite are:
 \item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
 \end{itemize}
-We also introduced several mutations to these programs to make them unsafe to
+We also introduced unsafe mutations to these programs to
 check our tool for unsoundness.
 
 \begin{table}[t]
@@ -59,9 +59,10 @@ A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:br
 \subsubsection{Experimental Setup}
 We first ran \name on each program in our benchmark suite. For each program in our suite,
 we recorded the output of our tool as well as the end-to-end runtime. For the JayHorn suite,
-we first ran our tool on the adapted version of the program and then ran the most recent\footnote{As of October 15, 2019}
+we first ran our tool on the adapted version of each test program and then ran the most recent\footnote{As of October 15, 2019}
 development build of JayHorn\footnote{We did not use the most recent official release of JayHorn as
-  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the Java version.
+  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the corresponding
+Java version.
 As run time comparisons are meaningless given the differences in problem domains,
 we collected only the final verification result for this set of experiments. All tests
 were run on a machine \JT{...} and we imposed timeout of 60 seconds.
