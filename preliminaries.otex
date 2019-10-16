@@ -125,16 +125,16 @@ as syntactic sugar for:
 \end{lstlisting}
 We have used a dummy continuation for the assert statement in the desugaring.
 
-\begin{figure}[t]
-\[
-  \begin{array}{rcl}
-    [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
-    [[ CE ]] & ::= & [[ E[let y = [] l in e] ]]
-  \end{array}
-\]
-\caption{Grammar of evaluation and return contexts}
-\label{fig:eval-context-grammar}
-\end{figure}
+% \begin{figure}[t]
+% \[
+%   \begin{array}{rcl}
+%     [[ E ]] & ::= & [[ E'; e ]] \mid [[ [] ]] \\
+%     [[ CE ]] & ::= & [[ E[let y = [] l in e] ]]
+%   \end{array}
+% \]
+% \caption{Grammar of evaluation and return contexts}
+% \label{fig:eval-context-grammar}
+% \end{figure}
 
 \input{semantics}
 
@@ -153,8 +153,12 @@ describe below.
 While the final configuration component is an expression,
 the rewriting rules are defined in terms of $[[ E[e] ]]$, which is
 an evaluation context $[[E]]$ and redex $[[e]]$, as is standard.
-The grammar for evaluation contexts and return contexts are defined
-in \Cref{fig:eval-context-grammar}.
+The grammar for evaluation contexts and return contexts are defined below:
+% in \Cref{fig:eval-context-grammar}.
+\[
+    [[ E ]]  ::=  [[ E'; e ]] \mid [[ [] ]] \qquad
+    [[ CE ]] ::=  [[ E[let y = [] l in e] ]].
+\]
 Our operational semantics is given in \Cref{fig:transitionRules1,fig:transitionRules2}.
 Notice that the step relation  $[[ --> D ]]$ is parameterized
 by a set of function definitions $[[D]]$; a program $[[<D, e>]]$ is executed
