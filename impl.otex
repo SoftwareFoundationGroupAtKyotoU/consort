@@ -9,7 +9,7 @@ our prototype.
 Our tool first runs a standard, simple type inference
 algorithm to generate type templates for every function parameter
 type, return type, and for every live variable at each program point.
-For a variable $x$ of simple type $[[ST]]$ (as defined in \Cref{fig:type-wf})
+For a variable $x$ of simple type $[[ST]] ::= [[int]] \mid [[ST ref]]$
 at program point $p$ \name generates a type template $[[ [ST](x,0,pp) ]]$
 as follows:
 \begin{align*}

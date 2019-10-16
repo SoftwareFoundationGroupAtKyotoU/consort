@@ -230,7 +230,7 @@ information to restore the read/write capabilities to a pointer (i.e.,
 restore an ownership greater than 0) while simultaneously updating its
 refinement to reflect any mutations through aliases.
 
-Refinement well-formedness (defined in \Cref{fig:type-wf})
+Refinement well-formedness
 requires that any free program variables in a refinement
 are given integer types in the type environment $[[G]]$. This
 condition also ensures that the only context variable used
@@ -242,82 +242,20 @@ reference must be discarded, our current formulation
 provides no such information for refinements that include
 mutably-aliased references. We therefore conservatively reject
 such refinements at the cost of some expressiveness in our type system.
+We write $[[ G | B |- T ]]$ to indicate a well-formed type
+with respect to $[[B]]$ and $[[G]]$, and write $[[ ST(G) | B |- ph ]]$ to
+indicate a well-formed predicate with respect to $[[B]]$ and
+the simple type version of $[[G]]$, denoted $[[ ST(G) ]]$.
+We write $[[ B |- G ]]$ for a type environment where all
+types are well-formed, and write $[[ B |- T => G ]]$ for
+$[[ B |- G ]]$ and $[[ G | B |- T ]]$. A function environment
+is well-formed (written $[[ |- Th ]]$) if, for every $[[FT]]$ in $[[Th]]$,
+the argument, result, and output types are well-formed with respect
+to each other and the context variable quantified over in $[[FT]]$.
+As the formal definition refinement well-formedness is fairly standard, we
+omit it for space reasons (the full definition may be found in \Cref{sec:aux-defn-lem}).
 
-\AI{We can safely omit \Cref{fig:type-wf} (or put it in Appendix of the submission, if allowed).  This prose description looks sufficient.  We should present the judgment form, though, to understand the typing rules.}
-
-\begin{figure}[t]
-  \bcprulessavespacetrue
-  \scriptsize
-  \leavevmode
-  \begin{center}
-  \infrule[WF-Env]{
-    [[ forall x in G. G | B |- G(x) ]]
-  }{
-    [[B |- G]]
-  }
-  \infrule[WF-Int]{
-    [[ST(G), nu:int | B |- ph]]
-  }{
-    [[G | B |- { nu:int|ph} ]] 
-  }
-  \infrule[WF-Ref]{
-    [[G | B |- T]]
-  }{
-    [[G | B |- T ref r ]]
-  }
-  \infrule[WF-Phi]{
-    [[ forall x in FPV(ph).x in dom Gst /\ Gst(x) = int ]] \\
-    [[FPCV(ph)]] \subseteq [[CV(B)]]
-  }{
-    [[Gst | B |- ph]]
-  }
-  \infrule[WF-Result]{
-    [[G | B |- T]] \andalso
-    [[B |- G]]
-  }{
-    [[ B |- T => G ]]
-  }
-  \infrule[WF-FunType]{
-    [[ A |- x1:T1,,xn:Tn ]] \\ [[ A |- T => x1:T1',,xn:Tn' ]]
-  }{
-    [[ |- A <x1:T1,,xn:Tn> -> <x1:T1',,xn:Tn'|T> ]]
-  }
-  \infrule[WF-FunEnv]{
-    [[ forall f in Th.|- Th(f)]]
-  }{
-    [[ |- Th ]]
-  }
-  \end{center}
-  \bcprulessavespacefalse
-  \begin{minipage}[t]{0.48\textwidth}
-  \[
-    \begin{array}{lrcl}
-      \text{Simple Types} & [[ST]] & ::= & [[int]] \mid [[ ST ref ]] \\
-      \text{Simple Ty. Env} & [[Gst]] & ::= & [[empty]] \mid [[ Gst,x:ST]] \\
-      \text{Lifting} & [[ [S {nu:int|ph} ] ]] & = & [[ int ]] \\
-                          & [[ [S T ref r] ]] & = & [[ [S T ] ref ]] \\
-                          & [[ ST(empty) ]] & = & [[ empty ]] \\
-                          & [[ ST(G, x:T) ]] & = & [[ ST(G),x: [S T ] ]] 
-    \end{array}
-  \]
-\end{minipage}
-\begin{minipage}[t]{0.485\textwidth}
-  \[
-    \begin{array}{rrl}
-      \text{Free Ctxt Vars} & [[FPCV(ph1 \/ ph2)]] & = [[FPCV(ph1) U FPCV(ph2) ]] \\
-                            & [[FPCV(!ph)]] & = [[ FPCV(ph) ]] \\
-                            & [[FPCV(pval1 = pval2)]] & = [[FPCV(pfun(pval1,..,pvaln)) = null ]] \\
-                            & [[FPCV(ll <= plhs)]] & = [[FPCV(plhs)]] \\
-                            & [[FPCV(l : plhs)]] & = [[ FPCV(plhs) ]] \\
-                            & [[FPCV(B) ]] & = [[ CV(B) ]] \\
-      \text{Ctxt Vars} & [[CV(ll)]] & = [[ null ]] \\
-                            & [[ CV(A)]] & = [[{A}]]
-    \end{array}
-  \]
-\end{minipage}
-\caption{Well-formedness of types and environments }
-  \label{fig:type-wf}
-\end{figure}
+\AI{We can safely omit \Cref{fig:type-wf} (or put it in Appendix of the submission, if allowed).  This prose description looks sufficient.  We should present the judgment form, though, to understand the typing rules.} \JT{done}
 
 \begin{figure}[t]
   \bcprulessavespacetrue

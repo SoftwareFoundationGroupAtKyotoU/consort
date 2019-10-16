@@ -140,6 +140,10 @@ lemmas in \Cref{sec:aux-defn-lem} and give the proof of \Cref{lem:preservation} 
 % * updates
 % * call, return, and inversion move to the following
 
+\input{wf_rules}
+
+The well-formedness rules omitted from the main paper are found in \cref{fig:type-wf}.
+
 We first prove that the subtyping relations are transitive.
 
 \begin{lemma} % L15

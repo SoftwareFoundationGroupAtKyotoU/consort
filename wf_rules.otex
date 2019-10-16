@@ -1,0 +1,73 @@
+\begin{figure}[t]
+  \bcprulessavespacetrue
+  \scriptsize
+  \leavevmode
+  \begin{center}
+  \infrule[WF-Env]{
+    [[ forall x in G. G | B |- G(x) ]]
+  }{
+    [[B |- G]]
+  }
+  \infrule[WF-Int]{
+    [[ST(G), nu:int | B |- ph]]
+  }{
+    [[G | B |- { nu:int|ph} ]] 
+  }
+  \infrule[WF-Ref]{
+    [[G | B |- T]]
+  }{
+    [[G | B |- T ref r ]]
+  }
+  \infrule[WF-Phi]{
+    [[ forall x in FPV(ph).x in dom Gst /\ Gst(x) = int ]] \\
+    [[FPCV(ph)]] \subseteq [[CV(B)]]
+  }{
+    [[Gst | B |- ph]]
+  }
+  \infrule[WF-Result]{
+    [[G | B |- T]] \andalso
+    [[B |- G]]
+  }{
+    [[ B |- T => G ]]
+  }
+  \infrule[WF-FunType]{
+    [[ A |- x1:T1,,xn:Tn ]] \\ [[ A |- T => x1:T1',,xn:Tn' ]]
+  }{
+    [[ |- A <x1:T1,,xn:Tn> -> <x1:T1',,xn:Tn'|T> ]]
+  }
+  \infrule[WF-FunEnv]{
+    [[ forall f in Th.|- Th(f)]]
+  }{
+    [[ |- Th ]]
+  }
+  \end{center}
+  \bcprulessavespacefalse
+  \begin{minipage}[t]{0.48\textwidth}
+  \[
+    \begin{array}{lrcl}
+      \text{Simple Types} & [[ST]] & ::= & [[int]] \mid [[ ST ref ]] \\
+      \text{Simple Ty. Env} & [[Gst]] & ::= & [[empty]] \mid [[ Gst,x:ST]] \\
+      \text{Lifting} & [[ [S {nu:int|ph} ] ]] & = & [[ int ]] \\
+                          & [[ [S T ref r] ]] & = & [[ [S T ] ref ]] \\
+                          & [[ ST(empty) ]] & = & [[ empty ]] \\
+                          & [[ ST(G, x:T) ]] & = & [[ ST(G),x: [S T ] ]] 
+    \end{array}
+  \]
+\end{minipage}
+\begin{minipage}[t]{0.485\textwidth}
+  \[
+    \begin{array}{rrl}
+      \text{Free Ctxt Vars} & [[FPCV(ph1 \/ ph2)]] & = [[FPCV(ph1) U FPCV(ph2) ]] \\
+                            & [[FPCV(!ph)]] & = [[ FPCV(ph) ]] \\
+                            & [[FPCV(pval1 = pval2)]] & = [[FPCV(pfun(pval1,..,pvaln)) = null ]] \\
+                            & [[FPCV(ll <= plhs)]] & = [[FPCV(plhs)]] \\
+                            & [[FPCV(l : plhs)]] & = [[ FPCV(plhs) ]] \\
+                            & [[FPCV(B) ]] & = [[ CV(B) ]] \\
+      \text{Ctxt Vars} & [[CV(ll)]] & = [[ null ]] \\
+                            & [[ CV(A)]] & = [[{A}]]
+    \end{array}
+  \]
+\end{minipage}
+\caption{Well-formedness of types and environments }
+  \label{fig:type-wf}
+\end{figure}
