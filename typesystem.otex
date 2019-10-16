@@ -774,9 +774,9 @@ which is reflected in the typing context of $[[e]]$.
   the function calls are labeled as follows:
 \begin{lstlisting}
 // ...
-p := 1 + get$^{\ell1}$(p);
+p := get$^{\ell1}$(p) + 1;
 // ...
-*q := 1 + get$^{\ell2}$(*q);
+r := get$^{\ell2}$(r) + 1;
 \end{lstlisting}
 Both invocations of \imp{get} have been given distinct labels as required by
 our syntax.
