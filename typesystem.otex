@@ -398,29 +398,10 @@ to weaken refinements to no longer mention $[[x]]$. As in other refinement
 type systems \needcite, this requirement is critical for ensuring soundness.
 \AI{\rn{T-Let} already uses $[[ T /\ y ph' ]]$ and it's not for tracking path information.}
 
-Our type system also tracks path information. Specifically, In the \rn{T-If}
-rule, we update the refinement on the condition variable in the respective
-branches to indicate whether the variable must be zero. By requiring
-both branches produce the same output type environment, we guarantee
-that these conflicting refinements are rectified within the
-type derivations of the two branches. Further, when creating bindings our
-type system can track equality between integer values. We use the
+When creating bindings our type system tracks equality between
+integer values. We use the
 strengthening operation $[[ T /\ x ph ]]$ and typed equality
 proposition $[[ x = T y]]$, defined respectively as:
-\begin{align*}
-  [[ T /\ y ph' ]] = \begin{cases}
-    [[ { nu: int | ph /\ [nu/y]ph' }]] & [[ T = { nu: int | ph } ]] \\
-    [[ T ]] & o.w.
-    \end{cases} &&
-  [[ x = T y ]] = \begin{cases}
-    [[ x = y ]] & [[ T = {nu:int|ph} ]] \\
-    [[ Top ]] & o.w.
-  \end{cases}
-\end{align*}
-\JT{The above is very ugly}
-\NK{How about $y =_{\tau} x\ ref$ in \rn{T-Assign}?}
-\JT{unfortunate ambiguity in the rules, fixed with parens}
-\AI{How about this?}
 \begin{align*}
   [[ { nu: int | ph } /\ y ph' ]] & = [[ { nu: int | ph /\ [nu/y]ph' }]] &
   [[ (x = {nu:int|ph} y) ]] & =  [[ (x = y) ]] \\ 
@@ -432,6 +413,13 @@ the contents of reference cells as doing so would violate
 our refinement well-formedness condition. Notice also that the
 equality tracking in the \rn{T-Deref} case is \emph{conditionally}
 applied depending on the ownership of the dereferenced pointer. 
+
+Our type system also tracks path information. Specifically, In the \rn{T-If}
+rule, we update the refinement on the condition variable in the respective
+branches to indicate whether the variable must be zero. By requiring
+both branches produce the same output type environment, we guarantee
+that these conflicting refinements are rectified within the
+type derivations of the two branches.
 
 The rule for type checking assert statements has the precondition
 $[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
