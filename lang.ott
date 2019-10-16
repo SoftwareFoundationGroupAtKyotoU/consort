@@ -266,9 +266,12 @@ grammar
 
   FT {{ tex \sigma }} :: FT_ ::=                          {{ com function type }}
     | A < x1 : T1 ,, xn : Tn > -> < y1 : T1' ,, yi : Ti' | T >  :: :: sig
-          {{ tex \forall [[A]].\tuple{[[x1]]\COL[[T1]],\dots,[[xn]]\COL[[Tn]]}\ra\tuple{[[y1]]\COL\[[T1']],\dots,[[yi]]\COL[[Ti']] \mid [[T]]} }}
+          {{ tex \forall [[A]].\tuple{[[x1]]\COL[[T1]],\dots,[[xn]]\COL[[Tn]]}\ra\tuple{[[y1]]\COL[[T1']],\dots,[[yi]]\COL[[Ti']] \mid [[T]]} }}
      | A < tyarg_list1 > -> < tyarg_list2 | T > :: :: concr_sig {{ tex \forall [[A]].\tuple{[[tyarg_list1]]}\ra\tuple{[[tyarg_list2]]\mid[[T]]} }}
      | Th ( f ) :: :: fenvLkp
+	 | A < x1 : T1 ,, xn : Tn > \\ & & & -> < y1 : T1' ,, yi : Ti' | T > :: :: sig_ts
+           {{ tex \forall [[A]].\tuple{[[x1]]\COL[[T1]],\dots,[[xn]]\COL[[Tn]]} \\ & & & \ra\tuple{[[y1]]\COL[[T1']],\dots,[[yi]]\COL[[Ti']] \mid [[T]]} }}
+	 
 
   Th {{ tex \Theta }} :: Th_ ::=
     | empty :: :: em {{ tex \bullet }}

@@ -69,26 +69,33 @@ refinement cannot exist when an update occurs.
 \end{remark}
 
 \begin{figure}[t]
+  \begin{minipage}{0.45\textwidth}
   \[
     \begin{array}{rrcl}
-      \text{\footnotesize Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
-      \text{\footnotesize Ownership} & [[ r ]] &::=& [0,1] \\
-      \text{\footnotesize Refinements} & [[ph]] & ::= & [[ ph1 \/ ph2 ]] \mid [[ !ph ]] 
-                                                        \mid [[ pfun(pval1,..,pvaln) ]] \mid
-                                                        [[ pval1 = pval2 ]] \mid [[ Top ]] \\
+      \text{\scriptsize Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
+      \text{\scriptsize Ownership} & [[ r ]] &::=& [0,1] \\
+      \text{\scriptsize Refinements} & [[ph]] & ::= & [[ ph1 \/ ph2 ]] \mid [[ !ph ]] \mid [[Top]] \\
+                               & & \mid & [[ pfun(pval1,..,pvaln) ]] \\
+                               & & \mid & [[ pval1 = pval2 ]] \\
                                  & & \mid & \mathcal{CP} \\
-      \text{\footnotesize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]] \\
-
-                                 & & & \\
-      \text{\footnotesize Function Types} & [[FT]] & ::= & [[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]] \\
-      \text{\footnotesize Context Variables} & \CVar & ::= & [[A1]], [[A2]], \ldots \\
-      \text{\footnotesize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
-      \text{\footnotesize Parameterized Context} & [[ plhs ]] & ::= & [[ ll ]] \mid [[ ll A ]] \\
-      \text{\footnotesize Context Query Predicates} & [[CQP]] & ::= & [[ ll <= plhs ]] \\
-      \text{\footnotesize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
+      \text{\scriptsize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]]
     \end{array}
   \]
-  \caption{Grammar of types, refinements, and contexts}
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+  \[
+    \begin{array}{rrcl}
+      \text{\scriptsize Function Types} & [[FT]] & ::= & [[ A <x1 : T1 ,, xn : Tn> \\ & & & -> <x1: T1' ,, xn : Tn' | T> ]] \\
+      \text{\scriptsize Context Variables} & \CVar & ::= & [[A1]], [[A2]], \ldots \\
+      \text{\scriptsize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
+      \text{\scriptsize Pred. Context} & [[ plhs ]] & ::= & [[ l : plhs ]] \mid [[ B ]] \\
+      \text{\scriptsize Context Query} & [[CQP]] & ::= & [[ ll <= plhs ]] \\
+      \text{\scriptsize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
+    \end{array}
+  \]
+  \end{minipage}
+  \caption{Syntax of types, refinements, and contexts}
   \label{fig:types}
 \end{figure}
 
@@ -318,8 +325,9 @@ such refinements at the cost of some expressiveness in our type system.
 \end{figure}
 
 \begin{figure}[t]
+  \bcprulessavespacetrue
   \scriptsize
-  \leavevmode
+  \begin{center}
   \infrule[T-Var]{
   }{
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
@@ -334,7 +342,7 @@ such refinements at the cost of some expressiveness in our type system.
     [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \\
     [[B |- T => G' ]] \andalso [[ x not in dom G' ]]
   }{
-    [[ Th | G | B |- let x = nn in e : T => G' \ x]]
+    [[ Th | G | B |- let x = nn in e : T => G']]
   }
   \infrule[T-If]{
     [[ Th | G[x <- {nu:int | ph /\ nu = 0 }] | B |- e1 : T => G' ]] \\
@@ -343,33 +351,36 @@ such refinements at the cost of some expressiveness in our type system.
     [[ Th | G[x : {nu:int|ph}] | B |- ifz x then e1 else e2 : T => G' ]]
   }
   \infrule[T-MkRef]{
-    [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \andalso
+    [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \\
     [[ B |- T => G' ]] \andalso [[ x not in dom G' ]]
   }{
     [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' ]]
   }
-  \infrule[T-Deref]{
-    [[ Th | G[y <- T' ref r], x : T2 | B |- e : T => G']] \andalso
-    [[ B |- T => G' ]] \andalso [[ x not in dom G' ]] \andalso [[ T' ]] = \begin{cases}
-      [[ T1 /\ y y = T1 x ]] & [[r > 0]] \\
-      [[ T1 ]] & [[ r = 0 ]]
-    \end{cases} 
-  }{
-    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' ]]
-  }
   \infrule[T-Seq]{
-    [[ Th | G | B |- e1 : T' => G' ]] \andalso
+    [[ Th | G | B |- e1 : T' => G' ]] \\
     [[ Th | G' | B |- e2 : T'' => G'' ]]
   }{
     [[ Th | G | B |- e1 ; e2 : T'' => G'' ]]
   }
+  \infrule[T-Deref]{
+    [[ T' ]] = \begin{cases}
+      [[ T1 /\ y y = T1 x ]] & [[r > 0]] \\
+      [[ T1 ]] & [[ r = 0 ]]
+    \end{cases}  \\
+    [[ Th | G[y <- T' ref r], x : T2 | B |- e : T => G']] \\
+    [[ B |- T => G' ]] \andalso [[ x not in dom G' ]]
+  }{
+    [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' ]]
+  }
   \infrule[T-Assert]{
     [[ G |= ph ]] \andalso
-    [[ ST(G) | . |- ph ]] \andalso
+    [[ ST(G) | . |- ph ]] \\
     [[ Th | G | B |- e : T => G' ]]
   }{
     [[ Th | G | B |- assert(ph); e : T => G']]
   }
+  \end{center}
+  \bcprulessavespacefalse
   \caption{Expression typing rules.}
   \label{fig:intra-type}
 \end{figure}
@@ -695,17 +706,19 @@ beyond simple types.
   }{
     [[ Th |- f |-> (x1,..,xn) e ]]
   }
+  \bcprulessavespacetrue
   \infrule[T-Funs]{
-    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]] \andalso [[ dom D = dom Th ]]
+    \forall [[f |-> (x1, .., xn) e in D]].[[ Th |- f |-> (x1,..,xn) e ]] \\ [[ dom D = dom Th ]]
   }{
     [[ Th |-  D ]]
   }
   \infrule[T-Prog]{
-    [[ Th |- D ]] \andalso [[ |- Th ]] \andalso
+    [[ Th |- D ]] \andalso [[ |- Th ]] \\
     [[ Th | empty | . |- e : T => G ]]
   }{
     [[ |- < D, e > ]]
   }
+  \bcprulessavespacefalse
 \caption{Program typing rules}
 \label{fig:progTyping}
 \end{figure}
@@ -778,17 +791,14 @@ our syntax.
   the following change to code in \Cref{exmp:1cfa}:
   \begin{lstlisting}
     get_real(z) { *z }
-
     get(z) { get_real$^{[[l3]]}$(z) }
   \end{lstlisting}
   The type of \imp{get} remains as in \Cref{exmp:1cfa}, and taking $[[T]]$
   to be \[
     [[ {nu:int| (l3 l1 <= A' ==> nu = 3) /\ (l3 l2 <= A' ==> nu = 4) } ]]
   \]
-  the type of \imp{get_real} is:
-  \[
-    [[ A' <z: T ref 1> -> <z: T ref 1 | T>]]
-  \]
+  the type of \imp{get_real} is: $[[ A' <z: T ref 1> -> <z: T ref 1 | T>]]$.
+
   We focus on the typing of the call to \imp{get_real} in \imp{get}.
   The call is typed in context $[[A]]$ and a type environment where
   \imp{z} is given type:

@@ -13,8 +13,7 @@ For a variable $x$ of simple type $[[ST]]$ (as defined in \Cref{fig:type-wf})
 at program point $p$ \name generates a type template $[[ [ST](x,0,pp) ]]$
 as follows:
 \begin{align*}
-  [[ [int](x,nn,pp) ]] & = [[{nu:int|ph(x,nn,pp)[FV pp]}]] \\
-  [[ [ST ref](x,nn,pp) ]] & = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
+  [[ [int](x,nn,pp) ]] = [[{nu:int|ph(x,nn,pp)[FV pp]}]] && [[ [ST ref](x,nn,pp) ]] = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
 \end{align*}
 where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh relation symbol
 whose arguments are $[[nu]]$ and the free variables of simple type $[[int]]$
