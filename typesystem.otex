@@ -51,7 +51,7 @@ refinement cannot exist when an update occurs.
   Unlike previous work, we do allow reading from a reference with 0 ownership, although there is no useful refinement information.
   It relies on the fact that we disallow strong update of the underlying
   simple type and the language has no construct for deallocation.
-}
+} \JT{Addressed (maybe?) in the following remark}
 
 \begin{remark}
   In the fractional ownership type systems cited above,
@@ -248,7 +248,7 @@ such refinements at the cost of some expressiveness in our type system.
 
 
 \AI{The subscript $\tau$
-  in $[[ [S T ] ]]$ may look like a parameter to this operation.}
+  in $[[ [S T ] ]]$ may look like a parameter to this operation.} \JT{removed}
 
 \begin{figure}[t]
   \bcprulessavespacetrue
