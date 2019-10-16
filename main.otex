@@ -52,13 +52,23 @@
 % If the paper title is too long for the running head, you can set
 % an abbreviated paper title here
 %
-\author{Ren Siqi \and John Toman \and Kohei Suenaga \and Atsushi Igarashi \and Naoki Kobayashi}
+\author{
+  John Toman\inst{1} \and
+  Ren Siqi\inst{1} \and
+  Kohei Suenaga\inst{1} \and \\
+  Atsushi Igarashi\inst{1}\orcidID{0000-0002-5143-9764} \and
+  Naoki Kobayashi\inst{2}
+}
 %
-\authorrunning{Ren Siqi et al.}
+\authorrunning{J. Toman et al.}
 % First names are abbreviated in the running head.
 % If there are more than two authors, 'et al.' is used.
 %
-\institute{}
+\institute{
+  Kyoto University, Japan, \email{\{jtoman,shiki,ksuenaga,igarashi\}@fos.kuis.kyoto-u.ac.jp}
+  \and
+  The University of Tokyo, \email{koba@is.s.u-tokyo.ac.jp}
+}
 %
 \maketitle              % typeset the header of the contribution
 %
