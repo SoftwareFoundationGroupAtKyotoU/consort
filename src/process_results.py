@@ -101,16 +101,22 @@ with open(sys.argv[2], 'w') as result_table:
     print >> result_table, r'\end{tabular}'
 
 with open(sys.argv[3], 'w') as consort_table:
-    print >> consort_table, r'\begin{tabular}{lcc}\toprule'
-    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time} \\ \midrule'
+    print >> consort_table, r'\begin{tabular}{lcc|lcc}\toprule'
+    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time} & \textbf{Buggy Name} & \textbf{Verified?} & \textbf{Time} \\ \midrule'
+    neg_map = {}
+    for d in data["consort"]["neg"]:
+        neg_map[d["name"]] = d
     l = sorted(data["consort"]["pos"], key = lambda d: d["name"])
     for d in l:
         assert d["result"]
-        print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f \\' % (d["name"], d["elapsed"])
-    l = sorted(data["consort"]["neg"], key = lambda d: d["name"])
-    for d in l:
-        assert not d["result"]
-        print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f \\' % (d["name"], d["elapsed"])
+        print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f & ' % (d["name"], d["elapsed"])
+        n = d["name"]
+        if n + "-BUG" in neg_map:
+            nd = neg_map[n + "-BUG"]
+            assert not nd["result"]
+            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f \\' % (nd["name"], nd["elapsed"])
+        else:
+            print >> consort_table, r' --- & --- & --- \\'
     print >> consort_table, r'\end{tabular}'
 
 def print_bench_line(benchmark_table, nm, stat):
@@ -120,7 +126,7 @@ def print_bench_line(benchmark_table, nm, stat):
 
 with open(sys.argv[4], 'w') as benchmark_table:
     print >> benchmark_table, r'\begin{tabular}{cccccc}\toprule'
-    print >> benchmark_table, r'\textbf{Set} & \textbf{Orig. Tests} & \textbf{Adapted} & \textbf{Java} & \textbf{Inc} & \textbf{Bug} \\ \midrule'
+    print >> benchmark_table, r'\textbf{Set} & \textbf{Orig.} & \textbf{Adapted} & \textbf{Java} & \textbf{Inc} & \textbf{Bug} \\ \midrule'
     print_bench_line(benchmark_table, "Safe", test_stat["sat"])
     print >> benchmark_table, r'\\'
     print_bench_line(benchmark_table, "Unsafe", test_stat["unsat"])
