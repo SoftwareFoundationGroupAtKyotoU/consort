@@ -100,28 +100,22 @@ a type system for the automated verification
 of program safety for imperative languages with mutability and aliasing.
 \name is built upon the novel combination of refinement types and
 fractional ownership types \cite{suenaga2009fractional,suenaga2012type}.
-Fractional ownership types are used to flow-sensitively and precisely
-determine when a reference has a mutable alias; our type system
-ensures that only the trivial refinement $[[Top]]$ is used within the
-type of such references. As a consequence, at memory mutations
-it is sufficient for our
-type system to strongly update \emph{only} the refinements associated with the
-static program name used to mutate memory.
+Fractional ownership types extend pointer types with a number in the range $[0,1]$.
+These ownerships encapsulate the permission of the reference; only
+references with ownership $1$ may be used for mutation. Fractional ownership
+types also obey the following key invariant: any references with a mutable
+alias must have ownership 0,\footnote{As a consequence, only one distinguished
+  mutable reference for every memory cell may exist at any point during program
+  execution.} i.e., any reference with $0$ ownership may have a mutable alias.
+
+\name ensures that only the trivial refinement $[[Top]]$ is used within the
+type of references with $0$ ownership. Thus, when
+memory is mutated through a reference with ownership $1$,
+\name simply updates the refinements on the updated reference.
 From the soundness of ownership types and the above condition
 enforced by \name, the types of any aliases must exclusively use the
 refinement $[[Top]]$, and thus already soundly describe all possible contents.\footnote{This
   assumption holds only if updates do not change simple types, a condition our type-system enforces.}
-
-Ownership types track mutable aliases by attaching a rational number
-in the range $[0,1]$ (called an ownership) to each
-reference type constructor.
-An ownership of $0$ indicates that an immutable reference
-that may have a mutable alias; \name therefore requires
-that only the $[[Top]]$ refinement may appear within the type.
-Ownership $1$ indicates a that reference
-is mutable, \emph{and} that the types of aliases must have ownership $0$.
-References with an ownership between these extremes may have any number of
-\emph{immutable} aliases and may contain non-trivial refinements.
 
 Ownerships behave linearly; they cannot be duplicated only \emph{split}
 when aliases are created. Thus, when copying
@@ -131,9 +125,9 @@ Unlike systems which treat aliasing at the level of lexical regions
 \cite{grossman2002region,jim2002cyclone,matsakis2014rust,tofte1994implementation},
 \name supports \emph{fine-grained, per-statement} ownership tracking.
 In particular, references may gain and lose mutability at any point
-during program execution. For example, the ownership of
-a mutable reference may be distributed among
-many aliases, and then later collected into a single (potentially different)
+during program execution. For example, the mutable ownership $1$ of
+some reference may be distributed among
+many aliases, and then later collected into a different
 reference, restoring mutability.
 This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
@@ -177,8 +171,8 @@ We have formalized \name as a type system for a small imperative calculus
 and proved the system sound: i.e., well-typed program never encounter assertion
 failures during execution. We have
 implemented a prototype type inference tool targeting this
-imperative language and found it can verify several interesting,
-complex programs, including sorted lists and an array list data structure.
+imperative language and found it can verify several
+non-trivial programs, including sorted lists and an array list data structure.
 
 The rest of this paper is organized as follows. \Cref{sec:prelim} defines the
 imperative language targeted by \name and defines its semantics. \Cref{sec:typesystem}
