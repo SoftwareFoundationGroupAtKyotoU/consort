@@ -171,7 +171,7 @@ grammar
 	| l1 ,, l2 :: :: abbrv {{ tex [[l1]]\ldots[[l2]] }}
 	| l1 ... ln :: :: inline
 
-  B {{ tex \mathcal{L}^{\alpha} }} :: B_ ::= {{ com type contexts }}
+  B {{ tex \mathcal{L} }} :: B_ ::= {{ com type contexts }}
     | . :: :: empty {{ tex \epsilon }}
 	| l : B :: :: l_cons
 	| l1 : ... : ln : B :: :: multi_cons
@@ -411,14 +411,14 @@ grammar
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{\wf} [[T]] [[=>]] [[G]] }}
     | G1 <: G2            ::   :: subG
 	| G1 , T1 <: G2 , T2 :: :: subRes
-    | Th | G1 | B |- e : T => G2   ::   :: exp
+    | Th | G1 | B |- e : T => G2   ::   :: exp {{ tex [[Th]] [[|]] [[B]] [[|]] [[G1]] [[|-]] [[e]] : [[T]] [[=>]] [[G2]] }}
     | C1 step_relation C2         ::   :: red        {{ tex [[C1]] [[step_relation]] [[C2]] }}
     | C1 \\ step_relation C2      ::   :: red_newline {{ tex \begin{array}{l}[[C1]] \\ \quad [[step_relation]] [[C2]]\end{array} }}
     | C1 step_relation \\ C2      ::   :: red_newline2 {{ tex \begin{array}{r}[[C1]] [[step_relation]] \\ [[C2]]\end{array} }}
 	
 	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{\wf} [[ G ]] }}
-	| G | B |- T :: :: twf {{ tex [[G]] [[|]] [[B]] [[|-]]_{\wf} [[T]] }}
-	| Gst | B |- ph :: :: phwf {{ tex [[Gst]] [[|]] [[B]] [[|-]]_{\wf} [[ph]] }}
+	| G | B |- T :: :: twf {{ tex [[B]] [[|]] [[G]] [[|-]]_{\wf} [[T]] }}
+	| Gst | B |- ph :: :: phwf {{ tex [[B]] [[|]] [[Gst]] [[|-]]_{\wf} [[ph]] }}
 	| T1 = T2 :: :: teq
 	| ST1 = ST2 :: :: steq
 	| Th |- d :: :: fun_typ
