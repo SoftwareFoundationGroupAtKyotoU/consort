@@ -150,7 +150,7 @@ At alias creation on \cref{line:r-alias}, our type system must \emph{split}
 the ownership of \imp{p} between \imp{p} and \imp{r}.
 As \imp{r} is later used for mutation, our type system transfers \emph{all} ownership from
 \imp{p} to \imp{r} (recall that only references with ownership $1$ may be mutated).
-Thus, after the binding, \imp{p} has type  $[[ {nu:int|nu=4} ref 1 ]]$ and \imp{p} is
+Thus, after the binding, \imp{r} has type  $[[ {nu:int|nu=4} ref 1 ]]$ and \imp{p} is
 given type $[[ {nu:int|Top} ref 0 ]]$.
 The type system may now soundly update \imp{r}'s type on \cref{line:r-write}
 despite the existence of alias \imp{p}. Our type system can later
