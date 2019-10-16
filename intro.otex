@@ -3,13 +3,13 @@
 Driven by the increasing power of automated theorem provers and
 recent high-profile, expensive software failures,
 fully automated program verification has seen a surge of interest
-in recent years \needcite.
+in recent years \cite{leino2010dafny,cousot2005astree,ball2011decade,zave2012using,hawblitzel2015ironfleet,bhargavan2017everest}.
 In particular, refinement types
 \cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement},
 which refine base types with logical predicates, have been shown to be a practical
 approach for program verification that are amenable to
 (sometimes full) automation \cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent}.
-However, despite promising advances \needcite,
+However, despite promising advances \cite{rondon2010low,kahsai2017quantified,gordon2013rely},
 the sound and precise application of refinement types (and program
 verification in general) in settings with mutability and aliasing
 (e.g., Java, C++, Ruby, etc.) remains difficult.
@@ -165,7 +165,7 @@ from different points in the program. Consider the example in
 \Cref{fig:strong-update-example}. The function \imp{get} simply reads
 the contents of a pointer, and is called in two
 locations, \cref{line:get1,line:get2}. To precise verify
-this program, on line \labelcref{line:get1}
+this program, on \cref{line:get1}
 \imp{get} must be typed as a function that takes a reference that
 contains 3 and returns 3. Similarly, on line
 \labelcref{line:get2}, \imp{get} must be typed as a function that
