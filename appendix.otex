@@ -115,18 +115,35 @@ with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
   \label{lem:preservation}
   If $[[ |- D <H,R,Es,e> ]]$ and $[[ <H,R,Es,e> --> D C ]]$, then $[[ |- D C ]]$
 \end{lemma}
-\Cref{lem:preservation} is the heart of proof effort, give its proof in \Cref{sec:preservation-proof}.
+\begin{lemma}
+  \label{lem:progress}
+  If $[[ |- D C ]]$, then, one of the following conditions hold:
+  \begin{enumerate}
+  \item $\exists [[C']],[[C --> D C']]$, or
+  \item $[[C = AssertFail]]$
+  \item $[[C = <H, R, ., x>]]$
+  \end{enumerate}
+\end{lemma}
+\Cref{lem:preservation,lem:progress} are the heart of proof effort, we give their proofs in \Cref{sec:preservation-proof,sec:progress-proof}
+respectively.
 
-We can now prove \Cref{thm:soundness} with a simple inductive argument.
+We can now prove \Cref{thm:soundness}:
 \begin{proof}[\Cref{thm:soundness}: Soundness]
   From \Cref{lem:initial,lem:preservation} and an inductive argument, any configuration
   reachable from the initial state must be well-typed. Then, by \Cref{lem:assertfail} every
   configuration reachable from the initial state cannot be $[[ AssertFail ]]$, i.e., a well-typed
-  program never experiences an assertion failure.
+  program never experiences an assertion failure. This completes the first part of the proof.
+
+  To prove the second portion of the theorem, it suffices to show that any configuration reachable
+  from the initial state can step or is a final configuration. Again from
+  \Cref{lem:initial,lem:preservation} and a simple inductive argument, we must have that
+  for any state   $[[C]]$ such that $[[ <empty,empty,.,e> -->* D C]]$ $[[ |- D C ]]$.
+  Then by \Cref{lem:progress} we have the configuration may step or is one of the final configurations.
 \end{proof}
 
-The remainder of this appendix proves \Cref{lem:preservation}. We introduce some auxiliary definitions and
-lemmas in \Cref{sec:aux-defn-lem} and give the proof of \Cref{lem:preservation} in \Cref{sec:preservation-proof}.
+The remainder of this appendix proves \Cref{lem:preservation,lem:progress}. We introduce some auxiliary definitions and
+lemmas in \Cref{sec:aux-defn-lem}, give the proof of \Cref{lem:preservation} in \Cref{sec:preservation-proof}, and prove
+\Cref{lem:progress} in \Cref{sec:progress-proof}.
 
 \section{Auxiliary Lemmas and Definitions}
 \label{sec:aux-defn-lem}
@@ -1576,15 +1593,7 @@ We first state the standard decomposition lemma.
   Straightforward induction on $[[e]]$
 \end{proof}
 
-\begin{lemma}
-  For a well-typed configuration $[[ |- D C ]]$, one of the following holds:
-  \begin{enumerate}
-  \item $[[ C = AliasFail ]]$
-  \item $[[ C = < H, R, ., x> ]]$
-  \item There exists some $[[ C' ]]$ such that $[[ C --> D C' ]]$.
-  \end{enumerate}
-\end{lemma}
-\begin{proof}
+\begin{proof}[Progress; \Cref{lem:progress}]
   By inversion on $[[ |- D C ]]$, either $[[ C = AliasFail ]]$ or $[[ C = < H, R, Es, e> ]]$.
   In the former case the result is immediate. In the latter case we have
   that $[[ Th | G | ll |- e : T => G' ]]$ for some $[[ T ]], [[G]]$ and $[[G']]$,

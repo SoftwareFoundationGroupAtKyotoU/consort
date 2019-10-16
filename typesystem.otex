@@ -773,8 +773,11 @@ We formalize this claim with the following soundness theorem.
   \label{thm:soundness}
   For any program $[[ <D, e> ]]$ such that $[[ |- <D, e> ]]$ then
   $[[ <empty, empty, ., e> !-->*D AssertFail ]]$.
+  
+  Further, any well-typed program either diverges, halts in the configuration $[[AliasFail]]$, or
+  halts in a configuration $[[<H, R, ., x>]]$ for some $[[H]], [[R]]$ and $[[x]]$, i.e.,
+  evaluation does not get stuck.
 \end{theorem}
-\AI{Do we want emphasize that a well typed program doesn't get stuck, either?}
 \begin{proof}[Proof Sketch]
   We omit a full proof for space details, the full proof can be found
   in the accompanying appendix.
@@ -785,9 +788,11 @@ We formalize this claim with the following soundness theorem.
   \item The value of heap locations and program variables satisfy the refinements given in the program typing judgment, and
   \item The ownership given to every memory cell never exceeds 1.
   \end{enumerate}
-  We then show that well-typedness is preserved by our step relation.
-  By defining the $[[AssertFail]]$ configuration as ill-typed, a
-  simple inductive argument then gives the desired result.
+  We then prove a standard preservation lemma, showing that
+  well-typedness is preserved by our step relation.  By defining the
+  $[[AssertFail]]$ configuration as ill-typed, we have the first result.
+
+  The second result follow from our preservation lemma and a standard progress lemma.
 \end{proof}
 
 
