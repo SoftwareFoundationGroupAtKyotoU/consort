@@ -60,15 +60,13 @@ $[[int ref]]$.
 \]
 in addition to the ownership constraint $[[r[y,0,pp] = r[y,0,pp'] + r[x,0,pp'] ]]$.
 
-Finally for each \lstinline[mathescape]{assert($[[ph]]$)} in the program \consort emits an assertion
+Finally for each \lstinline[mathescape]{assert($[[ph]]$)} in the program \name emits an assertion
 constraint of the form:
 \[
   [[ [G@pp] ==> ph ]]
 \]
 which requires the refinements on integer typed variables
-in scope are sufficient to prove $[[ph]]$. (\consort
-can easily check at inference time that $[[ph]]$ is well-formed
-in the current environment without emitting a constraint.)
+in scope are sufficient to prove $[[ph]]$.
 
 \subsubsection{Solving}
 The result of the above process are two systems of constraints; non-linear real arithmetic constraints over
@@ -97,11 +95,11 @@ supplement the free variables used in every predicate with a set of
 context variables $[[CC k]]$; these variables are assumed to not
 overlap with any program variables.
 
-\consort then uses these variables to infer context sensitive
+\name then uses these variables to infer context sensitive
 refinements as follows. Consider a function call
 $[[ let x = f l (y1,,yn) in e ]]$ at point $[[pp]]$
 where $[[e]]$ is at point $[[pp']]$.
-\consort generates the following constraint for a refinement
+\name generates the following constraint for a refinement
 $[[ph(yi,nn,pp)[FV pp U CC k] ]]$ which occurs in the type template of $[[yi]]$:
 \begin{align*}
   & [[ ph(yi,nn,pp)[FV pp U CC k] ==> vsub [l/c0][c1/c2] ,, [ck-1/ck] ph(xi,nn,f st)[FV f st U CC k] ]] \\
@@ -156,7 +154,7 @@ types of other tuple elements.
 The extension to type inference is also
 straightforward; the free variables for a
 predicate symbol depend on the enclosing tuple types
-and \consort includes the refinements for related tuple elements
+and \name includes the refinements for related tuple elements
 in subtyping constraints.
 
 \JT{This whole section can be significantly shortened}
