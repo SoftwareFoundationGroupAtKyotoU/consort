@@ -69,7 +69,7 @@ refinement cannot exist when an update occurs.
   \[
     \begin{array}{rrcl}
       \text{\scriptsize Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
-      \text{\scriptsize Ownership} & [[ r ]] &::=& [0,1] \\
+      \text{\scriptsize Ownership} & [[ r ]] & \in & [0,1] \\
       \text{\scriptsize Refinements} & [[ph]] & ::= & [[ ph1 \/ ph2 ]] \mid [[ !ph ]] \mid [[Top]] \\
                                & & \mid & [[ pfun(pval1,..,pvaln) ]] \\
                                & & \mid & [[ pval1 = pval2 ]] \\
@@ -83,9 +83,9 @@ refinement cannot exist when an update occurs.
   \[
     \begin{array}{rrcl}
       \text{\scriptsize Function Types} & [[FT]] & ::= & [[ A <x1 : T1 ,, xn : Tn> \\ & & & -> <x1: T1' ,, xn : Tn' | T> ]] \\
-      \text{\scriptsize Context Variables} & \CVar & ::= & [[A1]], [[A2]], \ldots \\
+      \text{\scriptsize Context Variables} & [[A]] & \in & \CVar \\
       \text{\scriptsize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
-      \text{\scriptsize Pred. Context} & [[ plhs ]] & ::= & [[ l : plhs ]] \mid [[ B ]] \\
+      \text{\scriptsize Pred. Context} & [[ plhs ]] & ::= & [[ l : plhs ]] \mid [[ A ]] \mid [[ . ]] \\
       \text{\scriptsize Context Query} & [[CQP]] & ::= & [[ ll <= plhs ]] \\
       \text{\scriptsize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
     \end{array}
