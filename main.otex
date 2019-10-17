@@ -36,7 +36,7 @@
 \setcounter{tocdepth}{2}
 \makeatother
 \fi
-\usepackage[dvipdfmx]{hyperref}
+\usepackage{hyperref}
 \hypersetup{colorlinks,
   linkcolor=red,
   citecolor=red}
