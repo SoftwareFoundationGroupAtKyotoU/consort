@@ -49,7 +49,7 @@
 %
 \title{\name: Context- and Flow-Sensitive Ownership Refinement Types for Imperative Programs}
 %
-%\titlerunning{Abbreviated paper title}
+\titlerunning{\name: Context- and Flow-Sensitive Ownership Refinement Types}
 % If the paper title is too long for the running head, you can set
 % an abbreviated paper title here
 %
