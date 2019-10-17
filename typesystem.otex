@@ -117,15 +117,15 @@ The base types of our type system are integers that are refined with a
 predicate $[[ph]]$.  The language of predicates is built using the
 standard logical connectives of first-order logic,
 with (in)equality between variables and integers, and atomic predicate symbols
-$[[pfun]]$ as the basic atoms. As is standard, \KS{Citation}
-we include a special ``value'' variable $[[nu]]$ representing the
+$[[pfun]]$ as the basic atoms. We include a special
+``value'' variable $[[nu]]$ representing the
 value being refined by the predicate. For simplicity, we omit the
 connectives $[[ ph /\ ph ]]$ and $[[ ph ==> ph ]]$; they can be written
 as derived forms using the given connectives.
 We leave the choice of underlying theory from which $[[pfun]]$
 are drawn unspecified, provided it is decidable. $\mathcal{CP}$
 are context predicates, which are used for context sensitivity as
-explained below. \KS{The ``below'' may appear to indicate the following example, which does not deal with context sensitivity.}
+explained in the following paragraph.
 
 \begin{example}
   $[[{nu:int | nu > 0}]]$ is the type of strictly positive integers.
@@ -143,7 +143,7 @@ is called, i.e., the \emph{execution context} of the function invocation.
 Our system represents a \emph{concrete} execution contexts with
 string of call site labels (or just ``call strings''),
 defined as $[[ll]] ::= [[.]] \mid [[l : ll ]]$.
-As is standard \KS{Citation.}, the string $[[ l : ll ]]$ abstracts
+As is standard (e.g., \cite{sharir1978two,shivers1991control}), the string $[[ l : ll ]]$ abstracts
 an execution context where the most recent, active function call occurred
 at call site $[[ l ]]$ which itself was executed in a context abstracted
 by $[[ ll ]]$; $[[.]]$ is the context under which program execution begins. \emph{Context variables},
@@ -151,7 +151,7 @@ drawn from a finite domain $\CVar$ and ranged over by $[[A1]], [[A2]], \ldots$,
 represent an arbitrary, unknown context.
 
 Function types in our language are context polymorphic,
-expressed by universally quantifying \KS{``universal quantifier'' or ``universally quantified''.}
+expressed by universal quantification \KS{``universal quantifier'' or ``universally quantified''.} \JT{done?}
 over a context variable. Intuitively,
 this context variable represents the many different execution contexts
 under which a function may be called.
@@ -213,7 +213,7 @@ in a typing derivation yields a valid type derivation under concrete context $[[
 
 \paragraph{Well Formedness}
 We impose two well-formedness conditions on types:
-ownership well-formedness \KS{Put in emph?} and refinement well-formedness. \KS{Put in emph?}
+\emph{ownership well-formedness} and \emph{refinement well-formedness}.
 The ownership condition is purely syntactic:
 $[[ T ]]$ is ownership well-formed if $[[ T = T' ref 0 ]]$ implies
 $[[ T' = topn ]]$ for some $[[n]]$. $[[topi]]$ is the ``maximal'' type
@@ -535,6 +535,9 @@ thus by well-formedness may only contain the $[[Top]]$ refinement.
     let y = x in // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
     y := 4; assert(*y = 4) // $\color{comment-green}{[[x:top1,y:{nu:int|nu=4} ref 1]]}$
   \end{lstlisting}
+  In this example and the following, we include type annotations within comments. We stress
+  that these annotations are for expository purposes only; our tool can infer these types
+  automatically with no manual annotations.
 \end{example}
 
 As described thus far, the type system is quite strict: if ownership
@@ -602,7 +605,7 @@ that only a small number of annotations are required for real-world programs.
   and $[[y]]$ to enable write to $[[y]]$. After the second aliasing statement
   the ownership in $[[y]]$ is split with $[[x]]$; notice
   that transferring all ownership from $[[y]]$ to $[[x]]$ would also yield a
-  valid typing.  \KS{Let's emphasize that annotated types in every example are inferred automatically, not to be annotated by human.}
+  valid typing.
 \end{example}
 
 Finally, we describe the subtyping rule. The rules for subtyping types
@@ -613,7 +616,7 @@ on integer types. The subtype rule for references is \emph{covariant} in the typ
 of reference contents. It is widely known that in a type system with unrestricted aliasing
 and mutable references such a rule is unsound: after coercing to a supertype,
 a write into the coerced pointer may cause a later read through an aliased pointer to
-yield a value that does not match the type of reference contents.  \KS{Citation. (Maybe TaPL by Benjamin.)}However, as in
+yield a value that does not match the type of reference contents \cite{pierce2002types}. However, as in
 the assign case, ownership types prevents this scenario; a write to the
 coerced pointer requires the pointer to have ownership 1, which guarantees
 any aliased pointers have the maximal type and provide no information about their contents
@@ -675,11 +678,11 @@ the callee function with partial context information. Although the exact
 concrete execution context of the callee (and therefore exact behavior)
 is unknown, we at least know the exact context begins with $[[l]]$ and
 can potentially use this knowledge to rule out certain behaviors.
-The formal arguments are required to match the parameter
-types post substitution, and then the body of the let binding is
+To type check the function call the formal arguments are required to match the parameter
+types (post substitution). Then the body of the let binding is
 checked with the argument types updated to reflect the changes in the
-function call (again, post substitution).
-\KS{Remind that the acutal parameters are distinct.}
+function call (again, post substitution). This update is well-defined because
+we require all function arguments be distinct as described in \cref{sec:language}.
 
 Rule \rn{T-FunDef} type checks a function definition
 $[[ f |-> (x1,..,xn) e]]$ against the function type given in $[[Th]]$.

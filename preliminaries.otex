@@ -1,9 +1,7 @@
 \section{Preliminaries}
 \label{sec:prelim}
 This section describes a simple imperative language with mutable references and first
-order, recursive functions. Unlike our prior work on fractional ownerships,
-we  explicitly include integers as base values in the language definition.
-\KS{Put the last sentence near Section~\ref{sec:ownership} as a remark or a footnote.}
+order, recursive functions.
 
 \subsection{Notation}
 For a function $f$ we will write $\DOM(f)$ to indicate the domain of
@@ -16,6 +14,7 @@ We also write $\emptyset$ as a function with an empty domain.
 \JT{This is almost certainly not a sufficient overview. write more later.}
 
 \subsection{Language}
+\label{sec:language}
 The grammar of the language is as follows.
 \[
   \begin{array}{rcl}

@@ -24,6 +24,7 @@
 \usepackage{listings}% http://ctan.org/pkg/listings
 \usepackage{etoolbox}
 \usepackage{microtype}
+\usepackage[numbers,sectionbib,sort]{natbib}
 \input{local}
 % generate nice pdf index when compiling in draft mode
 \ifdraftComments
