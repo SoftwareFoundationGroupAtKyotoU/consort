@@ -35,10 +35,10 @@ Spec\# \cite{barnett2011specification} uses an ownership system which tracks
 whether object $a$ owns object $b$; like \name's ownership system these ownerships
 are used to track when states may be inconsistent. However, Spec\#'s ownership
 is quite strict, and does admit references to $b$ outside of the owning object $a$.
-Further, these techniques implicitly use \emph{type-based} abstract heap; the boundaries during
-which an object invariant can be broken are similar to the regions described
-above during which strong updates to inconsistent refinement are permitted. Thus, these techniques also cannot
-provide per-object invariants nor support evolving invariants.
+These techniques implicitly use \emph{type-based} abstract heap; like the
+techniques above, any temporarily broken invariants on an abstract location
+(i.e., class invariant) must be eventually brought back in sync with the
+fixed invariant.
 
 F*, a dependently typed dialect of ML, includes an update/select
 theory of heaps and require explicit annotations summarizing the heap
@@ -52,15 +52,15 @@ The work on rely-guarantee reference types by Gordon et
 al. \cite{gordon2013rely,gordon2017verifying} uses refinement
 types in a language mutable references and aliasing without relying on
 an abstract heap. Their approach extends reference types with rely/guarantee predicates;
-the rely predicate describes the ways the value of the reference may be mutated via aliases,
-and the guarantee predicate describes the admissible mutations through the reference.
+the rely predicate describes possible mutations via aliases,
+and the guarantee predicate describes the admissible mutations through the current reference reference.
 If two references may alias, then guarantee predicate of one of
 the references implies the rely of the other and vice versa. 
-This invariant is maintained by way of a linear ``splitting'' operation that
-bears many similarities to the behavior of our $+$ operator.
-Further, their type system allows strong updates to reference content refinements
-provided that mutations admitted by the rely predicate do not
-invalidate the new refinement. Thus, rely-guarantee refinements can support multiple
+This invariant is maintained with a splitting operation that
+is similar to our $+$ operator.
+Further, their type system allows strong updates to reference refinements
+provided the new refinements are preserved by the rely predicate.
+Thus, rely-guarantee refinement support multiple
 mutable, aliased references with non-trivial refinement information. Unfortunately this
 expressiveness comes at the cost of automated inference and verification; an embedding
 of this system into Liquid Haskell \cite{vazou2014refinement} described in
@@ -90,19 +90,13 @@ for a recent survey).
 Polyvariance has also been used in type systems to assign
 different behaviors to the same function depending on its call site
 \cite{banerjee1997modular,wells2002calculus,amtoft2000faithful}.
-In the area of refinement type systems, work by Zhu and Jagannathan in
-\cite{zhu2013compositional} combined a dependent type system for a functional
-language with context sensitivity.
-In their formalism, function types are indexed by a set of labels that are
-also attached to call-sites; the type used for checking a function call
-is thus determined by the label of the call site. Our
+In the area of refinement type systems, Zhu and Jagannathan developed
+a context sensitive dependent type system for a functional language \cite{zhu2013compositional}
+that indexed function types by unique labels attached to call-sites. Our
 context-sensitivity approach was inspired by this work; the type of \imp{get} in
 \Cref{exmp:1cfa} is effectively two function types indexed by call-site labels.
-In fact, our context-polymorphism could be \JT{is???} formalized within dependent type
-theory by threading a call-string through the program with dependent argument
-types. However, we chose the current presentation based on
-context query predicates to simplify the formal presentation and 
-the encoding to SMT formulae.
+In fact, we could have formalized context-polymorphism within the framework of full dependent
+types, but chose the current presentation for simplicity.
 
 %%% Local Variables:
 %%% mode: latex

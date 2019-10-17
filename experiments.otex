@@ -25,13 +25,13 @@ We also introduced unsafe mutations to these programs to
 check our tool for unsoundness.
 
 \begin{table}[t]
-  \begin{center}
-    \input{benchmark_table}
-  \end{center}
   \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
     that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
     checks for null pointers, checking pointer equality, etc. Finally, \textbf{Bug} includes test programs
     we discovered were actually incorrect.}
+  \begin{center}
+    \input{benchmark_table}
+  \end{center}
   \label{tab:breakdown}
 \end{table}
 
@@ -79,11 +79,11 @@ of the programs within 60 seconds. For the unsafe variants,
 \name was able to quickly and definitively determine these programs unsafe.
 
 \begin{table}[t]
+  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and the results on our custom benchmark suite.}
   \begin{center}
     \input{jayhorn_table}
     \input{consort_table}
   \end{center}
-  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and the results on our custom benchmark suite.}
   \label{tab:jh-results}
 \end{table}
 
