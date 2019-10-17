@@ -1,6 +1,15 @@
 \section{Conclusion}
 \label{sec:concl}
 
+We presented \name, a novel type system for safety verification of imperative programs with mutability
+and aliasing. Our type system is built upon the novel combination of fractional ownership types and refinement
+types. Ownership types indicate when a reference may have a mutable alias, at which point \name discards
+all refinement information within the mutably-aliased reference. \JT{truly terrible} Our type system is amenable
+to automatic type inference; we have implemented a prototype of this inference tool and found it can verify several
+non-trivial programs. We plan investigate using fractional ownership types to soundly allow refinements that mention memory
+locations. In addition, we plan to use the type system and language presented here as a backend language for the verification
+of high-level languages like Java, C++, etc.
+
 %%% Local Variables:
 %%% mode: latex
 %%% TeX-master: t
