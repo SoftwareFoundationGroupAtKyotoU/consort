@@ -1,11 +1,10 @@
 \section{Related Work}
 \label{sec:rw}
 
-\JT{Talk about axiomatic reasoning about the heap, a al F*}
 The difficulty in handling programs with mutable references and
 aliasing has been well-studied. A common approach is to model the heap explicitly
 at analysis time, approximating concrete heap locations with allocation site
-labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low};
+labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low,fink2008effective};
 these \emph{abstract locations} are associated with a refinement.
 However, as these abstract locations summarize many concrete locations, this approach
 comes at the cost of strong updates and flow-sensitivity; in particular, the refinement
@@ -41,6 +40,14 @@ which an object invariant can be broken are similar to the regions described
 above during which strong updates to inconsistent refinement are permitted. Thus, these techniques also cannot
 provide per-object invariants nor support evolving invariants.
 
+F*, a dependently typed dialect of ML, includes an update/select
+theory of heaps and require explicit annotations summarizing the heap
+effects on a method
+\cite{protzenko2017verified,swamy2016dependent,swamy2013verifying}.
+This approach enables modular reasoning and precise specification of
+method pre- and post-conditions with respect to the heap, but comes at
+the cost of fully automated inference.
+
 The work on rely-guarantee reference types by Gordon et
 al. \cite{gordon2013rely,gordon2017verifying} uses refinement
 types in a language mutable references and aliasing without relying on
@@ -58,6 +65,15 @@ mutable, aliased references with non-trivial refinement information. Unfortunate
 expressiveness comes at the cost of automated inference and verification; an embedding
 of this system into Liquid Haskell \cite{vazou2014refinement} described in
 \cite{gordon2017verifying} was forced to sacrifice strong updates.
+
+Work by Degen et al. \cite{degen2007tracking} introduced linear state annotations to to Java.
+To effect strong updates in the presence of aliasing, like \name,
+their system requires state annotated memory locations are mutated only through
+a distinguished reference. Further, all aliases of this mutable reference give
+no information about the state of the object, much like our $0$ ownership pointers.
+However, their system cannot handle multiple, immutable aliases with non-trivial
+annotation information; \emph{only} the distinguished, mutable reference may
+have non-trivial annotation information.
 
 The fractional ownerships in \name and their counterparts in
 \cite{suenaga2009fractional,suenaga2012type} have a clear relation to
