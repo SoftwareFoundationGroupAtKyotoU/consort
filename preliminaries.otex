@@ -40,13 +40,13 @@ The grammar of the language is as follows.
 $[[ph]]$ stands for a formula in propositional first order
 logic over variables, integers and contexts;
 we discuss these formulas later in \Cref{sec:types}.
-We assume a set of \emph{variables}, which is ranged over by $x,y,z,\dots$ and
+We assume a set of \emph{variables}, ranged over by $x,y,z,\dots$ and
 a set of labels ranged over by $[[l1]], [[l2]], \dots$.
 
 Variables are introduced by function parameters or let bindings.
 Like ML, the variable bindings introduced by let-expression and parameters
 are immutable.
-Modeling the mutable variable declaration \texttt{int x = 1} in a language like C is achieved with
+A mutable variable declaration like \texttt{int x = 1} in C is achieved with
 \[
   [[ let y = 1 in (let x = mkref y in etc) ]]
 \]
@@ -54,12 +54,13 @@ in our language. As a convenience, we assume all variable names
 introduced with let bindings and function parameters are distinct.
 
 Unlike ML (and like C or Java) we do not allow general expressions as right hand side of
-let bindings. The simplest right-hand forms are a variable $[[y]]$ or an integer literal $[[nn]]$.
+let bindings. The simplest right hand forms are a variable $[[y]]$ or an integer literal $[[nn]]$.
 $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
-$[[*y]]$ accesses the contents of reference $[[y]]$.
+$[[*y]]$ accesses the contents of reference $[[y]]$. For simplicity,
+we do not include an explicit null value.
 Function calls must occur on the right hand side of a variable binding
 and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is
-(unique) label drawn from \textbf{Labels}. These labels are used to make our type system context sensitive, as
+(unique) label drawn from \textbf{Labels}. These labels are used to make our type system for context sensitive as
 discussed in \Cref{sec:cs}.
 
 The single base case for expressions is a single variable.
@@ -76,17 +77,16 @@ Our grammar requires that side-effecting, result free statements, \lstinline{ass
 \lstinline{alias}($[[x]]$ = $[[y]]$), \lstinline{alias}($[[x]] = *[[y]]$) and
 assignment $[[x]] := [[y]]$ are followed by a continuation expression.
 We impose this requirement for technical reasons to ease our formal
-presentation; note that this requirement does not reduce the expressiveness
-of the language as dummy continuations can be inserted as needed.
+presentation; this requirement does not reduce expressiveness
+as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state and aborts the program otherwise.
-$[[alias(x = y); e]]$ is a specialized type of assertion for asserting
-must-aliasing relationship between two references $x$ and $y$. \imp{alias} statements \KS{Statement \imp{alias}?}
+$[[alias(x = y); e]]$ asserts a must-aliasing relationship $x$ and $y$.
+\imp{alias} statements \KS{Statement \imp{alias}?}
 are effectively \emph{annotations} that our type system exploits to gain
 added flexibility.
 $[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$
-with the contents of $[[y]]$. For simplicity, we do not include an explicit
-null value in our formalism.
+with the contents of $[[y]]$.
 In addition to the above continuations, our language supports general sequencing with
 $[[e1 ; e2]]$. In the remainder of this paper we will rely on context to disambiguate
 between continuations and general sequencing.
@@ -105,8 +105,8 @@ $[[ {d1,...,dn} ]]$ is a set of function definitions, and $[[e]]$
 is the program entry point. A function definition $[[d]]$
 maps the function name to a tuple of argument names $[[x1,...,xn]]$
 that are
-bound within the function body $[[e]]$. Unlike ML, functions are not
-higher order, nor do we allow pointers to functions.
+bound within the function body $[[e]]$. Functions are not
+higher order, nor do we allow functions pointers.\looseness=-1
 
 \paragraph{Paper Syntax}
 In the remainder of the paper, we will write programs that
@@ -118,10 +118,8 @@ For example, we will write
 \end{lstlisting}
 as syntactic sugar for:
 \begin{lstlisting}
-  let f = 4 in
-  let x = mkref f in
-  let tmp = *x in
-  assert(tmp = 4); let dummy = 0 in dummy
+  let f = 4 in let x = mkref f in
+  let tmp = *x in assert(tmp = 4); let dummy = 0 in dummy
 \end{lstlisting}
 We have used a dummy continuation for the assert statement in the desugaring.
 

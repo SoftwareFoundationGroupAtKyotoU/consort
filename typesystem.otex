@@ -55,10 +55,10 @@ refinement cannot exist when an update occurs.
   ensure the memory referenced by a pointer was eventually
   freed. Further, a $0$ ownership was used for pointers that
   had been freed to ensure dangling pointers were not used.
-  However, as mentioned in \Cref{sec:semantics}, our language
-  does not support manually freeing memory which
-  significantly simplifies some of the technical components
-  of our formalism. In particular, our type system \emph{does}
+  As mentioned in \Cref{sec:semantics}, our language
+  does not include deallocation which
+  significantly simplifies our formalism.
+  In particular, our type system \emph{does}
   allow reads of references with 0 ownerships. However,
   such references provide no information about their contents
   beyond simple types for reasons discussed below.
@@ -713,7 +713,6 @@ which is reflected in the typing context of $[[e]]$.
   Recall the program in \Cref{fig:running-example} in \Cref{sec:intro}; assume
   the function calls are labeled as follows:
 \begin{lstlisting}
-// ...
 p := get$^{\ell1}$(p) + 1;
 // ...
 r := get$^{\ell2}$(r) + 1;
