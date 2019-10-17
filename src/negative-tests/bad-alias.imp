@@ -1,0 +1,6 @@
+{
+  let p = mkref 0 in
+  let q = mkref 0 in
+  alias(p = q)
+}
+

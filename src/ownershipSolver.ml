@@ -60,7 +60,8 @@ let pp_oconstraint ff ocon =
                      ]
                    ]
     | Shuff ((o1,o2),(o1',o2')) ->
-      pg "assert" [
+      begin
+        pg "assert" [
           pg "=" [
             pg "+" [
               po o1;
@@ -71,7 +72,18 @@ let pp_oconstraint ff ocon =
               po o2'
             ];
           ]
+        ] ff.printer;
+        break ff;
+        pg "assert" [
+          pg "<=" [
+            pg "+" [
+              po o1;
+              po o2
+            ];
+            pl "1.0"
+          ]
         ]
+      end
     | Split (o,(o1,o2)) ->
       pg "assert" [
           pg "=" [
