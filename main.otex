@@ -47,7 +47,7 @@
 
 \begin{document}
 %
-\title{Context- and Flow-Sensitive Refinement Types for Imperative Programs}
+\title{\name: Context- and Flow-Sensitive Ownership Refinement Types for Imperative Programs}
 %
 %\titlerunning{Abbreviated paper title}
 % If the paper title is too long for the running head, you can set
