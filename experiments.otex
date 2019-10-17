@@ -65,7 +65,7 @@ development build of JayHorn\footnote{We did not use the most recent official re
 Java version.
 As run time comparisons are meaningless given the differences in problem domains,
 we collected only the final verification result for this set of experiments. All tests
-were run on a machine \JT{...} and we imposed timeout of 60 seconds.
+were run on a machine with 16 GB RAM and 4 CPUs at 2GHz and with a timeout of 60 seconds.
 
 \subsection{Results}
 The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
