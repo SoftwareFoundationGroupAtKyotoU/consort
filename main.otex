@@ -80,21 +80,21 @@
   Mutability requires \emph{strong updates} to model changing invariants
   during program execution, but aliasing between program references
   makes it difficult to determine which invariants must be updated
-  in response to mutation. Given this difficulty, many existing approaches
-  only support fixed invariants on memory locations that hold throughout
-  the lifetime of the program, leading to precision loss.
+  in response to mutation. Thus, many existing approaches only support
+  fixed invariants on memory locations that hold throughout the lifetime
+  of the program, leading to precision loss.
 
   Our type system addresses this difficulty with novel combination of refinement types and
   fractional ownership types. Refinement types  
-  track the invariants that hold on memory cells pointed to by
+  track the invariants on memory pointed to by
   reference variables. Fractional ownership types precisely and flow-sensitively
   track whether a reference variables holds \emph{all} ownership
   for a cell, which permits the mutation of the cell's contents.
-  Thus, any reference with \emph{zero} ownership may have a mutable alias;
-  our type system detects these ownerships and pre-emptively discards \emph{all}
-  refinement information within zero ownership references. As a result,
-  mutations through a mutable reference must be trivially consistent with refinements on all
-  aliases of the reference. Our type system also propagates refinements
+  Any reference with \emph{zero} ownership may therefore have a mutable alias;
+  our type system pre-emptively discards \emph{all}
+  refinement information within such zero ownership references. As a result,
+  mutations through a mutable reference are trivially consistent with
+  refinements of all aliases. Our type system may later propagates refinements
   and ownerships to aliases when needed. We have proved our type system
   sound and implemented an initial prototype, fully automated inference tool.
   
