@@ -1,0 +1,14 @@
+mk(n) {
+  mkref n
+}
+
+{
+  let p = mk(3) in
+  let q = mk(5) in {
+    p := *p + 1;
+	let r = p in {
+	r := (*r) + 1;
+	assert(*r = *q)
+	}
+  }
+}
