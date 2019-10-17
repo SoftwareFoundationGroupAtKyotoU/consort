@@ -257,31 +257,36 @@ As the formal definition refinement well-formedness is fairly standard, we
 omit it for space reasons (the full definition may be found in \Cref{sec:aux-defn-lem}).
 
 \begin{figure}[t]
-  \bcprulessavespacetrue
+%  \leavevmode
   \scriptsize
-  \begin{center}
   \infrule[T-Var]{
   }{
     [[ Th | G [ x : T1 + T2] | B |- x : T1 => G[ x <- T2 ] ]]
   }
+  \vspace*{2ex}
   \infrule[T-Let]{
     [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \\
     [[B |- T => G']] \andalso [[ x not in dom G' ]]
   }{
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G']]
   }
+  \vspace*{2ex}
   \infrule[T-LetInt]{
     [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \andalso
     [[B |- T => G' ]] \andalso [[ x not in dom G' ]]
   }{
     [[ Th | G | B |- let x = nn in e : T => G']]
   }
+  \vspace*{2ex}
   \infrule[T-If]{
     [[ Th | G[x <- {nu:int | ph /\ nu = 0 }] | B |- e1 : T => G' ]] \\
     [[ Th | G[x <- {nu:int | ph /\ nu != 0}] | B |- e2 : T => G' ]]
   }{
     [[ Th | G[x : {nu:int|ph}] | B |- ifz x then e1 else e2 : T => G' ]]
   }
+  \vspace*{2ex}
+  \bcprulessavespacetrue
+  \begin{center}
   \infrule[T-MkRef]{
     [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \\
     [[ B |- T => G' ]] \andalso [[ x not in dom G' ]]
@@ -463,7 +468,7 @@ soundness claim (\Cref{sec:soundness}).
   \infrule[T-Sub]{
     [[ G <: G' ]] \andalso
     [[ Th | G' | B |- e : T => G'' ]] \andalso
-    [[ G'',T <: G''',T' ]] \\
+    [[ G'',T <: G''',T' ]] \andalso
     [[ B |- G' ]] \andalso [[ B |- T' => G''' ]]
   }{
     [[ Th | G | B |- e : T' => G''' ]]
