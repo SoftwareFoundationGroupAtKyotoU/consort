@@ -1,0 +1,17 @@
+getref(n) {
+  mkref n
+}
+
+{
+  let p = getref(3) in
+  let q = mkref getref(4) in {
+    p := (*p) + 1;
+    let c = *q in assert(*c = *p);
+	q := p;
+    let t = *q in { t := (*t) + 1; alias(t = *q); alias(p = *q) };
+	q := getref(3);
+	p := (*p) + 1;
+	assert(*p = 6);
+	let t = *q in assert(*t = 3);
+  }
+}

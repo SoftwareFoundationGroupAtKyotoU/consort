@@ -1,0 +1,14 @@
+get(p) {
+  *p
+}
+
+{
+  let p = mkref 3 in
+  let q = mkref 5 in {
+    p := get(p) + 1;
+	let r = p in {
+	r := get(r) + 1;
+	assert(*r = *q)
+	}
+  }
+}
