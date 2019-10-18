@@ -9,7 +9,7 @@ In particular, \emph{refinement types}
 which refine base types with logical predicates, have been shown to be a practical
 approach for program verification that are amenable to
 (sometimes full) automation \cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent}.
-Unfortunately, despite promising advances \cite{rondon2010low,kahsai2017quantified,gordon2013rely},
+However, despite promising advances \cite{rondon2010low,kahsai2017quantified,gordon2013rely},
 the sound and precise application of refinement types (and program
 verification in general) in settings with mutability and aliasing
 (e.g., Java, Ruby, etc.) remains difficult.
@@ -18,12 +18,11 @@ One of the primary challenges in this setting
 is how to support \emph{strong updates}.
 Unlike purely functional languages, the invariants that
 hold on a memory location may evolve and change as the program
-mutates that memory location. To accurately model the
-\emph{evolving, changing state}
-common in languages with mutability, automated program verifiers must update
-invariants on memory locations in ways that are incompatible with previous invariants.
+mutates that memory location. To accurately model this
+evolving, changing state, automated program verifiers must be able
+to update invariants on memory locations in ways that are incompatible with previous invariants.
 
-Unfortunately, such updates are difficult to soundly effect in a setting
+Such updates are difficult to soundly effect in a setting
 with aliasing. Consider the (contrived) example program in
 \Cref{fig:strong-update-example} written in an ML-like language
 with mutable references; references are updated with \imp{:=} and
@@ -45,7 +44,7 @@ do not alias on \cref{line:first-p-write} and it is thus correct to
 retain \imp{q}'s original type. However, suppose we made the conservative
 assumption that all references allocated at the same syntactic program point
 (i.e., \cref{line:mk} in \imp{mk}) may alias (such assumptions are common as in, e.g.,
-\cite{rondon2010low,kahsai2017quantified});
+\cite{rondon2010low,kahsai2017quantified}). Under this assumption,
 we would have to update the refinement on \imp{q}.
 However, given the uncertainty about whether \imp{p} and \imp{q} alias,
 we could only \emph{weakly} update \imp{q}'s type to be
@@ -131,6 +130,7 @@ reference, restoring mutability.
 This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
 
+
 To demonstrate the interplay of ownership and mutability, consider again the example
 in \Cref{fig:strong-update-example}. \imp{p} and \imp{q} are both references
 with no aliases, and can be given types
@@ -151,12 +151,12 @@ use static aliasing information to propagate the updated refinement in
 \imp{r} back to \imp{p} before any reads through \imp{p}. \JT{This is maybe too detailed for
   the introduction}
 
-\name is also \emph{context-sensitive}, and can precisely
-summarize the different behaviors a function may exhibit when called
+\name is also \emph{context-sensitive}, and can
+use different summaries of function behavior
 at different points in the program. Consider the example in
 \Cref{fig:running-example}, which is a variant of \Cref{fig:strong-update-example}.
-The function \imp{get} returns the contents of its arugment, and is called in two
-locations, \cref{line:get1,line:get2}. To precisely verify
+The function \imp{get} returns the contents of its argument,
+and is called on \cref{line:get1,line:get2}. To precisely verify
 this program, at \cref{line:get1}
 \imp{get} must be typed as a function that takes a reference that
 contains 3 and returns 3. Similarly, on \cref{line:get2}
@@ -169,7 +169,7 @@ We have formalized \name as a type system for a small imperative calculus
 and proved the system sound: i.e., well-typed program never encounter assertion
 failures during execution. We have
 implemented a prototype type inference tool targeting this
-imperative language and found it can verify several
+imperative language and found it can automatically verify several
 non-trivial programs, including sorted lists and an array list data structure.
 
 The rest of this paper is organized as follows. \Cref{sec:prelim} defines the

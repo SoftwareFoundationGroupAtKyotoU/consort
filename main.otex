@@ -75,14 +75,14 @@
 %
 \begin{abstract}
   We present \name, a type system for safety verification in the
-  presence of mutability and aliasing. Precise verification in
-  such settings is confounded by the subtle interaction of these two features.
+  presence of mutability and aliasing. Precise verification is
+  confounded by the subtle interaction of these two features.
   Mutability requires \emph{strong updates} to model changing invariants
   during program execution, but aliasing between program references
   makes it difficult to determine which invariants must be updated
-  in response to mutation. Thus, many existing approaches only support
+  in response to mutation. Many existing approaches opt to only support
   fixed invariants on memory locations that hold throughout the lifetime
-  of the program, leading to precision loss.
+  of the program, causing precision loss.
 
   Our type system addresses this difficulty with novel combination of refinement types and
   fractional ownership types. Refinement types  

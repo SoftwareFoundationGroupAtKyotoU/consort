@@ -476,6 +476,7 @@ grammar
 	| E :: :: ctxt
 	| r :: :: own
 	| Es :: :: context_stacks
+	| D :: :: function_sets
 
   formula :: formula_ ::=
     | logical_frag1 = logical_frag2 :: :: eq_form
