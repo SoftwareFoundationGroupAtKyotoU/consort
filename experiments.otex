@@ -71,8 +71,8 @@ were run on a machine with 16 GB RAM and 4 CPUs at 2GHz and with a timeout of 60
 The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
 suite \name performs competitively with JayHorn, correctly identifying 29 of the 32 safe programs
 as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception.
-For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds; in contrast,
-JayHorn timed out on one test, and answered \textsc{Unknown} for the remaining 6.
+For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds;
+JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others.
 
 On our own benchmark set, \name correctly verifies all safe versions
 of the programs within 60 seconds. For the unsafe variants,
