@@ -375,8 +375,8 @@ ownership or refinement information, only combine or divide it between
 types. Formally, the type addition operator is defined as the least
 commutative partial operation that satisfies the following rules:
 \begin{gather*}
-  [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]] \\
-  [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]]
+  [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]] \quad (\rn{Tadd-Int})  \\
+  [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]] \quad (\rn{Tadd-Ref})
 \end{gather*}
 Although not explicit in the rules,
 by the ownership well-formedness condition,
