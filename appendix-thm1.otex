@@ -1,0 +1,150 @@
+
+\begin{figure}
+  \leavevmode
+  \infrule[TE-Seq]{
+    [[ Th | [] : T => G | B |-e E : T' => G' ]] \andalso
+    [[ Th | G' | B |- e : T'' => G'' ]]
+  }{
+    [[ Th | [] : T => G | B |-e E; e : T'' => G'' ]]
+  }
+  \infrule[TE-Hole]{}{
+    [[ Th | [] : T => G | B |-e [] : T => G ]]
+  }
+  \infrule[TE-Stack]{
+    [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
+    [[ Th | G, x : T | B |- e : T' => G' ]] \\
+`    [[ x not in dom G' ]] \andalso [[ B |- T' => G' ]]
+  }{
+    [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
+  }
+
+  \begin{align*}
+    [[ (E; e)[e'] ]] & = [[ E[e']; e ]] \\
+    [[ [][e'] ]] & = e' \\
+    [[ E[let y = [] l in e][x] ]] & = [[ E[let y = x in e] ]]
+  \end{align*}
+\caption{Context typing and substitution}
+\label{fig:context-typing}
+\end{figure}
+
+\begin{figure}
+  \leavevmode
+  \infrule[Obsolete?]{
+    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{0..n-1}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
+    [[ Cons(H, R, G) ]] \andalso
+    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\
+    [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]] \\
+    [[ Th | G | ll |- e : T => G' ]] \andalso [[ ll |- G ]]
+  }{
+    [[ |- D <H,R,Es,En[e]> ]]
+  }
+
+  \infrule[Simplified]{
+    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{1..n}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
+    [[ Cons(H, R, G) ]] \andalso
+    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli |-e CEi : Ti-1 => Gi-1 ]] \\
+    [[ Es ]] = [[CEn]] : \cdots : [[CE1]] : \cdot \andalso
+    [[ Th | G | ll |- e : Tn => Gn ]] \andalso [[ ll |- G ]]
+  }{
+    [[ |- D <H,R,Es,e> ]]
+  }
+
+  \infax[]{
+    [[ |- D AliasFail ]]
+  }
+
+  \begin{align*}
+    [[Trace(.) = .]] && [[Trace(E[let x = [] l in e] : Es) = l : Trace(Es)]]
+  \end{align*}
+\caption{Machine state typing}
+\label{fig:state-typing}
+\end{figure}
+\begin{figure}
+  \begin{align*}
+    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.Own(H,R,G)(a)]] \leq 1 \\
+    [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
+    [[SATv(H,R,Rv,T)]] = & \begin{cases}
+      [[Rv is INT /\ [R][Rv / nu]ph ]] & [[ T = {nu:int|ph} ]] \\
+      [[a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
+    \end{cases} \\
+    [[ [empty]ph ]] & = [[ ph ]] \\
+    [[ [R { y |-> nn }]ph ]] & =  [[  [R][nn/y]ph ]] \\
+    [[ [R { y |-> a }]ph ]] & =  [[ [R]ph ]] \\
+    [[Own(H,R,G)]] & =   [[ |< { x in dom G } own(H,R(x),G(x))]] \\
+    [[own(H,v,T)]] & = \begin{cases}
+      [[ { a |-> r } + own(H,H(a),T') ]] & [[v = a /\ a in H /\ T = T' ref r ]] \\
+      [[ empty ]] & o.w.
+    \end{cases} \\
+  \end{align*}
+  \caption{State consistency}
+  \label{fig:consistency}
+\end{figure}
+
+\section{Proof of Type Soundness (\Cref{thm:soundness})}
+We first define a typing relation for machine configurations $[[ < H, R, Es, e>]]$ as show in
+\Cref{fig:state-typing}. The critical component of this typing relation is the consistency relation $[[Cons]]$.
+Intuitively, $[[Cons]]$ expresses that the current heap and registers are consistent with the ownership
+and refinement information implied by $[[G]]$. We say triple $( [[H]],[[R]],[[G]] )$ is \emph{consistent},
+and write $[[Cons(H,R,G)]]$; the definition of this relation is shown in \Cref{fig:consistency}.
+In the definitions for $[[own]]$ we write $[[ { a |-> r } ]]$ to denote a function $\textbf{Addr} \rightarrow [0,1]$
+which returns $[[r]]$ for $[[a]]$, and $0$ otherwise. We write $[[empty]]$ to denote a constant
+function $\textbf{Addr} \rightarrow [0,1]$ which always returns $0$. We define the addition between
+two functions $[[O1]], [[O2]]: \textbf{Addr} \rightarrow [0,1]$ as: $[[ (O1 + O2)(a) = O1(a) + O2(a) ]]$.
+Finally, if a summation $[[|<]]$ has no summands, we take its result to be $[[empty]]$.
+
+The proof of \Cref{thm:soundness} requires the following three key lemmas. These lemmas are stated
+with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
+\begin{lemma}
+  \label{lem:initial}
+  $[[ |- D <empty,empty,.,e> ]]$
+\end{lemma}
+\begin{proof}
+  Trivial, taking $[[G = empty]]$ and by inversion on $[[ |- <D,e> ]]$.
+\end{proof}
+
+\begin{lemma}
+  \label{lem:assertfail}
+  $[[ |- D C ]]$ implies $[[ C != AssertFail ]]$
+\end{lemma}
+\begin{proof}
+  Simple proof by contradiction, as the $[[AssertFail]]$ is not well-typed.
+\end{proof}
+  
+\begin{lemma}
+  \label{lem:preservation}
+  If $[[ |- D <H,R,Es,e> ]]$ and $[[ <H,R,Es,e> --> D C ]]$, then $[[ |- D C ]]$
+\end{lemma}
+\begin{lemma}
+  \label{lem:progress}
+  If $[[ |- D C ]]$, then, one of the following conditions hold:
+  \begin{enumerate}
+  \item $\exists [[C']],[[C --> D C']]$, or
+  \item $[[C = AssertFail]]$
+  \item $[[C = <H, R, ., x>]]$
+  \end{enumerate}
+\end{lemma}
+\Cref{lem:preservation,lem:progress} are the heart of proof effort, we give their proofs in \Cref{sec:preservation-proof,sec:progress-proof}
+respectively.
+
+We can now prove \Cref{thm:soundness}:
+\begin{proof}[\Cref{thm:soundness}: Soundness]
+  From \Cref{lem:initial,lem:preservation} and an inductive argument, any configuration
+  reachable from the initial state must be well-typed. Then, by \Cref{lem:assertfail} every
+  configuration reachable from the initial state cannot be $[[ AssertFail ]]$, i.e., a well-typed
+  program never experiences an assertion failure. This completes the first part of the proof.
+
+  To prove the second portion of the theorem, it suffices to show that any configuration reachable
+  from the initial state can step or is a final configuration. Again from
+  \Cref{lem:initial,lem:preservation} and a simple inductive argument, we must have that
+  for any state   $[[C]]$ such that $[[ <empty,empty,.,e> -->* D C]]$ $[[ |- D C ]]$.
+  Then by \Cref{lem:progress} we have the configuration may step or is one of the final configurations.
+\end{proof}
+
+The remainder of this appendix proves \Cref{lem:preservation,lem:progress}. We introduce some auxiliary definitions and
+lemmas in \Cref{sec:aux-defn-lem}, give the proof of \Cref{lem:preservation} in \Cref{sec:preservation-proof}, and prove
+\Cref{lem:progress} in \Cref{sec:progress-proof}.
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
