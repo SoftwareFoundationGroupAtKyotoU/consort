@@ -13,29 +13,27 @@ For a variable $x$ of simple type $[[ST]] ::= [[int]] \mid [[ST ref]]$
 at program point $p$ \name generates a type template $[[ [ST](x,0,pp) ]]$
 as follows:
 \begin{align*}
-  [[ [int](x,nn,pp) ]] = [[{nu:int|ph(x,nn,pp)[FV pp]}]] && [[ [ST ref](x,nn,pp) ]] = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
+  [[ [int](x,nn,pp) ]] = [[{nu:int|ph(x,nn,pp)[nu;FV pp]}]] && [[ [ST ref](x,nn,pp) ]] = [[ [ST](x,nn+1,pp) ref r[x,nn,pp] ]]
 \end{align*}
-where $[[ph(x,nn,pp)[FV pp] ]]$ denotes a fresh relation symbol
-whose arguments are $[[nu]]$ and the free variables of simple type $[[int]]$
-at program point $[[pp]]$ (denoted $[[FV pp]]$), and $[[r[x,nn,pp] ]]$ is a
+$[[ph(x,nn,pp)[nu; FV pp] ]]$ denotes a fresh relation symbol
+applied to $[[nu]]$ and the free variables of simple type $[[int]]$
+at program point $[[pp]]$ (denoted $[[FV pp]]$). $[[r[x,nn,pp] ]]$ is a
 fresh ownership variable. For each function definition $[[f]]$,
 there are two synthetic program points, $[[f st]]$ and $[[f end]]$
 for the beginning and end respectively of the function.
 At both points, \name generates type template for each argument, where $[[FV f st]]$
 and $[[FV f end]]$ are the names of integer typed parameters.
-Further, at $[[f end]]$, \name generates a type template for the return
+At $[[f end]]$, \name also generates a type template for the return
 value using the synthetic variable name $\RETVAR$.
 We write $[[ G@pp ]]$ to indicate the type environment at point $[[pp]]$,
 where every variable is mapped to the appropriate type template.
-Then $[[ [G@pp] ]]$ is equivalent to:
-\[
-  [[ /\ { x in FV pp } [x/nu]ph(x,0,pp)[FV pp] ]]
-\]
+Then $[[ [G@pp] ]]$ is equivalent to
+$[[ /\ { x in FV pp } ph(x,0,pp)[x;FV pp] ]]$.
 
 When generating these type templates, our implementation
 also generates ownership well-formedness constraints. Specifically,
-for a type template of the form $[[ {nu:int|ph(x,nn+1,pp)[FV pp]} ref r[x,nn,pp] ]]$
-\name emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[FV pp] ]]$
+for a type template of the form $[[ {nu:int|ph(x,nn+1,pp)[nu;FV pp]} ref r[x,nn,pp] ]]$
+\name emits the constraint: $[[ r[x,nn,pp] = 0 ==> ph(x,nn+1,pp)[nu;FV pp] ]]$
 and for a type template $[[ (T ref r[x,nn+1,pp]) ref r[x,nn,pp] ]]$
 \name emits the constrain $[[ r[x,nn,pp] = 0 ==> r[x,nn+1,pp] = 0 ]]$.
 
@@ -49,14 +47,14 @@ rules. For example, if variable $[[x]]$ has the type template
 $[[T ref r[x,0,pp] ]]$ for the expression $[[ x := y; e ]]$ at point
 $[[pp]]$, \name generates the constraint $[[r[x,0,pp] = 1]]$.
 
- \name emits subtyping constraints between the relation symbols
+\name emits subtyping constraints between the relation symbols
 at related program points according to the rules of the type system.
 For example, consider the let binding $[[ let x = y in e ]]$
 at program point $[[pp]]$, where $[[e]]$ is at program point $[[pp']]$, and $[[x]]$ has simple type
 $[[int ref]]$.
 \name generates the following subtyping constraint:
 \[
-  [[ [G@pp] /\ ph(y,1,pp)[FV pp] ==> ph(y,1,pp')[FV pp'] /\ ph(x,1,pp')[FV pp'] ]]
+  [[ [G@pp] /\ ph(y,1,pp)[nu;FV pp] ==> ph(y,1,pp')[nu;FV pp'] /\ ph(x,1,pp')[nu;FV pp'] ]]
 \]
 in addition to the ownership constraint $[[r[y,0,pp] = r[y,0,pp'] + r[x,0,pp'] ]]$.
 
@@ -64,6 +62,33 @@ Finally for each \lstinline[mathescape]{assert($[[ph]]$)} in the program \name e
 constraint of the form: $[[ [G@pp] ==> ph ]]$
 which requires the refinements on integer typed variables
 in scope are sufficient to prove $[[ph]]$.
+
+\subsubsection{Encoding Context Sensitivity}
+To make inference tractable, we require the user to fix \emph{a
+  priori} the maximum length of prefix queries to a constant $k$ (this
+choice is easily controlled with a command line parameter to our tool). We
+supplement the arguments in every predicate application with a set of
+context variables $[[c1,,ck]]$; these variables are assumed to not
+overlap with any program variables.
+
+\name uses these variables to infer context sensitive
+refinements as follows. Consider a function call
+$[[ let x = f l (y1,,yn) in e ]]$ at point $[[pp]]$
+where $[[e]]$ is at point $[[pp']]$.
+\name generates the following constraint for a refinement
+$[[ph(yi,nn,pp)[nu,c1,,ck;FV pp] ]]$ which occurs in the type template of $[[yi]]$:
+\begin{align*}
+  & [[ ph(yi,nn,pp)[nu,c0,,ck;FV pp] ==> vsub ph(xi,nn,f st)[nu,l,c0,,ck-1;FV f st] ]] \\
+  & [[ vsub ph(xi,nn,f end)[nu,l,c0,,ck-1;FV f end] ==> ph(yi,nn,pp')[nu,c0,,ck;FV pp']  ]] \\
+  & [[ vsub = [y1/x1] ,, [yn/xn] ]]
+\end{align*}
+In the above, the shift from $[[ c0,,ck]]$ to $[[ l,c0,,ck-1]]$ plays the role of
+$[[ csub ]]$ in the \rn{T-Call} rule. The above constraint effectively
+constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
+If $[[f]]$ calls another function $[[g]]$, the above rule
+propagates this value of $[[c0]]$ to $[[c1]]$ within $[[g]]$ and so on.
+The solver may then instantiate relation symbols with predicates
+that are conditional over the values of $[[ci]]$.
 
 \subsubsection{Solving}
 The result of the above process are two systems of constraints; linear real arithmetic constraints over
@@ -78,41 +103,14 @@ The inferred values for ownership variables are then substituted into the
 constrained Horn clauses, and the resulting system is checked
 for satisfiability with an off-the-shelf constrained Horn clause solver.
 Our implementation generates the above constraints in the industry standard
-SMT-Lib2 format \cite{BarFT-SMTLIB}, so any solver that understands
+SMT-Lib2 format \cite{BarFT-SMTLIB}; any solver that accepts
 this format can be used as a backend for \name. Our implementation
 currently supports Spacer \cite{komuravelli2013automatic} (part of the Z3 solver \cite{de2008z3}),
 HoICE \cite{champion2018hoice}, and Eldarica \cite{rummer2013disjunctive}
-(adding a new backend requires only a handful of lines of ML glue code).
-
-\subsubsection{Encoding Context Sensitivity}
-To make inference tractable, we require the user to fix \emph{a
-  priori} the maximum length of prefix queries to a constant $k$ (this
-choice is easily controlled with a command line parameter to our tool). We
-supplement the free variables used in every predicate with a set of
-context variables $[[CC k]]$; these variables are assumed to not
-overlap with any program variables.
-
-\name then uses these variables to infer context sensitive
-refinements as follows. Consider a function call
-$[[ let x = f l (y1,,yn) in e ]]$ at point $[[pp]]$
-where $[[e]]$ is at point $[[pp']]$.
-\name generates the following constraint for a refinement
-$[[ph(yi,nn,pp)[FV pp U CC k] ]]$ which occurs in the type template of $[[yi]]$:
-\begin{align*}
-  & [[ ph(yi,nn,pp)[FV pp U CC k] ==> vsub [l/c0][c1/c2] ,, [ck-1/ck] ph(xi,nn,f st)[FV f st U CC k] ]] \\
-  & [[ vsub [l/c0][c1/c2],,[ck-1/ck] ph(xi,nn,f end)[FV f end U CC k] ==> ph(yi,nn,pp')[FV pp' U CC k]  ]] \\
-  & [[ vsub = [y1/x1] ,, [yn/xn] ]]
-\end{align*}
-In the above, $[[ [l/c0][c1/c2],,[ck-1/ck] ]]$ plays the role of
-$[[ csub ]]$ in the \rn{T-Call} rule. The above constraint effectively
-constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
-If $[[f]]$ calls another function $[[g]]$, the above rule
-propagates this value of $[[c0]]$ to $[[c1]]$ within $[[g]]$ and so on.
-The solver may then instantiate relation symbols with predicates
-that are conditional over the values of $[[ci]]$.
+(adding a new backend requires only a handful of lines of OCaml glue code).
 
 \subsection{Extensions}
-We now describe some extensions to our core language supported within
+We now sketch some language extensions supported by
 our implementation.
 
 \paragraph{Primitive Operations}
@@ -128,7 +126,7 @@ and the underlying logic supports $+$, we can give $+$ the type
 $[[A <x:top, y:top> -> <x:top, y:top|{nu:int|nu = x + y}>]]$.
 Interactions with a nondeterministic environment
 or unknown program inputs can then be modeled with a primitive
-that returns integers with refinement $[[Top]]$.
+that returns integers refined with $[[Top]]$.
 
 
 \paragraph{Dependent Tuples}
@@ -149,10 +147,9 @@ Specifically, the subtyping check for a tuple element
 $[[xi:Ti]]$ is performed in a type environment elaborated with
 types of other tuple elements.
 The extension to type inference is also
-straightforward; the free variables for a
+straightforward; the arguments for a
 predicate symbol include any enclosing dependent tuple names
-and the environment in subtyping constraints are likewise
-adjusted.
+and the environment in subtyping constraints is likewise extended.
 
 \paragraph{Recursive Types}
 Our language also supports some unbounded heap structures via recursive
@@ -190,7 +187,7 @@ Our implementation supports arrays of integers. Each array is given
 an ownership describing the ownership of memory allocated for the entire array.
 The array type contains two refinements: the first refines the length of the array itself,
 and the second refines the entire array contents.
-The content refinement predicate may refer to a symbolic index variable,
+The content refinement predicate may refer to a symbolic index variable
 for precise, per-index refinements. At reads and writes to the
 array \name instantiates the refinement's symbolic index variable with
 the concrete index variable used at the read/write.

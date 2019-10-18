@@ -180,6 +180,14 @@ grammar
 	| Trace ( Es ) :: :: trace_fun
 	| csub B :: :: string_sub
 
+  ca :: 'CAe_' ::= {{ com predicate context argument single }}
+    | c :: :: var
+	| l :: :: concr
+
+  context_args :: 'CA_' ::= {{ com predicate context arguments }}
+    | ca1 , context_args :: :: list
+	| ca1 ,, can :: :: list_abbrv {{ tex [[ca1]],\ldots,[[can]] }}
+
   ph {{ tex \varphi }} :: 'P_' ::= {{ com refinement predicates }}
     | pfun ( pval1 , .. , pvaln ) :: :: pred_sym {{ com predicate in underlying logic }}
 	| ph1 /\ ph2 :: :: pred_conj {{ tex [[ph1]] \wedge [[ph2]] }} {{ com conjunction }}
@@ -194,7 +202,8 @@ grammar
 	| x = T y :: :: typed_eq {{ tex [[x]] =_{[[T]]} [[y]] }}
 	| Bot :: :: bot {{ tex \bot }}
 	| ph ( x , nn , pp1 ) :: :: template {{ tex [[ph]]_{[[x]],[[nn]],[[pp1]]} }}
-	| ph [ FVF ] :: :: with_fv
+	| ph [ pval ; FVF ] :: :: with_fv {{ tex [[ph]]([[pval]]; [[FVF]]) }}
+	| ph [ pval , context_args ; FVF ] :: :: with_fv_cont {{ tex [[ph]]([[pval]],[[context_args]];[[FVF]]) }}
 	| ! ph :: :: not_ph {{ tex \neg [[ph]] }}
 	| ph1 \/ ph2 :: :: or
 
