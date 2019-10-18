@@ -6,7 +6,7 @@ aliasing has been well-studied. A common approach is to model the heap explicitl
 at analysis time, approximating concrete heap locations with allocation site
 labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low,fink2008effective};
 these \emph{abstract locations} are associated with a refinement.
-However, as these abstract locations summarize many concrete locations, this approach
+As abstract locations summarize many concrete locations, this approach
 comes at the cost of strong updates and flow-sensitivity; in particular, the refinement
 associated with an abstract location is fixed for the lifetime of the program.
 The techniques cited above include various workarounds for this limitation. For
@@ -50,8 +50,8 @@ the cost of fully automated inference.
 
 The work on rely-guarantee reference types by Gordon et
 al. \cite{gordon2013rely,gordon2017verifying} uses refinement
-types in a language mutable references and aliasing without relying on
-an abstract heap. Their approach extends reference types with rely/guarantee predicates;
+types in a language mutable references and aliasing.
+Their approach extends reference types with rely/guarantee predicates;
 the rely predicate describes possible mutations via aliases,
 and the guarantee predicate describes the admissible mutations through the current reference reference.
 If two references may alias, then guarantee predicate of one of
@@ -70,7 +70,7 @@ Work by Degen et al. \cite{degen2007tracking} introduced linear state annotation
 To effect strong updates in the presence of aliasing, like \name,
 their system requires state annotated memory locations are mutated only through
 a distinguished reference. Further, all aliases of this mutable reference give
-no information about the state of the object, much like our $0$ ownership pointers.
+no information about the state of the object much like our $0$ ownership pointers.
 However, their system cannot handle multiple, immutable aliases with non-trivial
 annotation information; \emph{only} the distinguished, mutable reference may
 have non-trivial annotation information.

@@ -5,14 +5,14 @@ We now present the results of some preliminary experiments performed with the im
 described in \Cref{sec:infr}. The goal of these experiments was to answer the following questions:
 \begin{enumerate}
 \item Is the type system (and extensions of \Cref{sec:infr}) expressive enough to type and verify non-trivial programs?
-\item Is type inference for the type system feasible?
+\item Is type inference feasible?
 \end{enumerate}
 
 To answer these questions, we evaluated our prototype implementation
 on two sets of benchmarks. The first are a set of data structure
 implementations and microbenchmarks written directly in our low-level
 imperative language. We developed this suite to
-demonstrate the expressive power of our type system and inference.
+test the expressive power of our type system and inference.
 The programs included in this suite are:
 \begin{itemize}
 \item \textbf{Array-List} Implementation of an unbounded list backed by an array.
@@ -25,10 +25,10 @@ We also introduced unsafe mutations to these programs to
 check our tool for unsoundness.
 
 \begin{table}[t]
-  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
+  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are omitted programs
     that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
-    checks for null pointers, checking pointer equality, etc. Finally, \textbf{Bug} includes test programs
-    we discovered were actually incorrect.}
+    null checking, pointer equality, etc. \textbf{Bug} includes a ``safe'' program
+    we discovered was actually incorrect.}
   \begin{center}
     \input{benchmark_table}
   \end{center}
@@ -43,9 +43,7 @@ is concerned with the automated, flow-sensitive verification of
 programs in a language with mutable, managed memory.
 Further, although some of their benchmark programs tested Java
 specific features, most could be adapted
-into our low-level language. Those programs we could adapt
-provided a valuable baseline against which we could measure
-our implementation.
+into our low-level language.
 A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}
 
 \begin{remark}
@@ -70,9 +68,10 @@ were run on a machine with 16 GB RAM and 4 CPUs at 2GHz and with a timeout of 60
 \subsection{Results}
 The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
 suite \name performs competitively with JayHorn, correctly identifying 29 of the 32 safe programs
-as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception.
+as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception
+(columns \emph{T/O} and \emph{Err.}).
 For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds;
-JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others.
+JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others (column \emph{Imprecise}).
 
 On our own benchmark set, \name correctly verifies all safe versions
 of the programs within 60 seconds. For the unsafe variants,
