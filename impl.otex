@@ -154,7 +154,7 @@ and the environment in subtyping constraints is likewise extended.
 \paragraph{Recursive Types}
 Our language also supports some unbounded heap structures via recursive
 reference types. To keep inference tractable, we forbid nested
-recursive types, multiple occurences of a type variable bound by the
+recursive types, multiple occurrences of a type variable bound by the
 $\mu$ binder and additionally fix the shape of refinements that occur within a
 recursive type. For recursive refinements that fit the
 above restriction, our approach for refinements
@@ -217,4 +217,4 @@ or only conditionally mutate a reference.
 %%% End:
 
 %  LocalWords:  formedness ownerships satisfiability dereferences
-%  LocalWords:  provers
+%  LocalWords:  provers equalities

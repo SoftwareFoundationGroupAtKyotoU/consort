@@ -91,7 +91,7 @@
   track whether a reference variables holds \emph{all} ownership
   for a cell, which permits the mutation of the cell's contents.
   Any reference with \emph{zero} ownership may therefore have a mutable alias;
-  our type system pre-emptively discards \emph{all}
+  our type system preemptively discards \emph{all}
   refinement information within such zero ownership references. As a result,
   mutations through a mutable reference are trivially consistent with
   refinements of all aliases. Our type system may later propagates refinements
@@ -152,3 +152,5 @@ the former is unsound.
 %%% mode: latex
 %%% TeX-master: t
 %%% End:
+
+%  LocalWords:  ownerships

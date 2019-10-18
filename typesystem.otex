@@ -52,7 +52,7 @@ pointers with inconsistent refinements cannot exist when an update occurs.
   In the fractional ownership type systems cited above,
   an ownership also represents an \emph{obligation} to
   ensure memory referenced by a pointer is eventually
-  freed. Further, pointers to freed memeory
+  freed. Further, pointers to freed memory
   are given $0$ ownership to prevent use-after-free errors.
   As mentioned in \Cref{sec:semantics}, our language
   does not include deallocation which
@@ -111,7 +111,7 @@ invariants hold as aliases are created and destroyed during execution.
 \JT{There used to be a mention of the relationship between ownerships
   and refinements here. It seemed early, not well motivated, and I removed it
   deferring the discussion until the well-formedness condition below. This risks
-  burrying the lede}
+  burying the lede}
 
 Integers are refined with a predicate $[[ph]]$.  The language of predicates is built using the
 standard logical connectives of first-order logic,
@@ -333,7 +333,7 @@ omit it for space reasons (the full definition may be found in \Cref{sec:aux-def
 
 \subsection{Intraprocedural Type System}
 \label{sec:intra-types}
-We now introduce the type system for the intra-procedural fragment of
+We now introduce the type system for the intraprocedural fragment of
 our language. Accordingly, this section focuses on interplay of
 mutability and refinement types. The typing rules are given in
 \Cref{fig:intra-type,fig:pointer-typing}.  
@@ -786,5 +786,6 @@ We formalize this claim with the following soundness theorem.
 %%% TeX-master: t
 %%% End:
 
-%  LocalWords:  Suenaga Kobayashi deallocation ownerships CFA
+%  LocalWords:  Suenaga Kobayashi deallocation ownerships CFA MkRef
 %  LocalWords:  Formedness formedness supertype subtype's covariant
+%  LocalWords:  Deref LetInt dereferenced typedness

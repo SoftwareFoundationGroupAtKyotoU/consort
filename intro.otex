@@ -176,7 +176,7 @@ The rest of this paper is organized as follows. \Cref{sec:prelim} defines the
 imperative language targeted by \name and its semantics. \Cref{sec:typesystem}
 provides a brief overview of fractional ownership type systems,
 defines our type system, and states our soundness theorem. \Cref{sec:infr} outlines
-the inference algorithm used by our implementaton and its current limitations.
+the inference algorithm used by our implementation and its current limitations.
 \Cref{sec:eval} describes an initial evaluation of our prototype, \Cref{sec:rw} outlines
 related work, and \Cref{sec:concl} concludes.\looseness=-1
 
