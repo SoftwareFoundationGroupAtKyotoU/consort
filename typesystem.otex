@@ -26,7 +26,7 @@ has exclusive ownership of a memory cell and may read or write
 the contents of the cell. Ownership in the range $(0,1)$
 indicates a pointer with shared ownership through which
 the cell can be read but \emph{not} modified. Finally, a pointer
-with $0$ ownership may be neither read nor modified.
+with $0$ ownership may be neither read nor written.
 
 The fractional ownership type systems in \cite{suenaga2009fractional,suenaga2012type} enforced the
 following key invariant: the total ownership of all pointer types that
@@ -73,7 +73,8 @@ pointers with inconsistent refinements cannot exist when an update occurs.
                                & & \mid & [[ pfun(pval1,..,pvaln) ]] \\
                                & & \mid & [[ pval1 = pval2 ]] \\
                                  & & \mid & \mathcal{CP} \\
-      \text{\scriptsize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]]
+      \text{\scriptsize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]] \\
+      \text{\scriptsize Type Env.} & [[G]] & \in & \mathbf{Var} \ra [[T]]
     \end{array}
   \]
 \end{minipage}
@@ -86,7 +87,8 @@ pointers with inconsistent refinements cannot exist when an update occurs.
       \text{\scriptsize Concrete Context} & [[ ll ]] & ::= & [[ l : ll ]] \mid [[ . ]] \\
       \text{\scriptsize Pred. Context} & [[ plhs ]] & ::= & [[ l : plhs ]] \mid [[ A ]] \mid [[ . ]] \\
       \text{\scriptsize Context Query} & [[CQP]] & ::= & [[ ll <= plhs ]] \\
-      \text{\scriptsize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]]
+      \text{\scriptsize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]] \\
+      \text{\scriptsize Function Env.} & [[Th]] & \in & [[f]] \ra [[FT]] 
     \end{array}
   \]
   \end{minipage}
@@ -125,6 +127,17 @@ We leave the choice of underlying theory from which $[[pfun]]$
 are drawn unspecified provided it is decidable. $\mathcal{CP}$
 are context predicates, which are used for context sensitivity as
 explained in the following paragraph.
+As is standard, we denote a type environment with $[[G]]$, which is a
+finite map from variable names to type $[[T]]$.
+
+\begin{remark}
+  \label{rmk:env-mapping}
+  The treatment of type environments as mappings instead of sequences
+  in a dependent type system is somewhat non-standard. However, this
+  approach does not cause problems in our formalism as we do not include
+  higher-order functions; all arguments are bound simultaneously
+  in our abstract semantics.
+\end{remark}
 
 \begin{example}
   $[[{nu:int | nu > 0}]]$ is the type of strictly positive integers.
@@ -161,6 +174,8 @@ To model side-effects, the function type includes the same number of \emph{outpu
 $[[Ti']]$. In addition, function types have a direct return value $[[T']]$. 
 The argument and output types are given names: refinements within the function type
 may refer to these names.
+Function type environments are denoted with $[[Th]]$ and are finite
+maps from function names ($[[f]]$) to function types ($[[FT]]$).
 
 Types within a function type may depend on the function's calling context
 by including \emph{context query predicates} in their refinements.
@@ -245,8 +260,7 @@ with respect to $[[B]]$ and $[[G]]$, and write $[[ ST(G) | B |- ph ]]$ to
 indicate a well-formed predicate with respect to $[[B]]$ and
 the simple type version of $[[G]]$, denoted $[[ ST(G) ]]$.
 We write $[[ B |- G ]]$ for a type environment where all
-types are well-formed, and write $[[ B |- T => G ]]$ for
-$[[ B |- G ]]$ and $[[ G | B |- T ]]$. A function environment
+types are well-formed. A function environment
 is well-formed (written $[[ |- Th ]]$) if, for every $[[FT]]$ in $[[Th]]$,
 the argument, result, and output types are well-formed with respect
 to each other and the context variable quantified over in $[[FT]]$.
@@ -262,15 +276,15 @@ omit it for space reasons (the full definition may be found in \Cref{sec:aux-def
   }
   \vspace*{2ex}
   \infrule[T-Let]{
-    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \\
-    [[B |- T => G']] \andalso [[ x not in dom G' ]]
+    [[ Th | G [ y <- T1 /\ y y = T1 x  ], x : (T2 /\ x x = T2 y) | B |- e : T => G']] \andalso
+    [[ x not in dom G' ]]
   }{
     [[ Th | G[y: T1 + T2] | B |- let x = y in e : T => G']]
   }
   \vspace*{2ex}
   \infrule[T-LetInt]{
     [[ Th | G, x:{nu : int | nu = nn } | B |- e : T => G']] \andalso
-    [[B |- T => G' ]] \andalso [[ x not in dom G' ]]
+    [[ x not in dom G' ]]
   }{
     [[ Th | G | B |- let x = nn in e : T => G']]
   }
@@ -286,7 +300,7 @@ omit it for space reasons (the full definition may be found in \Cref{sec:aux-def
   \begin{center}
   \infrule[T-MkRef]{
     [[ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => G']] \\
-    [[ B |- T => G' ]] \andalso [[ x not in dom G' ]]
+    [[ x not in dom G' ]]
   }{
     [[ Th | G[y : T1 + T2] | B |- let x = mkref y in e : T => G' ]]
   }
@@ -302,7 +316,7 @@ omit it for space reasons (the full definition may be found in \Cref{sec:aux-def
       [[ T1 ]] & [[ r = 0 ]]
     \end{cases}  \\
     [[ Th | G[y <- T' ref r], x : T2 | B |- e : T => G']] \\
-    [[ B |- T => G' ]] \andalso [[ x not in dom G' ]]
+    [[ x not in dom G' ]]
   }{
     [[ Th | G[y: (T1 + T2) ref r] | B |- let x = *y in e : T => G' ]]
   }
@@ -342,24 +356,16 @@ form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a type environment $[[G]]$, function type
 environment $[[Th]]$, and typing context $[[B]]$
 and evaluates to a value of type $[[T]]$ and modifies the input environment
-according to $[[G']]$. A type environment $[[G]]$ is a finite
-mapping from variable names to refinement types $[[T]]$.
+according to $[[G']]$. Any valid typing derivation must
+have $[[ B |- G ]]$, $[[ B |- G' ]]$, and $[[ G' | B |- T ]]$, i.e.,
+the input and output type environments and result type must
+be well-formed.
 We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
 that $[[G(x) = T]]$ where $[[x in dom G]]$, $[[G,x:T]]$ to indicate the
 extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
 to indicate the type environment $[[G]]$ with the binding of $[[x]]$
 updated to $[[T]]$. We write the empty environment as $[[:G_em: empty]]$.
-$[[B]]$ is defined as in \Cref{sec:types}
-and $[[Th]]$ is a finite map from function names to function types.
-
-\begin{remark}
-  \label{rmk:env-mapping}
-  The treatment of type environments as mappings instead of sequences
-  in a dependent type system is somewhat non-standard. However, this
-  approach does not cause problems in our formalism as we do not include
-  higher-order functions; all arguments are bound simultaneously
-  in our abstract semantics.
-\end{remark}
+$[[B]]$ is defined as in \Cref{sec:types}.
 
 The typing rules in \Cref{fig:intra-type} handle the relatively
 standard features in our language. The most noteworthy feature is the
@@ -450,14 +456,12 @@ soundness claim (\Cref{sec:soundness}).
   }
   \infrule[T-Alias]{
     [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
-    [[ G | B |- T2' ]] \andalso [[ G | B |- T1' ]] \\
     [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
   }{
     [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
   }
   \infrule[T-AliasPtr]{
     [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
-    [[ G | B |- T2' ]] \andalso [[ G | B |- T1' ]] \\
     [[ Th | G[x <- T1' ref r1][y <- (T2' ref r2') ref r] | B |- e : T => G' ]]
   }{
     [[ Th | G[x : T1 ref r1][y: (T2 ref r2) ref r] | B |- alias(x = *y); e : T => G' ]]
@@ -465,8 +469,7 @@ soundness claim (\Cref{sec:soundness}).
   \infrule[T-Sub]{
     [[ G <: G' ]] \andalso
     [[ Th | G' | B |- e : T => G'' ]] \andalso
-    [[ G'',T <: G''',T' ]] \andalso
-    [[ B |- G' ]] \andalso [[ B |- T' => G''' ]]
+    [[ G'',T <: G''',T' ]]
   }{
     [[ Th | G | B |- e : T' => G''' ]]
   }
@@ -628,9 +631,8 @@ beyond simple types.\looseness=-1
     \infrule[T-Call]{
     [[ Th(f) = A < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T > ]] \\
     [[csub = [l:B/A] ]] \andalso [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
-    [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \\
-    [[ x not in dom G' ]] \andalso
-    [[ B |- T' => G' ]]
+    [[ Th | G[yi <- csub vsub Ti'], x : csub vsub T | B |- e : T' => G' ]] \andalso
+    [[ x not in dom G' ]]
   }{
     [[ Th | G[yi: csub vsub Ti] | B |- let x = f l (y1,,yn) in e : T' => G']]
   }
