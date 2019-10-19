@@ -13,7 +13,7 @@
   \infrule[TE-Stack]{
     [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
     [[ Th | G, x : T | B |- e : T' => G' ]] \\
-`    [[ x not in dom G' ]] \andalso [[ B |- T' => G' ]]
+`    [[ x not in dom G' ]]
   }{
     [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
   }
@@ -34,7 +34,7 @@
     [[ Cons(H, R, G) ]] \andalso
     \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\
     [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]] \\
-    [[ Th | G | ll |- e : T => G' ]] \andalso [[ ll |- G ]]
+    [[ Th | G | ll |- e : T => G' ]]
   }{
     [[ |- D <H,R,Es,En[e]> ]]
   }
@@ -44,7 +44,7 @@
     [[ Cons(H, R, G) ]] \andalso
     \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli |-e CEi : Ti-1 => Gi-1 ]] \\
     [[ Es ]] = [[CEn]] : \cdots : [[CE1]] : \cdot \andalso
-    [[ Th | G | ll |- e : Tn => Gn ]] \andalso [[ ll |- G ]]
+    [[ Th | G | ll |- e : Tn => Gn ]]
   }{
     [[ |- D <H,R,Es,e> ]]
   }

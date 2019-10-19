@@ -12,7 +12,8 @@
 
 \input{wf_rules}
 
-The well-formedness rules omitted from the main paper are found in \cref{fig:type-wf}.
+The well-formedness rules omitted from the main paper are found in \cref{fig:type-wf}. We write
+$[[ B |- T => G ]]$ as shorthand for $[[ B |- G ]]$ and $[[ G | B |- T ]]$
 
 We first prove that the subtyping relations are transitive.
 
@@ -66,40 +67,28 @@ We first prove that the subtyping relations are transitive.
 We also prove a standard inversion lemma to
 handle the fact our typing rules are not syntax directed.
 
-
-\begin{lemma} % L29
-  \label{lem:type-result-wf}
-  If $[[ B |- G ]]$ and $[[ Th | G | B |- e : T => G' ]]$ then $[[ B |- T => G' ]]$.
-\end{lemma}
-\begin{proof}
-  By induction on the typing derivation of $[[e]]$, that well-formed types split with $+$ remain well-formed,
-  and that the strengthening operation preserves well-formedness.
-\end{proof}
-
 \begin{lemma}[Inversion] % L14
   \label{lem:inversion}
-  If $[[ B |- G ]]$, and $[[ Th | G | B |- e0 : T => G' ]]$,
+  $[[ Th | G | B |- e0 : T => G' ]]$,
   then there exists some $[[Gp]]$, $[[Tp]]$, and $[[Gp']]$
-  such that $[[G <: Gp]]$, $[[ B |- Gp ]]$, $[[Gp',Tp <: G',T]]$,
-  $[[ B |- T => G']]$, where:
+  such that $[[G <: Gp]]$, $[[ ll |- Gp ]]$, $[[Gp',Tp <: G',T]]$:
   \begin{enumerate}
-  \item If $[[e0 = x]]$ then $[[ Gp(x) = Tp + T']]$ and $[[Gp' = Gp[x <- T'] ]]$.
+  \item If $[[e0 = x]]$ then $[[ Gp(x) = Tp + T']]$,  $[[Gp' = Gp[x <- T'] ]]$.
   \item If $[[e0 = let x = y in e]]$, then
-    $[[ Th | Gp [ y <- T1 /\ y y = T1 x ], x : (T2 /\ x x = T2 y) | B|- e : Tp => Gp']]$, $[[ B |- Tp => Gp' ]]$,
+    $[[ Th | Gp [ y <- T1 /\ y y = T1 x ], x : (T2 /\ x x = T2 y) | B|- e : Tp => Gp']]$
     and $[[ x not in dom Gp' ]]$ where $[[Gp(y) = T1 + T2]]$.
-  \item If $[[ e0 = let x = nn in e]]$ then $[[ Th | Gp, x : {nu: int | nu = nn } | B |- e : Tp => Gp' ]]$, $[[ B |- Tp => Gp' ]]$, and $[[ x not in dom Gp' ]]$.
+  \item If $[[ e0 = let x = nn in e]]$ then $[[ Th | Gp, x : {nu: int | nu = nn } | B |- e : Tp => Gp' ]]$ and $[[ x not in dom Gp' ]]$.
   \item If $[[e0 = ifz x then e1 else e2 ]]$ then:
     \begin{itemize}
     \item $[[ Gp(x) = { nu : int | ph } ]]$
     \item $[[ Th | Gp[ x <- {nu:int| ph /\ nu = 0}] | B |- e1 : Tp => Gp' ]]$
     \item $[[ Th | Gp[ x <- {nu:int| ph /\ nu != 0}] | B |- e2 : Tp => Gp' ]]$
     \end{itemize}
-  \item If $[[ e0 = let x = mkref y in e ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp']]$, $[[ B |- Tp => Gp' ]]$,  and $[[ x not in dom Gp' ]]$
+  \item If $[[ e0 = let x = mkref y in e ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp']]$, and $[[ x not in dom Gp' ]]$
   \item If $[[ e0 = let x = *y in e ]]$, then:
     \begin{itemize}
     \item $[[Gp(y) = T1 + T2 ref r]]$
     \item $[[Th | Gp[y <- T'' ref r], x : T2 | B |- e : Tp => Gp']]$
-    \item $[[ B |- Tp => Gp' ]]$, 
     \item $[[ x not in Gp' ]]$
     \item \[
         [[T'' ]] = \begin{cases}
@@ -116,7 +105,6 @@ handle the fact our typing rules are not syntax directed.
     \item $[[csub = [l:B/A] ]]$
     \item $[[ vsub = [y1/x1] ,, [yn/xn] ]]$
     \item $[[ x not in dom Gp' ]]$
-    \item $[[ B |- Tp => Gp' ]]$, 
     \end{itemize}
   \item If $[[ e0 = y := x; e ]]$ then:
     \begin{itemize}
@@ -143,7 +131,7 @@ handle the fact our typing rules are not syntax directed.
   \end{enumerate}
 \end{lemma}
 \begin{proof}
-  By straightforward induction on the typing relation, \Cref{lem:type-result-wf}, and
+  By straightforward induction on the typing relation and
   the transitivity of the subtyping relation \Cref{lem:subtype-transitive}.
 
   The only case of note is the case for $[[ e0 = x; e2 ]]$. If the subderivation for $[[x]]$
@@ -172,24 +160,23 @@ substituting a well-typed expression matching a context's hole type yields a wel
   \begin{rncase}{TE-Seq}
     Then $[[E = E'; e'']]$ and $[[E[e'] = E'[e']; e'' = e]]$. By
     \Cref{lem:inversion} we have
-    $[[ Th | Gp | B |- E'[e'] : T1 => G1]]$,
-    $[[Th | G1 | B |- e'': Tp => Gp']]$,
-    $[[G <: Gp]]$,
-    $[[ B |- Gp ]]$,
-    $[[ B |- T => G' ]]$,
-    $[[Gp', Tp <: G', T]]$ for some
-    $[[Gp]]$, $[[Gp']]$, and $[[Tp]]$.
+	\[
+      \begin{bcpcasearray}
+        [[ Th | Gp | B |- E'[e'] : T1 => G1]] & [[Th | G1 | B |- e'': Tp => Gp']] \\
+        [[G <: Gp]] & [[Gp', Tp <: G', T]]
+      \end{bcpcasearray}
+    \]
+    for some $[[Gp]]$, $[[Gp']]$, and $[[Tp]]$.
     
     By the induction hypothesis
     we then have $[[ Th | Gp | B |- e' : T0 => G0 ]]$ and
-    $[[ Th | []: T0 => G0 | B |-e E' : T1 => G1 ]]$.
+    $[[ Th | []: T0 => G0 | B |-e E' : T1 => G1 ]]$. for some $[[T0]]$ and $[[G0]]$.
     
-    Next, as $[[ Gp', Tp <: G', T]]$ and $[[ B |- T => G' ]]$,
-    by an application of \rn{T-Sub}, we have
-    $[[ Th | G1 | B |- e'' : T => G' ]]$. By \rn{TE-Seq}, we therefore
+    Next, as $[[ Gp', Tp <: G', T]]$ by an application of \rn{T-Sub},
+    we have $[[ Th | G1 | B |- e'' : T => G' ]]$. By \rn{TE-Seq}, we therefore
     have: $[[ Th | [] : T0 => G0 | B |-e E'; e'' : T => G' ]]$.
 
-    Finally, from $[[ G <: Gp ]]$, $[[ B |- Gp ]]$, $ [[ Th | Gp | B |- e' : T0 => G0 ]]$,
+    Finally, from $[[ G <: Gp ]]$ and $[[ Th | Gp | B |- e' : T0 => G0 ]]$,
     and application of \rn{T-Sub}, we have $[[ Th | G | B |- e' : T0 => G0 ]]$.
   \end{rncase}
 \end{proof}
@@ -205,14 +192,10 @@ substituting a well-typed expression matching a context's hole type yields a wel
   By induction on the typing derivation of $[[E]]$.
   \begin{rneqncase}{TE-Seq}{
       [[ E ]] = [[ E'; e' ]] \\ [[ E[e] = E'[e]; e' ]] \\
-      [[ Th | [] : T => G' | B |-e E' : T0 => G0 ]] \\ [[ Th | G0 | B |- e' : T''' => G''' ]] \\
-      [[ G''', T''' <: G'', T'']] \\
-      [[ B |- T'' => G'']]
+      [[ Th | [] : T => G' | B |-e E' : T0 => G0 ]] \\ [[ Th | G0 | B |- e' : T'' => G'' ]] \\
     }
-    By the induction hypothesis we have $[[ Th | G | B |- E'[e] : T0 => G0 ]]$. Combined
-    with the assumptions $[[ Th | G0 | B |- e' : T''' => G''' ]]$
-    and $[[ G''', T''' <: G'', T'']]$ the result holds
-    via application of the proof rules \rn{T-Seq} and \rn{T-Sub}.
+    By the induction hypothesis we have $[[ Th | G | B |- E'[e] : T0 => G0 ]]$. We then
+    have our result via an application of \rn{T-Seq}.
   \end{rneqncase}
   \begin{rncase}{TE-Hole}
     Trivial, as $[[T = T'']]$ and $[[G' = G'']]$ and $[[E[e] = e]]$.
@@ -273,6 +256,9 @@ substituting a well-typed expression matching a context's hole type yields a wel
       variable $[[A]]$. Thus the formula $[[ [ [ll/A]G ] /\ [ll/A]ph1 ==> [ll/A]ph2 ]]$ must also be valid.
     \end{rneqncase}
   \item By induction on the typing derivation $[[ Th | G | A |- e : T => G' ]]$.
+    In every case, that $[[ ll |- [ll/A]T => [ll/A]G' ]]$ and $[[ ll |- [ll/A]G]]$
+    holds from \Cref{itm:ctxt-sub-wf}.
+    
     \begin{rneqncase}{T-Var}{
         [[e = x]] & [[T = T2]] \\
         [[G = G0[x : T1 + T2] ]] & [[ G' = G0[x <- T2] ]]
@@ -287,8 +273,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
       \[
         [[ Th | [ll/A]G, x:{nu:int|nu=nn} | ll |- e : [ll/A]T => [ll/A]G'' ]]
       \]
-      \Cref{itm:ctxt-sub-wf} gives $[[ ll |- [ll/A]T => [ll/A]G'' ]]$, from which we
-      conclude $[[ Th | [ll/A]G | ll |- let x = nn in e : [ll/A]T => [ll/A]G'' ]]$
+      We conclude $[[ Th | [ll/A]G | ll |- let x = nn in e : [ll/A]T => [ll/A]G'' ]]$
       as required.
     \end{rneqncase}
 
@@ -305,8 +290,6 @@ substituting a well-typed expression matching a context's hole type yields a wel
         [[ G1' = ([ll/A]G)[y <- [ll/A]T1 /\ y y = x ],x:([ll/A]T2 /\ x x = y) ]]
       \]
       As $[[G1' = [ll/A]G1]]$ the induction hypothesis gives the required typing judgment.
-      That $[[ll |- [ll/A]T => [ll/A]G'' ]]$ follows from \Cref{itm:ctxt-sub-wf} as in the \rn{T-LetInt}
-      case.
     \end{rneqncase}
 
     \begin{rncase}{T-If,T-Seq}
@@ -322,7 +305,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
         [[ vsub = [y1/x1] ,, [yn/xn] ]] \\
         [[ csub = [l:A/A'] ]] \\
         [[ Th | G1 | A |- e' : T => G' ]] \\
-        [[ A |- T => G' ]] & [[y not in dom G' ]]\\
+        [[y not in dom G' ]]\\
         [[ Th(f) = A' < x1 : T1 ,, xn : Tn > -> <x1: T1' ,, xn : Tn' | T' > ]]  \\
         [[ G1 = G[yi <- csub vsub Ti'], x : csub vsub T' ]]
       }
@@ -344,9 +327,6 @@ substituting a well-typed expression matching a context's hole type yields a wel
       that $[[csub']]$ is equivalent to $[[ [ll/A] csub ]]$, whereby we have
       $[[ [ll/A] G(yi) = [ll/A] csub vsub Ti = csub' vsub Ti]]$ for any $[[i]]$ as
       equality is preserved by consistent substitution.
-
-      That $[[ ll |- [ll/A]T => [ll/A]G' ]]$ holds from application of
-      \Cref{itm:ctxt-sub-wf}.
     \end{rneqncase}
 
     \begin{rncase}{T-Assign,T-Alias}
@@ -355,8 +335,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
 
     \begin{rneqncase}{T-Sub}{
         [[ Th | G1 | A |- e : T1 => G2 ]] & [[ G <: G1 ]] \\
-        [[ G2,T1 <: G',T ]] & [[ A |- G1 ]] \\
-        [[ A |- T => G' ]] & 
+        [[ G2,T1 <: G',T ]] \\
       }
       By the induction hypothesis we have that: $[[ Th | [ll/A]G1 | ll |- e : [ll/A]T1 => [ll/A]G2 ]]$.
       If we show that $[[ [ll/A]G <: [ll/A]G1 ]]$ and $[[ [ll/A]G2,[ll/A]T1 <: [ll/A]G',[ll/A]T ]]$
@@ -365,7 +344,6 @@ substituting a well-typed expression matching a context's hole type yields a wel
       To show the latter requirement, we observe that $[[ [ll/A]G2,[ll/A]T1 <: [ll/A]G',[ll/A]T ]]$ is equivalent to showing
       $[[ [ll/A](G2, x : T1) <: [ll/A](G', x: T) ]]$ for some $[[x not in dom G2 ]]$,
       whereby we have the required subtyping relationship from the application of \Cref{itm:ctxt-sub-subtype}.
-      Finally, that $[[ ll |- [ll/A]T => [ll/A]G' ]]$ and $[[ ll |- [ll/A]G1 ]]$ follows from \Cref{itm:ctxt-sub-wf}.
     \end{rneqncase}
   \end{enumerate}
 \end{proof}
@@ -745,9 +723,9 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     \begin{rneqncase}{T-Let}{
         [[ Th | G | B |- let x = y in e : T => G' ]] \\
         [[ Th | G[y <- T1 /\ y y = T1 x],x: T2 /\ x x = T2 y | B |- e : T => G' ]] \\
-        [[ G(y) = T1 + T2 ]] \andalso [[ x not in dom G' ]] \andalso [[ B |- T => G' ]]
+        [[ G(y) = T1 + T2 ]] \andalso [[ x not in dom G' ]]
       }
-      We assume that the variable $[[x]]$ is not in the domain of $[[ G'' ]]$,
+      We assume that the variable $[[x]]$ is not in the domain of $[[ G'' ]]$;
       this requirement can be enforced with consistent renaming if necessary.
 
       Let $[[ G''' = G'' + G[y <- T1 /\ y y = T1 x],x: T2 /\ x x = T2 y ]]$.
@@ -769,8 +747,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
     \begin{rneqncase}{T-Sub}{
         [[ G <: G3 ]] & [[ Th | G3 | B |- e : T2 => G4 ]] \\
-        [[ G4,T2 <: G',T ]] & [[ B |- G3 ]] \\
-        [[ B |- T => G' ]]
+        [[ G4,T2 <: G',T ]] \\
       }
       From the rules for subtyping, we must have
       $[[ dom G3 <= dom G ]]$ and $[[ dom G' <= dom G4 ]]$. A simple inductive argument
@@ -780,12 +757,15 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
       $[[ B |- G' + G'' ]]$, we must have that
       $\forall x \in \mathcal{LV}.[[x in dom G' /\ [S G'(x) ] = int ]]$. Thus,
       $\mathcal{LV} \subseteq [[G3]]$ and $\mathcal{LV} \subseteq [[G4]]$. Further, by definition,
-    for any $[[ Gp <: Gq ]]$, then $[[forall x in dom Gp. [S Gp(x)] = [S Gq(x)] ]]$.
-    We conclude that $[[ B |- G3 + G'' ]]$ and
+      for any $[[ Gp <: Gq ]]$, then $[[forall x in dom Gp. [S Gp(x)] = [S Gq(x)] ]]$.
+      We conclude that $[[ B |- G3 + G'' ]]$ and
       $[[ B |- G4 + G'']]$, whereby the inductive hypothesis gives
       $[[ Th | G3 + G'' | B |- e : T2 => G4 + G'' ]]$. To prove the overall result, we must
       show that $[[ G + G'' <: G3 + G'' ]]$ and $[[ G4 + G'',T2 <: G' + G'',T ]]$
       which follow from parts 1 and 2 above.
+      That $[[ G4 + G'' | B |- T2 ]]$ follows from the assumed well-formedness
+      of $[[T2]]$ with respect to $[[G4]]$ and that the disjoint union operation only
+      adds variable bindings.
     \end{rneqncase}
     \begin{rncase}{T-Assert}
       We must show that $[[ |= [G'' + G] ==> ph ]]$ which is equivalent to
