@@ -3,10 +3,10 @@ module type S = sig
 end
 
 let backends = [
+  (module EldaricaBackend.Backend : S);
   (module HornBackend.Backend : S);
   (module HoiceBackend.Backend : S);
   (module SmtBackend.Backend : S)
-  
 ]
 
 module Backend = SmtLibBackend.Make(struct  
@@ -23,7 +23,11 @@ module Backend = SmtLibBackend.Make(struct
         | _ -> `Continue (res::acc)
       ) ~acc:[] ~finish:(fun l ->
         assert (l <> []);
-        List.hd l
+        let (timeouts,other) = List.partition ((=) Solver.Timeout) l in
+        if timeouts <> [] then
+          List.hd timeouts
+        else
+          List.hd other
       ) proc_pool
   end)
 
