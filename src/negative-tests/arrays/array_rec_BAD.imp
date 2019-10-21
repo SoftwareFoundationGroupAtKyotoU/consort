@@ -11,7 +11,7 @@ check_up(i,a) {
   if i = a.length then
     ()
   else {
-    assert(a[i] = 0);
+    assert(a[i] = i);
 	check_up((i + 1),a)
   }
 }
@@ -19,6 +19,7 @@ check_up(i,a) {
 {
   let x = mkarray 7 in {
     do_up(0,x);
+	x[6] <- 0;
 	check_up(0,x)
   }
 }
