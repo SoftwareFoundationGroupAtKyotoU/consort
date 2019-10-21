@@ -4,7 +4,7 @@
 We first state the standard decomposition lemma.
 \begin{lemma}[Decomposition]
   \label{lem:decomposition}
-  For any term $[[e]]$, either $[[ e = v]]$ or there exists some $[[E]]$ and $[[e']]$ where $[[E[e'] = e]]$ and one of the following
+  For any term $[[e]]$, either $[[ e = x]]$ for some $[[x]]$ or there exists some $[[E]]$ and $[[e']]$ where $[[E[e'] = e]]$ and one of the following
   cases hold:
   \begin{enumerate}
   \item $[[ e' = let x = mkref y in e'' ]]$
@@ -21,20 +21,22 @@ We first state the standard decomposition lemma.
   \end{enumerate}
 \end{lemma}
 \begin{proof}
-  Straightforward induction on $[[e]]$
+  Straightforward induction on $[[e]]$.
 \end{proof}
 
 \begin{proof}[Progress; \Cref{lem:progress}]
   By inversion on $[[ |- D C ]]$, either $[[ C = AliasFail ]]$ or $[[ C = < H, R, Es, e> ]]$.
   In the former case the result is immediate. In the latter case we have
   that $[[ Th | G | ll |- e : T => G' ]]$ for some $[[ T ]], [[G]]$ and $[[G']]$,
-  and further from   \Cref{lem:decomposition}, we have that either $[[ e = v ]]$ or there exists
+  and further from   \Cref{lem:decomposition}, we have that either $[[ e = x ]]$ for some $[[x]]$ or there exists
   some $[[ E ]]$ or $[[ e' ]]$ where $[[ e = E[e'] ]]$ and $[[ e' ]]$ meets one of the cases in
   \Cref{lem:decomposition}.
 
-  Then either $[[ Es = . ]]$ or $[[ Es = CE : Es' ]]$. In the former
-  case the result is immediate and in the latter case the configuration can step
+  In the case $[[e = x]]$, we further make case analysis on the form of $[[Es]$.
+  The case where $[[ Es = . ]]$ is immediate;
+  In the other case where $[[ Es = CE : Es' ]]$, the configuration can step
   to $[[ <H, R, Es, CE[x]> ]]$ according to \rn{R-Var}.
+  
   For the remaining cases where $[[ e = E[e'] ]]$,
   by the well-typing of $[[ e ]]$ with respect to $[[ G ]]$ and \Cref{lem:stack_var},
   we have that $[[ Th | G | B |- e' : T0 => G0 ]]$ some $[[T0]]$ and $[[G0]]$.
@@ -44,8 +46,8 @@ We first state the standard decomposition lemma.
       [[ e' = let x = *y in e'' ]]
     }
     By inversion (\Cref{lem:inversion}) and \Cref{lem:subtyp-preserves-cons} we must have
-    that for some $[[Gp]]$ where $[[ Cons(H, R, Gp) ]]$ that $[[ y in dom G ]]$ and
-    $[[ G(y) = T' ref r ]]$. From $[[ Cons(H, R, Gp) ]]$ we must have $[[ y in dom R ]]$
+    that for some $[[Gp]]$ where $[[ Cons(H, R, Gp) ]]$ that $[[ y in dom Gp ]]$ and
+    $[[ Gp(y) = T' ref r ]]$. From $[[ Cons(H, R, Gp) ]]$ we must have $[[ y in dom R ]]$
     and further $[[ SATv(H, R, R(y), T' ref r') ]]$, from which we must have
     $[[ R(y) = a ]]$ and  $[[ a in dom H]]$. Then $[[ C ]]$ can step according to \rn{R-Deref}.
   \end{eqncase}
@@ -74,9 +76,9 @@ We first state the standard decomposition lemma.
       [[ e' = alias(x = y); e'' ]]
     }
     Again by \Cref{lem:inversion,lem:subtyp-preserves-cons} and that
-    $[[Cons(H, R, G)]]$ implies $[[x]]$ and $[[y]]$ are bound to addresses
+    $[[Cons(H, R, Gp)]]$ implies $[[x]]$ and $[[y]]$ are bound to addresses
     in the register file, we have that the configuration can step according to \rn{R-Alias}
-    or \rn{R-AliasFail}
+    or \rn{R-AliasFail}.
   \end{eqncase}
 
   \begin{eqncase}{
@@ -102,10 +104,9 @@ We first state the standard decomposition lemma.
     }
     From the well-typing of $[[e']]$,
     \Cref{lem:inversion,lem:subtyp-preserves-cons} and the definition
-    of $[[Cons]]$, we must have that $[[ y in dom R ]]$ and
-    $[[ x in dom R ]]$. From the typing rule for assignments, we must have
-    that $[[ y ]]$ is a reference type from we which can conclude that $[[ R(y) = a ]]$
-    and $[[ a in dom H ]]$. Then the configuration can step according \rn{R-Assign}.
+    of $[[Cons]]$, we must have that $[[ y in dom R ]]$,
+    $[[ x in dom R ]]$, $[[ R(x) = a ]]$, and $[[ a in dom H ]]$. Then
+    the configuration can step according \rn{R-Assign}.
   \end{eqncase}
 
   \begin{eqncase}{
