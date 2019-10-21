@@ -153,7 +153,7 @@ by allowing function types to depend on where and how a function
 is called, i.e., the \emph{execution context} of the function invocation.
 Our system represents a \emph{concrete} execution contexts with
 string of call site labels (or just ``call strings''),
-defined as $[[ll]] ::= [[.]] \mid [[l : ll ]]$.
+defined by $[[ll]] ::= [[.]] \mid [[l : ll ]]$.
 As is standard (e.g., \cite{sharir1978two,shivers1991control}), the string $[[ l : ll ]]$ abstracts
 an execution context where the most recent, active function call occurred
 at call site $[[ l ]]$ which itself was executed in a context abstracted
@@ -218,7 +218,7 @@ in a typing derivation yields a valid type derivation under concrete context $[[
   \label{rem:cfa}
   The context-sensitivity scheme described here corresponds
   to the standard CFA approach \cite{shivers1991control} without \emph{a priori} call-string limiting.
-  We chose this scheme as it can be easily encoded with equality over integer variables (see \Cref{sec:infr}),
+  We chose this scheme because it can be easily encoded with equality over integer variables (see \Cref{sec:infr}),
   but in principle another context-sensitivity strategy could be used instead. The important
   feature of our type system is the inclusion of predicates $[[CQP]]$ over
   contexts, not the specific choice for these predicates.
@@ -527,8 +527,9 @@ Notice that refinement information in the fresh
 contents are \emph{not} required to be consistent with
 any previous refinement information.
 In a system with unrestricted aliasing, this
-typing rule would be unsound, as it could invalidate the refinements on
-references that alias with the left hand side. However, the assignment rule
+typing rule would be unsound because it admits writes inconsistent
+with the refinements on references that alias with the left hand side.
+However, the assignment rule
 requires that the updated reference has an ownership of $1$,
 which by the ownership type invariant guarantees aliases
 with the updated reference have $0$ ownership, and

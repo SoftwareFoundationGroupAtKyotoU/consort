@@ -39,7 +39,7 @@ A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:br
   Both our tool and the most recent version (v0.6.1) of JayHorn time out on the Mine Pump benchmark. Further,
   the CBMC tests were either subsumed by our own test programs, tested Java specific
   features, or tested program synthesis functionality. We therefore omitted both of these
-  benchmarks from our evaluation as we considered the results uninteresting.
+  benchmarks from our evaluation.
 \end{remark}
 
 The second benchmark set are data structure
@@ -61,7 +61,7 @@ to Java for further comparison with JayHorn.
 \subsubsection{Experimental Setup}
 We first ran \name on each program in our benchmark suite and ran the
 most recent\footnote{As of October 15, 2019} development build of JayHorn\footnote{We
-  did not use the most recent official release of JayHorn as
+  did not use the most recent official release of JayHorn because
   it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} 
 on the corresponding Java version. We recorded the final verification
 result for both our tool and JayHorn. We also collected the

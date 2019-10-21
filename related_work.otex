@@ -7,7 +7,7 @@ at analysis time, approximating concrete heap locations with allocation site
 labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low,fink2008effective};
 these \emph{abstract locations} are associated with a refinement.
 As abstract locations summarize many concrete locations, this approach
-comes at the cost of strong updates and flow-sensitivity; in particular, the refinement
+does not admit strong updates and flow-sensitivity; in particular, the refinement
 associated with an abstract location is fixed for the lifetime of the program.
 The techniques cited above include various workarounds for this limitation. For
 example, \cite{rondon2010low,chugh2012dependent} temporarily allow

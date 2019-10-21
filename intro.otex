@@ -17,7 +17,7 @@ verification in general) in settings with mutability and aliasing
 One of the primary challenges in this setting
 is how to support \emph{strong updates}.
 Unlike purely functional languages, the invariants that
-hold on a memory location may evolve and change as the program
+hold on a memory location may evolve and change while the program
 mutates that memory location. To accurately model this
 evolving, changing state, automated program verifiers must be able
 to update invariants on memory locations in ways that are incompatible with previous invariants.
@@ -138,11 +138,12 @@ $[[ {nu:int|nu=3} ref 1 ]]$ and $[[ {nu:int|nu = 5} ref 1 ]]$ respectively.
 From the invariants maintained by our type system,
 it is sound to strongly update
 \imp{p}'s type on \cref{line:first-p-write} without regard for any other pointers in the program;
-as \imp{p} has ownership 1, all aliases must already have types consistent with the new contents.
+because \imp{p} has ownership 1, all aliases must already have types consistent with the new contents.
 At alias creation on \cref{line:r-alias}, our type system must \emph{split}
 the ownership of \imp{p} between \imp{p} and \imp{r}.
-As \imp{r} is later used for mutation, our type system transfers \emph{all} ownership from
-\imp{p} to \imp{r} (recall that only references with ownership $1$ may be mutated).
+Our type system transfers \emph{all} ownership from
+\imp{p} to \imp{r} because \imp{r} is later used for mutation
+(recall that only references with ownership $1$ may be mutated).
 Thus, after the binding, \imp{r} has type  $[[ {nu:int|nu=4} ref 1 ]]$ and \imp{p} is
 given type $[[ {nu:int|Top} ref 0 ]]$.
 The type system may now soundly update \imp{r}'s type on \cref{line:r-write}
