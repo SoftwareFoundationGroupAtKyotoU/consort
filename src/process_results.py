@@ -124,7 +124,7 @@ with open(sys.argv[3], 'w') as consort_table:
         if n + "-BUG" in neg_map:
             nd = neg_map[n + "-BUG"]
             assert not nd["result"]
-            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f & %s \\' % (nd["name"], nd["elapsed"], jayhorn_column(d["jayhorn"]))
+            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f & %s \\' % (nd["name"], nd["elapsed"], jayhorn_column(nd["jayhorn"]))
         else:
             print >> consort_table, r' --- & --- & --- \\'
     print >> consort_table, r'\end{tabular}'
