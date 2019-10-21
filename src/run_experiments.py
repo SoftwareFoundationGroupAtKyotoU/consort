@@ -72,17 +72,13 @@ def run_jayhorn_with_timeout(config, tmp_dir):
         return mk_result(False, end - start, reason = "(unknown)")
     else:
         raise RuntimeError("Do not know what to do with " + last)
-    
 
-def run_and_check_jayhorn(config, name):
-    jayhorn_dir = config["jayhorn_bench"]["jayhorn_imp"]
-    assert name.endswith(".imp")
-    name = name[:-4]
-    benchdir = os.path.join(jayhorn_dir, name)
+def run_jayhorn(config, bench_root, bench_name):
+    benchdir = os.path.join(bench_root, bench_name)
     if not os.path.isdir(benchdir):
-        print "Could not find jayhorn benchmark",name
+        print "Could not find jayhorn benchmark",bench_name
         return None
-    benchmain = os.path.join(benchdir, name + ".java")
+    benchmain = os.path.join(benchdir, bench_name + ".java")
     assert os.path.isfile(benchmain)
     tmp_dir = os.path.join(benchdir, "tmp")
     if not os.path.isdir(tmp_dir):
@@ -94,6 +90,12 @@ def run_and_check_jayhorn(config, name):
         benchmain
     ])
     return run_jayhorn_with_timeout(config, tmp_dir)
+
+def run_and_check_jayhorn_version(config, name):
+    jayhorn_dir = config["jayhorn_bench"]["jayhorn_imp"]
+    assert name.endswith(".imp")
+    name = name[:-4]
+    return run_jayhorn(config, jayhorn_dir, name)
 
 def run_consort(config, benchimp):
     exe = os.path.join(config["consort"], "_build", "default", "test.exe")
@@ -207,13 +209,13 @@ def run_jayhorn_bench(config):
         unsat_result = []
         for s in sat:
             stat = run_and_check(config, os.path.join(consort_imp, s))
-            stat["jayhorn"] = run_and_check_jayhorn(config, s)
+            stat["jayhorn"] = run_and_check_jayhorn_version(config, s)
             sat_result.append(stat)
         print "... Done"
         print "Running negative tests... "
         for u in unsat:
             stat = run_and_check(config, os.path.join(consort_imp, u))
-            stat["jayhorn"] = run_and_check_jayhorn(config, config,u)
+            stat["jayhorn"] = run_and_check_jayhorn_version(config, u)
             unsat_result.append(stat)
         print "... Done"
         with open("/tmp/jayhornv.yml", 'w') as o:
@@ -223,12 +225,13 @@ def run_jayhorn_bench(config):
 
 def run_consort_bench(config, bench_name):
     consort_res = []
-    for l in config[bench_name]:
+    for l in config["consort_bench"][bench_name]:
         f = l["path"]
         if not os.path.isabs(f):
             f = os.path.join(config["path"], f)
         d = run_and_check(config, f)
         d["name"] = l["name"]
+        d["jayhorn"] = run_jayhorn(config, config["consort_bench"]["java"], l["name"].replace("-", ""))
         consort_res.append(d)
     return consort_res
 
@@ -249,9 +252,11 @@ def main(args):
     elif "timeout" not in config:
         config["timeout"] = 60
     config["path"] = os.path.dirname(args.config)
+    if not os.path.isabs(config["consort_bench"]["java"]):
+        config["consort_bench"]["java"] = os.path.join(config["path"], config["consort_bench"]["java"])
     jayhorn_results = run_jayhorn_bench(config)
-    consort_results = run_consort_bench(config, "consort_bench")
-    consort_neg_results = run_consort_bench(config, "consort_neg_bench")
+    consort_results = run_consort_bench(config, "pos")
+    consort_neg_results = run_consort_bench(config, "neg")
     with open(args.output, 'w') as f:
         yaml.dump({"jayhorn": jayhorn_results, "consort": { "pos": consort_results, "neg": consort_neg_results }}, f)
     return 0
