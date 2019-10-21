@@ -9,7 +9,7 @@
     [[B |- G]]
   }
   \infrule[WF-Int]{
-    [[ST(G), nu:int | B |- ph]]
+    [[G | B |- ph]]
   }{
     [[G | B |- { nu:int|ph} ]] 
   }
@@ -19,10 +19,10 @@
     [[G | B |- T ref r ]]
   }
   \infrule[WF-Phi]{
-    [[ forall x in FPV(ph).x in dom Gst /\ Gst(x) = int ]] \\
+    [[ forall x in FPV(ph) \ {nu}. G(x) = { nu : int | _ } ]] \\
     [[FPCV(ph)]] \subseteq [[CV(B)]]
   }{
-    [[Gst | B |- ph]]
+    [[G | B |- ph]]
   }
   \infrule[WF-Result]{
     [[G | B |- T]] \andalso
@@ -42,19 +42,19 @@
   }
   \end{center}
   \bcprulessavespacefalse
-  \begin{minipage}[t]{0.48\textwidth}
-  \[
-    \begin{array}{lrcl}
-      \text{Simple Types} & [[ST]] & ::= & [[int]] \mid [[ ST ref ]] \\
-      \text{Simple Ty. Env} & [[Gst]] & ::= & [[empty]] \mid [[ Gst,x:ST]] \\
-      \text{Lifting} & [[ [S {nu:int|ph} ] ]] & = & [[ int ]] \\
-                          & [[ [S T ref r] ]] & = & [[ [S T ] ref ]] \\
-                          & [[ ST(empty) ]] & = & [[ empty ]] \\
-                          & [[ ST(G, x:T) ]] & = & [[ ST(G),x: [S T ] ]] 
-    \end{array}
-  \]
-\end{minipage}
-\begin{minipage}[t]{0.485\textwidth}
+%   \begin{minipage}[t]{0.48\textwidth}
+%   \[
+%     \begin{array}{lrcl}
+%       \text{Simple Types} & [[ST]] & ::= & [[int]] \mid [[ ST ref ]] \\
+%       \text{Simple Ty. Env} & [[Gst]] & ::= & [[empty]] \mid [[ Gst,x:ST]] \\
+%       \text{Lifting} & [[ [S {nu:int|ph} ] ]] & = & [[ int ]] \\
+%                           & [[ [S T ref r] ]] & = & [[ [S T ] ref ]] \\
+%                           & [[ ST(empty) ]] & = & [[ empty ]] \\
+%                           & [[ ST(G, x:T) ]] & = & [[ ST(G),x: [S T ] ]] 
+%     \end{array}
+%   \]
+% \end{minipage}
+% \begin{minipage}[t]{0.485\textwidth}
   \[
     \begin{array}{rrl}
       \text{Free Ctxt Vars} & [[FPCV(ph1 \/ ph2)]] & = [[FPCV(ph1) U FPCV(ph2) ]] \\
@@ -67,7 +67,7 @@
                             & [[ CV(A)]] & = [[{A}]]
     \end{array}
   \]
-\end{minipage}
-\caption{Well-formedness of types and environments }
+% \end{minipage}
+\caption{Well-formedness of types and environments. }
   \label{fig:type-wf}
 \end{figure}

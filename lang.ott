@@ -233,6 +233,9 @@ grammar
   T {{ tex \tau }} :: T_ ::=                              {{ com type }}
     | { nu : int | ph }    ::   :: refint                  {{ com refined integer type }}
                                         {{ tex \set{ [[nu]] \COL \TINT \mid [[ph]]} }}
+        | { nu : int | _ }    ::   :: refintdummy          {{ com refined integer type with dontcare refinement }}
+                                        {{ tex \set{ [[nu]] \COL \TINT \mid \_ } }}
+
     | T ref r             ::   :: reference               {{ com reference type }}
                                         {{ tex [[T]] \TREF^{[[r]]} }}
     | ( T )               :: S :: paren
@@ -428,7 +431,7 @@ grammar
 	
 	| B |- G :: :: tyenvwf {{ tex [[B]] [[|-]]_{\wf} [[ G ]] }}
 	| G | B |- T :: :: twf {{ tex [[B]] [[|]] [[G]] [[|-]]_{\wf} [[T]] }}
-	| Gst | B |- ph :: :: phwf {{ tex [[B]] [[|]] [[Gst]] [[|-]]_{\wf} [[ph]] }}
+	| G | B |- ph :: :: phwf {{ tex [[B]] [[|]] [[G]] [[|-]]_{\wf} [[ph]] }}
 	| T1 = T2 :: :: teq
 	| ST1 = ST2 :: :: steq
 	| Th |- d :: :: fun_typ
