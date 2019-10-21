@@ -12,7 +12,7 @@
 
 \input{wf_rules}
 
-The well-formedness rules omitted from the main paper are found in \cref{fig:type-wf}. We write
+The well-formedness rules omitted from the main paper are found in \Cref{fig:type-wf}. We write
 $[[ B |- T => G ]]$ as shorthand for $[[ B |- G ]]$ and $[[ G | B |- T ]]$
 
 We first prove that the subtyping relations are transitive.
@@ -43,8 +43,8 @@ We first prove that the subtyping relations are transitive.
       [[ |= [G] /\ ph1 ==> ph2 ]] & [[ |= [G] /\ ph2 ==> ph3 ]]
     \end{bcpcasearray}
     
-    From which it is immediate that we must have $[[ |= [G] /\ ph1 ==> ph3 ]]$, whereby by \rn{Sub-Int} we can derive $[[ G |- T1 <: T3 ]]$.
-  \item By induction on $[[ G |- T1 <: T2 ]]$. The case for reference types is immediate from the inductive hypothesis, we focus
+    From which it is immediate that we must have $[[ |= [G] /\ ph1 ==> ph3 ]]$, whereby \rn{Sub-Int} gives $[[ G |- T1 <: T3 ]]$.
+  \item By induction on $[[ G' |- T1 <: T2 ]]$. The case for reference types is immediate from the inductive hypothesis, we focus
     on the base case where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2 } ]]$, and where $[[ |= [G'] /\ ph1 ==> ph2 ]]$.
     From $[[ G <: G' ]]$ and \Cref{part:sub-env-impl} above, we have $[[ |= [G] ==> [G'] ]]$ from which we can derive $[[ [G] /\ ph1 ==> ph2 ]]$, i.e.,
     $[[ G |- T1 <: T2 ]]$.
@@ -84,7 +84,7 @@ handle the fact our typing rules are not syntax directed.
     \item $[[ Th | Gp[ x <- {nu:int| ph /\ nu = 0}] | B |- e1 : Tp => Gp' ]]$
     \item $[[ Th | Gp[ x <- {nu:int| ph /\ nu != 0}] | B |- e2 : Tp => Gp' ]]$
     \end{itemize}
-  \item If $[[ e0 = let x = mkref y in e ]]$, then $[[ Gp(y) = T1 + T2 /\ Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp']]$, and $[[ x not in dom Gp' ]]$
+  \item If $[[ e0 = let x = mkref y in e ]]$, then $[[ Gp(y) = T1 + T2]]$, $[[Th | G[y <- T1],x : (T2 /\ x x = T2 y) ref 1 | B |- e : T => Gp']]$, and $[[ x not in dom Gp' ]]$
   \item If $[[ e0 = let x = *y in e ]]$, then:
     \begin{itemize}
     \item $[[Gp(y) = T1 + T2 ref r]]$
@@ -217,16 +217,16 @@ substituting a well-typed expression matching a context's hole type yields a wel
     \item If $[[ A |- T => G ]]$ then $[[ ll |- [ll/A] T => [ll/A]G ]]$
     \end{enumerate}
   \item \label{itm:ctxt-sub-subtype} For any $[[G]]$, $[[T1]]$, $[[T2]]$, $[[A]]$ and $[[ll]]$, If $[[ G |- T1 <: T2 ]]$, then $[[ [ll/A]G |- [ll/A]T1 <: [ll/A]T2 ]]$
+  \item \label{itm:ctxt-subst-assert} If $[[ G |= ph ]]$ where $[[ A not in FPCV(ph)]]$ then $[[ [ll/A]G |= ph ]]$
   \item \label{itm:ctxt-subst-well-typed} If $[[ Th | G | A |- e : T => G' ]]$ then $[[ Th | [ ll / A ] G | ll |- e : [ ll / A ] T => [ ll / A ] G' ]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}\leavevmode
   \begin{enumerate}
-  \item By straightforward case analysis on the definition of $[[ T1 + T2 ]]$.
+  \item By straightforward induction analysis on the definition of $[[ T1 + T2 = T3 ]]$.
   \item Observe that for any substitution $[[ [ll/A] ]]$, $[[ST([ll/A]G) = ST(G)]]$,
     so it suffices to show that $[[ FPCV ( [ll/A]ph ) ]] \subseteq [[CV(ll)]] = \emptyset$
     for any refinement $[[ph]]$ appearing in $[[T]]$ or a type in $[[G]]$.
-    n
     By the assumed well-formedness of $[[T]]$ with respect to context
     variable $[[A]]$ (resp. $[[G]]$), after substitution all free
     context variables in $[[T]]$ (resp. the types in $[[G]]$) will be
@@ -253,8 +253,12 @@ substituting a well-typed expression matching a context's hole type yields a wel
       We must show that $[[ [ll/A]G |= [ll/A]ph1 ==> [ll/A]ph2 ]]$, i.e. $[[ |= [ [ll/A]G ] /\ [ll/A]ph1 ==> [ll/A]ph2 ]]$.
       From our assumption that $[[ G |= ph1 ==> ph2 ]]$ we have that $[[ |= [ G ] /\ ph1 ==> ph2 ]]$ is valid,
       whereby the formula $[[ [ G ] /\ ph1 ==> ph2 ]]$ is true for any possible concrete valuation of the free context
-      variable $[[A]]$. Thus the formula $[[ [ [ll/A]G ] /\ [ll/A]ph1 ==> [ll/A]ph2 ]]$ must also be valid.
+      variable $[[A]]$. As $[[ [ll/A] [G] ]]$ is equivalent to $[[ [ [ll/A]G ] ]]$
+      we have the formula $[[ [ [ll/A]G ] /\ [ll/A]ph1 ==> [ll/A]ph2 ]]$ must also be valid.
     \end{rneqncase}
+  \item If $[[A]]$ does not appear free in $[[ [G] ]]$, then the result trivially holds. Otherwise
+    $[[ |= [G] ==> ph ]]$ holds for any concrete valuation of the free context variable $[[A]]$.
+    Then the formula $[[ |= [ [ll/A]G] ==> ph ]]$ must be valid.
   \item By induction on the typing derivation $[[ Th | G | A |- e : T => G' ]]$.
     In every case, that $[[ ll |- [ll/A]T => [ll/A]G' ]]$ and $[[ ll |- [ll/A]G]]$
     holds from \Cref{itm:ctxt-sub-wf}.
@@ -271,9 +275,9 @@ substituting a well-typed expression matching a context's hole type yields a wel
       }
       The induction hypothesis gives
       \[
-        [[ Th | [ll/A]G, x:{nu:int|nu=nn} | ll |- e : [ll/A]T => [ll/A]G'' ]]
+        [[ Th | [ll/A]G, x:{nu:int|nu=nn} | ll |- e : [ll/A]T => [ll/A]G' ]]
       \]
-      We conclude $[[ Th | [ll/A]G | ll |- let x = nn in e : [ll/A]T => [ll/A]G'' ]]$
+      We conclude $[[ Th | [ll/A]G | ll |- let x = nn in e : [ll/A]T => [ll/A]G' ]]$
       as required.
     \end{rneqncase}
 
@@ -284,7 +288,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
       }
       By \Cref{itm:ctxt-sub-distribute},
       $[[ ([ll/A]G)(y) = [ll/A](T1 + T2) = ([ll/A]T1 + [ll/A]T2) ]]$. We must then
-      show that $[[ Th | G1' | ll |- e' : [ll/A]T => [ll/A]G'' ]]$
+      show that $[[ Th | G1' | ll |- e' : [ll/A]T => [ll/A]G' ]]$
       where
       \[
         [[ G1' = ([ll/A]G)[y <- [ll/A]T1 /\ y y = x ],x:([ll/A]T2 /\ x x = y) ]]
@@ -311,7 +315,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
       }
       We must first show that for $[[ csub' = [l:ll/A'] ]]$:
       \[
-        [[  Th | G3 | ll |- e' : [ll/A]T => [ll/A]G2 ]]
+        [[  Th | G3 | ll |- e' : [ll/A]T => [ll/A]G' ]]
       \]
       where $[[ G3 = ([ll/A]G)[yi <- csub' vsub Ti'], x: csub' vsub T']]$.
 
@@ -329,8 +333,27 @@ substituting a well-typed expression matching a context's hole type yields a wel
       equality is preserved by consistent substitution.
     \end{rneqncase}
 
-    \begin{rncase}{T-Assign,T-Alias}
+    \begin{rncase}{T-Assign}
       By the inductive hypothesis and application of \Cref{itm:ctxt-sub-distribute}.
+    \end{rncase}
+
+    \begin{rneqncase}{T-Alias}{
+        [[ Th | G[x: T1 ref r1][y: T2 ref r2] | A |- alias(x = y); e : T => G ]] \\
+        [[ T1 ref r1 + T2 ref r2 ~ T1' ref r1' + T2' ref r2' ]] \\
+        [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | A |- e : T => G ]]
+      }
+      From \Cref{itm:ctxt-sub-distribute} we have that $[[ [ll/A](T1 ref r1) + [ll/A](T2 ref r2) = [ll/A](T1 ref r1 + T2 ref r2) ]]$
+      and similarly for $[[ T1' ref r1' + T2' ref r2' ]]$. It therefore remains to show that: \[
+        [[ [ll/A](T1 ref r1 + T2 ref r2) ~ [ll/A](T1' ref r1' + T2' ref r2') ]]
+      \]
+      For which it suffices to show that $[[ empty |- [ll/A](T1 ref r1 + T2 ref r2) <: [ll/A](T1' ref r1' + T2' ref r2') ]]$
+      and $[[ empty |- [ll/A](T1' ref r1' + T2' ref r2') <: [ll/A](T1 ref r1 + T2 ref r2) ]]$. From
+      $[[ T1 ref r1 + T2 ref r2 ~ T1' ref r1' + T2' ref r2' ]]$ these both follow from \Cref{itm:ctxt-sub-subtype},
+      whereby the result follows from the inductive hypothesis.
+    \end{rneqncase}
+
+    \begin{rncase}{T-AliasPtr}
+      By similar reasoning to the \rn{T-Alias} case.
     \end{rncase}
 
     \begin{rneqncase}{T-Sub}{
@@ -344,6 +367,14 @@ substituting a well-typed expression matching a context's hole type yields a wel
       To show the latter requirement, we observe that $[[ [ll/A]G2,[ll/A]T1 <: [ll/A]G',[ll/A]T ]]$ is equivalent to showing
       $[[ [ll/A](G2, x : T1) <: [ll/A](G', x: T) ]]$ for some $[[x not in dom G2 ]]$,
       whereby we have the required subtyping relationship from the application of \Cref{itm:ctxt-sub-subtype}.
+    \end{rneqncase}
+    \begin{rneqncase}{T-Assert}{
+        [[ Th | G | A |- assert(ph); e : T => G' ]] & [[ G |= ph ]] \\
+        [[ Th | G | A |- e : T => G' ]] & [[ ST(G) | . |- ph ]]
+      }
+      By induction hypothesis, the result holds if we can show $[[ [ll/A]G |= ph ]]$ which
+      follows from \Cref{itm:ctxt-subst-assert} (that $[[A not in FPCV(ph) ]]$ follows
+      from the well-formedness of $[[ph]]$ with respect to $[[.]]$).
     \end{rneqncase}
   \end{enumerate}
 \end{proof}
@@ -381,7 +412,7 @@ We prove that subtyping preserves the consistency relation in the following sens
   \label{lem:subtyp-preserves-cons}
   If $[[ G <: G' ]]$ and $[[ Cons(H,R,G)]]$ then:
   \begin{enumerate}
-  \item For any $[[x in dom G']]$, $[[ own(H,R(x),G(x))(a) <= own(H,R(x),G'(x))(a) ]]$
+  \item For any $[[x in dom G']]$, $[[ forall a in H.own(H,R(x),G(x))(a) <= own(H,R(x),G'(x))(a) ]]$
   \item $[[forall a in H.Own(H,R,G')(a) <= 1]]$
   \item If $[[ G |- T <: T']]$ and $[[SATv(H,R,v,T)]]$ then $[[SATv(H,R,v,T')]]$
   \item $[[SAT(H,R,G')]]$
@@ -392,7 +423,7 @@ We prove that subtyping preserves the consistency relation in the following sens
   \leavevmode
   \begin{enumerate}
   \item By induction on $[[G |- G(x) <: G'(x)]]$.
-  \item Direct consequence of 1.
+  \item Direct consequence of 1 and that $[[ forall a in H.Own(H, R, G)(a) <= 1 ]]$ from $[[Cons(H, R,G)]]$.
   \item From $[[Cons(H,R,G)]]$ we have $[[SAT(H,R,G)]]$ which by \Cref{lem:sat-implies-gamma} we have $[[ |= [R][G] ]]$.
     We now proceed by induction on $[[G |- T <: T']]$.
     \begin{eqncase}{
@@ -428,10 +459,11 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 \end{lemma}
 \begin{proof}
   We prove the forward case by induction on $[[ empty |- T1 <: T2 ]]$ as implied by
-  $[[ T1 ~ T2 ]]$. The inductive case follows from the IH, and the base case
-  where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2}]]$ follows
-  from $[[ ph1 ==> ph2 ]]$ holding under any valuation of variables.
-
+  $[[ T1 ~ T2 ]]$. The inductive case follows from the IH. In the the base case
+  where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2}]]$, from $[[ empty |- T1 <: T2 ]]$
+  we have that $[[ |= ph1 ==> ph2 ]]$, we must have $[[ |= [R][v/nu]ph1 ==> [R][v/nu]ph2 ]]$,
+  where from the definition of $[[SATv(H, R, v, T1) ]]$ we must then have $[[SATv(H, R, v, T2) ]]$.
+    
   The backwards case follows similar reasoning by induction on $[[ empty |- T2 <: T1 ]]$.
 \end{proof}
 
@@ -458,6 +490,8 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   \end{rncase}
 
   \begin{rncase}{Tadd-Ref}
+    We assume $[[ v = a ]]$ and $[[ a in dom H ]]$, otherwise the result trivially holds.
+    
     We have $[[own(H,v,Tp)=own(H,v,T1 + T1)]]$, where $[[ T1 + T2 = (T1' + T2') ref r1+r2 ]]$,
     and  $[[ T1 = T1' ref r1 ]]$, $[[ T2 = T2' ref r2 ]]$.
     
@@ -473,7 +507,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 \begin{lemma} % L13
   \label{lem:satadd}
   If $[[ Tp =  T1+T2 ]]$, we have
-    $[[ SATv(H, R, Rv, Tp) ]]$ iff. $[[ SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]]$
+    $[[ SATv(H, R, Rv, Tp) ]]$ iff. $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$
 \end{lemma}
 \begin{proof}
   By induction on the rules used to derive $[[ T1 + T2 ]]$. In the following
@@ -574,7 +608,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   Finally, consider the case where $[[a'' != a]]$. Then from the
   definition of $[[own(H,a'',T)]]$ and our assumption that
   $[[own(H,a'',T)(a) = 0]]$, we have $[[own(H,H(a''),T')(a) = 0]]$,
-  and the result holds from the inductive hypothesis.
+  and the result holds from the inductive hypothesis and that $[[ H(a'') = H'(a'') ]]$.
 \end{proof}
 
 \begin{lemma}
@@ -609,7 +643,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
   We first consider the case where $[[a' = a]]$, then by
   our assumption that $[[own(H,a,T)(a) = 0]]$, we must have that
-  $[[ T = T' ref 0 ]]$, whereby the $[[ T = topn ]]$ for some $[[n]]$.
+  $[[ T = T' ref 0 ]]$, whereby $[[ T = topn ]]$ for some $[[n]]$.
   From $[[SATv(H,R,a,T)]]$ and \Cref{lem:sat-implies-shape-cons}, we must have that
   $[[ H |- a ~> |T|]]$,
   and from $[[H ~ a H']]$, we therefore have that $[[ H' |- a ~> |T|]]$
@@ -643,7 +677,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
 
 \begin{lemma}[Heap Extension Consistency Preservation] % L9
   \label{lem:newaddheap}
-  If we have heap $H$, such that $[[ SATv(H,R,v,T) ]]$. For any heap $H'$,
+  If we have heap $H$, such that $[[ SATv(H,R,v,T) ]]$, for any heap 
   $[[ H' = H{a |-> v'}]], [[a not in H]]$, then we have $[[ SATv(H', R, v, T) ]]$.
 \end{lemma}
 \begin{proof}
@@ -651,7 +685,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   The base case where $[[T = {nu:int|ph}]]$ is trivial.
   Next, we consider the case where $[[T = T' ref r]]$.
   We must show that $[[v in dom H' /\ SATv(H',R, H'(v),T') ]]$.
-  The first condition is immeidately satisfied by inversion on $[[ SATv(H,R,v,T') ]]$,
+  The first condition is immediately satisfied by inversion on $[[ SATv(H,R,v,T') ]]$,
   and from $[[a not in H]]$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
   That is we must show $[[ SATv(H',R, H(v),T') ]]$, which is follows from
   the induction hypothesis.
@@ -691,7 +725,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   \begin{enumerate}
   \item $[[ G |- T1 <: T2]]$ implies $[[ G + G'' |- T1 <: T2 ]]$
   \item $[[G <: G']]$ implies $[[ G + G'' <: G' + G'']]$
-  \item If $[[ Th | G | B |- e : T => G' ]]$, $[[ B |- G + G' ]]$ and $[[ B |- G' + G'']]$, then $[[ Th | G + G'' | B |- e : T => G'' + G]]$
+  \item If $[[ Th | G | B |- e : T => G' ]]$, $[[ B |- G + G'' ]]$ and $[[ B |- G' + G'']]$, then $[[ Th | G + G'' | B |- e : T => G'' + G]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
@@ -705,7 +739,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     $[[ [ G ] /\ ph1 ]]$, $[[ |= [ G''  + G] /\ ph1 ==> ph2 ]]$ must
     also be valid.
   \item It suffices to show that $[[G + G'' |- (G + G'')(x) <: (G' + G'')(x)]]$ for
-    any arbitrary $[[x in dom G' + G'' ]]$. If $[[x in G']]$ then by we must have
+    any arbitrary $[[x in dom G' + G'' ]]$. If $[[x in G']]$ then we must have
     $[[ G |- G(x) <: G'(x) ]]$ by inversion on $[[ G <: G' ]]$,
     whereby $[[ G + G'' |- (G + G'')(x) = G(x) <: G' + G''(x) = G'(x) ]]$ from part 1.
 
@@ -746,25 +780,25 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     \end{namedcase}
 
     \begin{rneqncase}{T-Sub}{
-        [[ G <: G3 ]] & [[ Th | G3 | B |- e : T2 => G4 ]] \\
-        [[ G4,T2 <: G',T ]] \\
+        [[ G <: G1 ]] & [[ Th | G1 | B |- e : T2 => G2 ]] \\
+        [[ G2,T2 <: G',T ]] \\
       }
       From the rules for subtyping, we must have
-      $[[ dom G3 <= dom G ]]$ and $[[ dom G' <= dom G4 ]]$. A simple inductive argument
-      gives that $[[ dom G4 <= dom G3 ]]$, therefore we have $[[ dom G' <= dom G3 ]]$.
+      $[[ dom G1 <= dom G ]]$ and $[[ dom G' <= dom G2 ]]$. A simple inductive argument
+      gives that $[[ dom G2 <= dom G1 ]]$, therefore we have $[[ dom G' <= dom G1 ]]$.
       Let $\mathcal{LV}$ be the set of free variables in the refinements of $[[G'']]$
       that are not in the domain of $[[G'']]$. From the assumed well-formedness of
       $[[ B |- G' + G'' ]]$, we must have that
       $\forall x \in \mathcal{LV}.[[x in dom G' /\ [S G'(x) ] = int ]]$. Thus,
-      $\mathcal{LV} \subseteq [[G3]]$ and $\mathcal{LV} \subseteq [[G4]]$. Further, by definition,
+      $\mathcal{LV} \subseteq [[G1]]$ and $\mathcal{LV} \subseteq [[G2]]$. Further, by definition,
       for any $[[ Gp <: Gq ]]$, then $[[forall x in dom Gp. [S Gp(x)] = [S Gq(x)] ]]$.
-      We conclude that $[[ B |- G3 + G'' ]]$ and
-      $[[ B |- G4 + G'']]$, whereby the inductive hypothesis gives
-      $[[ Th | G3 + G'' | B |- e : T2 => G4 + G'' ]]$. To prove the overall result, we must
-      show that $[[ G + G'' <: G3 + G'' ]]$ and $[[ G4 + G'',T2 <: G' + G'',T ]]$
+      We conclude that $[[ B |- G1 + G'' ]]$ and
+      $[[ B |- G2 + G'']]$, whereby the inductive hypothesis gives
+      $[[ Th | G1 + G'' | B |- e : T2 => G2 + G'' ]]$. To prove the overall result, we must
+      show that $[[ G + G'' <: G1 + G'' ]]$ and $[[ G2 + G'',T2 <: G' + G'',T ]]$
       which follow from parts 1 and 2 above.
-      That $[[ G4 + G'' | B |- T2 ]]$ follows from the assumed well-formedness
-      of $[[T2]]$ with respect to $[[G4]]$ and that the disjoint union operation only
+      That $[[ G2 + G'' | B |- T2 ]]$ follows from the assumed well-formedness
+      of $[[T2]]$ with respect to $[[G2]]$ and that the disjoint union operation only
       adds variable bindings.
     \end{rneqncase}
     \begin{rncase}{T-Assert}

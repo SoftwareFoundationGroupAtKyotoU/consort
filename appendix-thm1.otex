@@ -92,7 +92,7 @@ function $\textbf{Addr} \rightarrow [0,1]$ which always returns $0$. We define t
 two functions $[[O1]], [[O2]]: \textbf{Addr} \rightarrow [0,1]$ as: $[[ (O1 + O2)(a) = O1(a) + O2(a) ]]$.
 Finally, if a summation $[[|<]]$ has no summands, we take its result to be $[[empty]]$.
 
-The proof of \Cref{thm:soundness} requires the following three key lemmas. These lemmas are stated
+The proof of \Cref{thm:soundness} requires the following four key lemmas. These lemmas are stated
 with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
 \begin{lemma}
   \label{lem:initial}
@@ -119,7 +119,7 @@ with respect to some well-typed program $[[<D,e>]]$, i.e. $[[ |- <D, e> ]]$.
   If $[[ |- D C ]]$, then, one of the following conditions hold:
   \begin{enumerate}
   \item $\exists [[C']],[[C --> D C']]$, or
-  \item $[[C = AssertFail]]$
+  \item $[[C = AssertFail]]$, or
   \item $[[C = <H, R, ., x>]]$
   \end{enumerate}
 \end{lemma}

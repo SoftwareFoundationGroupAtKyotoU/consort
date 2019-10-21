@@ -129,18 +129,18 @@ call cases respectively; we have separated them into separate lemmas for clarity
 
 \begin{proof}[\Cref{lem:preservation}]
   The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
-  $[[ |-D ]]$, and for that we must find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
+  $[[ |-D ]]$. We must therefore find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
   the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
   We identify the heap and register file before transition with $[[H]]$ and $[[R]]$ respectively.
   In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .Own(H,R,G'')(a) <= 1]]$.
   In many cases, we will show that $[[ Own(H, R, G) = Own(H', R', G'') ]]$, whereby
   from the assumption that $[[ forall a in H.Own(H, R, G)(a) <= 1 ]]$ we will
-  then have the desired result.
+  then have the desired result from $[[ Cons(H, R, G) ]]$ as implied by $[[|-D]]$.
   % FIXED
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CEn-1 : Es, x>]], [[<H, R, CEn-1 : Es, x> --> D <H, R, Es, CEn-1[x]> ]] \\
   }
-  By the Inversion on configuration typing $[[ |- D <H, R, CEn-1 : Es, x>]]$, we have:
+  By inversion on configuration typing $[[ |- D <H, R, CEn-1 : Es, x>]]$, we have:
     \begin{align*}
       & [[ Th | G | ll |- x : Tn => Gn ]] \\
       & \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e CEi-1 : Ti-1 => Gi-1 ]]
@@ -206,13 +206,15 @@ call cases respectively; we have separated them into separate lemmas for clarity
     
     We now show that $[[ Th | G'' | ll |- [x'/x]e : [x/x']Tp => [x'/x]G' ]]$,
     $[[Cons(H,R { x' |-> v }, G'')]]$.
-    The first is easy to obtain using \Cref{lem:substitution} (observe that by \Cref{lem:r-valid-subst} and our
-    choice that $[[ x' not in dom R ]]$ we have $[[ x not in dom G ]]$).
-    
+    The first is easy to obtain using \Cref{lem:substitution}; from $[[ Cons(H, R, G) ]]$,
+    we have that $[[ forall x in G.x in dom R ]]$, whereby $[[ x not in dom R ]]$ we have
+    $[[ x' not in dom G]]$.
     It therefore remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.
-    To show that the output environment is consistent, it suffices to
+
+    To show $[[SAT(H, R, G'')]]$, it suffices to
     show that $[[ SATv(H,R',R'(x'),T2) ]]$
-    and $[[SATv(H,R',H(R'(y)),T'') ]]$.
+    and $[[SATv(H,R',H(R'(y)),T'') ]]$ (that $[[SATv]]$ holds for all other variables
+    $[[z]]$ follows from $[[G(z) = G''(z)]]$ and \Cref{lem:r-valid-subst,lem:register}).
     If $[[ T1 ]]$ is an integer type and $[[r > 0]]$, then
     by the definition of the strengthening operator, the latter is equivalent to show
     that $[[ SATv(H,R',H(R'(y)),T1) ]]$
@@ -239,7 +241,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     As $[[R'(x')=H(R'(y))=H(R(y))]]$ and from the definition of $[[ G'' ]]$, we have:
     \begin{align*}
       [[ own(H,R'(x'),G''(x')) & = own(H,H(R(y)),T2) ]] \\
-      [[ own(H,R'(y),G''(y)) & = {a |-> r} + own(H,H(R(y)),T1) ]] \\
+      [[ own(H,R'(y),G''(y)) & = {a |-> r} + own(H,H(R(y)),T1) ]]
     \end{align*}
     From the definition of the ownership function, we have that
     \[
@@ -486,7 +488,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     From above, we have $[[own(H, R(x), T2 + T1)(a) = own(H, H(R(y)), T')(a) = 0]]$.
     By \Cref{lem:heapop} and $[[ H ~ a H' ]]$, we have $[[own(H, R(x), T2 + T1) = own(H', R(x), T2 + T1)]]$.
     Also by \Cref{lem:ownadd}, we have $[[own(H', R(x), T2+T1) = own(H', R(x), T1)+own(H', R(x), T2)]]$.
-    From $[[ H'(R(y)) = R(x) ]]$, we therefor have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$,
+    From $[[ H'(R(y)) = R(x) ]]$, we therefore have $[[own(H', H'(R(y)), T2)(a)=own(H', R(x), T1)(a)=0]]$,
     and thus:
     \[
       [[O1''(a)=own(H', H'(R(y)), T2)(a) + own(H', R(x), T1)(a)+1 = 1 = O0''(a)]]
