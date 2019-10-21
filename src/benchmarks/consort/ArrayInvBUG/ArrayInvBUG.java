@@ -4,8 +4,9 @@ public class ArrayInvBUG {
 		for(int i = 0; i < a.length; i++) {
 			a[i] = i;
 		}
+		a[6] = 0;
 		for(int i = 0; i < a.length; i++) {
-			assert a[i] == 0;
+			assert a[i] == i;
 		}
 	}
 }
