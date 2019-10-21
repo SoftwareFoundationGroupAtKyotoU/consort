@@ -1,7 +1,6 @@
 \section{Preliminaries}
 \label{sec:prelim}
-This section describes a simple imperative language with mutable references and first
-order, recursive functions.
+This section describes a simple imperative language with mutable references and first-order, recursive functions.
 
 % \subsection{Notation}
 % For a (meta-level, set-theoretic) function $f$ we will write $\DOM(f)$ to indicate the domain of
@@ -41,7 +40,7 @@ The grammar of the language is as follows.
 %    [[l]] &\in& \textbf{Labels}\\
   \end{array}
 \]
-$[[ph]]$ stands for a formula in propositional first order
+$[[ph]]$ stands for a formula in propositional first-order
 logic over variables, integers and contexts;
 we discuss these formulas later in \Cref{sec:types}.
 \AI{\textbf{Labels} is removed because it is rarely used.}
@@ -106,7 +105,7 @@ $[[e1 ; e2]]$.
 \end{remark}
 
 A program is a pair $[[<D, e>]]$, where
-$[[ D = {d1,...,dn} ]]$ is a set of first order, mutually recursive function definitions, and $[[e]]$
+$[[ D = {d1,...,dn} ]]$ is a set of first-order, mutually recursive function definitions, and $[[e]]$
 is the program entry point. A function definition $[[d]]$
 maps the function name to a tuple of argument names $[[x1,...,xn]]$
 that are
