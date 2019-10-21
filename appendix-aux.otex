@@ -224,8 +224,10 @@ substituting a well-typed expression matching a context's hole type yields a wel
 \begin{proof}\leavevmode
   \begin{enumerate}
   \item By straightforward induction analysis on the definition of $[[ T1 + T2 = T3 ]]$.
-  \item Observe that for any substitution $[[ [ll/A] ]]$, $[[ST([ll/A]G) = ST(G)]]$,
-    so it suffices to show that $[[ FPCV ( [ll/A]ph ) ]] \subseteq [[CV(ll)]] = \emptyset$
+  \item Observe that any subsitution of context variables cannot change simple
+    types within $[[G]]$ and thus all types remain well-formed with respect
+    to integer variables in $[[G]]$.
+    It thus suffices to show that $[[ FPCV ( [ll/A]ph ) ]] \subseteq [[CV(ll)]] = \emptyset$
     for any refinement $[[ph]]$ appearing in $[[T]]$ or a type in $[[G]]$.
     By the assumed well-formedness of $[[T]]$ with respect to context
     variable $[[A]]$ (resp. $[[G]]$), after substitution all free
@@ -370,7 +372,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
     \end{rneqncase}
     \begin{rneqncase}{T-Assert}{
         [[ Th | G | A |- assert(ph); e : T => G' ]] & [[ G |= ph ]] \\
-        [[ Th | G | A |- e : T => G' ]] & [[ ST(G) | . |- ph ]]
+        [[ Th | G | A |- e : T => G' ]] & [[ G | . |- ph ]]
       }
       By induction hypothesis, the result holds if we can show $[[ [ll/A]G |= ph ]]$ which
       follows from \Cref{itm:ctxt-subst-assert} (that $[[A not in FPCV(ph) ]]$ follows
@@ -772,8 +774,8 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
       we conclude both conditions hold. To show the well-typing of the overall let expression,
       we must show $[[ x not in dom G' + G'']]$, which follows from our assumption and $[[ x not in dom G' ]]$.
       Finally, we must also show that $[[ G' + G'' | B |- T]]$. From $[[ G' | B |- T ]]$
-      and the fact that$[[ forall x in dom G'.ST(G')(x) = ST(G' + G'')(x) ]]$, we must have
-      $[[ G' + G'' | B  |- T ]]$. 
+      and the fact that$[[ forall x in dom G'. G'(x) = {nu:int | _ } ]]$ iff
+      $[[ (G' + G'')(x) = {nu:int | _ } ]]$, we must have $[[ G' + G'' | B  |- T ]]$. 
     \end{rneqncase}
     \begin{namedcase}{\casefont{Cases \rn{T-LetInt}, \rn{T-Mkref}, \rn{T-Mkref}, \rn{T-Deref}, \rn{T-Call}: }}
       Similar to the reasoning in \rn{T-Let}.
@@ -789,9 +791,10 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
       Let $\mathcal{LV}$ be the set of free variables in the refinements of $[[G'']]$
       that are not in the domain of $[[G'']]$. From the assumed well-formedness of
       $[[ B |- G' + G'' ]]$, we must have that
-      $\forall x \in \mathcal{LV}.[[x in dom G' /\ [S G'(x) ] = int ]]$. Thus,
+      $\forall x \in \mathcal{LV}.[[x in dom G' /\ G'(x) = {nu:int|_} ]]$. Thus,
       $\mathcal{LV} \subseteq [[G1]]$ and $\mathcal{LV} \subseteq [[G2]]$. Further, by definition,
-      for any $[[ Gp <: Gq ]]$, then $[[forall x in dom Gp. [S Gp(x)] = [S Gq(x)] ]]$.
+      for any $[[ Gp <: Gq ]]$, if $[[ Gq(x) = {nu:int|ph} ]]$ then $[[Gp(x) = {nu:int|ph'}]]$,
+      i.e. subtyping preserves simple types.
       We conclude that $[[ B |- G1 + G'' ]]$ and
       $[[ B |- G2 + G'']]$, whereby the inductive hypothesis gives
       $[[ Th | G1 + G'' | B |- e : T2 => G2 + G'' ]]$. To prove the overall result, we must
