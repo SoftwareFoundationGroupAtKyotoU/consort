@@ -8,8 +8,41 @@ described in \Cref{sec:infr}. The goal of these experiments was to answer the fo
 \item Is type inference feasible?
 \end{enumerate}
 
+\begin{table}[t]
+  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are omitted programs
+    that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
+    null checking, pointer equality, etc. \textbf{Bug} includes a ``safe'' program
+    we discovered was actually incorrect.}
+  \begin{center}
+    \input{benchmark_table}
+  \end{center}
+  \label{tab:breakdown}
+\end{table}
+
 To answer these questions, we evaluated our prototype implementation
-on two sets of benchmarks. The first are a set of data structure
+on two sets of benchmarks. 
+The first set is adapted from JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn},
+a verification tool for Java.
+This test suite contains a combination of 82 safe and unsafe programs written in
+Java. We chose this benchmark suite as, like \name, JayHorn
+is concerned with the automated, flow-sensitive verification of
+programs in a language with mutable, managed memory.
+Further, although some of their benchmark programs tested Java
+specific features, most could be adapted
+into our low-level language.
+Those tests we could adapt allow a comparison with existing state-of-the-art
+verification techniques.
+A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}
+
+\begin{remark}
+  The original JayHorn paper includes two additional benchmark sets, Mine Pump and CBMC.
+  Both our tool and the most recent version (v0.6.1) of JayHorn time out on the Mine Pump benchmark. Further,
+  the CBMC tests were either subsumed by our own test programs, tested Java specific
+  features, or tested program synthesis functionality. We therefore omitted both of these
+  benchmarks from our evaluation as we considered the results uninteresting.
+\end{remark}
+
+The second benchmark set are data structure
 implementations and microbenchmarks written directly in our low-level
 imperative language. We developed this suite to
 test the expressive power of our type system and inference.
@@ -22,48 +55,28 @@ The programs included in this suite are:
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
 \end{itemize}
 We also introduced unsafe mutations to these programs to
-check our tool for unsoundness.
-
-\begin{table}[t]
-  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are omitted programs
-    that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
-    null checking, pointer equality, etc. \textbf{Bug} includes a ``safe'' program
-    we discovered was actually incorrect.}
-  \begin{center}
-    \input{benchmark_table}
-  \end{center}
-  \label{tab:breakdown}
-\end{table}
-
-For our second benchmark suite, we adapted the benchmark suite
-of JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn}, a verification tool for Java.
-This test suite contains a combination of 82 safe and unsafe programs written in
-Java. We chose this benchmark suite as, like \name, JayHorn
-is concerned with the automated, flow-sensitive verification of
-programs in a language with mutable, managed memory.
-Further, although some of their benchmark programs tested Java
-specific features, most could be adapted
-into our low-level language.
-A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}
-
-\begin{remark}
-  The original JayHorn paper includes two additional benchmark sets, Mine Pump and CBMC.
-  Both our tool and the most recent version (v0.6.1) of JayHorn time out on the Mine Pump benchmark. Further,
-  the CBMC tests were either subsumed by our own test programs, tested Java specific
-  features, or tested program synthesis functionality. We therefore omitted both of these
-  benchmarks from our evaluation as we considered the results uninteresting.
-\end{remark}
+check our tool for unsoundness. We also translated these benchmarks
+to Java for further comparison with JayHorn.
 
 \subsubsection{Experimental Setup}
-We first ran \name on each program in our benchmark suite. For each program in our suite,
-we recorded the output of our tool as well as the end-to-end runtime. For the JayHorn suite,
-we first ran our tool on the adapted version of each test program and then ran the most recent\footnote{As of October 15, 2019}
-development build of JayHorn\footnote{We did not use the most recent official release of JayHorn as
-  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} on the corresponding
-Java version.
-As run time comparisons are meaningless given the differences in problem domains,
-we collected only the final verification result for this set of experiments. All tests
-were run on a machine with 16 GB RAM and 4 CPUs at 2GHz and with a timeout of 60 seconds.
+We first ran \name on each program in our benchmark suite and ran the
+most recent\footnote{As of October 15, 2019} development build of JayHorn\footnote{We
+  did not use the most recent official release of JayHorn as
+  it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} 
+on the corresponding Java version. We recorded the final verification
+result for both our tool and JayHorn. We also collected the
+end-to-end runtime of \name for each test;
+we do not give a performance comparison with
+JayHorn given the many differences in target languages.
+For the JayHorn suite, we first ran our tool on the adapted version of
+each test program and ran JayHorn on the original Java version. We did not
+collect runtime information for this set of experiments because our goal
+is a comparison of tool precision, not performance.
+All tests were run on a machine with 16 GB RAM and 4 CPUs at 2GHz
+and with a timeout of 60 seconds (the same timeout
+was used in \cite{kahsai2017quantified}). We used \name's  parallel backend (\cref{sec:infr})
+with Z3 version 4.8.4 and HoICE version ...  and JayHorn's Eldarica backend.\footnote{We also tried the Spacer backend
+  included with JayHorn, but it required an extremely old version of Z3 (4.3.2) and crashed the JVM on several of our tests.}
 
 \subsection{Results}
 The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
@@ -76,6 +89,14 @@ JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others (colum
 On our own benchmark set, \name correctly verifies all safe versions
 of the programs within 60 seconds. For the unsafe variants,
 \name was able to quickly and definitively determine these programs unsafe.
+JayHorn times out on all tests except for \textbf{Shuffle}. We investigated
+the cause of time outs and discovered that after verification failed
+with an unbounded heap model, JayHorn attempts verification on increasingly
+larger bounded heaps. In every case, JayHorn exceeded the 60 second timeout
+before reaching heap limit bound. This suggests JayHorn struggles in the presence
+of per-object invariants and unbounded allocations; in fact,
+the only test JayHorn successfully verified (Shuffle) contains
+just a single object allocation.
 
 \begin{table}[t]
   \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and the results on our custom benchmark suite.}
