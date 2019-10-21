@@ -91,7 +91,17 @@ def print_jayhorn_line(table, name, pref, nl = ''):
         correct + timeout, correct, timeout,
         (correct + timeout) - out_performed, finished, robust, precision, nl
     )
-            
+
+def jayhorn_column(j):
+    if j["result"]:
+        return r'\checkmark'
+    else:
+        if j["reason"] == "(unsafe)":
+            return r'\text{\sffamily X}'
+        else:
+            assert j["reason"] == "(timeout)"
+            return r'\text{T/O}'
+
 with open(sys.argv[2], 'w') as result_table:
     print >> result_table, r'\begin{tabular}{cc||cc||cccc}\toprule'
     print >> result_table, r'\textbf{Set} & \textbf{N. Tests} & \multicolumn{2}{l}{\textbf{\name}} & \multicolumn{4}{c}{\textbf{JayHorn}} \\'
@@ -101,20 +111,20 @@ with open(sys.argv[2], 'w') as result_table:
     print >> result_table, r'\end{tabular}'
 
 with open(sys.argv[3], 'w') as consort_table:
-    print >> consort_table, r'\begin{tabular}{lcc|lcc}\toprule'
-    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time} & \textbf{Buggy Name} & \textbf{Verified?} & \textbf{Time} \\ \midrule'
+    print >> consort_table, r'\begin{tabular}{lccc|lccc}\toprule'
+    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time} & \textbf{JayHorn} & \textbf{Buggy Name} & \textbf{Verified?} & \textbf{Time} & \textbf{JayHorn} \\ \midrule'
     neg_map = {}
     for d in data["consort"]["neg"]:
         neg_map[d["name"]] = d
     l = sorted(data["consort"]["pos"], key = lambda d: d["name"])
     for d in l:
         assert d["result"]
-        print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f & ' % (d["name"], d["elapsed"])
+        print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f & %s &' % (d["name"], d["elapsed"], jayhorn_column(d["jayhorn"]))
         n = d["name"]
         if n + "-BUG" in neg_map:
             nd = neg_map[n + "-BUG"]
             assert not nd["result"]
-            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f \\' % (nd["name"], nd["elapsed"])
+            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f & %s \\' % (nd["name"], nd["elapsed"], jayhorn_column(d["jayhorn"]))
         else:
             print >> consort_table, r' --- & --- & --- \\'
     print >> consort_table, r'\end{tabular}'
