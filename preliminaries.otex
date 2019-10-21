@@ -25,7 +25,7 @@ The grammar of the language is as follows.
   [[e]] &::= &
                [[ x ]] \mid
                [[ let x = y in e]] \mid
-               [[ let x = n in e ]] \mid
+               [[ let x = nn in e ]] \mid
                [[ ifz x then e1 else e2 ]] \\
         &\mid& [[ let x = mkref y in e ]] \mid
                [[ let x = *y in e ]] \mid
