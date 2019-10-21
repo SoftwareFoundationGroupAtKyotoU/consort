@@ -32,7 +32,7 @@ We first state the standard decomposition lemma.
   some $[[ E ]]$ or $[[ e' ]]$ where $[[ e = E[e'] ]]$ and $[[ e' ]]$ meets one of the cases in
   \Cref{lem:decomposition}.
 
-  In the case $[[e = x]]$, we further make case analysis on the form of $[[Es]$.
+  In the case $[[e = x]]$, we further make case analysis on the form of $[[Es]]$.
   The case where $[[ Es = . ]]$ is immediate;
   In the other case where $[[ Es = CE : Es' ]]$, the configuration can step
   to $[[ <H, R, Es, CE[x]> ]]$ according to \rn{R-Var}.
