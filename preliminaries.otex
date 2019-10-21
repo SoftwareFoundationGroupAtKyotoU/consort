@@ -3,18 +3,22 @@
 This section describes a simple imperative language with mutable references and first
 order, recursive functions.
 
-\subsection{Notation}
-For a function $f$ we will write $\DOM(f)$ to indicate the domain of
-the function. For a function (sometimes called a map) $f$, we will write
-$f \{ x \mapsto v \}$ where $x \not\in\DOM(f)$ to denote a map
-which takes all values in $\DOM(f)$ to their values in $f$ and which
-additionally takes $x$ to $v$. We will write $ f \{ x \hookleftarrow v \}$
-where $x\in\DOM(f)$ to denote a map equivalent to $f$ except that $x$ takes value $v$.
-We also write $\emptyset$ as a function with an empty domain.
-\JT{This is almost certainly not a sufficient overview. write more later.}
+% \subsection{Notation}
+% For a (meta-level, set-theoretic) function $f$ we will write $\DOM(f)$ to indicate the domain of
+% the function and write
+% $f \{ x \mapsto v \}$ where $x \not\in\DOM(f)$ to denote a map
+% which takes all values in $\DOM(f)$ to their values in $f$ and which
+% additionally takes $x$ to $v$. We will write $ f \{ x \hookleftarrow v \}$
+% where $x\in\DOM(f)$ to denote a map equivalent to $f$ except that $x$ takes value $v$.
+% We also write $\emptyset$ as a function with an empty domain.
+% \JT{This is almost certainly not a sufficient overview. write more later.}
+\AI{Notations are moved.  $f$ conflicted with the metavariable for function names and I thought it might be confusing.}
 
 \subsection{Language}
 \label{sec:language}
+We assume a set of \emph{variables}, ranged over by $x,y,z,\dots$,
+a set of \emph{function names}, ranged over by $f$, and
+a set of labels ranged over by $[[l1]], [[l2]], \dots$.
 The grammar of the language is as follows.
 \[
   \begin{array}{rcl}
@@ -22,7 +26,7 @@ The grammar of the language is as follows.
   [[e]] &::= &
                [[ x ]] \mid
                [[ let x = y in e]] \mid
-               [[ let x = v in e ]] \mid
+               [[ let x = n in e ]] \mid
                [[ ifz x then e1 else e2 ]] \\
         &\mid& [[ let x = mkref y in e ]] \mid
                [[ let x = *y in e ]] \mid
@@ -32,21 +36,20 @@ The grammar of the language is as follows.
                [[ alias(x = *y); e ]] \mid
                [[ assert(ph); e ]] \mid
                [[ e1;e2 ]] \\
-    [[v]] &::=& [[nn]] \\
-    [[P]] &::=& [[<{d1,...,dn}, e>]] \\
-    [[l]] &\in& \textbf{Labels}\\
+%    [[v]] &::=& [[nn]] \mid [[x]] \\
+    [[P]] &::=& [[<{d1,...,dn}, e>]] %\\
+%    [[l]] &\in& \textbf{Labels}\\
   \end{array}
 \]
 $[[ph]]$ stands for a formula in propositional first order
 logic over variables, integers and contexts;
 we discuss these formulas later in \Cref{sec:types}.
-We assume a set of \emph{variables}, ranged over by $x,y,z,\dots$ and
-a set of labels ranged over by $[[l1]], [[l2]], \dots$.
+\AI{\textbf{Labels} is removed because it is rarely used.}
 
 Variables are introduced by function parameters or let bindings.
 Like ML, the variable bindings introduced by let-expressions and parameters
 are immutable.
-A mutable variable declaration like \texttt{int x = 1} in C is achieved with
+A mutable variable declaration like \texttt{int x = 1;} in C is achieved with
 \[
   [[ let y = 1 in (let x = mkref y in etc) ]]
 \]
@@ -59,8 +62,9 @@ $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
 $[[*y]]$ accesses the contents of reference $[[y]]$. For simplicity,
 we do not include an explicit null value.
 Function calls must occur on the right hand side of a variable binding
-and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is
-(unique) label drawn from \textbf{Labels}. These labels are used to make our type system for context sensitive as
+and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is a
+(unique) label.% drawn from \textbf{Labels}.
+These labels are used to make our type system for context sensitive as
 discussed in \Cref{sec:cs}.
 
 The single base case for expressions is a single variable.
@@ -88,8 +92,7 @@ added precision.
 $[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$
 with the contents of $[[y]]$.
 In addition to the above continuations, our language supports general sequencing with
-$[[e1 ; e2]]$. \JT{Should we remove this?} In the remainder of this paper we will rely on context to disambiguate
-between continuations and general sequencing.
+$[[e1 ; e2]]$.
 
 \begin{remark}
   Although we include \imp{alias} annotations in the
@@ -97,7 +100,9 @@ between continuations and general sequencing.
   may use also implicit annotations provided by a conservative must-alias analysis.
   \JT{That we mention must-alias analyses here seems to contradict our claim in
     the intro.}
+  \AI{This will be resolved after we settle down the introduction.}
   \JT{What is the preference for remark vs. footnote?}
+  \AI{I don't have a strong preference.  A footnote saves more space?}
 \end{remark}
 
 A program is a pair $[[<D, e>]]$, where
@@ -142,7 +147,7 @@ We assume a finite domain of heap addresses \textbf{Addr}:
 we denote an arbitrary address with $[[a]]$.
 A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consist of a heap,
 register file, stack, and currently reducing expression respectively.
-The register file maps variables to runtime values, which are
+The register file maps variables to runtime values $[[Rv]]$, which are
 either integers $[[nn]]$ or addresses $[[a]]$. The heap maps a subset
 of addresses to runtime values. The runtime stack represents pending
 function calls as a sequence of return contexts which we
@@ -150,20 +155,28 @@ describe below.
 While the final configuration component is an expression,
 the rewriting rules are defined in terms of $[[ E[e] ]]$, which is
 an evaluation context $[[E]]$ and redex $[[e]]$, as is standard.
-The grammar for evaluation contexts and return contexts are defined below:
+The grammar for evaluation contexts and return contexts $[[CE]]$ are defined by: 
 % in \Cref{fig:eval-context-grammar}.
-\[
-    [[ E ]]  ::=  [[ E'; e ]] \mid [[ [] ]] \qquad
-    [[ CE ]] ::=  [[ E[let y = [] l in e] ]].
-\]
+\(
+    [[ E ]]  ::=  [[ E'; e ]] \mid [[ [] ]].
+  \)
+
 Our operational semantics is given in \Cref{fig:transitionRules1,fig:transitionRules2}.
+We write $[[dom H]]$ to indicate the domain of
+the function and $[[H { a |-> Rv }]]$ where $a \not\in\DOM(H)$ to denote a map
+which takes all values in $\DOM(H)$ to their values in $H$ and which
+additionally takes $[[a]]$ to $[[Rv]]$.
+We will write $ [[H { a <- Rv }]]$
+where $a\in\DOM(H)$ to denote a map equivalent to $[[H]]$ except that $[[a]]$ takes value $[[Rv]]$.  Similarly for $dom R$ and $[[R{x |-> Rv}]]$.
+We also write $\emptyset$ for the empty register file and heap.
+%
 Notice that the step relation  $[[ --> D ]]$ is parameterized
 by a set of function definitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
 The semantics are mostly standard; we highlight some important points below.
 
-First we introduce return contexts, which
+First we introduce return contexts $[[CE]]$, which
 take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pending
 function call with label $[[l]]$, and indicates that the return value of the
 callee should be bound to $[[y]]$ in $[[e]]$ within the larger exectuion context $[[E]]$.
@@ -191,7 +204,7 @@ execution of a well-typed program may reach this configuration.
 The \imp{alias} form checks whether the two references actually alias;
 i.e., if the must alias assertion provided by the programmer is correct.
 If not, our semantics step to the distinguished $[[AliasFail]]$ configuration.
-Our type system does \emph{not} guarantee that $[[AliasFail]]$ are unreachable;
+Our type system does \emph{not} guarantee that $[[AliasFail]]$ are \AI{is?} unreachable;
 aliasing assertions are effectively trusted annotations and are assumed to hold.
 
 In order avoid duplicates variable names in our register file due to recursive functions,
@@ -203,6 +216,7 @@ We assume this refreshing of variables preserves our assumption that all variabl
 bindings introduced with let and function parameters are unique, i.e. $[[x']]$ does
 not overlap with a variable name that occurs in the program.
 \JT{Do we want to mention this at all?}
+\AI{We may want to remove if we need more space.}
 Finally, although $\rn{R-MkRef}$ allocates memory, our language does not
 support memory reclamation.
 We assume a garbage collected environment and consider memory reclamation an orthogonal concern.
