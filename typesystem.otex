@@ -393,7 +393,7 @@ It means that, to typecheck $[[e]]$, ownerships in the type
 $[[y]]$ in $[[G]]$ are distributed into two types $[[T1]]$ for $[[y]]$
 and $[[T2]]$ for $[[x]]$, which is an alias of $[[y]]$.  For example,
 type $[[{nu:int | nu > 0} ref 1]]$ can be split into (1)
-$[[{nu:int | nu > 0} ref 0.5]]$ and $[[{nu:int | nu > 0} ref 0.5]]$ so
+$[[{nu:int | nu > 0} ref r]]$ and $[[{nu:int | nu > 0} ref (1-r)]]$ (for $[[r]] \in (0,1)$) so
 that both $[[x]]$ and $[[y]]$ can be read without losing refinements
 or (2) $[[{nu:int | nu > 0} ref 1]]$ and $[[{nu:int | Top} ref 0]]$ so
 that one of the aliases can be mutable.  It depends on the usage of

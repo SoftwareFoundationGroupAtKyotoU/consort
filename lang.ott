@@ -69,11 +69,13 @@ grammar
   r {{ tex r }} :: 'O_' ::= {{ com ownership }}
     | q :: :: const_owner {{ tex [0,1] \in \mathbb{Q} }}
 	| r1 + r2 :: :: add_owner
+	| r1 - r2 :: :: sub_owner
 	| 0 :: :: dead_owner
 	| 1 :: :: excl_owner
 	| O ( a ) :: :: omap_lkp
 	| float :: :: float
 	| r [ x , nn , pp ] :: :: gen_var {{ tex [[r]]_{[[x]],[[nn]],[[pp]]} }}
+        | ( r ) :: :: paren
 
 
   top {{ tex \top }} :: t ::=
