@@ -42,7 +42,7 @@
   linkcolor=red,
   citecolor=red}
 \usepackage[noabbrev]{cleveref}
-%\draftCommentsfalse
+\draftCommentsfalse
 
 \ifdraftComments\else\linepenalty=1000\fi
 
@@ -80,29 +80,19 @@
 %
 \begin{abstract}
   We present \name, a type system for safety verification in the
-  presence of mutability and aliasing. Precise verification is
-  confounded by the subtle interaction of these two features.
-  Mutability requires \emph{strong updates} to model changing invariants
-  during program execution, but aliasing between program references
-  makes it difficult to determine which invariants must be updated
-  in response to mutation. Many existing approaches opt to only support
-  fixed invariants on memory locations that hold throughout the lifetime
-  of the program, causing precision loss.
-
+  presence of mutability and aliasing. Mutability requires
+  \emph{strong updates} to model changing invariants
+  during program execution, but aliasing between makes it difficult
+  to determine which invariants must be updated
+  in response to mutation.
   Our type system addresses this difficulty with novel combination of refinement types and
-  fractional ownership types. Refinement types  
-  track the invariants on memory pointed to by
-  reference variables. Fractional ownership types precisely and flow-sensitively
-  track whether a reference variables holds \emph{all} ownership
-  for a cell, which permits the mutation of the cell's contents.
-  Any reference with \emph{zero} ownership may therefore have a mutable alias;
-  our type system preemptively discards \emph{all}
-  refinement information within such zero ownership references. As a result,
-  mutations through a mutable reference are trivially consistent with
-  refinements of all aliases. Our type system may later propagates refinements
-  and ownerships to aliases when needed. We have proved our type system
-  sound and implemented an initial prototype, fully automated inference tool.
-  
+  fractional ownership types. Fractional ownership types
+  provide flow-sensitive and precise aliasing information
+  for reference variables. \name interprets this ownership information
+  to soundly handly strong updates of potentially mutable references.
+  We have proved our type system sound and implemented a prototype,
+  fully automated inference tool. \name outperforms
+  another automated program verifier on non-trivial verification problems.
 \keywords{}
 \end{abstract}
 %
