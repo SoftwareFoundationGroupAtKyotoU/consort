@@ -182,7 +182,7 @@ over a context variable. Intuitively,
 this context variable represents the many different execution contexts
 under which a function may be called.
 Argument and return types may then depend on this context variable with
-\emph{context query predicates} described below.
+\emph{context query predicates} described next.
 
 Types within a function type may depend on the function's calling context
 by including \emph{context query predicates} in their refinements.
@@ -628,7 +628,7 @@ hold for contents of the other and vice versa.
   \end{align*}
 \end{example}
 
-The aliasing rule \AI{rules?} gives fine-grained control over ownership information. In particular,
+The aliasing rules give fine-grained control over ownership information. In particular,
 this flexibility allows mutation through two aliased references within the same scope.
 Provided sufficient aliasing annotations, the type system may shuffle ownerships between
 one or more live references, enabling and disabling mutability as required. Although the

@@ -204,7 +204,7 @@ execution of a well-typed program may reach this configuration.
 The \imp{alias} form checks whether the two references actually alias;
 i.e., if the must alias assertion provided by the programmer is correct.
 If not, our semantics step to the distinguished $[[AliasFail]]$ configuration.
-Our type system does \emph{not} guarantee that $[[AliasFail]]$ are \AI{is?} unreachable;
+Our type system does \emph{not} guarantee that $[[AliasFail]]$ is unreachable;
 aliasing assertions are effectively trusted annotations and are assumed to hold.
 
 In order avoid duplicates variable names in our register file due to recursive functions,
