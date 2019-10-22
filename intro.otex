@@ -43,7 +43,7 @@ loop(a, b) {
   else
     loop(b,a)$\label{line:call2}$
 }
-main() { loop(mkref $\star$, mkref $\star$) }
+loop(mkref $\star$, mkref $\star$)
 \end{lstlisting}
   \caption{Example with non-trivial aliasing behavior.}
   \label{fig:hard-loop}
@@ -86,7 +86,7 @@ aliases; given the static uncertainty
 about whether a variables points to the mutated memory, that variable's
 refinement may only be \emph{weakly updated}. For example,
 suppose we used a simple alias analysis that imprecisely (but soundly)
-concluded all references allocated at the same location \AI{``program location'' or ``program point'' may be better to disambiguate from memory locations.} \emph{might} alias;
+concluded all references allocated at the same program point \emph{might} alias;
 because \imp{p} and \imp{q} share the allocation site on
 \cref{line:mk}, we would have to update weakly
 \imp{q}'s type to $[[ {nu:int|nu = 4 \/ nu = 5 } ]]$,
@@ -102,7 +102,7 @@ refinement types use precise aliasing information and that
 spuriously applied weak updates are avoided. Although it
 is relatively simple to conclude that \imp{p} and \imp{q}
 do not alias in \Cref{fig:strong-update-example}, consider
-the example in \Cref{fig:hard-loop}. \AI{Do we need the header \texttt{main()}, when the other examples don't have it?} (In this example,
+the example in \Cref{fig:hard-loop}. (In this example,
 $\star$ represents some non-deterministic value.) Verifying
 this program requires proving \imp{a} and \imp{b} never
 alias for the writes on \cref{line:b-write,line:a-write}.
@@ -112,7 +112,7 @@ this pattern may confound even sophisticated symbolic alias analyses.
 Additionally, \imp{a} and \imp{b} share an allocation site on \cref{line:alloc1},
 so the simple alias analysis described above will also fail on
 this example. This obligation \emph{can} be discharged with existing
-techniques \needcite[boomerang??], but requires an expensive, on-demand,
+techniques \cite{spath2016boomerang,spath2019context}, but requires an expensive, on-demand,
 interprocedural, flow-sensitive alias analysis. 
 
 This paper presents \name (CONtext Sensitive Ownership Refinement Types),
@@ -140,9 +140,8 @@ pointers hold ``exclusive'' ownership of the pointed to reference cell;
 from the invariant of fractional ownership types \imp{p} and \imp{q}
 must not alias. The types of both references
 can thus be strongly updated \emph{without} requiring weak updates; at the
-assertion statement on \cref{line:rq-eq-assert} \imp{p} will have type
-$[[ {nu:int|nu = 4} ref 1 ]]$ which is expresses the required invariant
-exactly.
+assertion statement on \cref{line:rq-eq-assert} \imp{p} has type
+$[[ {nu:int|nu = 4} ref 1 ]]$ expressing the required invariant.\looseness=-1
 
 Our type system can also verify the example in
 \Cref{fig:hard-loop} \emph{without} expensive
@@ -162,7 +161,7 @@ we replace \cref{line:call2} in \Cref{fig:hard-loop} with
 \imp{loop(b,b)}, the program becomes ill-typed; there
 is no way to divide \imp{b}'s ownership of 1 to into \emph{two}
 ownerships of 1.
-Unlike systems which treat aliasing at the level of lexical regions
+\iffalse Unlike systems which treat aliasing at the level of lexical regions
 \cite{grossman2002region,jim2002cyclone,matsakis2014rust,tofte1994implementation},
 \name supports \emph{fine-grained, per-statement} ownership tracking;
 i.e., multiple aliased references can be used to mutate memory within
@@ -178,15 +177,14 @@ where memory is mutated through multiple, live references.
   readers can understand.  In fact, I was able to understand by reading the hidden
   sentence in the source file.  I also feel like this statement is misleading because
   we do not mention alias annotations at all.  Ownership transfer (without annotations) has been a difficult problem.
-}
+}\fi
 
 Ownerships also obviate updating the refinements
-of all aliases at mutation. As all aliases of a reference
-with ownership $[[1]]$ have $0$ ownership;
-\name ensures that only the trivial refinement $[[Top]]$ is used within the
-type of references with $0$ ownership. Thus, when
+of all aliases at mutation. \name ensures that only the trivial refinement
+$[[Top]]$ is used within the type of all mutably-aliased references; i.e.,
+references with $0$ ownership. When
 memory is mutated through a reference with ownership $1$,
-\name simply updates the refinements on the updated reference.
+\name simply updates the refinement of the mutated reference variable.
 From the soundness of ownership types and the above condition
 enforced by \name, the types of any aliases must exclusively use the
 refinement $[[Top]]$, and thus already soundly describe all possible contents.\footnote{This
