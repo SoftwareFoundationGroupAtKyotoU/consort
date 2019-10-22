@@ -388,16 +388,20 @@ refinements to no longer mention $[[x]]$. As in other refinement type
 systems \cite{rondon2008liquid}, this requirement is critical for
 ensuring soundness.
 
-Rule \rn{T-Let} is crucial to understand our ownership type system.
-It means that, to typecheck $[[e]]$, ownerships in the type
-$[[y]]$ in $[[G]]$ are distributed into two types $[[T1]]$ for $[[y]]$
-and $[[T2]]$ for $[[x]]$, which is an alias of $[[y]]$.  For example,
-type $[[{nu:int | nu > 0} ref 1]]$ can be split into (1)
-$[[{nu:int | nu > 0} ref r]]$ and $[[{nu:int | nu > 0} ref (1-r)]]$ (for $[[r]] \in (0,1)$) so
-that both $[[x]]$ and $[[y]]$ can be read without losing refinements
-or (2) $[[{nu:int | nu > 0} ref 1]]$ and $[[{nu:int | Top} ref 0]]$ so
-that one of the aliases can be mutable.  It depends on the usage of
-$[[x]]$ and $[[y]]$ in $[[e]]$ how the type should be split.
+Rule \rn{T-Let} is crucial to understanding our ownership type system.
+The body of the let expression $[[e]]$ is typechecked under a type environment
+where the type of $[[y]]$ in $[[G]]$ is linearly split into two types:
+$[[T1]]$ for $[[y]]$ and $[[T2]]$ for the newly created binding $[[x]]$.
+This splitting is expressed using the $+$ operator. If $[[y]]$ is a reference
+type, the split operation distributes some portion of $[[y]]$'s ownership information
+to its new alias $[[x]]$. The split operation also distributes
+refinement information between the two types.
+For example, type $[[{nu:int | nu > 0} ref 1]]$ can be split into (1)
+$[[{nu:int | nu > 0} ref r]]$ and $[[{nu:int | nu > 0} ref (1-r)]]$ (for $[[r]] \in (0,1)$),
+i.e., two \emph{immutable} references with non-trivial refinement information,
+or (2) $[[{nu:int | nu > 0} ref 1]]$ and $[[{nu:int | Top} ref 0]]$, where one
+one of the aliases is mutable and the other provides no refinement information.
+How a type is split depends on the usage of $[[x]]$ and $[[y]]$ in $[[e]]$.
 Formally, we define the type addition operator, which is defined as
 the least commutative partial operation that satisfies the following
 rules:
