@@ -1,4 +1,3 @@
-
 \begin{figure}
   \leavevmode
   \infrule[TE-Seq]{
@@ -29,17 +28,16 @@
 
 \begin{figure}
   \leavevmode
-  \infrule[Obsolete?]{
-    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{0..n-1}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
-    [[ Cons(H, R, G) ]] \andalso
-    \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\
-    [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]] \\
-    [[ Th | G | ll |- e : T => G' ]]
-  }{
-    [[ |- D <H,R,Es,En[e]> ]]
-  }
-
-  \infrule[Simplified]{
+  % \infrule[Obsolete?]{
+  %   [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{0..n-1}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
+  %   [[ Cons(H, R, G) ]] \andalso
+  %   \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e Ei-1 : Ti-1 => Gi-1 ]] \\
+  %   [[ Th | [] : T => G' | ll |-e En : Tn => Gn ]] \\
+  %   [[ Th | G | ll |- e : T => G' ]]
+  % }{
+  %   [[ |- D <H,R,Es,En[e]> ]]
+  % }
+  \infrule{
     [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{1..n}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
     [[ Cons(H, R, G) ]] \andalso
     \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli |-e CEi : Ti-1 => Gi-1 ]] \\
@@ -48,22 +46,19 @@
   }{
     [[ |- D <H,R,Es,e> ]]
   }
-
   \infax[]{
     [[ |- D AliasFail ]]
   }
-
   \begin{align*}
-    [[Trace(.) = .]] && [[Trace(E[let x = [] l in e] : Es) = l : Trace(Es)]]
-  \end{align*}
-\caption{Machine state typing}
-\label{fig:state-typing}
-\end{figure}
-\begin{figure}
-  \begin{align*}
-    [[Cons(H,R,G)]] = & [[SAT(H,R,G)]] \wedge [[forall a in H.Own(H,R,G)(a)]] \leq 1 \\
-    [[SAT(H,R,G)]] = & [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
-    [[SATv(H,R,Rv,T)]] = & \begin{cases}
+    [[Trace(.)]] &= [[.]] \\
+    [[Trace(E[let x = [] l in e] : Es)]] &= [[l : Trace(Es)]] \\
+   \end{align*}
+% \end{figure}
+% \begin{figure}
+   \begin{align*}
+    [[Cons(H,R,G)]] & \stackrel{\textrm{\tiny def}}{\iff} [[SAT(H,R,G)]] \wedge [[forall a in H.Own(H,R,G)(a)]] \leq 1 \\
+    [[SAT(H,R,G)]] & \stackrel{\textrm{\tiny def}}{\iff} [[ forall x in G.x in R /\ SATv(H,R,R(x),G(x)) ]] \\
+    [[SATv(H,R,Rv,T)]] & \stackrel{\textrm{\tiny def}}{\iff} \begin{cases}
       [[Rv is INT /\ [R][Rv / nu]ph ]] & [[ T = {nu:int|ph} ]] \\
       [[a in H /\ SATv(H,R,H(a),T')]] & [[ T = T' ref r /\ Rv = a ]]
     \end{cases} \\
@@ -76,16 +71,19 @@
       [[ empty ]] & o.w.
     \end{cases} \\
   \end{align*}
-  \caption{State consistency}
-  \label{fig:consistency}
+\caption{Machine state typing}
+\label{fig:state-typing}
+  % \caption{State consistency}
+  % \label{fig:consistency}
 \end{figure}
 
 \section{Proof of Type Soundness (\Cref{thm:soundness})}
-We first define a typing relation for machine configurations $[[ < H, R, Es, e>]]$ as show in
+
+We first define a typing relation for machine configurations $[[ < H, R, Es, e>]]$ as shown in
 \Cref{fig:state-typing}. The critical component of this typing relation is the consistency relation $[[Cons]]$.
 Intuitively, $[[Cons]]$ expresses that the current heap and registers are consistent with the ownership
 and refinement information implied by $[[G]]$. We say triple $( [[H]],[[R]],[[G]] )$ is \emph{consistent},
-and write $[[Cons(H,R,G)]]$; the definition of this relation is shown in \Cref{fig:consistency}.
+and write $[[Cons(H,R,G)]]$. %; the definition of this relation is shown in \Cref{fig:consistency}.
 In the definitions for $[[own]]$ we write $[[ { a |-> r } ]]$ to denote a function $\textbf{Addr} \rightarrow [0,1]$
 which returns $[[r]]$ for $[[a]]$, and $0$ otherwise. We write $[[empty]]$ to denote a constant
 function $\textbf{Addr} \rightarrow [0,1]$ which always returns $0$. We define the addition between

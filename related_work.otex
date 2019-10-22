@@ -48,7 +48,7 @@ This approach enables modular reasoning and precise specification of
 method pre- and post-conditions with respect to the heap, but requires
 manual annotation from the programmer.
 
-The work on rely-guarantee reference types by Gordon et
+The work on rely--guarantee reference types by Gordon et
 al. \cite{gordon2013rely,gordon2017verifying} uses refinement
 types in a language mutable references and aliasing.
 Their approach extends reference types with rely/guarantee predicates;
@@ -66,7 +66,7 @@ expressiveness comes at the cost of automated inference and verification; an emb
 of this system into Liquid Haskell \cite{vazou2014refinement} described in
 \cite{gordon2017verifying} was forced to sacrifice strong updates.
 
-Work by Degen et al. \cite{degen2007tracking} introduced linear state annotations to to Java.
+Work by Degen et al. \cite{degen2007tracking} introduced linear state annotations to Java.
 To effect strong updates in the presence of aliasing, like \name,
 their system requires state annotated memory locations are mutated only through
 a distinguished reference. Further, all aliases of this mutable reference give
