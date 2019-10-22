@@ -91,8 +91,13 @@ The solver may then instantiate relation symbols with predicates
 that are conditional over the values of $[[ci]]$.
 
 \subsubsection{Solving}
-The result of the above process are two systems of constraints; linear real arithmetic constraints over
+The result of the above process are two systems of constraints;
+linear real arithmetic constraints over
 ownership variables and constrained Horn clauses over the refinement relations.
+The inference process generates subtyping constraints for every variable at
+each program point. The number of constraints and relations is thus quadratic in
+the size of the program in the worst case.\footnote{In practice we can
+simplify away many ``intermediate'' relations giving dramatic speed-ups.}
 These systems are not independent; the relation constraints may mention the value
 of ownership variables due to the well-formedness constraints described above.
 The ownership constraints are first solved with Z3 \cite{de2008z3}.
