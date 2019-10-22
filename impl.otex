@@ -69,7 +69,7 @@ To make inference tractable, we require the user to fix \emph{a
 choice is easily controlled with a command line parameter to our tool). We
 supplement the arguments in every predicate application with a set of
 context variables $[[c1,,ck]]$; these variables are assumed to not
-overlap with any program variables.
+overlap with any program variables.\looseness=-1
 
 \name uses these variables to infer context sensitive
 refinements as follows. Consider a function call
