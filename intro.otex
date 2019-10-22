@@ -34,9 +34,9 @@ assert(*p = 4);$\label{line:rq-eq-assert}$
 \begin{minipage}[t]{0.45\textwidth}
   \begin{lstlisting}
 loop(a, b) {
-  let aold = *a in $\label{line:aold-assign}$
-  b := *b + 1;
-  a := *a + 1;
+  let aold = *a in
+  b := *b + 1;$\label{line:b-write}$
+  a := *a + 1;$\label{line:a-write}$
   assert(*a = aold + 1);
   if $\star$ then
     loop(b, mkref $\star$)$\label{line:alloc1}$
@@ -45,7 +45,7 @@ loop(a, b) {
 }
 main() { loop(mkref $\star$, mkref $\star$) }
 \end{lstlisting}
-  \caption{Running example}
+  \caption{Example with non-trivial aliasing behavior.}
   \label{fig:hard-loop}
 \end{minipage}
 \end{figure}
@@ -77,7 +77,7 @@ while tracking distinct invariants for each memory cell.
 
 Unfortunately, the precise application of this technique is confounded
 by the existence of unrestricted aliasing.
-In general, updating the type of only the mutated reference
+In general, updating the type of just the mutated reference
 is insufficient: due to aliasing, other variables may point to the mutated
 memory and their refinements must be updated as well. However,
 in the presence of conditional, \emph{may} aliasing it is
@@ -85,8 +85,10 @@ impossible to strongly update the refinements on all possible
 aliases; given the static uncertainty
 about whether a variables points to the mutated memory, that variable's
 refinement may only be \emph{weakly updated}. For example,
-suppose we imprecisely (but soundly) concluded that
-\imp{q} and \imp{p} \emph{might} alias; we would have to update weakly
+suppose we used a simple alias analysis that imprecisely (but soundly)
+concluded all references allocated at the same location \emph{might} alias;
+because \imp{p} and \imp{q} share the allocation site on
+\cref{line:mk}, we would have to update weakly
 \imp{q}'s type to $[[ {nu:int|nu = 4 \/ nu = 5 } ]]$,
 indicating it may hold either 4 \emph{or} 5.
 Under this same imprecise aliasing assumption,
@@ -101,13 +103,17 @@ spuriously applied weak updates are avoided. Although it
 is relatively simple to conclude that \imp{p} and \imp{q}
 do not alias in \Cref{fig:strong-update-example}, consider
 the example in \Cref{fig:hard-loop}. (In this example,
-\imp[mathescape]{if $\star$} represents non-deterministic choice
-and \imp[mathescape]{mkref $\star$} creates a reference with
-non-deterministic contents.) Verifying
+$\star$ represents some non-deterministic value.) Verifying
 this program requires proving \imp{a} and \imp{b} never
-alias. This obligation can be discharged with existing
+alias for the writes on \cref{line:b-write,line:a-write}.
+In fact, \imp{a} and \imp{b} may point to the same
+memory location, but only in different invocations of \imp{loop};
+this pattern may confound even sophisticated symbolic alias analyses.
+Additionally, \imp{a} and \imp{b} share an allocation site on \cref{line:alloc1},
+so the simple alias analysis described above will also fail on
+this example. This obligation \emph{can} be discharged with existing
 techniques \needcite[boomerang??], but requires an expensive, on-demand,
-interprocedural, flow-sensitive alias analysis.
+interprocedural, flow-sensitive alias analysis. 
 
 This paper presents \name (CONtext Sensitive Ownership Refinement Types),
 a type system for the automated verification
@@ -197,7 +203,7 @@ p := get(p) + 1;$\label{line:get1}$
 q := get(p) + 1;$\label{line:get2}$
 assert(*p = 4);
   \end{lstlisting}
-  \caption{Running example}
+  \caption{Context Sensitivity Example}
   \label{fig:running-example}
 \end{wrapfigure}
 \name is also \emph{context-sensitive}, and can
