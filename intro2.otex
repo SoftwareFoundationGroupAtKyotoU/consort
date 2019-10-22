@@ -1,0 +1,235 @@
+\section{Introduction}
+\label{sec:intro}
+Driven by the increasing power of automated theorem provers and
+recent high-profile, expensive software failures,
+fully automated program verification has seen a surge of interest
+in recent years \cite{leino2010dafny,cousot2005astree,ball2011decade,zave2012using,hawblitzel2015ironfleet,bhargavan2017everest}.
+In particular, \emph{refinement types}
+\cite{flanagan2006hybrid,xi1999dependent,freeman1991refinement,bengtson2011refinement},
+which refine base types with logical predicates, have been shown to be a practical
+approach for program verification that are amenable to
+(sometimes full) automation \cite{rondon2008liquid,vazou2014refinement,vazou2013abstract,unno2009dependent}.
+However, despite promising advances \cite{rondon2010low,kahsai2017quantified,gordon2013rely},
+the sound and precise application of refinement types (and program
+verification in general) in settings with mutability and aliasing
+(e.g., Java, Ruby, etc.) remains difficult.
+
+
+\begin{figure}[t]
+  \begin{minipage}[t]{0.45\textwidth}
+  \begin{lstlisting}[numbers=left, numbersep=3pt, numberstyle=\tiny\color{black},numberblanklines=false]
+mk(n) { mkref n }$\label{line:mk}$
+
+let p = mk(3) in$\label{line:main-start}$
+let q = mk(5) in
+p := *p + 1;$\label{line:first-p-write}$
+q := *q + 1;$\label{line:r-write}$
+assert(*p = 4);$\label{line:rq-eq-assert}$
+  \end{lstlisting}
+  \caption{Example demonstrating the difficulty of effecting strong updates in the presence of aliasing. The function \imp{mk} is
+    bound in the program from \crefrange{line:main-start}{line:rq-eq-assert}; its body is given within the braces.}
+  \label{fig:strong-update-example}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.45\textwidth}
+  \begin{lstlisting}
+loop(a, b) {
+  let aold = *a in $\label{line:aold-assign}$
+  b := *b + 1;
+  a := *a + 1;
+  assert(*a = aold + 1);
+  if $\star$ then
+    loop(b, mkref $\star$)$\label{line:alloc1}$
+  else
+    loop(b,a)$\label{line:call2}$
+}
+main() { loop(mkref $\star$, mkref $\star$) }
+\end{lstlisting}
+  \caption{Running example}
+  \label{fig:hard-loop}
+\end{minipage}
+\end{figure}
+
+One of the major challenges is how to precisely and soundly support
+\emph{strong updates} for the invariants on memory cells.
+In a setting with mutability, a single invariant may not necessarily
+hold throughout the lifetime of a memory cell; as the program
+mutates the memory the invariant may change or evolve.
+To model these changes, a program verifier
+must support different, incompatible invariants that hold at
+different points during program execution. Further, precise
+program verification requires supporting different invariants
+on distinct pieces of memory.
+
+One solution is to use refinement types on the static program names
+(i.e., variables) which point to a memory location. For example,
+consider the (contrived) example in \Cref{fig:strong-update-example}.
+This program is written in an ML-like language with mutable references;
+references are allocated with \imp{mkref} and updated with \imp{:=}.
+\imp{p} can initially be given the type
+$[[ {nu:int|nu = 3}]]\TREF$, indicating it is a
+reference to the integer 3.
+Similarly, \imp{q} can be given the type $[[ {nu:int|nu = 5}]] \TREF$.
+We can model the mutation of \imp{p}'s memory on \cref{line:first-p-write}
+by strongly updating \imp{p}'s type to $[[ {nu:int|nu = 4}]] \TREF$.
+Thus, the refinement type based approach can model evolving invariants
+while tracking distinct invariants for each memory cell.
+
+Unfortunately, the precise application of this technique is confounded
+by the existence of unrestricted aliasing.
+In general, updating the type of only the mutated reference
+is insufficient: due to aliasing, other variables may point to the mutated
+memory and their refinements must be updated as well. However,
+in the presence of conditional, \emph{may} aliasing it is
+impossible to strongly update the refinements on all possible
+aliases; given the static uncertainty
+about whether a variables points to the mutated memory, that variable's
+refinement may only be \emph{weakly updated}. For example,
+suppose we imprecisely (but soundly) concluded that
+\imp{q} and \imp{p} \emph{might} alias; we would have to update weakly
+\imp{q}'s type to $[[ {nu:int|nu = 4 \/ nu = 5 } ]]$,
+indicating it may hold either 4 \emph{or} 5.
+Under this same imprecise aliasing assumption,
+we would also have to weakly
+\imp{p}'s type on \cref{line:r-write}
+preventing the verification of the example program.
+
+Given the precision loss associated with weak updates
+it is critical that verification techniques built upon
+refinement types use precise aliasing information and that
+spuriously applied weak updates are avoided. Although it
+is relatively simple to conclude that \imp{p} and \imp{q}
+do not alias in \Cref{fig:strong-update-example}, consider
+the example in \Cref{fig:hard-loop}. (In this example,
+\imp[mathescape]{if $\star$} represents non-deterministic choice
+and \imp[mathescape]{mkref $\star$} creates a reference with
+non-deterministic contents.) Verifying
+this program requires proving \imp{a} and \imp{b} never
+alias. This obligation can be discharged with existing
+techniques \needcite[boomerang??], but requires an expensive, on-demand,
+interprocedural, flow-sensitive alias analysis.
+
+This paper presents \name (CONtext Sensitive Ownership Refinement Types),
+a type system for the automated verification
+of program safety for imperative languages with mutability and aliasing.
+\name is built upon the novel combination of refinement types and
+fractional ownership types \cite{suenaga2009fractional,suenaga2012type}.
+Fractional ownership types extend pointer types with a rational number in
+the range $[0,1]$ called an \emph{ownership}.
+These ownerships encapsulate the permission of the reference; only
+references with ownership $1$ may be used for mutation. Fractional ownership
+types also obey the following key invariant: any references with a mutable
+alias must have ownership 0, i.e., any reference with $0$ ownership may have a mutable alias.
+Thus, any reference with non-zero ownership \emph{cannot}
+be an alias of a reference with ownership $1$. In other words,
+ownerships provide extremely precise aliasing information in the form of
+\emph{must-not} aliasing.
+
+To understand the benefit of this approach, let us return to
+\Cref{fig:strong-update-example}. As \imp{mk} returns a freshly allocated
+reference with no aliases, its function type indicates it returns a
+reference with ownership 1. Thus our type system can initially
+give \imp{p} and \imp{q} types $[[ { nu:int|nu = 3} ref 1 ]]$ and $[[ {nu:int|nu = 5} ref 1]]$ respectively. The ownership $[[1]]$ indicates both
+pointers hold ``exclusive'' ownership of the pointed to reference cell;
+from the invariant of fractional ownership types \imp{p} and \imp{q}
+must not alias. The types of both references
+can thus be strongly updated \emph{without} requiring weak updates; at the
+assertion statement on \cref{line:rq-eq-assert} \imp{p} will have type
+$[[ {nu:int|nu = 4} ref 1 ]]$ which is expresses the required invariant
+exactly.
+
+Our type system can also verify the example in
+\Cref{fig:hard-loop} \emph{without} expensive
+side analyses. As \imp{a} and \imp{b} are both
+mutated, they must both have ownership 1; i.e., they cannot alias.
+At the invocation of \imp{loop} on \cref{line:alloc1}, \imp{b} has
+ownership 1 (from the argument types), and the newly allocated
+reference must also have ownership 1.
+Similarly, both arguments on \cref{line:call2} have ownership $[[1]]$
+(again, from the assumed ownership on the argument types).
+
+Ownerships behave linearly;
+they cannot be duplicated, only \emph{split}
+when aliases are created. This linear behavior
+preserves the critical ownership invariant. For example, if
+we replace \cref{line:call2} in \Cref{fig:hard-loop} with
+\imp{loop(b,b)}, the program becomes ill-typed; there
+is no way to divide \imp{b}'s ownership of 1 to into \emph{two}
+ownerships of 1.
+Unlike systems which treat aliasing at the level of lexical regions
+\cite{grossman2002region,jim2002cyclone,matsakis2014rust,tofte1994implementation},
+\name supports \emph{fine-grained, per-statement} ownership tracking;
+i.e., multiple aliased references can be used to mutate memory within
+the same region.
+\iffalse
+For example, the mutable ownership $1$ of
+some reference may be distributed among
+many aliases, and then later collected into a different
+reference, restoring mutability.\fi
+This feature is particularly critical for the verification of programs
+where memory is mutated through multiple, live references.
+
+Ownerships also obviate updating the refinements
+of all aliases at mutation. As all aliases of a reference
+with ownership $[[1]]$ have $0$ ownership;
+\name ensures that only the trivial refinement $[[Top]]$ is used within the
+type of references with $0$ ownership. Thus, when
+memory is mutated through a reference with ownership $1$,
+\name simply updates the refinements on the updated reference.
+From the soundness of ownership types and the above condition
+enforced by \name, the types of any aliases must exclusively use the
+refinement $[[Top]]$, and thus already soundly describe all possible contents.\footnote{This
+  assumption holds only if updates do not change simple types, a condition our type-system enforces.}
+
+\iffalse
+Thus, when copying
+a mutable pointer, the new alias may have non-trivial refinement information
+only if the mutable pointer loses mutability.
+\fi
+
+\begin{wrapfigure}{l}{0.29\textwidth}
+  \begin{lstlisting}[numbers=left,numbersep=3pt,numberstyle=\tiny\color{black},numberblanklines=false]
+get(p) { *p }
+
+let p = mkref 3 in
+let q = mkref 5 in
+p := get(p) + 1;$\label{line:get1}$
+q := get(p) + 1;$\label{line:get2}$
+assert(*p = 4);
+  \end{lstlisting}
+  \caption{Running example}
+  \label{fig:running-example}
+\end{wrapfigure}
+\name is also \emph{context-sensitive}, and can
+use different summaries of function behavior
+at different points in the program.
+For example, consider \Cref{fig:running-example}, which is a variant of
+\Cref{fig:strong-update-example}.
+The function \imp{get} returns the contents of its argument,
+and is called on \cref{line:get1,line:get2}. To precisely verify
+this program, at \cref{line:get1}
+\imp{get} must be typed as a function that takes a reference that
+contains 3 and returns 3. Similarly, on \cref{line:get2}
+\imp{get} must be typed as a function that
+takes a reference to 5 and returns 5. Our type system can
+give \imp{get} a function type that distinguishes between these two calling
+contexts and selects the appropriate summary of \imp{get}'s behavior.
+
+We have formalized \name as a type system for a small imperative calculus
+and proved the system sound: i.e., well-typed program never encounter assertion
+failures during execution. We have
+implemented a prototype type inference tool targeting this
+imperative language and found it can automatically verify several
+non-trivial programs, including sorted lists and an array list data structure.
+
+The rest of this paper is organized as follows. \Cref{sec:prelim} defines the
+imperative language targeted by \name and its semantics. \Cref{sec:typesystem}
+defines our type system, and states our soundness theorem. \Cref{sec:infr} outlines
+the inference algorithm used by our implementation and its current limitations.
+\Cref{sec:eval} describes an initial evaluation of our prototype, \Cref{sec:rw} outlines
+related work, and \Cref{sec:concl} concludes.\looseness=-1
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
