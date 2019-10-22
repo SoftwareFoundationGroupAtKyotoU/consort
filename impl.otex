@@ -108,6 +108,9 @@ this format can be used as a backend for \name. Our implementation
 currently supports Spacer \cite{komuravelli2013automatic} (part of the Z3 solver \cite{de2008z3}),
 HoICE \cite{champion2018hoice}, and Eldarica \cite{rummer2013disjunctive}
 (adding a new backend requires only a handful of lines of OCaml glue code).
+We found that different solvers are better tuned to different problems;
+we also implemented \emph{parallel mode} which runs all supported solvers
+in parallel and uses the result of the first solver to return. 
 
 \subsection{Extensions}
 We now sketch some language extensions supported by

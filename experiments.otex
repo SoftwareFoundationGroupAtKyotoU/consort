@@ -75,8 +75,8 @@ collect runtime information for this set of experiments because our goal
 is a comparison of tool precision, not performance.
 All tests were run on a machine with 16 GB RAM and 4 CPUs at 2GHz
 and with a timeout of 60 seconds (the same timeout
-was used in \cite{kahsai2017quantified}). We used \name's  parallel backend (\cref{sec:infr})
-with Z3 version 4.8.4 and HoICE version ...  \KS{Do not forget to fill this} and JayHorn's Eldarica backend.\footnote{We also tried the Spacer backend
+was used in \cite{kahsai2017quantified}). We used \name's parallel backend (\cref{sec:infr})
+with Z3 version 4.8.4, HoICE version 1.8.1, and Eldarica version 2.0.1 and JayHorn's Eldarica backend.\footnote{We also tried the Spacer backend
   included with JayHorn, but it required an extremely old version of Z3 (4.3.2) and crashed the JVM on several of our tests.}
 
 \subsection{Results}
