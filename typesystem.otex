@@ -611,16 +611,16 @@ any refinements that hold for the contents of one reference must necessarily
 hold for contents of the other and vice versa.
 
 \begin{example}[Shuffling ownerships and refinements]
-  Let $[[ph]]_x$ be $[[nu = x]]$.
+  Let $[[(=nn)]]$ be $[[nu = x]]$.
   \begin{lstlisting}
-    let x = mkref 5 in     // $\color{comment-green}{[[x:{nu:int|ph5} ref 1]]}$
-    let y = x in           // $\color{comment-green}{[[x:top1,y:{nu:int|ph5} ref 1]]}$
-    y := 4; alias(x = y) // $\color{comment-green}{[[x:{nu:int|ph4} ref 0.5,y:{nu:int|ph4} ref 0.5]]}$    
+    let x = mkref 5 in     // $\color{comment-green}{[[x:{nu:int|(=5)} ref 1]]}$
+    let y = x in           // $\color{comment-green}{[[x:top1,y:{nu:int|(=5)} ref 1]]}$
+    y := 4; alias(x = y) // $\color{comment-green}{[[x:{nu:int|(=4)} ref 0.5,y:{nu:int|(=4)} ref 0.5]]}$    
   \end{lstlisting}
   The final type assignment for $[[x]]$ and $[[y]]$ is justified by
   \begin{align*}
-    &[[top1 + {nu:int|ph4} ref 1 = {nu:int|Top /\ ph4} ref 1]][[~]]\\
-    \,\,\,\,&[[{nu:int|ph4/\ph4} ref 1 = {nu:int|ph4} ref 0.5 + {nu:int|ph4} ref 0.5 ]] .
+    &[[top1 + {nu:int|(=4)} ref 1 = {nu:int|Top /\ (=4)} ref 1]][[~]]\\
+    \,\,\,\,&[[{nu:int|(=4)/\(=4)} ref 1 = {nu:int|ph4} ref 0.5 + {nu:int|(=4)} ref 0.5 ]] .
   \end{align*}
 \end{example}
 
@@ -635,13 +635,13 @@ that only a small number of annotations are required for real-world programs.
 
 \begin{example}[Shuffling Mutability]
   \label{exmp:shuffle-example}
-  Let $[[ph]]_x$ be $[[nu = x]]$.
+  Let $[[(=nn)]]$ be $[[nu = nn]]$.
   The following program uses two live, aliased references to mutate the same memory location:
   \begin{lstlisting}
     let x = mkref 0 in
-    let y = x in             // $\color{comment-green}{[[x:{nu:int|ph0} ref 1,y:top1]]}$
-      x := 1; alias(x = y);  // $\color{comment-green}{[[x:top1,y:{nu:int|ph1} ref 1]]}$
-      y := 2; alias(x = y);  // $\color{comment-green}{[[x:{nu:int|ph2} ref 0.5,y:{nu:int|ph2} ref 0.5]]}$
+    let y = x in             // $\color{comment-green}{[[x:{nu:int|(=0)} ref 1,y:top1]]}$
+      x := 1; alias(x = y);  // $\color{comment-green}{[[x:top1,y:{nu:int|(=1)} ref 1]]}$
+      y := 2; alias(x = y);  // $\color{comment-green}{[[x:{nu:int|(=2)} ref 0.5,y:{nu:int|(=2)} ref 0.5]]}$
       assert(*x = 2)
   \end{lstlisting}
   % The types shown in the comments give the type environment under

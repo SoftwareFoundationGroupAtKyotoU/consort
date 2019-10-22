@@ -208,6 +208,7 @@ grammar
 	| ph [ pval , context_args ; FVF ] :: :: with_fv_cont {{ tex [[ph]]([[pval]],[[context_args]];[[FVF]]) }}
 	| ! ph :: :: not_ph {{ tex \neg [[ph]] }}
 	| ph1 \/ ph2 :: :: or
+	| ( = nn ) :: :: num_eq {{ tex \varphi_{=[[nn]]} }}
 
   pvar {{ tex x }} :: 'PV_' ::=
     | x :: :: var
