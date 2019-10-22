@@ -2,79 +2,81 @@
 \label{sec:typesystem}
 We now introduce a
 fractional ownership refinement type system that guarantees well-typed
-programs do not encounter assertion failures. We first present
-a brief background on ownership types (\Cref{sec:ownership}),
-before describing our fractional ownership refinement types
-(\Cref{sec:types}), the type system (\Cref{sec:intra-types,sec:cs}),
-and finally close with our soundness statement
-(\Cref{sec:soundness}).
+programs do not encounter assertion failures.
+% We first present
+% a brief background on ownership types (\Cref{sec:ownership}),
+% before describing our fractional ownership refinement types
+% (\Cref{sec:types}), the type system (\Cref{sec:intra-types,sec:cs}),
+% and finally close with our soundness statement
+% (\Cref{sec:soundness}).
 
-\subsection{Background: Fractional Ownership Types}
-\label{sec:ownership}
-Before describing our type system in detail, we provide a brief
-overview of the fractional ownership type system upon which it
-is built. The fractional ownership types of
-Suenaga and Kobayashi \cite{suenaga2009fractional}
-ensures safe memory access in low-level languages like C; it
-was later extended by Suenaga et al. \cite{suenaga2012type} to also guarantee
-correct allocation/deallocation of shared resources in concurrent programs.
-Fractional ownership types elaborate reference
-types with a rational number $[[r]]$ in the range $[0,1]$ called an \emph{ownership}.
-In the original paper, an ownership of
-$[[1]]$ indicates that a pointer
-has exclusive ownership of a memory cell and may read or write
-the contents of the cell. Ownership in the range $(0,1)$
-indicates a pointer with shared ownership through which
-the cell can be read but \emph{not} modified. Finally, a pointer
-with $0$ ownership may be neither read nor written.
+% \subsection{Background: Fractional Ownership Types}
+% \label{sec:ownership}
+% Before describing our type system in detail, we provide a brief
+% overview of the fractional ownership type system upon which it
+% is built. The fractional ownership types of
+% Suenaga and Kobayashi \cite{suenaga2009fractional}
+% ensures safe memory access in low-level languages like C; it
+% was later extended by Suenaga et al. \cite{suenaga2012type} to also guarantee
+% correct allocation/deallocation of shared resources in concurrent programs.
+% Fractional ownership types elaborate reference
+% types with a rational number $[[r]]$ in the range $[0,1]$ called an \emph{ownership}.
+% In the original paper, an ownership of
+% $[[1]]$ indicates that a pointer
+% has exclusive ownership of a memory cell and may read or write
+% the contents of the cell. Ownership in the range $(0,1)$
+% indicates a pointer with shared ownership through which
+% the cell can be read but \emph{not} modified. Finally, a pointer
+% with $0$ ownership may be neither read nor written.
 
-The fractional ownership type systems in \cite{suenaga2009fractional,suenaga2012type} enforced the
-following key invariant: the total ownership of all pointer types that
-point to the same memory cell never exceeds 1. As an immediate
-consequence, given a pointer $p$ with ownership $1$, no other readable
-pointers that alias with $p$ may exist (otherwise the total ownership
-would exceed 1). The type system is designed such that when an alias
-to a pointer $p$ is created, the current ownership of $p$ is divided
-between the new alias and $p$ (hence \emph{fractional} ownership).
-Further, on writes to a reference $p$,
-the type system may destructively change
-the type of $p$'s contents to be inconsistent with previous content type.
-In a language with unrestricted aliasing, such an operation would
-be unsound, but the above invariant guarantees that
-at the time of update no readable pointers that expect the old
-contents remain.
-\name maintains the same invariant; this guarantee enables our combined
-type system to destructively
-(and incompatibly) change the refinements of mutable memory cells;
-pointers with inconsistent refinements cannot exist when an update occurs.
+% The fractional ownership type systems in \cite{suenaga2009fractional,suenaga2012type} enforced the
+% following key invariant: the total ownership of all pointer types that
+% point to the same memory cell never exceeds 1. As an immediate
+% consequence, given a pointer $p$ with ownership $1$, no other readable
+% pointers that alias with $p$ may exist (otherwise the total ownership
+% would exceed 1). The type system is designed such that when an alias
+% to a pointer $p$ is created, the current ownership of $p$ is divided
+% between the new alias and $p$ (hence \emph{fractional} ownership).
+% Further, on writes to a reference $p$,
+% the type system may destructively change
+% the type of $p$'s contents to be inconsistent with previous content type.
+% In a language with unrestricted aliasing, such an operation would
+% be unsound, but the above invariant guarantees that
+% at the time of update no readable pointers that expect the old
+% contents remain.
+% \name maintains the same invariant; this guarantee enables our combined
+% type system to destructively
+% (and incompatibly) change the refinements of mutable memory cells;
+% pointers with inconsistent refinements cannot exist when an update occurs.
 
-\begin{remark}
-  In the fractional ownership type systems cited above,
-  an ownership also represents an \emph{obligation} to
-  ensure memory referenced by a pointer is eventually
-  freed. Further, pointers to freed memory
-  are given $0$ ownership to prevent use-after-free errors.
-  As mentioned in \Cref{sec:semantics}, our language
-  does not include deallocation which
-  significantly simplifies our formalism.
-  In particular, our type system \emph{does}
-  allow reads of references with 0 ownerships. However,
-  such references provide no information about their contents
-  beyond simple types for reasons discussed below.
-\end{remark}
+% \begin{remark}
+%   In the fractional ownership type systems cited above,
+%   an ownership also represents an \emph{obligation} to
+%   ensure memory referenced by a pointer is eventually
+%   freed. Further, pointers to freed memory
+%   are given $0$ ownership to prevent use-after-free errors.
+%   As mentioned in \Cref{sec:semantics}, our language
+%   does not include deallocation which
+%   significantly simplifies our formalism.
+%   In particular, our type system \emph{does}
+%   allow reads of references with 0 ownerships. However,
+%   such references provide no information about their contents
+%   beyond simple types for reasons discussed below.
+% \end{remark}
 
 \begin{figure}[t]
   \begin{minipage}{0.45\textwidth}
   \[
     \begin{array}{rrcl}
-      \text{\scriptsize Types} & [[ T ]] &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
+      \text{\scriptsize Types} & [[ T ]] % & \in & \mathbf{Types} \\
+                                         &::=& [[ {nu:int|ph} ]] \mid [[ T ref r ]] \\
       \text{\scriptsize Ownership} & [[ r ]] & \in & [0,1] \\
       \text{\scriptsize Refinements} & [[ph]] & ::= & [[ ph1 \/ ph2 ]] \mid [[ !ph ]] \mid [[Top]] \\
                                & & \mid & [[ pfun(pval1,..,pvaln) ]] \\
                                & & \mid & [[ pval1 = pval2 ]] \\
                                  & & \mid & \mathcal{CP} \\
       \text{\scriptsize Refinement Values} & [[ pval ]] & ::= & [[ x ]] \mid [[ v ]] \mid [[ nu ]] \\
-      \text{\scriptsize Type Env.} & [[G]] & \in & \mathbf{Var} \ra [[T]]
+%      \text{\scriptsize Type Env.} & [[G]] & \in & \mathbf{Var} \ra_{\textrm{fin}} \mathbf{Types}
     \end{array}
   \]
 \end{minipage}
@@ -88,7 +90,7 @@ pointers with inconsistent refinements cannot exist when an update occurs.
       \text{\scriptsize Pred. Context} & [[ plhs ]] & ::= & [[ l : plhs ]] \mid [[ A ]] \mid [[ . ]] \\
       \text{\scriptsize Context Query} & [[CQP]] & ::= & [[ ll <= plhs ]] \\
       \text{\scriptsize Typing Context} & [[ B ]] & ::= & [[ A ]] \mid [[ ll ]] \\
-      \text{\scriptsize Function Env.} & [[Th]] & \in & [[f]] \ra [[FT]] 
+%      \text{\scriptsize Function Env.} & [[Th]] & \in & [[f]] \ra [[FT]] 
     \end{array}
   \]
   \end{minipage}
@@ -108,7 +110,8 @@ and for which there may exist a mutable alias.
 By contrast, $[[1]]$ indicates a pointer with exclusive
 ownership that can be read and written. Reference types with ownership values between
 these two extremes indicate a pointer that is readable but not writable, and for which no mutable aliases exist.
-Like the ownership type systems described above, \name ensures these
+% Like the ownership type systems described above,
+\name ensures these
 invariants hold as aliases are created and destroyed during execution.
 \JT{There used to be a mention of the relationship between ownerships
   and refinements here. It seemed early, not well motivated, and I removed it
@@ -125,29 +128,34 @@ connectives $[[ ph1 /\ ph2 ]]$ and $[[ ph1 ==> ph2 ]]$; they can be written
 as derived forms using the given connectives.
 We do not fix a particular theory from which $[[pfun]]$ are drawn provided it is decidable.
 $\mathcal{CP}$ are context predicates, which are used for context sensitivity as
-explained in the following paragraph.
+explained below.
+
+\begin{example}
+  $[[{nu:int | nu > 0}]]$ is the type of strictly positive integers.
+  The type of immutable
+  references to integers exactly equal to $3$ can be expressed by
+  $[[{nu:int | nu = 3} ref 0.5]]$.
+\end{example}
+
 As is standard, we denote a type environment with $[[G]]$, which is a
 finite map from variable names to type $[[T]]$.
-
-\begin{remark}
-  \label{rmk:env-mapping}
+We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
+that $[[G(x) = T]]$ where $[[x in dom G]]$, $[[G,x:T]]$ to indicate the
+extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
+to indicate the type environment $[[G]]$ with the binding of $[[x]]$
+updated to $[[T]]$. We write the empty environment as $[[:G_em: empty]]$.
   The treatment of type environments as mappings instead of sequences
   in a dependent type system is somewhat non-standard. However, this
   approach does not cause problems in our formalism as we do not include
   higher-order functions; all arguments are bound simultaneously
-  in our abstract semantics.
-\end{remark}
+  in our abstract \AI{operational?} semantics.
+  \AI{I'm not sure this argument justifies our choice.  We have let-expressions to introduce additional bindings.}
 
-\begin{example}
-  $[[{nu:int | nu > 0}]]$ is the type of strictly positive integers.
-  $[[{nu:int | nu = 3} ref 0.5]]$ is the type of immutable
-  references to integers exactly equal to $3$.
-\end{example}
 
 \AI{If we are desperate for space, we might want to omit ``$[[pval1 = pval2]]$'' (which could be assumed in $[[pfun]]$) and ``$[[Top]]$'' (which could be expressed by, say, $[[0=0]]$) from the syntax of refinements.}
 
 
-\paragraph{Contexts and Context Polymorphism}
+\paragraph{Function Types, Contexts, and Context Polymorphism}
 Our type system achieves context sensitivity
 by allowing function types to depend on where and how a function
 is called, i.e., the \emph{execution context} of the function invocation.
@@ -161,20 +169,20 @@ by $[[ ll ]]$; $[[.]]$ is the context under which program execution begins. \emp
 drawn from a finite domain $\CVar$ and ranged over by $[[A1]], [[A2]], \ldots$,
 represent an arbitrary, unknown context.
 
+A function type takes the form
+$[[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]]$.
+The arguments of a function are an $n$-ary tuple of types $[[Ti]]$.
+To model side-effects on arguments, the function type includes the same number of \emph{output types}
+$[[Ti']]$. In addition, function types have a direct return value $[[T']]$. 
+The argument and output types are given names: refinements within the function type
+may refer to these names.
 Function types in our language are context polymorphic,
-expressed by universal quantification \KS{``universal quantifier'' or ``universally quantified''.} \JT{done?}
+expressed by universal quantification ``$\forall [[A]].$''
 over a context variable. Intuitively,
 this context variable represents the many different execution contexts
 under which a function may be called.
 Argument and return types may then depend on this context variable with
 \emph{context query predicates} described below.
-The arguments of a function are an $n$-ary tuple of types $[[Ti]]$.
-To model side-effects, the function type includes the same number of \emph{output types}
-$[[Ti']]$. In addition, function types have a direct return value $[[T']]$. 
-The argument and output types are given names: refinements within the function type
-may refer to these names.
-Function type environments are denoted with $[[Th]]$ and are finite
-maps from function names ($[[f]]$) to function types ($[[FT]]$).
 
 Types within a function type may depend on the function's calling context
 by including \emph{context query predicates} in their refinements.
@@ -196,7 +204,7 @@ $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
   function call site is $[[l1]]$, 4 if the most recent call site is $[[l2]]$,
   and is otherwise unconstrained. This type may be used for the argument of
   \imp{f} in, e.g., \imp[mathescape]{/*...*/  f$^{[[l1]]}$(3) + f$^{[[l2]]}$(4) /*...*/}.
-  
+\AI{Are we going to fill the ellipses in the comments?}  
 \end{example}
 
 As types in our type system may contain context variables, our typing judgment
@@ -209,10 +217,9 @@ may depend upon the context with context query predicates.
 Accordingly, function bodies are typed under the context variable
 universally quantified over in the corresponding function type; i.e.,
 no assumptions can be made about the exact execution context of the function body.
-As in parametric polymorphism, our type rules \KS{typing rules} are designed such that consistent
+As in parametric polymorphism, our typing rules are designed such that consistent
 substitution of a concrete context $[[ll]]$ for a context variable $[[A]]$
 in a typing derivation yields a valid type derivation under concrete context $[[ll]]$.
-
 
 \begin{remark}
   \label{rem:cfa}
@@ -223,6 +230,13 @@ in a typing derivation yields a valid type derivation under concrete context $[[
   feature of our type system is the inclusion of predicates $[[CQP]]$ over
   contexts, not the specific choice for these predicates.
 \end{remark}
+
+Function type environments are denoted with $[[Th]]$ and are finite
+maps from function names ($[[f]]$) to function types ($[[FT]]$).
+\AI{$[[Th]]$ is removed from the figure because $[[f]] \ra [[FT]]$ is
+  not quite the right notation ($[[f]]$ and $[[FT]]$ are
+  metavariables).  But, I don't think we want to prepare new symbols
+  for the sets of function names and function types.}
 
 \paragraph{Well Formedness}
 We impose two well-formedness conditions on types:
@@ -256,10 +270,9 @@ reference must be discarded, our current formulation
 provides no such information for refinements that \emph{include}
 mutably-aliased references. We therefore conservatively reject
 such refinements at the cost of some expressiveness in our type system.
-We write $[[ G | B |- T ]]$ \KS{This Ott phrase causes a parse error.} to indicate a well-formed type
-with respect to $[[B]]$ and $[[G]]$, and write $[[ ST(G) | B |- ph ]]$ to
-indicate a well-formed predicate with respect to $[[B]]$ and
-the simple type version of $[[G]]$, denoted $[[ ST(G) ]]$.
+We write $[[ G | B |- T ]]$ to indicate a well-formed type
+with respect to $[[B]]$ and $[[G]]$, and write $[[ G | B |- ph ]]$ to
+indicate a well-formed predicate with respect to $[[B]]$ and $[[G]]$.
 We write $[[ B |- G ]]$ for a type environment where all
 types are well-formed. A function environment
 is well-formed (written $[[ |- Th ]]$) if, for every $[[FT]]$ in $[[Th]]$,
@@ -267,7 +280,6 @@ the argument, result, and output types are well-formed with respect
 to each other and the context variable quantified over in $[[FT]]$.
 As the formal definition refinement well-formedness is fairly standard, we
 omit it for space reasons (the full definition may be found in \Cref{sec:aux-defn-lem}).
-\KS{The rule for T-Assert contains an Ott parse error.}
 
 \begin{figure}[t]
 %  \leavevmode
@@ -324,7 +336,7 @@ omit it for space reasons (the full definition may be found in \Cref{sec:aux-def
   }
   \infrule[T-Assert]{
     [[ G |= ph ]] \andalso
-    [[ ST(G) | . |- ph ]] \\
+    [[ G | . |- ph ]] \\
     [[ Th | G | B |- e : T => G' ]]
   }{
     [[ Th | G | B |- assert(ph); e : T => G']]
@@ -355,60 +367,57 @@ mutability and refinement types. The typing rules are given in
 \Cref{fig:intra-type,fig:pointer-typing}.  
 A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
-is well-typed under a type environment $[[G]]$, function type
-environment $[[Th]]$, and typing context $[[B]]$
+is well-typed under a function type
+environment $[[Th]]$, and typing context $[[B]]$, type environment $[[G]]$, 
 and evaluates to a value of type $[[T]]$ and modifies the input environment
 according to $[[G']]$. Any valid typing derivation must
 have $[[ B |- G ]]$, $[[ B |- G' ]]$, and $[[ G' | B |- T ]]$, i.e.,
 the input and output type environments and result type must
 be well-formed.
-We write $[[G[x: T] ]]$ to denote a type environment $[[G]]$ such
-that $[[G(x) = T]]$ where $[[x in dom G]]$, $[[G,x:T]]$ to indicate the
-extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
-to indicate the type environment $[[G]]$ with the binding of $[[x]]$
-updated to $[[T]]$. We write the empty environment as $[[:G_em: empty]]$.
-$[[B]]$ is defined as in \Cref{sec:types}.
 
 The typing rules in \Cref{fig:intra-type} handle the relatively
-standard features in our language. The most noteworthy feature is the
-type addition operator $[[T1 + T2]]$ used in \rn{T-Let}, \rn{T-MkRef}, and
-\rn{T-Deref} forms. Intuitively, the type addition operator describes
-how to linearly split a type into two components, dividing information in the original
-type between the two result types.
-Viewed another way, it describes how to combine two types for the same
-value such that the combination soundly incorporates all information from
-the two original types.
-Critically, the type addition operation cannot create or destroy
-ownership or refinement information, only combine or divide it between
-types. Formally, the type addition operator is defined as the least
-commutative partial operation that satisfies the following rules:
-\begin{gather*}
-  [[{nu:int|ph1} + {nu:int|ph2} = {nu:int|ph1 /\ ph2}]] \quad (\rn{Tadd-Int})  \\
-  [[T1 ref r1 + T2 ref r2 = (T1 + T2) ref r1 + r2]] \quad (\rn{Tadd-Ref})
-\end{gather*}
-Although not explicit in the rules,
-by the ownership well-formedness condition,
-if the entirety of a reference's ownership is transferred to
-another type during a split, all refinements in the remaining
-type must be $[[ Top ]]$.
+standard features in our language.  \rn{T-Seq} for sequential
+composition is fairly straightforward---except that the output type
+environment for $[[e1]]$ is the input type environment for $[[e2]]$.
+\rn{T-LetInt} is also straightforward: since $[[x]]$ is bound to a
+constant, it is given type $[[{nu:int|nu=nn}]]$ to indicate $[[x]]$ is
+exactly $[[nn]]$.  The output type environment $[[G']]$ cannot mention
+$[[x]]$ to prevent $[[x]]$ from escaping its scope.  This requirement
+can be met by applying the subtyping rule (see below) to weaken
+refinements to no longer mention $[[x]]$. As in other refinement type
+systems \cite{rondon2008liquid}, this requirement is critical for
+ensuring soundness.
 
-The let bindings (\rn{T-Let}, \rn{T-MkRef}, \rn{T-Deref}, and
-\rn{T-LetInt}) introduce new bindings based on the right hand side.
-The rules for \rn{T-Let}, \rn{T-MkRef} and \rn{T-Deref} also \emph{update}
-the type of the variable appearing on the right hand side; as
-information the right-hand side has been linearly transferred to the new binding,
-retaining the original type would be unsound.
-The let rules then type the let body $[[e]]$ in this new environment.
-The typing rule for each form requires the type and result environment of the
-let body to no longer mention the bound variable $[[x]]$.
-This requirement can be met by applying the subtyping rule (see below)
-to weaken refinements to no longer mention $[[x]]$. As in other refinement
-type systems \cite{rondon2008liquid}, this requirement is critical for ensuring soundness.
-\AI{\rn{T-Let} already uses $[[ T /\ y ph' ]]$ and it's not for tracking path information.}
+Rule \rn{T-Let} is crucial to understand our ownership type system.
+It means that, to typecheck $[[e]]$, ownerships in the type
+$[[y]]$ in $[[G]]$ are distributed into two types $[[T1]]$ for $[[y]]$
+and $[[T2]]$ for $[[x]]$, which is an alias of $[[y]]$.  For example,
+type $[[{nu:int | nu > 0} ref 1]]$ can be split into (1)
+$[[{nu:int | nu > 0} ref 0.5]]$ and $[[{nu:int | nu > 0} ref 0.5]]$ so
+that both $[[x]]$ and $[[y]]$ can be read without losing refinements
+or (2) $[[{nu:int | nu > 0} ref 1]]$ and $[[{nu:int | Top} ref 0]]$ so
+that one of the aliases can be mutable.  It depends on the usage of
+$[[x]]$ and $[[y]]$ in $[[e]]$ how the type should be split.
+Formally, we define the type addition operator, which is defined as
+the least commutative partial operation that satisfies the following
+rules:
+\begin{align*}
+  [[{nu:int|ph1} + {nu:int|ph2} ]] & = [[ {nu:int|ph1 /\ ph2}]] & (\rn{Tadd-Int})  \\
+  [[T1 ref r1 + T2 ref r2]] & = [[(T1 + T2) ref r1 + r2]] & (\rn{Tadd-Ref})
+\end{align*}
+Viewed another way, type addition describes how to combine two types
+for the same value such that the combination soundly incorporates all
+information from the two original types.  Critically, the type
+addition operation cannot create or destroy ownership or refinement
+information, only combine or divide it between types.  Although not
+explicit in the rules, by the ownership well-formedness condition, if
+the entirety of a reference's ownership is transferred to another type
+during a split, all refinements in the remaining type must be
+$[[ Top ]]$.
 
-When creating bindings our type system tracks equality between
-integer values. We use the
-strengthening operation $[[ T /\ x ph ]]$ and typed equality
+The additional bits $\land_y [[y = T1 x]]$ and $\land_x [[x = T2 y]]$
+express equality between $[[x]]$ and $[[y]]$ as refinements.  We use
+the strengthening operation $[[ T /\ x ph ]]$ and typed equality
 proposition $[[ x = T y]]$, defined respectively as:
 \begin{align*}
   [[ { nu: int | ph } /\ y ph' ]] & = [[ { nu: int | ph /\ [nu/y]ph' }]] &
@@ -416,16 +425,44 @@ proposition $[[ x = T y]]$, defined respectively as:
     [[ T ref r /\ y ph' ]] & = [[T ref r]] &
     [[ (x = T ref r y) ]] & = [[Top]]
 \end{align*}
-We do not track equality between references or between
-the contents of reference cells as doing so would violate
-our refinement well-formedness condition. Notice also that the
-equality tracking in the \rn{T-Deref} case is \emph{conditionally}
-applied depending on the ownership of the dereferenced pointer. 
+We do not track equality between references or between the contents of
+reference cells as doing so would violate our refinement
+well-formedness condition.  These operations are used in other rules
+that can introduce equality.
+
+Rule \rn{T-MkRef} is very similar to \rn{T-Let}, except that $[[x]]$
+is given a reference type of ownership 1 pointing to $[[T2]]$, which
+is obtained by splitting the type of $[[y]]$.  In \rn{T-Deref} for
+dereferencing, the content type of $[[y]]$ is split and given to
+$[[x]]$.  The stregthening is \emph{conditionally} applied depending
+on the ownership of the dereferenced pointer, that is, if $[[r]] = 0$,
+$[[T']]$ has to be a ``top'' type $[[topi]]$.
+
+% The most noteworthy feature is the
+% type addition operator $[[T1 + T2]]$ used in \rn{T-Let}, \rn{T-MkRef}, and
+% \rn{T-Deref} forms. Intuitively, the type addition operator describes
+% how to linearly split a type into two components, dividing information in the original
+% type between the two result types.
+
+% The let bindings (\rn{T-Let}, \rn{T-MkRef}, \rn{T-Deref}, and
+% \rn{T-LetInt}) introduce new bindings based on the right hand side.
+% The rules for \rn{T-Let}, \rn{T-MkRef} and \rn{T-Deref} also \emph{update}
+% the type of the variable appearing on the right hand side; as
+% information the right-hand side has been linearly transferred to the new binding,
+% retaining the original type would be unsound.
+% The let rules then type the let body $[[e]]$ in this new environment.
+% The typing rule for each form requires the type and result environment of the
+% let body to no longer mention the bound variable $[[x]]$.
+
+% \AI{\rn{T-Let} already uses $[[ T /\ y ph' ]]$ and it's not for tracking path information.}
+
+% When creating bindings our type system tracks equality between
+% integer values.
 
 Our type system also tracks path information; in the \rn{T-If}
 rule, we update the refinement on the condition variable within the respective
 branches to indicate whether the variable must be zero. By requiring
-both branches produce the same output type environment, we guarantee
+both branches to produce the same output type environment, we guarantee
 that these conflicting refinements are rectified within the
 type derivations of the two branches.
 
@@ -445,7 +482,6 @@ is valid, then under any valuation of program variables that satisfy
 the refinements in $[[ [G] ]]$, the predicate $[[ph]]$ must be true and the
 assertion may not fail. This intuition forms the foundation of our
 soundness claim (\Cref{sec:soundness}).
-\AI{We could allow an assertion $[[ph]]$ to mention $[[ B ]]$.}
 
 \begin{figure}[t]
   \scriptsize
@@ -539,8 +575,8 @@ thus by well-formedness may only contain the $[[Top]]$ refinement.
 \begin{example}
   We can type the program as follows:
   \begin{lstlisting}
-    let x = mkref 5 in // $\color{comment-green}{[[x:{nu:int|nu=5} ref 1]]}$
-    let y = x in // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
+    let x = mkref 5 in       // $\color{comment-green}{[[x:{nu:int|nu=5} ref 1]]}$
+    let y = x in             // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
     y := 4; assert(*y = 4) // $\color{comment-green}{[[x:top1,y:{nu:int|nu=4} ref 1]]}$
   \end{lstlisting}
   In this example and the following, we include type annotations within comments. We stress
@@ -575,19 +611,20 @@ any refinements that hold for the contents of one reference must necessarily
 hold for contents of the other and vice versa.
 
 \begin{example}[Shuffling ownerships and refinements]
+  Let $[[ph]]_x$ be $[[nu = x]]$.
   \begin{lstlisting}
-    let x = mkref 5 in // $\color{comment-green}{[[x:{nu:int|nu=5} ref 1]]}$
-    let y = x in // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
-    y := 4; alias(x = y) // $\color{comment-green}{[[x:{nu:int|nu=4} ref 0.5,y:{nu:int|nu=4} ref 0.5]]}$    
+    let x = mkref 5 in     // $\color{comment-green}{[[x:{nu:int|ph5} ref 1]]}$
+    let y = x in           // $\color{comment-green}{[[x:top1,y:{nu:int|ph5} ref 1]]}$
+    y := 4; alias(x = y) // $\color{comment-green}{[[x:{nu:int|ph4} ref 0.5,y:{nu:int|ph4} ref 0.5]]}$    
   \end{lstlisting}
-  Taking $[[ph]]$ to be $[[nu = 4]]$, the final type assignment for $[[x]]$ and $[[y]]$ is justified by
+  The final type assignment for $[[x]]$ and $[[y]]$ is justified by
   \begin{align*}
-    &[[top1 + {nu:int|ph} ref 1 = {nu:int|Top /\ ph} ref 1]][[~]]\\
-    \,\,\,\,&[[{nu:int|ph/\ph} ref 1 = {nu:int|ph} ref 0.5 + {nu:int|ph} ref 0.5 ]]
+    &[[top1 + {nu:int|ph4} ref 1 = {nu:int|Top /\ ph4} ref 1]][[~]]\\
+    \,\,\,\,&[[{nu:int|ph4/\ph4} ref 1 = {nu:int|ph4} ref 0.5 + {nu:int|ph4} ref 0.5 ]] .
   \end{align*}
 \end{example}
 
-The aliasing rule gives fine-grained control over ownership information. In particular,
+The aliasing rule \AI{rules?} gives fine-grained control over ownership information. In particular,
 this flexibility allows mutation through two aliased references within the same scope.
 Provided sufficient aliasing annotations, the type system may shuffle ownerships between
 one or more live references, enabling and disabling mutability as required. Although the
@@ -598,16 +635,18 @@ that only a small number of annotations are required for real-world programs.
 
 \begin{example}[Shuffling Mutability]
   \label{exmp:shuffle-example}
+  Let $[[ph]]_x$ be $[[nu = x]]$.
   The following program uses two live, aliased references to mutate the same memory location:
   \begin{lstlisting}
     let x = mkref 0 in
-    let y = x in
-      x := 1; alias(x = y); // $\color{comment-green}{[[x:{nu:int|nu = 0} ref 1,y:top1]]}$
-      y := 2; alias(x = y); // $\color{comment-green}{[[x:top1,y:{nu:int|nu = 1} ref 1]]}$
-      assert(*x = 2) // $\color{comment-green}{[[x:{nu:int|nu = 2} ref 0.5,y:{nu:int|nu=2} ref 0.5]]}$
+    let y = x in             // $\color{comment-green}{[[x:{nu:int|ph0} ref 1,y:top1]]}$
+      x := 1; alias(x = y);  // $\color{comment-green}{[[x:top1,y:{nu:int|ph1} ref 1]]}$
+      y := 2; alias(x = y);  // $\color{comment-green}{[[x:{nu:int|ph2} ref 0.5,y:{nu:int|ph2} ref 0.5]]}$
+      assert(*x = 2)
   \end{lstlisting}
-  The types shown in the comments give the type environment under
-  which the first statement on the line is typed. After the first aliasing
+  % The types shown in the comments give the type environment under
+  % which the first statement on the line is typed.
+  After the first aliasing
   statement the type system shuffles the (exclusive) mutability between $[[x]]$
   and $[[y]]$ to enable the write to $[[y]]$. After the second aliasing statement
   the ownership in $[[y]]$ is split with $[[x]]$; note that
@@ -674,22 +713,22 @@ entire programs.
 We first explain the \rn{T-Call} rule. The rule uses two substitution
 maps. $[[vsub]]$ translates between the parameter names used in the
 function type and actual argument names at the call-site. $[[csub]]$
-instantiates all occurrences of $[[A]]$ in the callee type with $[[ l : B ]]$, where $[[l]]$
-is the label of the call-site and $[[B]]$ the typing context of the call. If $[[B]]$
-is itself a context variable $[[A']]$, this substitution effectively
-transforms any context prefix queries over $[[A]]$ in the argument/return/output types
-into a queries over $[[A']]$. Intuitively, this substitution
-represents incrementally refining the behavior of
-the callee function with partial context information. In other words, while the
-exact concrete execution context of the callee is unknown,
-the context must at least begin with $[[l]]$ which
-can potentially rule out certain behaviors.
-\JT{the following should may be moved up?}
-The \rn{T-Call} rules requires the argument types match the parameter
-types (post substitution). The body of the let binding is
-then checked with the argument types updated to reflect the changes in the
-function call (again, post substitution). This update is well-defined because
-we require all function arguments be distinct as described in \Cref{sec:language}.
+instantiates all occurrences of $[[A]]$ in the callee type with
+$[[ l : B ]]$, where $[[l]]$ is the label of the call-site and $[[B]]$
+the typing context of the call.  The types of the arguments $[[yi]]$'s
+are required to match the parameter types (post substitution). The
+body of the let binding is then checked with the argument types
+updated to reflect the changes in the function call (again, post
+substitution). This update is well-defined because we require all
+function arguments be distinct as described in \Cref{sec:language}.
+Intuitively, the substitution $[[csub]]$ represents incrementally
+refining the behavior of the callee function with partial context
+information.  If $[[B]]$ is itself a context variable $[[A']]$, this
+substitution effectively transforms any context prefix queries over
+$[[A]]$ in the argument/return/output types into a queries over
+$[[A']]$.  In other words, while the exact concrete execution context
+of the callee is unknown, the context must at least begin with $[[l]]$
+which can potentially rule out certain behaviors.
 
 Rule \rn{T-FunDef} type checks a function definition
 $[[ f |-> (x1,..,xn) e]]$ against the function type given in $[[Th]]$.
@@ -703,11 +742,12 @@ so function body type checking is performed under the type context
 variable $[[A]]$ that occurs in the function type.
 \JT{This is redundant with the intuition presented earlier in 3.2. It's been a while,
   so perhaps the repetition is fine}
+\AI{Agreed.}
 
 Finally, the rule for typing programs (\rn{T-Prog}) checks that
-all function definitions are well-typed under a well-formed
+all function definitions are well typed under a well-formed
 function type environment, and that the entry point $[[e]]$
-is well-typed in an empty environment and typing context
+is well typed in an empty environment and typing context
 $[[.]]$, the initial context.
 
 \begin{example}[Simple 1-CFA]
@@ -755,13 +795,13 @@ r := get$^{\ell2}$(r) + 1;
 
 \subsection{Soundness}
 \label{sec:soundness}
-We have proven that any closed program that type checks according to
+We have proven that any program that type checks according to
 the rules above will never experience an assertion failure.
 We formalize this claim with the following soundness theorem.
 
 \begin{theorem}[Soundness]
   \label{thm:soundness}
-  For any program $[[ <D, e> ]]$ such that $[[ |- <D, e> ]]$ then
+  If  $[[ |- <D, e> ]]$, then
   $[[ <empty, empty, ., e> !-->*D AssertFail ]]$.
   
   Further, any well-typed program either diverges, halts in the configuration $[[AliasFail]]$, or
@@ -773,7 +813,7 @@ We formalize this claim with the following soundness theorem.
   in the accompanying appendix.
 
   We define a typing relation for runtime configurations; well-typed
-  configurations satisfy the following invariants
+  configurations satisfy the following invariants:
   \begin{enumerate}
   \item The value at heap locations and program variables satisfy the refinements given in the program typing judgment, and
   \item The ownership given to every memory cell never exceeds 1.
