@@ -209,7 +209,7 @@ may depend upon the context with context query predicates.
 Accordingly, function bodies are typed under the context variable
 universally quantified over in the corresponding function type; i.e.,
 no assumptions can be made about the exact execution context of the function body.
-As in parametric polymorphism, our type rules are designed such that consistent
+As in parametric polymorphism, our type rules \KS{typing rules} are designed such that consistent
 substitution of a concrete context $[[ll]]$ for a context variable $[[A]]$
 in a typing derivation yields a valid type derivation under concrete context $[[ll]]$.
 
@@ -256,7 +256,7 @@ reference must be discarded, our current formulation
 provides no such information for refinements that \emph{include}
 mutably-aliased references. We therefore conservatively reject
 such refinements at the cost of some expressiveness in our type system.
-We write $[[ G | B |- T ]]$ to indicate a well-formed type
+We write $[[ G | B |- T ]]$ \KS{This Ott phrase causes a parse error.} to indicate a well-formed type
 with respect to $[[B]]$ and $[[G]]$, and write $[[ ST(G) | B |- ph ]]$ to
 indicate a well-formed predicate with respect to $[[B]]$ and
 the simple type version of $[[G]]$, denoted $[[ ST(G) ]]$.
@@ -267,6 +267,7 @@ the argument, result, and output types are well-formed with respect
 to each other and the context variable quantified over in $[[FT]]$.
 As the formal definition refinement well-formedness is fairly standard, we
 omit it for space reasons (the full definition may be found in \Cref{sec:aux-defn-lem}).
+\KS{The rule for T-Assert contains an Ott parse error.}
 
 \begin{figure}[t]
 %  \leavevmode
