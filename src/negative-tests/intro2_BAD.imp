@@ -7,7 +7,7 @@ loop(a, b) {
 	if _ then
 	  loop(b, (mkref _))
 	else
-	  loop(b, a)
+	  let b__ = b in loop(b, b__)
   }
 }
 

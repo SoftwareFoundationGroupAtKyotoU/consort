@@ -1,6 +1,6 @@
 import java.util.Random;
 
-public class Intro2 {
+public class Intro2BUG {
 	static Random r = new Random(42);
 	public static class Int {
 		int i;
@@ -18,7 +18,7 @@ public class Intro2 {
 		if(flg < 0) {
 			loop(b, new Int(r.nextInt()));
 		} else {
-			loop(b,a);
+			loop(b,b);
 		}
 	}
 		

@@ -55,6 +55,7 @@ The programs included in this suite are:
 \item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \Cref{exmp:shuffle-example}.
 \item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
+\item \textbf{Intro2} The motivating program shown in \Cref{fig:hard-loop} in \Cref{sec:intro}.
 \end{itemize}
 We also introduced unsafe mutations to these programs to
 check our tool for unsoundness. We also translated these benchmarks
@@ -104,7 +105,7 @@ but stems from the fundamental limitations of the abstract
 location based approach.
 
 \begin{table}[t]
-  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and the results on our custom benchmark suite.}
+  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and our custom benchmark suite.}
   \begin{center}
     \input{jayhorn_table}
     \input{consort_table}
