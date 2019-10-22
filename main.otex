@@ -42,6 +42,10 @@
   linkcolor=red,
   citecolor=red}
 \usepackage[noabbrev]{cleveref}
+%\draftCommentsfalse
+
+\ifdraftComments\else\linepenalty=1000\fi
+
 
 % \input{../effgrad/def/ott/coe}
 \input{./lang}
