@@ -36,7 +36,7 @@ A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:br
 
 \begin{remark}
   The original JayHorn paper includes two additional benchmark sets, Mine Pump and CBMC.
-  Both our tool and the most recent version (v0.6.1) of JayHorn time out on the Mine Pump benchmark. Further,
+  Both our tool and recent JayHorn versions time out on the Mine Pump benchmark. Further,
   the CBMC tests were either subsumed by our own test programs, tested Java specific
   features, or tested program synthesis functionality. We therefore omitted both of these
   benchmarks from our evaluation.
@@ -55,14 +55,14 @@ The programs included in this suite are:
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
 \item \textbf{Intro2} The motivating program shown in \Cref{fig:hard-loop} in \Cref{sec:intro}.
 \end{itemize}
-We also introduced unsafe mutations to these programs to
+We introduced unsafe mutations to these programs to
 check our tool for unsoundness. We also translated these benchmarks
 to Java for further comparison with JayHorn.
 
 \subsubsection{Experimental Setup}
 We first ran \name on each program in our benchmark suite and ran the
 most recent\footnote{As of October 15, 2019} development build of JayHorn\footnote{We
-  did not use the most recent official release of JayHorn because
+  did not use the most recent official release of JayHorn as
   it does not include critical fixes for soundness bugs \url{https://github.com/jayhorn/jayhorn/issues/154}.} 
 on the corresponding Java version. We recorded the final verification
 result for both our tool and JayHorn. We also collected the
@@ -75,7 +75,7 @@ collect runtime information for this set of experiments because our goal
 is a comparison of tool precision, not performance.
 All tests were run on a machine with 16 GB RAM and 4 CPUs at 2GHz
 and with a timeout of 60 seconds (the same timeout
-was used in \cite{kahsai2017quantified}). We used \name's parallel backend (\cref{sec:infr})
+was used in \cite{kahsai2017quantified}). We used \name's parallel backend (\Cref{sec:infr})
 with Z3 version 4.8.4, HoICE version 1.8.1, and Eldarica version 2.0.1 and JayHorn's Eldarica backend.\footnote{We also tried the Spacer backend
   included with JayHorn, but it required an extremely old version of Z3 (4.3.2) and crashed the JVM on several of our tests.}
 
