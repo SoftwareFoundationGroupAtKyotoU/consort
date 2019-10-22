@@ -86,7 +86,7 @@ aliases; given the static uncertainty
 about whether a variables points to the mutated memory, that variable's
 refinement may only be \emph{weakly updated}. For example,
 suppose we used a simple alias analysis that imprecisely (but soundly)
-concluded all references allocated at the same location \emph{might} alias;
+concluded all references allocated at the same location \AI{``program location'' or ``program point'' may be better to disambiguate from memory locations.} \emph{might} alias;
 because \imp{p} and \imp{q} share the allocation site on
 \cref{line:mk}, we would have to update weakly
 \imp{q}'s type to $[[ {nu:int|nu = 4 \/ nu = 5 } ]]$,
@@ -102,7 +102,7 @@ refinement types use precise aliasing information and that
 spuriously applied weak updates are avoided. Although it
 is relatively simple to conclude that \imp{p} and \imp{q}
 do not alias in \Cref{fig:strong-update-example}, consider
-the example in \Cref{fig:hard-loop}. (In this example,
+the example in \Cref{fig:hard-loop}. \AI{Do we need the header \texttt{main()}, when the other examples don't have it?} (In this example,
 $\star$ represents some non-deterministic value.) Verifying
 this program requires proving \imp{a} and \imp{b} never
 alias for the writes on \cref{line:b-write,line:a-write}.
@@ -135,7 +135,7 @@ To understand the benefit of this approach, let us return to
 \Cref{fig:strong-update-example}. As \imp{mk} returns a freshly allocated
 reference with no aliases, its function type indicates it returns a
 reference with ownership 1. Thus our type system can initially
-give \imp{p} and \imp{q} types $[[ { nu:int|nu = 3} ref 1 ]]$ and $[[ {nu:int|nu = 5} ref 1]]$ respectively. The ownership $[[1]]$ indicates both
+give \imp{p} and \imp{q} types $[[ { nu:int|nu = 3} ref 1 ]]$ and $[[ {nu:int|nu = 5} ref 1]]$ respectively. The ownership $[[1]]$ on the reference type constructor $\TREF$ indicates both
 pointers hold ``exclusive'' ownership of the pointed to reference cell;
 from the invariant of fractional ownership types \imp{p} and \imp{q}
 must not alias. The types of both references
@@ -174,6 +174,11 @@ many aliases, and then later collected into a different
 reference, restoring mutability.\fi
 This feature is particularly critical for the verification of programs
 where memory is mutated through multiple, live references.
+\AI{Sounds like these last two sentences introduce something new and different.  I'm not sure
+  readers can understand.  In fact, I was able to understand by reading the hidden
+  sentence in the source file.  I also feel like this statement is misleading because
+  we do not mention alias annotations at all.  Ownership transfer (without annotations) has been a difficult problem.
+}
 
 Ownerships also obviate updating the refinements
 of all aliases at mutation. As all aliases of a reference
@@ -222,7 +227,7 @@ give \imp{get} a function type that distinguishes between these two calling
 contexts and selects the appropriate summary of \imp{get}'s behavior.
 
 We have formalized \name as a type system for a small imperative calculus
-and proved the system sound: i.e., well-typed program never encounter assertion
+and proved the system sound: i.e., a well-typed program never encounters assertion
 failures during execution. We have
 implemented a prototype type inference tool targeting this
 imperative language and found it can automatically verify several
