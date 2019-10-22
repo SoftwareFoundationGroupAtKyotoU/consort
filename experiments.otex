@@ -22,9 +22,7 @@ described in \Cref{sec:infr}. The goal of these experiments was to answer the fo
 To answer these questions, we evaluated our prototype implementation
 on two sets of benchmarks. 
 The first set is adapted from JayHorn \cite{kahsai2017quantified,kahsai2016jayhorn},
-a verification tool for Java; like other many other tools,
-JayHorn adapts the abstract location based approach
-described in \Cref{sec:intro}.
+a verification tool for Java.
 This test suite contains a combination of 82 safe and unsafe programs written in
 Java. We chose this benchmark suite as, like \name, JayHorn
 is concerned with the automated, flow-sensitive verification of
@@ -101,8 +99,15 @@ of per-object invariants and unbounded allocations; in fact,
 the only test JayHorn successfully verified (Shuffle) contains
 just a single object allocation. We do not believe
 this struggle is indicative of a shortcoming in JayHorn's implementation,
-but stems from the fundamental limitations of the abstract
-location based approach.
+but stems from the fundamental limitations of JayHorn's memory representation.
+Like many verification tools, JayHorn uses a single, unchanging
+invariant to for every object allocated at the same syntactic location;
+effectively, all objects allocated at the same location
+are assumed to alias with one another.
+This representation cannot, in general, handle programs with different
+invariants for distinct object that evolve over time.
+We hypothesize other tools that adopt a similar approach will exhibit
+the same difficulty. 
 
 \begin{table}[t]
   \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and our custom benchmark suite.}
