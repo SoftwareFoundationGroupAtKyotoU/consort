@@ -14,7 +14,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
 \begin{proof}
   It suffices to show that $[[ Th | G0 | ll |- let y = x in e : T1' => G1']]$
   and $[[ Th | [] : T1' => G1' | ll |-e E : T2 => G2 ]]$ for some $[[ T1' ]]$ and $[[ G1' ]]$
-  whence the result will hold from \Cref{lem:ectxt-sub-well-typed}.
+  whereby the result will hold from \Cref{lem:ectxt-sub-well-typed}.
 
   By inversion on
   $[[ Th | [] : T1 => G1 | ll |-e E[let y = [] l in e] : T2 => G2 ]]$ we have
@@ -108,7 +108,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
   By the well-formedness of function types and well-formedness of $[[ Gp ]]$,
   we must have that $[[ l:ll |- G3 ]]$.
   Then by \Cref{eqn:arg-typed,eqn:sub-in-env-wf,lem:tyenv-weaken} we have
-  $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whereby \Cref{eqn:in-sub,eqn:sub-in-env-wf}
+  $[[ Th | Gp | l:ll |- vsub e : T3 => G3 ]]$, whereby \Cref{eqn:in-sub}
   and an application of \rn{T-Sub}
   gives $[[ Th | G0 | l:ll |- vsub e : T3 => G3 ]]$, i.e., the first result.
 
@@ -120,22 +120,22 @@ call cases respectively; we have separated them into separate lemmas for clarity
   \end{align}
   \Cref{eqn:context-well-typed} holds by assumption, and \Cref{eqn:x-not-free} follows from
   \Cref{eqn:cbind-erased} and that $[[ Gp' <: G1 ]]$ implies $[[ dom G1 <= dom Gp' ]]$.
-  That $[[ ll |- T1 => G1 ]]$ follows from the well-typing of the function call term,
-  and that $[[ ll |- G3, x: T3 ]]$ follows from \Cref{eqn:let-body-well-typed}.
+  $[[ ll |- T1 => G1 ]]$ follows from the well-typing of the function call term,
+  and $[[ ll |- G3, x: T3 ]]$ follows from \Cref{eqn:let-body-well-typed}.
 
   From \Cref{eqn:out-sub,eqn:let-body-well-typed} we then have
   \Cref{eqn:let-body-sub-typed} via an application of \rn{T-Sub}.
 \end{proof}
 
-\begin{proof}[\Cref{lem:preservation}]
+\begin{proof}[Preservation; \Cref{lem:preservation}]
   The proof is organized by cases analysis on the transition rule used of $[[e]]$, and showing that the output configuration is well typed by
   $[[ |-D ]]$. We must therefore find a $[[G'']]$ that is consistent with $[[H']]$ and $[[R']]$ and also satisfies the other conditions imposed by
   the definition of $[[ |-D ]]$. Here $[[G'']],[[H']], [[R']]$ represent the type environment, heap and register after the transition respectively.
   We identify the heap and register file before transition with $[[H]]$ and $[[R]]$ respectively.
   In order to show that the ownership invariant is preserved, we need to prove that $[[ forall a in H .Own(H,R,G'')(a) <= 1]]$.
   In many cases, we will show that $[[ Own(H, R, G) = Own(H', R', G'') ]]$, whereby
-  from the assumption that $[[ forall a in H.Own(H, R, G)(a) <= 1 ]]$ we will
-  then have the desired result from $[[ Cons(H, R, G) ]]$ as implied by $[[|-D]]$.
+  from the assumption that $[[ Cons(H, R, G) ]]$ as implied by $[[|-D]]$
+  we have $[[ forall a in H.Own(H, R, G)(a) <= 1 ]]$, giving the desired result.
   % FIXED
   \begin{rneqncase}{R-Var}{
     [[ |- D <H, R, CEn-1 : Es, x>]], [[<H, R, CEn-1 : Es, x> --> D <H, R, Es, CEn-1[x]> ]] \\
@@ -169,15 +169,15 @@ call cases respectively; we have separated them into separate lemmas for clarity
     Using \Cref{lem:inversion}, we have some $[[Gp]]$, $[[Gp']]$ and $[[Tp]]$ such
     that:
     
-    \begin{bcpcasearray}
-      [[ G0 <: Gp ]] \andalso [[ ll |- Gp ]] \andalso [[ Gp',Tp <: G0',T ]] \\
-      [[ Gp(y) = (T1 + T2) ref r ]] \andalso [[ x not in Gp' ]] \\
-      [[ Th | Gp[y <- T'' ref r], x : T2 | ll |- e : Tp => Gp' ]]  \\
+    \begin{gather*}
+      [[ G0 <: Gp ]] \quad\quad [[ ll |- Gp ]] \quad\quad [[ Gp',Tp <: G0',T ]] \\
+      [[ Gp(y) = (T1 + T2) ref r ]] \quad\quad [[ x not in Gp' ]] \\
       [[T'' ]] = \begin{cases}
         [[(T1 /\ y y = T1 x)]] & [[ r > 0 ]] \\
         [[T1]] & [[r = 0]]
-      \end{cases}
-    \end{bcpcasearray}
+      \end{cases} \\
+      [[ Th | Gp[y <- T'' ref r], x : T2 | ll |- e : Tp => Gp' ]]
+    \end{gather*}
     
     From \Cref{lem:subtyp-preserves-cons}, we then have $[[Cons(H,R,Gp)]]$.
     We will now show that:
@@ -204,10 +204,10 @@ call cases respectively; we have separated them into separate lemmas for clarity
     for the \rn{T-Sub} rule, with the understanding that the subtyping rule
     is handled with an argument identical to the above.
     
-    We now show that $[[ Th | G'' | ll |- [x'/x]e : [x/x']Tp => [x'/x]G' ]]$,
+    We now show that $[[ Th | G'' | ll |- [x'/x]e : [x/x']Tp => [x'/x]G' ]]$ and
     $[[Cons(H,R { x' |-> v }, G'')]]$.
     The first is easy to obtain using \Cref{lem:substitution}; from $[[ Cons(H, R, G) ]]$,
-    we have that $[[ forall x in G.x in dom R ]]$, whereby $[[ x not in dom R ]]$ we have
+    we have that $[[ forall x in G.x in dom R ]]$, whereby from $[[ x not in dom R ]]$ we have
     $[[ x' not in dom G]]$.
     It therefore remains to show $[[Cons(H,R { x' |-> v }, G'')]]$.
 
@@ -223,8 +223,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     then we must only show that $[[ SATv(H,R',H(R'(y)),T1) ]]$.
     
     From $[[Cons(H,R,Gp)]]$, we know that $[[SAT(H,R,Gp)]]$, in particular, $[[SATv(H,R,R(y),Gp(y)) ]] $.
-    Then from \Cref{lem:satadd,lem:r-valid-subst,lem:register}, that $[[ R < R' ]]$ and $[[ ll |- Gp ]]$, we obtain from $[[ SATv(H,R,v,T1+T2)]]$ that
-    $[[ SATv(H,R',v,T1)]]$ and $[[ SATv(H,R',v,T2) ]]$, where $[[v = H(R(y))]]$.
+    Then by \Cref{lem:satadd,lem:r-valid-subst,lem:register}, from $[[ R < R' ]]$, $[[ ll |- Gp ]]$, and $[[ SATv(H,R,v,T1+T2)]]$ we obtain
+    that $[[ SATv(H,R',v,T1)]]$ and $[[ SATv(H,R',v,T2) ]]$, where $[[v = H(R(y))]]$.
     We thus have that $[[ SATv(H,R',R'(x'),T2) ]]$ and $[[ SATv(H,R',H(R'(y)),T1) ]]$ are satisfied.
     
     We must also show that the ownership invariant is preserved.
@@ -370,7 +370,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We give $[[ G'' = G[y <- T1],x' : (T2 /\ x' x' = y) ref 1 ]]$,
     and must show that $[[ Th | G'' | ll |- [x'/x]e : T => G' ]]$ and
     $[[ Cons(H', R', G'') ]]$. The first follows
-    from \Cref{lem:substitution} and the reasoning found in \rn{R-Let},
+    from \Cref{lem:substitution} and the reasoning found in \rn{R-Deref},
     and the second from the assumed well-formedness of $[[T1 + T2 ]]$.
     
     It remains to show $[[Cons(H',R',G'')]]$.
@@ -391,14 +391,14 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \end{align*}
 
     Since $[[a not in H]]$ and $[[forall a' in H.Own(H,R,G)(a') <= 1]]$,
-    we have $[[forall a' in H.Own(H',R',G'')(a') <= 1]]$.  \AI{Right?  Then, the following paragraph is not needed.}
+    we have $[[forall a' in H.Own(H',R',G'')(a') <= 1]]$.
 
-    We want to show that $[[forall a in H'.Own(H', R', G'')(a) <= 1]]$.
-    Suppose $[[a != a']]$ (that is $[[a in H]]$): we have $[[Own(H, R, G)(a)= Own(H', R', G'')(a)]]$ and thus $[[Own(H', R', G'')(a) <= 1]]$ by $[[Cons(H,R,G)]].$
-    Next, suppose $a=a'$; we have $[[Own(H',R',G'')(a)=1]]$ only if $[[a' not in Own(H,R,G)]]$;
-    this requirement immediately holds from $[[a' not in H]]$ by the definition of
-    $[[own(H,v,T)]]$. \JT{We have been a little sloppy with our definition of + on
-      these ownership functions so the domains of these functions is a little unclear.}
+    % We want to show that $[[forall a in H'.Own(H', R', G'')(a) <= 1]]$.
+    % Suppose $[[a != a']]$ (that is $[[a in H]]$): we have $[[Own(H, R, G)(a)= Own(H', R', G'')(a)]]$ and thus $[[Own(H', R', G'')(a) <= 1]]$ by $[[Cons(H,R,G)]].$
+    % Next, suppose $a=a'$; we have $[[Own(H',R',G'')(a)=1]]$ only if $[[a' not in Own(H,R,G)]]$;
+    % this requirement immediately holds from $[[a' not in H]]$ by the definition of
+    % $[[own(H,v,T)]]$. \JT{We have been a little sloppy with our definition of + on
+    %   these ownership functions so the domains of these functions is a little unclear.}
   \end{rneqncase} % R-MkRef
 
   \begin{rneqncase}{R-Assign}{ % FIXED
@@ -425,6 +425,8 @@ call cases respectively; we have separated them into separate lemmas for clarity
     from which, by \Cref{lem:satadd},
     $[[ SATv(H',R,R(x),T1) ]]$ and $[[ SATv(H',R,R(x),T2) ]]$ follow.
     We then have $[[ SATv(H',R,R(y),T2 ref 1) ]]$ and $[[ SATv(H',R,R(x),T1) ]]$ as $[[H'(R(y)) = R(x) ]]$.
+    (That any other variables $[[z]]$ is consistent will follow from $[[own(H, R(z), G(z))(a) = 0 ]]$
+    as proved below and \cref{lem:heapfor0}.)
 
     To show $[[own(H, R(x), T1 + T2)(a)=0]]$, 
     we define $[[O0']], [[O0'']], [[O1']]$ and $[[O1'']]$ as below:
@@ -449,8 +451,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     \end{align*}
     we have that:
     \begin{align*}
-      [[own(H, H(R(y)), T')(a) & = own(H, R(x), G(x))(a) ]] \\
-                               & = [[ own(H, R(x), T1 + T2)(a) ]] \\
+      [[own(H, H(R(y)), T')(a) ]] & = [[ own(H, R(x), T1 + T2)(a) ]] \\
                                & = [[O0'(a) = 0]]
     \end{align*}
 
@@ -477,7 +478,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     For every $[[ z in dom G \ { y, x } ]]$ (and similarly for $[[G'']]$), we have
     $[[G(z) = G''(z)]]$. Further, from $[[O0'(a) = 0]]$ above, we must have $[[own(H, R(z), G(z))(a) = 0]]$
     for all such $[[z]]$. As $[[ H ~ a H' ]]$, by \Cref{lem:heapop}, we have that $[[ O0' = O1' ]]$.
-    Then, from $[[ forall a' in H.Own(H, R, G'')(a') = O0'(a') + O0''(a') <= 1 ]]$, \AI{$[[G'']]$ should be $[[G]]$?  I didn't see where it came from.} it suffices to show
+    Then, from $[[ forall a' in H.Own(H, R, G)(a') = O0'(a') + O0''(a') <= 1 ]]$, it suffices to show
     that $[[ forall a' in H.O1''(a') <= O0''(a') ]]$.
        
     We first consider the case for $[[a]]$:
@@ -531,7 +532,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
     We thus have $[[Tq ~ Tp]]$.
     
     We know that $[[Cons(H,R,G) ]]$, from which we have $[[ SAT(H,R,G) ]]$, in particular
-    $[[ SATv(H,R,R(y),G(y) = T2 ref r2) ]]$ and $[[ SATv(H, R, R(x), G(x) + T1 ref r1) ]]$.
+    $[[ SATv(H,R,R(y),G(y) = T2 ref r2) ]]$ and $[[ SATv(H, R, R(x), G(x) = T1 ref r1) ]]$.
     From $[[Tp1 + Tp2 = Tp]]$ and \Cref{lem:satadd}, we have
     $[[SATv(H,R,v,Tp1)]]$ and $[[SATv(H,R,v,Tp2)]]$ imply $[[SATv(H,R,v,Tp)]]$, where $[[v = H(R(y))=H(R(x))]]$.
     From $[[Tq ~ Tp]]$ and \Cref{lem:sattosat}, we have that $[[SATv(H,R,v,Tp)]]$ implies $[[ SATv(H,R,v,Tq)]]$.
@@ -617,8 +618,7 @@ $ and $[[ Th | G | ll |- e : T => G' ]]$, and
     We must also prove that $\forall i\in\set{1..n+1}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$  where $[[ E'n = E[let x = [] l in e'] ]]$ and $[[ E'i = Ei ]] (0 \leq i < n)$,
     which can be divided into proving
     $\forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli-1 |-e E'i-1 : Ti-1 => Gi-1 ]]$ and $[[ Th | [] : Tn+1 => Gn+1 | lln |-e E'n : Tn => Gn ]]$. The first follows by inversion on $[[ |- D <H, R, Es, E[let x = f l (y1,,yn) in e']>]]$.
-
-    We define $[[Gn+1 = G''' ]]$ and $[[Tn+1 = T''' ]]$, whereby the
+    To show the latter, we define $[[Gn+1 = G''' ]]$ and $[[Tn+1 = T''' ]]$, whereby the
     well-typing holds from the result of applying \Cref{lem:callfunc} above.
     
     Finally, $[[Cons(H,R,G'')]]$ follows immediately from $[[Cons(H,R,G)]]$ and $[[G''=G]]$.

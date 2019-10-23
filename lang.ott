@@ -376,6 +376,7 @@ grammar
     | [ T ] x :: :: denote_type {{ tex \sem{[[T]]}_{[[x]]} }}
 	| [ G ] :: :: sem_tyenv  {{ tex \sem{[[G]]} }}
 	| vsub logical_frag :: :: subst
+	| [ pval / pvar ] logical_frag :: :: val_subst
 	| csub logical_frag :: :: csubst
 	| logical_frag1 /\ logical_frag2 :: :: conj
 	| ! logical_frag :: :: not {{ tex \neg [[logical_frag]]}}
