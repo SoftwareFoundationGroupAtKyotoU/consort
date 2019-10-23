@@ -631,7 +631,7 @@ hold for contents of the other and vice versa.
   The final type assignment for $[[x]]$ and $[[y]]$ is justified by
   \begin{align*}
     &[[top1 + {nu:int|(=4)} ref 1 = {nu:int|Top /\ (=4)} ref 1]][[~]]\\
-    \,\,\,\,&[[{nu:int|(=4)/\(=4)} ref 1 = {nu:int|ph4} ref 0.5 + {nu:int|(=4)} ref 0.5 ]] .
+    \,\,\,\,&[[{nu:int|(=4)/\(=4)} ref 1 = {nu:int|(=4)} ref 0.5 + {nu:int|(=4)} ref 0.5 ]] .
   \end{align*}
 \end{example}
 
