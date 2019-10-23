@@ -82,7 +82,10 @@ fractional permissions to verify race freedom of a concurrent program
 without a may-alias analysis.  Later,
 Terauchi~\cite{terauchi2008checking} proposed a type-inference
 algorithm that reduces typing constraints to a set of linear
-inequalities over rational numbers.  Our previous
+inequalities over rational numbers.  Boyland's idea also inspired a
+variant of separation logic for a concurrent programming
+language~\cite{DBLP:conf/popl/BornatCOP05} to express sharing of read
+permissions among several threads.  Our previous
 work~\cite{suenaga2009fractional,suenaga2012type}, inspired by
 Boyland's work and Terauchi's work, proposed methods for type-based
 verification of resource-leak freedom, in which a rational number
