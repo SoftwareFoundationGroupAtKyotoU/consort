@@ -28,6 +28,10 @@
 \usepackage[numbers,sectionbib,sort]{natbib}
 \input{local}
 % generate nice pdf index when compiling in draft mode
+\draftCommentsfalse
+
+\ifdraftComments\else\linepenalty=1000\fi
+
 \ifdraftComments
 \makeatletter
 \let\llncs@addcontentsline\addcontentsline
@@ -38,13 +42,12 @@
 \makeatother
 \fi
 \usepackage{hyperref}
+\ifdraftComments
 \hypersetup{colorlinks,
   linkcolor=red,
   citecolor=red}
+\fi
 \usepackage[noabbrev]{cleveref}
-\draftCommentsfalse
-
-\ifdraftComments\else\linepenalty=1000\fi
 
 
 % \input{../effgrad/def/ott/coe}
