@@ -84,7 +84,7 @@ memory and their refinements must be updated as well. However,
 in the presence of conditional, \emph{may} aliasing it is
 impossible to strongly update the refinements on all possible
 aliases; given the static uncertainty
-about whether a variables points to the mutated memory, that variable's
+about whether a variable points to the mutated memory, that variable's
 refinement may only be \emph{weakly updated}. For example,
 suppose we used a simple alias analysis that imprecisely (but soundly)
 concluded all references allocated at the same program point \emph{might} alias.
@@ -100,14 +100,14 @@ preventing the verification of the example program.
 Given the precision loss associated with weak updates,
 it is critical that verification techniques built upon
 refinement types use precise aliasing information and
-spuriously applied weak updates are avoided. Although it
+that spuriously applied weak updates are avoided. Although it
 is relatively simple to conclude that \imp{p} and \imp{q}
 do not alias in \Cref{fig:strong-update-example}, consider
 the example in \Cref{fig:hard-loop}. (In this example,
-$\star$ represents some non-deterministic value.) Verifying
+$\star$ represents non-deterministic values.) Verifying
 this program requires proving \imp{a} and \imp{b} never
-alias for the writes on \cref{line:b-write,line:a-write}.
-In fact, \imp{a} and \imp{b} may point to the same
+alias at the writes on \cref{line:b-write,line:a-write}.
+In fact, \imp{a} and \imp{b} \emph{may} point to the same
 memory location, but only in different invocations of \imp{loop};
 this pattern may confound even sophisticated symbolic alias analyses.
 Additionally, \imp{a} and \imp{b} share an allocation site on \cref{line:alloc1},
@@ -134,14 +134,14 @@ ownerships encode precise aliasing information in the form of
 
 To understand the benefit of this approach, let us return to
 \Cref{fig:strong-update-example}. As \imp{mk} returns a freshly allocated
-reference with no aliases, its function type indicates it returns a
+reference with no aliases, its type indicates it returns a
 reference with ownership 1. Thus our type system can initially
 give \imp{p} and \imp{q} types $[[ { nu:int|nu = 3} ref 1 ]]$ and $[[ {nu:int|nu = 5} ref 1]]$ respectively. The ownership $[[1]]$ on the reference type constructor $\TREF$ indicates both
 pointers hold ``exclusive'' ownership of the pointed to reference cell;
 from the invariant of fractional ownership types \imp{p} and \imp{q}
 must not alias. The types of both references
-can thus be strongly updated \emph{without} requiring weak updates; at the
-assertion statement on \cref{line:rq-eq-assert}, \imp{p} has type
+can be strongly updated \emph{without} requiring spurious weak updates. As a result,
+at the assertion statement on \cref{line:rq-eq-assert}, \imp{p} has type
 $[[ {nu:int|nu = 4} ref 1 ]]$ expressing the required invariant.\looseness=-1
 
 Our type system can also verify the example in
@@ -149,10 +149,10 @@ Our type system can also verify the example in
 side analyses. As \imp{a} and \imp{b} are both
 mutated, they must both have ownership 1; i.e., they cannot alias.
 At the invocation of \imp{loop} on \cref{line:alloc1}, \imp{b} has
-ownership 1 (from the argument types), and the newly allocated
+ownership 1 (from the argument type), and the newly allocated
 reference must also have ownership 1.
 Similarly, both arguments on \cref{line:call2} have ownership $[[1]]$
-(again, from the assumed ownership on the argument types).
+(from the assumed ownership on the argument types).
 
 Ownerships behave linearly;
 they cannot be duplicated, only \emph{split}
@@ -202,8 +202,9 @@ get(p) { *p }
 let p = mkref 3 in
 let q = mkref 5 in
 p := get(p) + 1;$\label{line:get1}$
-q := get(p) + 1;$\label{line:get2}$
+q := get(q) + 1;$\label{line:get2}$
 assert(*p = 4);
+assert(*q = 6);
   \end{lstlisting}
   \caption{Context Sensitivity Example}
   \label{fig:running-example}
@@ -212,7 +213,7 @@ of \Cref{fig:strong-update-example}
 shown in \Cref{fig:running-example}.
 The function \imp{get} returns the contents of its argument,
 and is called on \cref{line:get1,line:get2}. To precisely verify
-this program, at \cref{line:get1}
+this program, on \cref{line:get1}
 \imp{get} must be typed as a function that takes a reference to
 3 and returns 3. Similarly, on \cref{line:get2}
 \imp{get} must be typed as a function that
@@ -229,9 +230,9 @@ non-trivial programs, including sorted lists and an array list data structure.
 
 The rest of this paper is organized as follows. \Cref{sec:prelim} defines the
 imperative language targeted by \name and its semantics. \Cref{sec:typesystem}
-defines our type system and states our soundness theorem. \Cref{sec:infr} our
-implementation's inference algorithm and its current limitations.
-\Cref{sec:eval} describes an initial evaluation of our prototype, \Cref{sec:rw} outlines
+defines our type system and states our soundness theorem. \Cref{sec:infr} sketches
+our implementation's inference algorithm and its current limitations.
+\Cref{sec:eval} describes an evaluation of our prototype, \Cref{sec:rw} outlines
 related work, and \Cref{sec:concl} concludes.\looseness=-1
 
 %%% Local Variables:

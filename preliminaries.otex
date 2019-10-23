@@ -85,11 +85,8 @@ presentation; this requirement does not reduce expressiveness
 as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state and aborts the program otherwise.
-$[[alias(x = y); e]]$ asserts a must-aliasing relationship $x$ and $y$.\iffalse\footnote{
-    Although we include \imp{alias} annotations in the
-  source language for expository purposes, we expect that practical implementations
-  may use also implicit annotations provided by a conservative must-alias analysis.
-}\fi
+$[[alias(x = y); e]]$ asserts a must-aliasing relationship between $x$ and $y$ and
+then executes $[[e]]$.
 \imp{alias} statements
 are effectively \emph{annotations} that our type system exploits to gain
 added precision.
@@ -174,7 +171,7 @@ take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pendin
 function call with label $[[l]]$, and indicates that the return value of the
 callee should be bound to $[[y]]$ in $[[e]]$ within the larger exectuion context $[[E]]$.
 The call stack $[[Es]]$ is a sequence of these contexts, with
-the first such return context indicating the most recent function call.
+the first such return context represents the most recent function call.
 The stack grows at function calls as described by rule \rn{R-Call}.
 For a call $[[ E[let x = f l (y1,,yn) in e] ]]$ where
 $f$ is defined as $[[(x1,..., xn)e']]$, the return context $[[ E[let y = [] l in e] ]]$ is
@@ -186,7 +183,7 @@ Our semantics return values by name; when the currently executing function fully
 $x$ is substituted into the return context on the top of the stack,
 denoted by $[[ E[let y = [] l in e] ]][x]$.
 
-In the rules \rn{R-Assert} we write $[[|= [R]ph]]$ to mean the formula
+In the rules \rn{R-Assert} we write $[[|= [R]ph]]$ to mean that the formula
 yielded by substituting the concrete values in $[[R]]$ for the variables in $[[ph]]$
 is valid within some dedicable logic; in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
 when the formula is \emph{not} valid.
