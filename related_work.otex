@@ -96,7 +96,7 @@ systems to reason in contexts with aliased mutable references
 \cite{fahndrich2002adoption,deline2001enforcing,smith2000alias}, and
 in particular with the goal of supporting strong updates
 \cite{ahmed20073}. A closely related approach is RustHorn by
-Matsushita and Kobayashi \cite{matsushita2019rusthorn}. Much like
+Matsushita et al. \cite{matsushita2019rusthorn}. Much like
 \name, RustHorn uses CHC and linear aliasing information for
 the sound and---unlike \name---complete verification of
 programs with aliasing and mutability. However, their approach depends Rust's
