@@ -89,7 +89,7 @@
   fractional ownership types. Fractional ownership types
   provide flow-sensitive and precise aliasing information
   for reference variables. \name interprets this ownership information
-  to soundly handly strong updates of potentially mutable references.
+  to soundly handle strong updates of potentially mutable references.
   We have proved our type system sound and implemented a prototype,
   fully automated inference tool. \name outperforms
   another automated program verifier on non-trivial verification problems.
