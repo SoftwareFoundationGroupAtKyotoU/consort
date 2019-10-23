@@ -9,9 +9,9 @@ described in \Cref{sec:infr}. The goal of these experiments was to answer the fo
 \end{enumerate}
 
 \begin{table}[t]
-  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are omitted programs
-    that test Java specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
-    null checking, pointer equality, etc. \textbf{Bug} includes a ``safe'' program
+  \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
+    that test Java-specific features. \textbf{Inc} are tests that cannot be handled by \name, e.g.,
+    null checking, etc. \textbf{Bug} includes a ``safe'' program
     we discovered was actually incorrect.}
   \begin{center}
     \input{benchmark_table}
@@ -49,7 +49,7 @@ test the expressive power of our type system and inference.
 The programs included in this suite are:
 \begin{itemize}
 \item \textbf{Array-List} Implementation of an unbounded list backed by an array.
-\item \textbf{Sorted-List} Implementation of an in-place insertion sort algorithm.
+\item \textbf{Sorted-List} Implementation of a mutable, sorted list maintained with an in-place insertion sort algorithm.
 \item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \Cref{exmp:shuffle-example}.
 \item \textbf{Mutable-List} Implementation of general linked lists with a clear operation.
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
@@ -85,7 +85,7 @@ suite \name performs competitively with JayHorn, correctly identifying 29 of the
 as such. For all 3 tests on which \name timed out after 60 seconds, JayHorn also timed out or encountered an exception
 (columns \emph{T/O} and \emph{Err.}).
 For the unsafe programs, \name correctly identified all programs as unsafe within 60 seconds;
-JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others (column \emph{Imprecise}).
+JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others (column \emph{Imp.}).
 
 On our own benchmark set, \name correctly verifies all safe versions
 of the programs within 60 seconds. For the unsafe variants,

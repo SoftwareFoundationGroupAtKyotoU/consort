@@ -105,7 +105,7 @@ def jayhorn_column(j):
 with open(sys.argv[2], 'w') as result_table:
     print >> result_table, r'\begin{tabular}{cc||cc||cccc}\toprule'
     print >> result_table, r'\textbf{Set} & \textbf{N. Tests} & \multicolumn{2}{l}{\textbf{\name}} & \multicolumn{4}{c}{\textbf{JayHorn}} \\'
-    print >> result_table, r'& & \emph{Correct} & \emph{T/O} & \emph{Correct} & \emph{T/O} & \emph{Err.} & \emph{Imprecise} \\ \midrule'
+    print >> result_table, r'& & \emph{Correct} & \emph{T/O} & \emph{Correct} & \emph{T/O} & \emph{Err.} & \emph{Imp.} \\ \midrule'
     print_jayhorn_line(result_table, "Safe", "sat", r'\\')
     print_jayhorn_line(result_table, "Unsafe", "unsat")
     print >> result_table, r'\end{tabular}'

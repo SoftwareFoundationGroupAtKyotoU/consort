@@ -59,11 +59,11 @@ Unlike ML (and like C or Java) we do not allow general expressions on the right 
 let bindings. The simplest right hand forms are a variable $[[y]]$ or an integer literal $[[nn]]$.
 $[[mkref y]]$ creates a reference cell with value $[[y]]$, and
 $[[*y]]$ accesses the contents of reference $[[y]]$. For simplicity,
-we do not include an explicit null value.
-An extension to null will be discussed in \Cref{sec:infr}.
+we do not include an explicit null value;
+an extension to null will be discussed in \Cref{sec:infr}.
 Function calls must occur on the right hand side of a variable binding
 and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is a
-(unique) label.% drawn from \textbf{Labels}.
+(unique) label. % drawn from \textbf{Labels}.
 These labels are used to make our type system for context sensitive as
 discussed in \Cref{sec:cs}.
 
@@ -85,25 +85,18 @@ presentation; this requirement does not reduce expressiveness
 as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state and aborts the program otherwise.
-$[[alias(x = y); e]]$ asserts a must-aliasing relationship $x$ and $y$.
-\imp{alias} statements \KS{Statement \imp{alias}?}
+$[[alias(x = y); e]]$ asserts a must-aliasing relationship $x$ and $y$.\footnote{
+    Although we include \imp{alias} annotations in the
+  source language for expository purposes, we expect that practical implementations
+  may use also implicit annotations provided by a conservative must-alias analysis.
+}
+\imp{alias} statements
 are effectively \emph{annotations} that our type system exploits to gain
 added precision.
 $[[ x := y ; e ]]$ updates the contents of the memory cell pointed to by $[[x]]$
 with the contents of $[[y]]$.
 In addition to the above continuations, our language supports general sequencing with
 $[[e1 ; e2]]$.
-
-\begin{remark}
-  Although we include \imp{alias} annotations in the
-  source language for expository purposes, we expect that practical implementations
-  may use also implicit annotations provided by a conservative must-alias analysis.
-  \JT{That we mention must-alias analyses here seems to contradict our claim in
-    the intro.}
-  \AI{This will be resolved after we settle down the introduction.}
-  \JT{What is the preference for remark vs. footnote?}
-  \AI{I don't have a strong preference.  A footnote saves more space?}
-\end{remark}
 
 A program is a pair $[[<D, e>]]$, where
 $[[ D = {d1,...,dn} ]]$ is a set of first-order, mutually recursive function definitions, and $[[e]]$
@@ -155,19 +148,19 @@ describe below.
 While the final configuration component is an expression,
 the rewriting rules are defined in terms of $[[ E[e] ]]$, which is
 an evaluation context $[[E]]$ and redex $[[e]]$, as is standard.
-The grammar for evaluation contexts and return contexts $[[CE]]$ are defined by: 
-% in \Cref{fig:eval-context-grammar}.
+The grammar for evaluation contexts is defined by: 
 \(
     [[ E ]]  ::=  [[ E'; e ]] \mid [[ [] ]].
   \)
 
 Our operational semantics is given in \Cref{fig:transitionRules1,fig:transitionRules2}.
 We write $[[dom H]]$ to indicate the domain of
-the function and $[[H { a |-> Rv }]]$ where $a \not\in\DOM(H)$ to denote a map
+a function and $[[H { a |-> Rv }]]$ where $[[a not in dom H]]$ to denote a map
 which takes all values in $\DOM(H)$ to their values in $H$ and which
 additionally takes $[[a]]$ to $[[Rv]]$.
 We will write $ [[H { a <- Rv }]]$
-where $a\in\DOM(H)$ to denote a map equivalent to $[[H]]$ except that $[[a]]$ takes value $[[Rv]]$.  Similarly for $dom R$ and $[[R{x |-> Rv}]]$.
+where $[[ a in dom H]]$ to denote a map equivalent to $[[H]]$ except that $[[a]]$ takes value $[[Rv]]$.
+We use similar notation for $[[dom R]]$ and $[[R{x |-> Rv}]]$.
 We also write $\emptyset$ for the empty register file and heap.
 %
 Notice that the step relation  $[[ --> D ]]$ is parameterized
@@ -194,7 +187,7 @@ $x$ is substituted into the return context on the top of the stack,
 denoted by $[[ E[let y = [] l in e] ]][x]$.
 
 In the rules \rn{R-Assert} we write $[[|= [R]ph]]$ to mean the formula
-yielded by substituting the concrete values in $[[R]]$ to the variables in $[[ph]]$
+yielded by substituting the concrete values in $[[R]]$ for the variables in $[[ph]]$
 is valid within some dedicable logic; in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
 when the formula is \emph{not} valid.
 The substitution operation $[[ [R]ph ]]$ is defined inductively as $[[ [empty] ph = ph ]], [[ [R { x |-> nn }]ph = [R][nn/x]ph ]], [[ [R { x |-> a }] ph = [R]ph ]]$.
