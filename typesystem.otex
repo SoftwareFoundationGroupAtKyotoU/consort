@@ -178,7 +178,7 @@ over a context variable. Intuitively,
 this context variable represents the many different execution contexts
 under which a function may be called.
 
-Argument and return types may then depend on this context variable by
+Argument and return types may depend on this context variable by
 including \emph{context query predicates} in their refinements.
 A context query predicate $[[CQP]]$ usually takes the
 form $[[ ll <= A ]]$, and is true iff $[[ll]]$ is a
@@ -193,12 +193,12 @@ $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
 
 \begin{example}
   \label{exmp:cs-type-example}
-  The type $[[ {nu:int| (l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)} ]]$ represents
+  The type $[[ {nu:int| (l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 5)} ]]$ represents
   an integer that is 3 if the most recent active
-  function call site is $[[l1]]$, 4 if the most recent call site is $[[l2]]$,
+  function call site is $[[l1]]$, 6 if the most recent call site is $[[l2]]$,
   and is otherwise unconstrained. This type may be used for the argument of
-  \imp{f} in, e.g., \imp[mathescape]{/*...*/  f$^{[[l1]]}$(3) + f$^{[[l2]]}$(4) /*...*/}.
-\AI{Are we going to fill the ellipses in the comments?}  
+  \imp{f} in, e.g., \imp[mathescape]{/*...*/  f$^{[[l1]]}$(3) + f$^{[[l2]]}$(5) /*...*/}.
+\AI{Are we going to fill the ellipses in the comments?}  \JT{No}
 \end{example}
 
 As types in our type system may contain context variables, our typing judgment
@@ -206,7 +206,7 @@ As types in our type system may contain context variables, our typing judgment
 context variable $[[A]]$ or a concrete context $[[ll]]$. This typing context
 represents the assumptions about the execution context of the term being
 typed. If the typing context is a context variable $[[A]]$, then no assumptions
-are be made about the execution context of the term, although types
+are made about the execution context of the term, although types
 may depend upon $[[A]]$ with context query predicates.
 Accordingly, function bodies are typed under the context variable
 universally quantified over in the corresponding function type; i.e.,
@@ -219,9 +219,9 @@ in a typing derivation yields a valid type derivation under concrete context $[[
   \label{rem:cfa}
   The context-sensitivity scheme described here corresponds
   to the standard CFA approach \cite{shivers1991control} without \emph{a priori} call-string limiting.
-  We chose this scheme because it can be easily encoded with equality over integer variables (see \Cref{sec:infr}),
+  We chose this scheme because it can be easily encoded with equality over integer variables (see \Cref{sec:cs,sec:infr}),
   but in principle another context-sensitivity strategy could be used instead. The important
-  feature of our type system is the inclusion of predicates $[[CQP]]$ over
+  feature of our type system is the inclusion of predicates over
   contexts, not the specific choice for these predicates.
 \end{remark}
 
@@ -247,15 +247,12 @@ are consistent with updates performed through mutable aliases. Recall our owners
 ensures all aliases of a mutable reference have 0 ownership.
 Any mutations through that alias will therefore be consistent with the
 ``no information'' $[[ Top ]]$ refinement required by the
-well-formedness condition. \JT{There used to be a sentence here
-  effectively saying that we can exploit aliasing to restore ownership
-  and refinement information. It came off as a non-sequitor, and is restated
-  elsewhere}
+well-formedness condition.
 
-Refinement well-formedness
-ensures that free program variables in refinements are
-bound in a type environment $[[G]]$ and have integer type. Refinement
-well-formedness also requires that under typing context
+Refinement well-formedness, denoted $[[ G | B |- ph ]]$,
+ensures that free program variables in refinement $[[ph]]$ are
+bound in a type environment $[[G]]$ and have integer type. It
+also requires that for a typing context
 $[[B = A]]$, only context query predicates over $[[A]]$ are used (no such
 predicates may be used if $[[B = ll]]$). Notice this condition
 forbids refinements that refer to references. Although
@@ -264,9 +261,9 @@ reference must be discarded, our current formulation
 provides no such information for refinements that \emph{mention}
 mutably-aliased references. We therefore conservatively reject
 such refinements at the cost of some expressiveness in our type system.
-We write $[[ G | B |- T ]]$ to indicate a well-formed type
-with respect to $[[B]]$ and $[[G]]$, and write $[[ G | B |- ph ]]$ to
-indicate a well-formed predicate with respect to $[[B]]$ and $[[G]]$.
+
+We write $[[ G | B |- T ]]$ to indicate a well-formed type where
+all refinements are well-formed with respect to $[[B]]$ and $[[G]]$.
 We write $[[ B |- G ]]$ for a type environment where all
 types are well-formed. A function environment
 is well-formed (written $[[ |- Th ]]$) if, for every $[[FT]]$ in $[[Th]]$,
@@ -362,7 +359,7 @@ mutability and refinement types. The typing rules are given in
 A typing judgment takes the
 form $[[ Th | G | B |- e : T => G' ]]$, which indicates that $[[e]]$
 is well-typed under a function type
-environment $[[Th]]$, and typing context $[[B]]$, type environment $[[G]]$, 
+environment $[[Th]]$, typing context $[[B]]$, and type environment $[[G]]$, 
 and evaluates to a value of type $[[T]]$ and modifies the input environment
 according to $[[G']]$. Any valid typing derivation must
 have $[[ B |- G ]]$, $[[ B |- G' ]]$, and $[[ G' | B |- T ]]$, i.e.,
@@ -373,7 +370,7 @@ The typing rules in \Cref{fig:intra-type} handle the relatively
 standard features in our language.  \rn{T-Seq} for sequential
 composition is fairly straightforward except that the output type
 environment for $[[e1]]$ is the input type environment for $[[e2]]$.
-\rn{T-LetInt} is also straightforward: since $[[x]]$ is bound to a
+\rn{T-LetInt} is also straightforward; since $[[x]]$ is bound to a
 constant, it is given type $[[{nu:int|nu=nn}]]$ to indicate $[[x]]$ is
 exactly $[[nn]]$.  The output type environment $[[G']]$ cannot mention
 $[[x]]$ (expressed with $[[x not in dom G]]$)
@@ -394,7 +391,7 @@ refinement information between the two types.
 For example, type $[[{nu:int | nu > 0} ref 1]]$ can be split into (1)
 $[[{nu:int | nu > 0} ref r]]$ and $[[{nu:int | nu > 0} ref (1-r)]]$ (for $[[r]] \in (0,1)$),
 i.e., two \emph{immutable} references with non-trivial refinement information,
-or (2) $[[{nu:int | nu > 0} ref 1]]$ and $[[{nu:int | Top} ref 0]]$, where one
+or (2) $[[{nu:int | nu > 0} ref 1]]$ and $[[{nu:int | Top} ref 0]]$, where
 one of the aliases is mutable and the other provides no refinement information.
 How a type is split depends on the usage of $[[x]]$ and $[[y]]$ in $[[e]]$.
 Formally, we define the type addition operator as
@@ -407,7 +404,7 @@ rules:\looseness=-1
 Viewed another way, type addition describes how to combine two types
 for the same value such that the combination soundly incorporates all
 information from the two original types.  Critically, the type
-addition operation cannot create or destroy ownership or refinement
+addition operation cannot create or destroy ownership and refinement
 information, only combine or divide it between types.  Although not
 explicit in the rules, by ownership well-formedness, if
 the entirety of a reference's ownership is transferred to another type
@@ -431,9 +428,9 @@ that can introduce equality.
 
 Rule \rn{T-MkRef} is very similar to \rn{T-Let}, except that $[[x]]$
 is given a reference type of ownership 1 pointing to $[[T2]]$, which
-is obtained by splitting the type of $[[y]]$.  In \rn{T-Deref} for
-dereferencing, the content type of $[[y]]$ is split and given to
-$[[x]]$.  The stregthening is \emph{conditionally} applied depending
+is obtained by splitting the type of $[[y]]$.  In \rn{T-Deref},
+the content type of $[[y]]$ is split and distribted to
+$[[x]]$.  The strengthening is \emph{conditionally} applied depending
 on the ownership of the dereferenced pointer, that is, if $[[r]] = 0$,
 $[[T']]$ has to be a ``top'' type $[[topi]]$.
 
@@ -465,7 +462,7 @@ both branches to produce the same output type environment, we guarantee
 that these conflicting refinements are rectified within the
 type derivations of the two branches.
 
-The rule for type checking assert statements has the precondition
+The type rule for assert statements has the precondition
 $[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
 lifts the refinements on the integer valued variables into a proposition
 in the decidable logic used for verification. This denotation
@@ -477,12 +474,13 @@ operation is defined as:
 \end{array}
 \]
 If the underlying theory does not directly support strings or context prefix queries,
-$[[ l1 ,, ln <= A ]]$ can be encoded with $\land_{0<i\leq n} c_i = [[ ll_i ]]$ for
+$[[ l1 ,, ln <= A ]]$ can be encoded with $\land_{0<i\leq n} c_i = [[ li ]]$ for
 some fresh set of variables $c_i$.
 If the formula $[[ [G] ==> ph]]$
-is valid, then under any valuation of program variables that satisfy
-the refinements in $[[ [G] ]]$, the predicate $[[ph]]$ must be true and the
-assertion may not fail. This intuition forms the foundation of our
+is valid, then in any context and under any valuation of program variables that satisfy
+the refinements in $[[ [G] ]]$,
+the predicate $[[ph]]$ must be true and the
+assertion must not fail. This intuition forms the foundation of our
 soundness claim (\Cref{sec:soundness}).
 
 \begin{figure}[t]
@@ -573,13 +571,13 @@ Refinement information in the fresh
 contents \emph{may} be inconsistent with
 any previous refinement information; only the shapes must be the same.
 In a system with unrestricted aliasing, this
-typing rule would be unsound because it admits writes that
+typing rule would be unsound as it would admit writes that
 are inconsistent with refinements on aliases of the left hand side.
 However, the assignment rule
-requires that the updated reference has an ownership of $1$,
-which by the ownership type invariant guarantees aliases
+requires that the updated reference has an ownership of $1$.
+By the ownership type invariant, all aliases
 with the updated reference have $0$ ownership, and
-thus by well-formedness may only contain the $[[Top]]$ refinement.
+by ownership well-formedness may only contain the $[[Top]]$ refinement.
 
 \begin{example}
   We can type the program as follows:
@@ -588,7 +586,7 @@ thus by well-formedness may only contain the $[[Top]]$ refinement.
     let y = x in             // $\color{comment-green}{[[x:top1,y:{nu:int|nu=5} ref 1]]}$
     y := 4; assert(*y = 4) // $\color{comment-green}{[[x:top1,y:{nu:int|nu=4} ref 1]]}$
   \end{lstlisting}
-  In this example and the following, we include type annotations within comments. We stress
+  In this and later examples, we include type annotations within comments. We stress
   that these annotations are for expository purposes only; our tool can infer these types
   automatically with no manual annotations.
 \end{example}
@@ -634,7 +632,7 @@ hold for contents of the other and vice versa.
 \end{example}
 
 The aliasing rules give fine-grained control over ownership information. This
-flexibility allows mutation through two aliased references within the same scope.
+flexibility allows mutation through two or more aliased references within the same scope.
 Provided sufficient aliasing annotations, the type system may shuffle ownerships between
 one or more live references, enabling and disabling mutability as required. Although the
 reliance on these annotations appears to decrease the practicality of our type system,
@@ -747,34 +745,31 @@ definition. The rule checks that under an initial environment given
 by the argument types the function body produces a value of the
 return type and transforms the arguments according to the output types.
 As mentioned above, functions may be executed under many different contexts,
-so function body type checking is performed under the type context
+so type checking the function body is performed under the context
 variable $[[A]]$ that occurs in the function type.
-\JT{This is redundant with the intuition presented earlier in 3.2. It's been a while,
-  so perhaps the repetition is fine}
-\AI{Agreed.}
 
 Finally, the rule for typing programs (\rn{T-Prog}) checks that
 all function definitions are well typed under a well-formed
 function type environment, and that the entry point $[[e]]$
 is well typed in an empty environment and typing context
-$[[.]]$, the initial context.
+$[[.]]$, i.e., the initial context.
 
-\begin{example}[Simple 1-CFA]
+\begin{example}[1-CFA]
   \label{exmp:1cfa}
   Recall the program in \Cref{fig:running-example} in \Cref{sec:intro}; assume
   the function calls are labeled as follows:
 \begin{lstlisting}
 p := get$^{\ell1}$(p) + 1;
 // ...
-r := get$^{\ell2}$(r) + 1;
+q := get$^{\ell2}$(q) + 1;
 \end{lstlisting}
   Taking $[[Tp]]$ to be the type shown in \Cref{exmp:cs-type-example}:
   \[
-    [[{nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)}]]
+    [[{nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 5)}]]
   \]
   we can give \lstinline{get} the function type $[[ A <z: Tp ref 1> -> <z: Tp ref 1 | Tp>]]$.
 \end{example}
-\begin{example}[Simple 2-CFA]
+\begin{example}[2-CFA]
   To see how context information propagates across multiple calls, consider
   the following change to the code considered in \Cref{exmp:1cfa}:
   \begin{lstlisting}
@@ -783,19 +778,19 @@ r := get$^{\ell2}$(r) + 1;
   \end{lstlisting}
   The type of \imp{get} remains as in \Cref{exmp:1cfa}, and taking $[[T]]$
   to be \[
-    [[ {nu:int| (l3 l1 <= A' ==> nu = 3) /\ (l3 l2 <= A' ==> nu = 4) } ]]
+    [[ {nu:int| (l3 l1 <= A' ==> nu = 3) /\ (l3 l2 <= A' ==> nu = 5) } ]]
   \]
   the type of \imp{get_real} is: $[[ A' <z: T ref 1> -> <z: T ref 1 | T>]]$.
 
-  We focus on the typing of the call to \imp{get_real} in \imp{get}.
-  The call is typed in context $[[A]]$ and a type environment where
+  We focus on the typing of the call to \imp{get_real} in \imp{get}, it
+  is typed in context $[[A]]$ and a type environment where
   \imp{p} is given type $[[Tp]]$ from \Cref{exmp:1cfa}.
 
   Applying the substitution $[[ [l3 : A / A'] ]]$ to the argument
-  type of \imp{get_real} yields the expected type:
+  type of \imp{get_real} yields:
   \begin{align*}
-    & [[ {nu:int|(l3 l1 <= l3:A ==> nu = 3) /\ (l3 l2 <= l3:A ==> nu = 4)} ref 1 ]][[~]] \\
-    & \,\,\,\,\, [[ {nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 4)} ref 1]]
+    & [[ {nu:int|(l3 l1 <= l3:A ==> nu = 3) /\ (l3 l2 <= l3:A ==> nu = 5)} ref 1 ]][[~]] \\
+    & \,\,\,\,\, [[ {nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 5)} ref 1]]
   \end{align*}
   which is exactly the type of \imp{p}.
   A similar derivation applies to
