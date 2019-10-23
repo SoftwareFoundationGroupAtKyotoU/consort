@@ -524,33 +524,34 @@ soundness claim (\Cref{sec:soundness}).
 
 \begin{figure}[t]
   \leavevmode
-  \bcprulessavespacetrue
-  \begin{center}
-  \infrule[Sub-Int]{
+%  \bcprulessavespacetrue
+  \begin{multicols}{2}
+  \scriptsize
+  \infrule[S-Int]{
   [[G |= ph1 ==> ph2]]
   }{
    [[G |- {nu:int|ph1} <: {nu:int|ph2}]]
-  }
-  \infrule[Sub-Ref]{
+ }
+  \infrule[S-Ref]{
     [[r1 >= r2]]
     \andalso
     [[ G |- T1 <: T2 ]]
   }{
     [[ G |- T1 ref r1 <: T2 ref r2 ]]
   }
-  \infrule[Sub-TyEnv]{
+  \infrule[S-TyEnv]{
     [[ forall x in G'.G|- G(x) <: G'(x) ]]
   }{
     [[ G <: G' ]]
   }
-  \infrule[Sub-Result]{
+  \infrule[S-Res]{
     [[G,x:T <: G',x:T']] \andalso [[ x not in dom G ]]
   }{
     [[G,T <: G,T']]
   }
-  \end{center}
-  \bcprulessavespacefalse
-  \caption{Rules for subtyping.}
+  \end{multicols}
+%  \bcprulessavespacefalse
+  \caption{Subtyping rules.}
   \label{fig:subtyping}
 \end{figure}
 

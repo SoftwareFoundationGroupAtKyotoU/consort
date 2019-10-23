@@ -1,4 +1,4 @@
-\section{Preliminaries}
+\section{Target Language}
 \label{sec:prelim}
 This section describes a simple imperative language with mutable references and first-order, recursive functions.
 
@@ -13,7 +13,7 @@ This section describes a simple imperative language with mutable references and 
 % \JT{This is almost certainly not a sufficient overview. write more later.}
 \AI{Notations are moved.  $f$ conflicted with the metavariable for function names and I thought it might be confusing.}
 
-\subsection{Language}
+\subsection{Syntax}
 \label{sec:language}
 We assume a set of \emph{variables}, ranged over by $x,y,z,\dots$,
 a set of \emph{function names}, ranged over by $f$, and

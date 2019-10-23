@@ -43,7 +43,7 @@ We first prove that the subtyping relations are transitive.
       [[ |= [G] /\ ph1 ==> ph2 ]] & [[ |= [G] /\ ph2 ==> ph3 ]]
     \end{bcpcasearray}
     
-    From which it is immediate that we must have $[[ |= [G] /\ ph1 ==> ph3 ]]$, whereby \rn{Sub-Int} gives $[[ G |- T1 <: T3 ]]$.
+    From which it is immediate that we must have $[[ |= [G] /\ ph1 ==> ph3 ]]$, whereby \rn{S-Int} gives $[[ G |- T1 <: T3 ]]$.
   \item By induction on $[[ G' |- T1 <: T2 ]]$. The case for reference types is immediate from the inductive hypothesis, we focus
     on the base case where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2 } ]]$, and where $[[ |= [G'] /\ ph1 ==> ph2 ]]$.
     From $[[ G <: G' ]]$ and \Cref{part:sub-env-impl} above, we have $[[ |= [G] ==> [G'] ]]$ from which we can derive $[[ [G] /\ ph1 ==> ph2 ]]$, i.e.,
@@ -238,7 +238,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
   \item If $[[A]]$ does not appear free in $[[T1]]$, $[[T2]]$ or $[[G]]$, then the result trivially holds. Let us then assume
     $[[A]]$ appears free. We prove the result by induction on the subtyping derivation.
 
-    \begin{rneqncase}{Sub-Ref}{
+    \begin{rneqncase}{S-Ref}{
         [[ T1 = T1' ref r1 ]] & [[ T2 = T2' ref r2 ]] \\
         [[ [ll/A] T1 = ([ll/A]T1') ref r1 ]] & [[ [ll/A]T2 = ([ll/A]T2') ref r2 ]] \\
         [[  G |- T1' <: T2' ]] & [[ r2 <= r1 ]]
@@ -247,7 +247,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
       which holds immediately from the induction hypothesis.
     \end{rneqncase}
 
-    \begin{rneqncase}{Sub-Int}{
+    \begin{rneqncase}{S-Int}{
         [[ T1 = {nu:int|ph1} ]] & [[ T2 = {nu:int|ph2} ]] \\
         [[ [ll/A]T1 = {nu:int|[ll/A]ph1 } ]] & [[ [ll/A]T2 = {nu:int|[ll/A]ph2 } ]] \\
         [[ G |= ph1 ==> ph2 ]]

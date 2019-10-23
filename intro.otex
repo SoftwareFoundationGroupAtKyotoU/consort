@@ -32,7 +32,7 @@ assert(*p = 4);$\label{line:rq-eq-assert}$
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.45\textwidth}
-  \begin{lstlisting}
+  \begin{lstlisting}[numbers=left, numbersep=3pt, numberstyle=\tiny\color{black},numberblanklines=false]
 loop(a, b) {
   let aold = *a in
   b := *b + 1;$\label{line:b-write}$
