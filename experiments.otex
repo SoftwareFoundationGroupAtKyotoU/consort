@@ -79,6 +79,15 @@ was used in \cite{kahsai2017quantified}). We used \name's parallel backend (\Cre
 with Z3 version 4.8.4, HoICE version 1.8.1, and Eldarica version 2.0.1 and JayHorn's Eldarica backend.\footnote{We also tried the Spacer backend
   included with JayHorn, but it required an extremely old version of Z3 (4.3.2) and crashed the JVM on several of our tests.}
 
+\begin{table}[t]
+  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and our custom benchmark suite.}
+  \begin{center}
+    \input{jayhorn_table}
+    \input{consort_table}
+  \end{center}
+  \label{tab:jh-results}
+\end{table}
+
 \subsection{Results}
 The results of our experiments are shown in \Cref{tab:jh-results}. On the JayHorn benchmark
 suite \name performs competitively with JayHorn, correctly identifying 29 of the 32 safe programs
@@ -108,16 +117,6 @@ This representation cannot, in general, handle programs with different
 invariants for distinct object that evolve over time.
 We hypothesize other tools that adopt a similar approach will exhibit
 the same difficulty. 
-
-\begin{table}[t]
-  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} and our custom benchmark suite.}
-  \begin{center}
-    \input{jayhorn_table}
-    \input{consort_table}
-  \end{center}
-  \label{tab:jh-results}
-\end{table}
-
 
 %%% Local Variables:
 %%% mode: latex
