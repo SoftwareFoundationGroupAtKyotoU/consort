@@ -48,11 +48,11 @@ we discuss these formulas later in \Cref{sec:types}.
 Variables are introduced by function parameters or let bindings.
 Like ML, the variable bindings introduced by let-expressions and parameters
 are immutable.
-A mutable variable declaration like \texttt{int x = 1;} in C is achieved with
+A mutable variable declaration like \texttt{int x = 1;} in C is achieved in our language with:
 \[
   [[ let y = 1 in (let x = mkref y in etc) ]]
 \]
-in our language. As a convenience, we assume all variable names
+As a convenience, we assume all variable names
 introduced with let bindings and function parameters are distinct.
 
 Unlike ML (and like C or Java) we do not allow general expressions on the right hand side of

@@ -191,6 +191,10 @@ enforced by \name, the types of any aliases must only use the
 refinement $[[Top]]$, and already soundly describe all possible contents.\footnote{This
   assumption holds only if updates do not change simple types, a condition our type-system enforces.}
 
+\name is also \emph{context-sensitive}, and can
+use different summaries of function behavior
+at different points in the program.
+For example, consider the variant
 \begin{wrapfigure}{l}{0.29\textwidth}
   \begin{lstlisting}[numbers=left,numbersep=3pt,numberstyle=\tiny\color{black},numberblanklines=false]
 get(p) { *p }
@@ -204,10 +208,7 @@ assert(*p = 4);
   \caption{Context Sensitivity Example}
   \label{fig:running-example}
 \end{wrapfigure}
-\name is also \emph{context-sensitive}, and can
-use different summaries of function behavior
-at different points in the program.
-For example, consider the variant of \Cref{fig:strong-update-example}
+of \Cref{fig:strong-update-example}
 shown in \Cref{fig:running-example}.
 The function \imp{get} returns the contents of its argument,
 and is called on \cref{line:get1,line:get2}. To precisely verify
