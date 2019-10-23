@@ -2,8 +2,8 @@
 \label{sec:infr}
 We now briefly describe the inference algorithm implemented in
 our tool \name. We sketch some extensions needed to type more
-interesting programs and close with a discussion of limitations of
-our prototype.
+interesting programs and close with a discussion of current
+limitations of our prototype.
 
 \subsection{Inference}
 Our tool first runs a standard, simple type inference
@@ -18,13 +18,13 @@ as follows:
 $[[ph(x,nn,pp)[nu; FV pp] ]]$ denotes a fresh relation symbol
 applied to $[[nu]]$ and the free variables of simple type $[[int]]$
 at program point $[[pp]]$ (denoted $[[FV pp]]$). $[[r[x,nn,pp] ]]$ is a
-fresh ownership variable. For each function definition $[[f]]$,
+fresh ownership variable. For each function $[[f]]$,
 there are two synthetic program points, $[[f st]]$ and $[[f end]]$
-for the beginning and end respectively of the function.
+for the beginning and end of the function respectively.
 At both points, \name generates type template for each argument, where $[[FV f st]]$
 and $[[FV f end]]$ are the names of integer typed parameters.
 At $[[f end]]$, \name also generates a type template for the return
-value using the synthetic variable name $\RETVAR$.
+value using a synthetic variable name.
 We write $[[ G@pp ]]$ to indicate the type environment at point $[[pp]]$,
 where every variable is mapped to the appropriate type template.
 Then $[[ [G@pp] ]]$ is equivalent to
@@ -58,7 +58,7 @@ $[[int ref]]$.
 \]
 in addition to the ownership constraint $[[r[y,0,pp] = r[y,0,pp'] + r[x,0,pp'] ]]$.
 
-Finally for each \lstinline[mathescape]{assert($[[ph]]$)} in the program \name emits an assertion
+Finally, for each \lstinline[mathescape]{assert($[[ph]]$)} in the program, \name emits an assertion
 constraint of the form: $[[ [G@pp] ==> ph ]]$
 which requires the refinements on integer typed variables
 in scope are sufficient to prove $[[ph]]$.
@@ -95,14 +95,14 @@ The result of the above process are two systems of constraints;
 real arithmetic constraints over
 ownership variables and constrained Horn clauses (CHC) over the refinement relations.
 The inference process generates subtyping constraints for every variable at
-each program point. The number of constraints and relations is thus quadratic in
-the size of the program in the worst case.\footnote{In practice we can
+each program point so the number of constraints, relations, and ownership variables
+is quadratic in the size of the program in the worst case.\footnote{In practice we can
 simplify away many ``intermediate'' relations giving dramatic speed-ups.}
 These systems are not independent; the relation constraints may mention the value
 of ownership variables due to the well-formedness constraints described above.
 The ownership constraints are first solved with Z3 \cite{de2008z3}. These constraints
-are non-linear (and also quadratic in the size of the program) but Z3 appears
-particularly well-engineered to quickly finding solutions for the instances generated
+are non-linear but Z3 appears
+particularly well-engineered to quickly find solutions for the instances generated
 by \name.
 We also constrain Z3 to maximize the number of non-zero ownership
 variables; this ensures minimal
@@ -111,7 +111,7 @@ refinement information is lost due to $0$ ownerships.
 The inferred values for ownership variables are then substituted into the
 constrained Horn clauses, and the resulting system is checked
 for satisfiability with an off-the-shelf CHC solver.
-Our implementation generates the above constraints in the industry standard
+Our implementation generates constraints in the industry standard
 SMT-Lib2 format \cite{BarFT-SMTLIB}; any solver that accepts
 this format can be used as a backend for \name. Our implementation
 currently supports Spacer \cite{komuravelli2013automatic} (part of the Z3 solver \cite{de2008z3}),
@@ -154,7 +154,7 @@ The extension to type checking is relatively straightforward; the only
 significant extensions are to the subtyping rules.
 Specifically, the subtyping check for a tuple element
 $[[xi:Ti]]$ is performed in a type environment elaborated with
-types of other tuple elements.
+types and names of other tuple elements.
 The extension to type inference is also
 straightforward; the arguments for a
 predicate symbol include any enclosing dependent tuple names
@@ -175,10 +175,10 @@ fold/unfold annotations into the source program. As in
 \cite{kawaguchi2009type},
 the refinements within an unfolding of a recursive type may refer to
 dependent tuple names bound by the enclosing type. These recursive
-types can the invariant of a mutable
+types can express the invariant of a mutable,
 sorted list. Adapting the approach in \cite{suenaga2009fractional},
 all recursive types are unfolded once before assigning ownership variables.
-Further unfoldings simply copy existing ownership variables.
+Further unfoldings copy existing ownership variables.
 
 As in Java or C++, our language does not support sum types,
 and thus any instantiation of a recursive type must use a null pointer.
@@ -189,17 +189,16 @@ currently does \emph{not} detect null pointer dereferences, and all soundness
 guarantees are made modulo freedom of null dereferences. As $[[ [G] ]]$
 omits the refinements on reference types, null pointer refinements do not affect
 the verification of programs free of null pointer dereferences.
-\JT{This still seems insufficient...}
 
 \paragraph{Arrays}
 Our implementation supports arrays of integers. Each array is given
 an ownership describing the ownership of memory allocated for the entire array.
 The array type contains two refinements: the first refines the length of the array itself,
 and the second refines the entire array contents.
-The content refinement predicate may refer to a symbolic index variable
+The content refinement may refer to a symbolic index variable
 for precise, per-index refinements. At reads and writes to the
 array \name instantiates the refinement's symbolic index variable with
-the concrete index variable used at the read/write.
+the concrete variable used at the read/write.
 
 As in \cite{suenaga2009fractional}, our restriction to arrays of integers
 stems from the difficulty of ownership inference. Sound handling
@@ -217,8 +216,7 @@ our type system is limited by the restriction to a decidable, first-order logic 
 refinement predicates. For example, from the undecidability of non-linear integer arithmetic,
 \name cannot verify a program that requires a proof of Fermat's last theorem.
 \name also does not support conditional or context-sensitive ownerships, and therefore
-cannot in general verify programs that have conditional aliasing relationships
-or only conditionally mutate a reference.
+cannot precisely handle conditional mutation or aliasing.
 
 %%% Local Variables:
 %%% mode: latex

@@ -2,12 +2,12 @@
 \label{sec:rw}
 
 The difficulty in handling programs with mutable references and
-aliasing has been well-studied. Like JayHorn many approaches model the heap explicitly
-at analysis time, approximating concrete heap locations with allocation site
+aliasing has been well-studied. Like JayHorn, many approaches model the heap explicitly
+at verification time, approximating concrete heap locations with allocation site
 labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low,fink2008effective};
-each \emph{abstract location} is associated with a refinement.
+each \emph{abstract location} is also associated with a refinement.
 As abstract locations summarize many concrete locations, this approach
-does not admit strong updates and flow-sensitivity; in particular, the refinement
+does not in general admit strong updates and flow-sensitivity; in particular, the refinement
 associated with an abstract location is fixed for the lifetime of the program.
 The techniques cited above include various workarounds for this limitation. For
 example, \cite{rondon2010low,chugh2012dependent} temporarily allow
@@ -15,7 +15,7 @@ breaking these invariants through a distinguished program name
 as long as the abstract location is not accessed through another name.
 The programmer must therefore eventually bring the invariant back in sync with the summary location.
 As a result, these systems ultimately cannot precisely handle programs that require
-evolving invariants on mutable memory locations.
+evolving invariants on mutable memory.\looseness=-1
 
 As similar approach was taken in
 CQual \cite{foster2002flow} by Aiken et al. \cite{aiken2003checking}.
@@ -29,8 +29,8 @@ to declare object invariants at the class level and allow these
 invariants on object fields to be broken during a limited period of time
 \cite{barnett2011specification,flanagan2002extended} \JT{find and cite}. In particular, the work on
 Spec\# \cite{barnett2011specification} uses an ownership system which tracks
-whether object $a$ owns object $b$; like \name's ownership system these ownerships
-are used to track when states may be inconsistent. However, Spec\#'s ownership
+whether object $a$ owns object $b$; like \name's ownership system,
+these ownerships are used contain the effects of mutation. However, Spec\#'s ownership
 is quite strict, and does admit references to $b$ outside of the owning object $a$.
 % These techniques implicitly use \emph{type-based} abstract heap; like the
 % techniques above, any temporarily broken invariants on an abstract location
@@ -63,11 +63,11 @@ expressiveness comes at the cost of automated inference and verification; an emb
 of this system into Liquid Haskell \cite{vazou2014refinement} described in
 \cite{gordon2017verifying} was forced to sacrifice strong updates.
 
-Work by Degen et al. \cite{degen2007tracking} introduced linear state annotations to Java.
+Work by Degen et al. \cite{degen2007tracking} introduced linear \emph{state annotations} to Java.
 To effect strong updates in the presence of aliasing, like \name,
-their system requires state annotated memory locations are mutated only through
+their system requires annotated memory locations are mutated only through
 a distinguished reference. Further, all aliases of this mutable reference give
-no information about the state of the object much like our $0$ ownership pointers.
+no information about the state of the object, much like our $0$ ownership pointers.
 However, their system cannot handle multiple, immutable aliases with non-trivial
 annotation information; \emph{only} the mutable reference may
 have non-trivial annotation information.
@@ -98,7 +98,7 @@ in particular with the goal of supporting strong updates
 \cite{ahmed20073}. A closely related approach is RustHorn by
 Matsushita and Kobayashi \cite{matsushita2019rusthorn}. Much like
 \name, RustHorn uses CHC and linear aliasing information for
-the sound and (unlike \name) complete verification of
+the sound and---unlike \name---complete verification of
 programs with aliasing and mutability. However, their approach depends Rust's
 strict \emph{borrowing discipline}. In particular, it cannot handle programs
 where multiple aliased references are used to
@@ -116,10 +116,9 @@ Polyvariance has also been used in type systems to assign
 different behaviors to the same function depending on its call site
 \cite{banerjee1997modular,wells2002calculus,amtoft2000faithful}.
 In the area of refinement type systems, Zhu and Jagannathan developed
-a context sensitive dependent type system for a functional language \cite{zhu2013compositional}
+a context-sensitive dependent type system for a functional language \cite{zhu2013compositional}
 that indexed function types by unique labels attached to call-sites. Our
-context-sensitivity approach was inspired by this work; the type of \imp{get} in
-\Cref{exmp:1cfa} is effectively two function types indexed by call-site labels.
+context-sensitivity approach was inspired by this work.
 In fact, we could have formalized context-polymorphism within the framework of full dependent
 types, but chose the current presentation for simplicity.
 

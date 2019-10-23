@@ -112,7 +112,7 @@ with open(sys.argv[2], 'w') as result_table:
 
 with open(sys.argv[3], 'w') as consort_table:
     print >> consort_table, r'\begin{tabular}{lccc|lccc}\toprule'
-    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time (s)} & \textbf{JH} & \textbf{Name} & \textbf{Verified?} & \textbf{Time (s)} & \textbf{JH} \\ \midrule'
+    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time(s)} & \textbf{JH} & \textbf{Name} & \textbf{Verified?} & \textbf{Time(s)} & \textbf{JH} \\ \midrule'
     neg_map = {}
     for d in data["consort"]["neg"]:
         neg_map[d["name"]] = d

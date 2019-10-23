@@ -14,12 +14,12 @@ The first set is adapted from JayHorn \cite{kahsai2017quantified,kahsai2016jayho
 a verification tool for Java.
 This test suite contains a combination of 82 safe and unsafe programs written in
 Java. We chose this benchmark suite as, like \name, JayHorn
-is concerned with the automated, flow-sensitive verification of
-programs in a language with mutable, managed memory.
+is concerned with the automated verification of
+programs in a language with mutable, aliased memory cells.
 Further, although some of their benchmark programs tested Java
 specific features, most could be adapted
 into our low-level language.
-Those tests we could adapt allow a comparison with existing state-of-the-art
+The tests we could adapt provide a comparison with existing state-of-the-art
 verification techniques.
 A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}
 
@@ -42,7 +42,7 @@ A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:br
   benchmarks from our evaluation.
 \end{remark}
 
-The second benchmark set are data structure
+The second benchmark set consists of data structure
 implementations and microbenchmarks written directly in our low-level
 imperative language. We developed this suite to
 test the expressive power of our type system and inference.
@@ -52,10 +52,10 @@ The programs included in this suite are:
 \item \textbf{Sorted-List} Implementation of a mutable, sorted list maintained with an in-place insertion sort algorithm.
 \item \textbf{Shuffle} Multiple live references are used to mutate the same location in program memory as in \Cref{exmp:shuffle-example}.
 \item \textbf{Mut-List} Implementation of general linked lists with a clear operation.
-\item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at index $i$.
+\item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at every index $i$.
 \item \textbf{Intro2} The motivating program shown in \Cref{fig:hard-loop} in \Cref{sec:intro}.
 \end{itemize}
-We introduced unsafe mutations to these programs to
+We introduced unsafe mutations to some of these programs to
 check our tool for unsoundness and translated these programs
 into Java for further comparison with JayHorn.
 
@@ -111,7 +111,7 @@ just a single object allocation.
 We do not believe
 this struggle is indicative of a shortcoming in JayHorn's implementation,
 but stems from the fundamental limitations of JayHorn's memory representation.
-Like many verification tools, JayHorn uses a single, unchanging
+Like many verification tools (see \cref{sec:rw}), JayHorn uses a single, unchanging
 invariant to for every object allocated at the same syntactic location;
 effectively, all objects allocated at the same location
 are assumed to alias with one another.
