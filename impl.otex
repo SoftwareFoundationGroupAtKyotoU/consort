@@ -104,7 +104,7 @@ The ownership constraints are first solved with Z3 \cite{de2008z3}. These constr
 are non-linear (and also quadratic in the size of the program) but Z3 appears
 particularly well-engineered to quickly finding solutions for the instances generated
 by \name.
-When solving, we constrain the solver to maximize the number of non-zero ownership
+We also constrain Z3 to maximize the number of non-zero ownership
 variables; this ensures minimal
 refinement information is lost due to $0$ ownerships.
 

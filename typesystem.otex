@@ -637,10 +637,10 @@ The aliasing rules give fine-grained control over ownership information. This
 flexibility allows mutation through two aliased references within the same scope.
 Provided sufficient aliasing annotations, the type system may shuffle ownerships between
 one or more live references, enabling and disabling mutability as required. Although the
-reliance on these annotations appears to decrease the practicality of such a type system,
+reliance on these annotations appears to decrease the practicality of our type system,
 we expect these aliasing annotations can be inserted by a conservative must-aliasing
-analysis, and empirical experience from prior work \cite{suenaga2009fractional} shows
-that only a small number of annotations are required for real-world programs.
+analysis, and empirical experience from prior work \cite{suenaga2009fractional} indicates
+that only a small number of annotations are required for larger programs.
 
 \begin{example}[Shuffling Mutability]
   \label{exmp:shuffle-example}
@@ -817,21 +817,22 @@ We formalize this claim with the following soundness theorem.
   halts in a configuration $[[<H, R, ., x>]]$ for some $[[H]], [[R]]$ and $[[x]]$, i.e.,
   evaluation does not get stuck.
 \end{theorem}
-\begin{proof}[Proof Sketch]
-  We omit a full proof for space details, the full proof can be found
-  in the accompanying appendix.
+\begin{proof}[Sketch]
+  By standard progress and preservation lemmas; 
+  the full proof has been omitted for space reasons and can be found
+  in the accompanying appendix.\looseness=-1
 
-  We define a typing relation for runtime configurations; well-typed
-  configurations satisfy the following invariants:
-  \begin{enumerate}
-  \item The value at heap locations and program variables satisfy the refinements given in the program typing judgment, and
-  \item The ownership given to every memory cell never exceeds 1.
-  \end{enumerate}
-  We then prove a standard preservation lemma, showing that
-  well-typedness is preserved by our step relation.  By defining the
-  $[[AssertFail]]$ configuration as ill-typed, we have the first result.
+  % We define a typing relation for runtime configurations; well-typed
+  % configurations satisfy the following invariants:
+  % \begin{enumerate}
+  % \item The value at heap locations and program variables satisfy the refinements given in the program typing judgment, and
+  % \item The ownership given to every memory cell never exceeds 1.
+  % \end{enumerate}
+  % We then prove a standard preservation lemma, showing that
+  % well-typedness is preserved by our step relation.  By defining the
+  % $[[AssertFail]]$ configuration as ill-typed, we have the first result.
 
-  The second result follows from preservation and standard progress lemma.
+  % The second result follows from preservation and standard progress lemma.
 \end{proof}
 
 

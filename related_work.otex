@@ -2,10 +2,10 @@
 \label{sec:rw}
 
 The difficulty in handling programs with mutable references and
-aliasing has been well-studied. A common approach is to model the heap explicitly
+aliasing has been well-studied. Like JayHorn many approaches model the heap explicitly
 at analysis time, approximating concrete heap locations with allocation site
 labels \cite{kahsai2017quantified,kahsai2016jayhorn,chugh2012dependent,rondon2010low,fink2008effective};
-these \emph{abstract locations} are associated with a refinement.
+each \emph{abstract location} is associated with a refinement.
 As abstract locations summarize many concrete locations, this approach
 does not admit strong updates and flow-sensitivity; in particular, the refinement
 associated with an abstract location is fixed for the lifetime of the program.

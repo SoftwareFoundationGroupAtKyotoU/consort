@@ -85,11 +85,11 @@ presentation; this requirement does not reduce expressiveness
 as dummy continuations can be inserted as needed.
 The $[[assert(ph); e]]$ form executes $[[e]]$ if the predicate
 $[[ph]]$ holds in the current state and aborts the program otherwise.
-$[[alias(x = y); e]]$ asserts a must-aliasing relationship $x$ and $y$.\footnote{
+$[[alias(x = y); e]]$ asserts a must-aliasing relationship $x$ and $y$.\iffalse\footnote{
     Although we include \imp{alias} annotations in the
   source language for expository purposes, we expect that practical implementations
   may use also implicit annotations provided by a conservative must-alias analysis.
-}
+}\fi
 \imp{alias} statements
 are effectively \emph{annotations} that our type system exploits to gain
 added precision.
@@ -208,15 +208,15 @@ of variable $[[y]]$.
 We assume this refreshing of variables preserves our assumption that all variable
 bindings introduced with let and function parameters are unique, i.e. $[[x']]$ does
 not overlap with a variable name that occurs in the program.
-\JT{Do we want to mention this at all?}
-\AI{We may want to remove if we need more space.}
-Finally, although $\rn{R-MkRef}$ allocates memory, our language does not
-support memory reclamation.
-We assume a garbage collected environment and consider memory reclamation an orthogonal concern.
-\JT{Do we want
-  to say that we could have explicit free and use suenaga's
-  approach, but don't want to because it unnecessarily complicates
-  the system?}
+% \JT{Do we want to mention this at all?}
+% \AI{We may want to remove if we need more space.}
+% Finally, although $\rn{R-MkRef}$ allocates memory, our language does not
+% support memory reclamation.
+% We assume a garbage collected environment and consider memory reclamation an orthogonal concern.
+% \JT{Do we want
+%   to say that we could have explicit free and use suenaga's
+%   approach, but don't want to because it unnecessarily complicates
+%   the system?}
   
 
 %%% Local Variables:
