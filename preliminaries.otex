@@ -169,7 +169,7 @@ The semantics are mostly standard; we highlight some important points below.
 First we introduce return contexts $[[CE]]$, which
 take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pending
 function call with label $[[l]]$, and indicates that the return value of the
-callee should be bound to $[[y]]$ in $[[e]]$ within the larger exectuion context $[[E]]$.
+callee should be bound to $[[y]]$ in $[[e]]$ within the larger execution context $[[E]]$.
 The call stack $[[Es]]$ is a sequence of these contexts, with
 the first such return context represents the most recent function call.
 The stack grows at function calls as described by rule \rn{R-Call}.
@@ -185,7 +185,7 @@ denoted by $[[ E[let y = [] l in e] ]][x]$.
 
 In the rules \rn{R-Assert} we write $[[|= [R]ph]]$ to mean that the formula
 yielded by substituting the concrete values in $[[R]]$ for the variables in $[[ph]]$
-is valid within some dedicable logic; in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
+is valid within some decidable logic; in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
 when the formula is \emph{not} valid.
 The substitution operation $[[ [R]ph ]]$ is defined inductively as $[[ [empty] ph = ph ]], [[ [R { x |-> nn }]ph = [R][nn/x]ph ]], [[ [R { x |-> a }] ph = [R]ph ]]$.
 In the case of an assertion failure, the semantics step to a distinguished

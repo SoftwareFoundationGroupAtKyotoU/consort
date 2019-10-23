@@ -429,7 +429,7 @@ that can introduce equality.
 Rule \rn{T-MkRef} is very similar to \rn{T-Let}, except that $[[x]]$
 is given a reference type of ownership 1 pointing to $[[T2]]$, which
 is obtained by splitting the type of $[[y]]$.  In \rn{T-Deref},
-the content type of $[[y]]$ is split and distribted to
+the content type of $[[y]]$ is split and distributed to
 $[[x]]$.  The strengthening is \emph{conditionally} applied depending
 on the ownership of the dereferenced pointer, that is, if $[[r]] = 0$,
 $[[T']]$ has to be a ``top'' type $[[topi]]$.
