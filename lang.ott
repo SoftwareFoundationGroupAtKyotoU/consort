@@ -423,7 +423,7 @@ grammar
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
-	| R |- T :: :: valid_sub {{ tex [[R]][[|-]]_{\sigma} [[T]] }}
+	| R |- T :: :: valid_sub {{ tex [[R]][[|-]]_{S} [[T]] }}
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{\wf} [[T]] [[=>]] [[G]] }}
     | G1 <: G2            ::   :: subG
 	| G1 , T1 <: G2 , T2 :: :: subRes

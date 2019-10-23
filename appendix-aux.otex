@@ -21,7 +21,7 @@ We first prove that the subtyping relations are transitive.
   \label{lem:subtype-transitive}
   \leavevmode
   \begin{enumerate}
-  \item \label{part:sub-env-impl} If $[[ G <: G' ]]$ then $[[ |= [G] ==> [G'] ]]$. \JT{RE: metalevel, I think here we actually want it to be at the type system level, but the point is well taken}
+  \item \label{part:sub-env-impl} If $[[ G <: G' ]]$ then $[[ |= [G] ==> [G'] ]]$.
   \item \label{part:single-env-trans} If $[[ G |- T1 <: T2 ]]$ and $[[ G |- T2 <: T3 ]]$, then $[[ G |- T1 <: T3 ]]$
   \item \label{part:env-sup-subtype} If $[[ G <: G' ]]$ and $[[ G' |- T1 <: T2 ]]$, then $[[ G |- T1 <: T2 ]]$
   \item \label{part:env-sub-trans} If $[[ G <: G' ]]$,  $[[ G |- T1 <: T2 ]]$, and $[[ G' |- T2 <: T3 ]]$, then $[[ G |- T1 <: T3 ]]$.
@@ -34,9 +34,9 @@ We first prove that the subtyping relations are transitive.
   \item It suffices to show that $[[ |= [G] ==> [x/nu]ph']]$ for any $[[x in dom G']]$ where $[[G'(x) = {nu:int|ph'}]]$.
     From $[[ G <: G' ]]$ we have $[[ |= [G] /\ ph ==> ph' ]]$ where $[[ G(x) = {nu:int|ph}]]$.
     We must then have $[[ |= [G] /\ [x/nu]ph ==> [x/nu]ph' ]]$. From the definition of $[[ [G] ]]$ we have $[[ [G] /\ [x/nu]ph <=> [G] ]]$, giving the desired result.
-  \item By induction on $[[ G |- T1 <: T2 ]]$. We only consider the case where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = { nu:int|ph2} ]]$,
+  \item By induction on $[[ G |- T1 <: T2 ]]$. We only consider the base case where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = { nu:int|ph2} ]]$,
     the case for reference types follows from the induction hypothesis.
-    By inversion on $[[ G |- T2 <: T3 ]]$ we therefore have:
+    By further inversion on $[[ G |- T2 <: T3 ]]$ we therefore have:
     
     \begin{bcpcasearray}
       [[ T3 = { nu:int|ph3}]] & \\
@@ -69,9 +69,10 @@ handle the fact our typing rules are not syntax directed.
 
 \begin{lemma}[Inversion] % L14
   \label{lem:inversion}
+  If 
   $[[ Th | G | B |- e0 : T => G' ]]$,
   then there exists some $[[Gp]]$, $[[Tp]]$, and $[[Gp']]$
-  such that $[[G <: Gp]]$, $[[ ll |- Gp ]]$, $[[Gp',Tp <: G',T]]$:
+  such that $[[G <: Gp]]$, $[[ ll |- Gp ]]$, $[[Gp',Tp <: G',T]]$, and:
   \begin{enumerate}
   \item If $[[e0 = x]]$ then $[[ Gp(x) = Tp + T']]$,  $[[Gp' = Gp[x <- T'] ]]$.
   \item If $[[e0 = let x = y in e]]$, then
@@ -143,7 +144,7 @@ handle the fact our typing rules are not syntax directed.
 
 \Cref{lem:stack_var,lem:ectxt-sub-well-typed} prove some standard properties of execution contexts:
 any decomposition of a well-typed expression into a execution context and redex can be well-typed,
-substituting a well-typed expression matching a context's hole type yields a well-typed expression
+and substituting a well-typed expression matching a context's hole type yields a well-typed expression
 
 \begin{lemma} % L26
   \label{lem:stack_var}
@@ -154,11 +155,11 @@ substituting a well-typed expression matching a context's hole type yields a wel
 \end{lemma}
 \begin{proof}
   By induction on the structure of $[[E]]$.
-  \begin{rncase}{TE-Hole}
+  \begin{rncase}{$[[ E = [] ]]$}
     Trivial, by taking $[[T0 = T]]$ and $[[G0 = G']]$.
   \end{rncase}
-  \begin{rncase}{TE-Seq}
-    Then $[[E = E'; e'']]$ and $[[E[e'] = E'[e']; e'' = e]]$. By
+  \begin{rncase}{$[[ E = E'; e'' ]]$}
+    Then $[[E[e'] = E'[e']; e'' = e]]$. By
     \Cref{lem:inversion} we have
 	\[
       \begin{bcpcasearray}
@@ -183,10 +184,8 @@ substituting a well-typed expression matching a context's hole type yields a wel
 
 \begin{lemma} % L24
   \label{lem:ectxt-sub-well-typed}
-  If, for some $[[G]]$,
-  $[[ Th | [] : T => G' | B |-e E : T'' => G'']]$ and $[[Th | G | B |- e : T => G' ]]$
-  then
-  $[[ Th | G | B |- E[e] : T'' => G'' ]]$.
+  If $[[ Th | [] : T => G' | B |-e E : T'' => G'']]$ and $[[Th | G | B |- e : T => G' ]]$ for some $[[G]]$,
+  then  $[[ Th | G | B |- E[e] : T'' => G'' ]]$.
 \end{lemma}
 \begin{proof}
   By induction on the typing derivation of $[[E]]$.
@@ -223,9 +222,9 @@ substituting a well-typed expression matching a context's hole type yields a wel
 \end{lemma}
 \begin{proof}\leavevmode
   \begin{enumerate}
-  \item By straightforward induction analysis on the definition of $[[ T1 + T2 = T3 ]]$.
+  \item By straightforward induction on the definition of $[[ T1 + T2 = T3 ]]$.
   \item Observe that any subsitution of context variables cannot change simple
-    types within $[[G]]$ and thus all types remain well-formed with respect
+    types within $[[G]]$ and thus all types and refinements remain well-formed with respect
     to integer variables in $[[G]]$.
     It thus suffices to show that $[[ FPCV ( [ll/A]ph ) ]] \subseteq [[CV(ll)]] = \emptyset$
     for any refinement $[[ph]]$ appearing in $[[T]]$ or a type in $[[G]]$.
@@ -260,7 +259,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
     \end{rneqncase}
   \item If $[[A]]$ does not appear free in $[[ [G] ]]$, then the result trivially holds. Otherwise
     $[[ |= [G] ==> ph ]]$ holds for any concrete valuation of the free context variable $[[A]]$.
-    Then the formula $[[ |= [ [ll/A]G] ==> ph ]]$ must be valid.
+    Then the formula $[[ |= [ [ll/A]G] ==> ph ]]$ must be valid from the equivalence of $[[ [ll/A] [G] ]]$ and $[[ [ [ll/A] G ] ]]$.
   \item By induction on the typing derivation $[[ Th | G | A |- e : T => G' ]]$.
     In every case, that $[[ ll |- [ll/A]T => [ll/A]G' ]]$ and $[[ ll |- [ll/A]G]]$
     holds from \Cref{itm:ctxt-sub-wf}.
@@ -286,7 +285,7 @@ substituting a well-typed expression matching a context's hole type yields a wel
     \begin{rneqncase}{T-Let}{
         & [[e = let x = y in e']] & [[ x not in dom G' ]] \\
         & [[ Th | G1 | A |- e' : T => G' ]] & [[ G1 = G[y <- (T1 /\ y y = T1 x)], x:(T2 /\ x x = T2 y)]] \\
-        & [[ G = G0[y: T1 + T2]  ]]
+        & [[ G(y) = y: T1 + T2  ]]
       }
       By \Cref{itm:ctxt-sub-distribute},
       $[[ ([ll/A]G)(y) = [ll/A](T1 + T2) = ([ll/A]T1 + [ll/A]T2) ]]$. We must then
@@ -432,10 +431,13 @@ We prove that subtyping preserves the consistency relation in the following sens
         [[T = {nu:int |ph}]] & [[T' = {nu:int|ph'}]] \\
         [[|= [G] /\ ph ==> ph']]
       }
-      From $[[ SAT(H, R, G) ]]$ we have $[[ SATv(H, R, R(x), T) ]]$, in particular we must have
-      $[[ |= [R][v/nu]ph ]]$. We must show that $[[ |= [R][v/nu]ph' ]]$.
+      From $[[ SATv(H, R, v, T) ]]$ we have $[[ |= [R][v/nu]ph ]]$.
+      We must show that $[[ |= [R][v/nu]ph' ]]$.
       From $[[ |= [G] /\ ph ==> ph' ]]$ we must have
-      $[[ |= [R][G] /\ [R][v/nu]ph ==> [R][v/nu]ph' ]]$, whereby the result is immediate.
+      $[[ |= [R][v/nu][G] /\ [R][v/nu]ph ==> [R][v/nu]ph' ]]$ is valid.
+      As $[[nu]]$ does not appear free in $[[ [G] ]]$, we have
+      $[[ |= [R][G] /\ [R][v/nu]ph ==> [R][v/nu]ph' ]]$ is
+      valid whereby the result is immediate.
     \end{eqncase}
     
     \begin{eqncase}{
@@ -463,7 +465,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   We prove the forward case by induction on $[[ empty |- T1 <: T2 ]]$ as implied by
   $[[ T1 ~ T2 ]]$. The inductive case follows from the IH. In the the base case
   where $[[ T1 = {nu:int|ph1} ]]$ and $[[ T2 = {nu:int|ph2}]]$, from $[[ empty |- T1 <: T2 ]]$
-  we have that $[[ |= ph1 ==> ph2 ]]$, we must have $[[ |= [R][v/nu]ph1 ==> [R][v/nu]ph2 ]]$,
+  we have that $[[ |= ph1 ==> ph2 ]]$ is valid, from which we must have $[[ |= [R][v/nu]ph1 ==> [R][v/nu]ph2 ]]$,
   where from the definition of $[[SATv(H, R, v, T1) ]]$ we must then have $[[SATv(H, R, v, T2) ]]$.
     
   The backwards case follows similar reasoning by induction on $[[ empty |- T2 <: T1 ]]$.
@@ -520,11 +522,10 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     we must show $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$,
     where $[[ T1= {nu:int | ph1} ]], [[ T2 = {nu:int | ph2} ]]$.
 
-    From the definition of $[[SATv]]$, we must then show $[[ SATv(H, R, Rv, T1) ]]$ and in particular $[[ [R][Rv/nu]ph1 ]]$
-    and similarly $[[ [R][v/nu]ph2 ]]$.
+    From the definition of $[[SATv]]$, we must show $[[ [R][Rv/nu]ph1 ]]$ and $[[ [R][v/nu]ph2 ]]$.
     From $[[ SATv(H, R, Rv, T1+T2) ]]$ we have $[[ [R][v/x](ph1 /\ ph2) ]]$.
     It is immediate that for any value $v$ such that $[[ [R][v/nu](ph1 /\ ph2) ]]$, we must have $[[ [R][v / nu]ph1 ]]$ and $[[ [R][v / nu]ph2 ]]$.
-    We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]$ implies $[[ SATv(H, R, Rv, T1) /\ SATv(H, R, Rv, T2) ]]$.
+    We then conclude $[[ SATv(H, R, Rv, T1+T2) ]]$ implies $[[ SATv(H, R, Rv, T1) ]]$ and $[[ SATv(H, R, Rv, T2) ]]$.
   \end{rncase}
 
   \begin{rncase}{Tadd-Ref}
@@ -686,7 +687,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   By induction on the shape of $[[ T ]]$.
   The base case where $[[T = {nu:int|ph}]]$ is trivial.
   Next, we consider the case where $[[T = T' ref r]]$.
-  We must show that $[[v in dom H' /\ SATv(H',R, H'(v),T') ]]$.
+  We must show that $[[v in dom H' ]]$ and $[[ SATv(H',R, H'(v),T') ]]$.
   The first condition is immediately satisfied by inversion on $[[ SATv(H,R,v,T') ]]$,
   and from $[[a not in H]]$, we have $v\neq a$, which gives that $H'(v)=H(v)$.
   That is we must show $[[ SATv(H',R, H(v),T') ]]$, which is follows from
@@ -727,7 +728,7 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
   \begin{enumerate}
   \item $[[ G |- T1 <: T2]]$ implies $[[ G + G'' |- T1 <: T2 ]]$
   \item $[[G <: G']]$ implies $[[ G + G'' <: G' + G'']]$
-  \item If $[[ Th | G | B |- e : T => G' ]]$, $[[ B |- G + G'' ]]$ and $[[ B |- G' + G'']]$, then $[[ Th | G + G'' | B |- e : T => G'' + G]]$
+  \item If $[[ Th | G | B |- e : T => G' ]]$, $[[ B |- G + G'' ]]$, and $[[ B |- G' + G'']]$, then $[[ Th | G + G'' | B |- e : T => G'' + G]]$
   \end{enumerate}
 \end{lemma}
 \begin{proof}
@@ -746,11 +747,11 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
     whereby $[[ G + G'' |- (G + G'')(x) = G(x) <: G' + G''(x) = G'(x) ]]$ from part 1.
 
     If $[[ x not in G' ]]$, then we must show $[[(G + G'') |- G''(x) <: G''(x)]]$, which trivially holds.
-  \item By straightforward induction on the typing derivation of
+  \item By induction on the typing derivation of
     $[[ Th | G | B |- e : T => G' ]]$. We assume that the variables bound in
     any let expressions that appear within $[[e]]$ are not in the domain
     of $[[G'']]$; this requirement can be easily enforced with
-    consistent renaming. The only interesting cases are
+    consistent renaming and is preserved during evaluation. The only interesting cases are
     \rn{T-Sub} and \rn{T-Assert} and the let bindings;
     the other cases follow from the induction hypothesis.
     
@@ -761,13 +762,10 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
         [[ Th | G[y <- T1 /\ y y = T1 x],x: T2 /\ x x = T2 y | B |- e : T => G' ]] \\
         [[ G(y) = T1 + T2 ]] \andalso [[ x not in dom G' ]]
       }
-      We assume that the variable $[[x]]$ is not in the domain of $[[ G'' ]]$;
-      this requirement can be enforced with consistent renaming if necessary.
-
       Let $[[ G''' = G'' + G[y <- T1 /\ y y = T1 x],x: T2 /\ x x = T2 y ]]$.
       To use the inductive hypothesis, we must show that
-      $[[ B |- G''' ]]$ and $[[ B |- G' + G'' ]]$. The latter follows from the
-      assumed well-formedness of $[[ B |- G' + G'' ]]$. To show the former, it suffices
+      $[[ B |- G''' ]]$ and $[[ B |- G' + G'' ]]$. The latter holds by assumption.
+      To show the former, it suffices
       to show $[[ G''' | B |- T1 /\ y y = T1 x ]]$ and $[[ G''' | B |- T2 /\ x x = T2 y ]]$.
       From the assumed well-formedness $[[ B |- G + G'' ]]$, we must have $[[ G + G'' | B |- T1 + T2 ]]$,
       and in particular $[[ G + G'' | B |- T1 ]]$ and $[[ G + G'' | B |- T2 ]]$. From this
@@ -793,16 +791,14 @@ type addition operator $+$ ``distributes'' over $[[SATv]]$ and $[[own]]$.
       $[[ B |- G' + G'' ]]$, we must have that
       $\forall x \in \mathcal{LV}.[[x in dom G' /\ G'(x) = {nu:int|_} ]]$. Thus,
       $\mathcal{LV} \subseteq [[G1]]$ and $\mathcal{LV} \subseteq [[G2]]$. Further, by definition,
-      for any $[[ Gp <: Gq ]]$, if $[[ Gq(x) = {nu:int|ph} ]]$ then $[[Gp(x) = {nu:int|ph'}]]$,
+      for any $[[ Gp <: Gq ]]$, if $[[ Gq(x) = {nu:int|_} ]]$ then $[[Gp(x) = {nu:int|_} ]]$,
       i.e. subtyping preserves simple types.
       We conclude that $[[ B |- G1 + G'' ]]$ and
       $[[ B |- G2 + G'']]$, whereby the inductive hypothesis gives
       $[[ Th | G1 + G'' | B |- e : T2 => G2 + G'' ]]$. To prove the overall result, we must
       show that $[[ G + G'' <: G1 + G'' ]]$ and $[[ G2 + G'',T2 <: G' + G'',T ]]$
       which follow from parts 1 and 2 above.
-      That $[[ G2 + G'' | B |- T2 ]]$ follows from the assumed well-formedness
-      of $[[T2]]$ with respect to $[[G2]]$ and that the disjoint union operation only
-      adds variable bindings.
+      That $[[ G2 + G'' | B |- T2 ]]$ follows by reasoning to the case for \rn{T-Let} above.
     \end{rneqncase}
     \begin{rncase}{T-Assert}
       We must show that $[[ |= [G'' + G] ==> ph ]]$ which is equivalent to
