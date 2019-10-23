@@ -489,25 +489,28 @@ soundness claim (\Cref{sec:soundness}).
 
 \begin{figure}[t]
   \scriptsize
-  \leavevmode
+%  \leavevmode
     \infrule[T-Assign]{
     (\text{The shapes of $[[T']]$ and $[[T2]]$ are similar}) \\
     [[ Th | G[x <- T1][y <- (T2 /\ y y = T2 x) ref 1] | B |- e : T => G']] \\
   }{
     [[ Th | G[x: T1 + T2][y : T' ref 1] | B |- y := x; e : T => G']]
   }
+    \vspace*{2ex}
   \infrule[T-Alias]{
     [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
     [[ Th | G[x <- T1' ref r1'][y <- T2' ref r2'] | B |- e : T => G']]
   }{
     [[ Th | G[x : T1 ref r1][y: T2 ref r2] | B |- alias(x = y); e : T => G' ]]
   }
+    \vspace*{2ex}
   \infrule[T-AliasPtr]{
     [[(T1 ref r1 + T2 ref r2) ~ (T1' ref r1' + T2' ref r2')]] \\
     [[ Th | G[x <- T1' ref r1][y <- (T2' ref r2') ref r] | B |- e : T => G' ]]
   }{
     [[ Th | G[x : T1 ref r1][y: (T2 ref r2) ref r] | B |- alias(x = *y); e : T => G' ]]
   }
+    \vspace*{2ex}
   \infrule[T-Sub]{
     [[ G <: G' ]] \andalso
     [[ Th | G' | B |- e : T => G'' ]] \andalso
@@ -515,6 +518,7 @@ soundness claim (\Cref{sec:soundness}).
   }{
     [[ Th | G | B |- e : T' => G''' ]]
   }
+  \vspace*{2ex}
   \begin{center}
     $[[ T1 ~ T2]]$ iff $[[ empty |- T1 <: T2  ]]$ and $[[ empty |- T2 <: T1 ]]$.
   \end{center}
@@ -523,7 +527,7 @@ soundness claim (\Cref{sec:soundness}).
 \end{figure}
 
 \begin{figure}[t]
-  \leavevmode
+%  \leavevmode
 %  \bcprulessavespacetrue
   \begin{multicols}{2}
   \scriptsize
@@ -532,6 +536,7 @@ soundness claim (\Cref{sec:soundness}).
   }{
    [[G |- {nu:int|ph1} <: {nu:int|ph2}]]
  }
+    \vspace*{2ex}
   \infrule[S-Ref]{
     [[r1 >= r2]]
     \andalso
@@ -544,6 +549,7 @@ soundness claim (\Cref{sec:soundness}).
   }{
     [[ G <: G' ]]
   }
+    \vspace*{2ex}
   \infrule[S-Res]{
     [[G,x:T <: G',x:T']] \andalso [[ x not in dom G ]]
   }{
