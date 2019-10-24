@@ -12,7 +12,7 @@
   \infrule[TE-Stack]{
     [[ Th | [] : T' => G' | B |-e E : T'' => G'']] \\
     [[ Th | G, x : T | B |- e : T' => G' ]] \\
-`    [[ x not in dom G' ]]
+    [[ x not in dom G' ]]
   }{
     [[ Th | [] : T => G | B |-e E[let x = [] l in e] : T'' => G'' ]]
   }
