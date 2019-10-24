@@ -38,7 +38,7 @@
   %   [[ |- D <H,R,Es,En[e]> ]]
   % }
   \infrule{
-    [[ll = Trace(Es)]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{1..n}.\seq{\ell_j} = tail^{n-j+1}([[ll]]) \\
+    [[ll = Trace(Es)]] \andalso [[ nn = |ll| = |Es|]] \andalso [[ Th |- D ]] \andalso \forall j \in \set{1..n}.[[ llj]] = tail^{n-j+1}([[ll]]) \\
     [[ Cons(H, R, G) ]] \andalso
     \forall i\in\set{1..n}.[[ Th | [] : Ti => Gi | lli |-e CEi : Ti-1 => Gi-1 ]] \\
     [[ Es ]] = [[CEn]] : \cdots : [[CE1]] : \cdot \andalso

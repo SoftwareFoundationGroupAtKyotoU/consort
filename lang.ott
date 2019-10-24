@@ -93,6 +93,8 @@ grammar
 	| nn1 + nn2 :: :: plus
 	| nn1 - nn2 :: :: minus
 	| '|' T '|' :: :: type_size {{ tex |[[T]]| }}
+	| '|' ll '|' :: :: lstring_size {{ tex |[[ll]]| }}
+	| '|' Es '|' :: :: stack_size {{ tex |[[Es]]| }}
    
   l {{ tex \ell}} :: 'L' ::= {{ com location label }}
     | DL :: :: conr
@@ -328,8 +330,8 @@ grammar
 	| -->*                ::   :: trans_red {{ tex \longrightarrow^* }}
     |  ->                 ::   :: arrow      {{ tex \rightarrow }}
     | |-                  ::   :: turnstile  {{ tex \vdash }}
-    | |-e                  ::   :: e_turnstile  {{ tex \vdash_{E} }}
-    | |-D                  ::   :: D_turnstile {{ tex \vdash_C^D }}
+    | |-e                  ::   :: e_turnstile  {{ tex \vdash_{\mathit{ectx} } }}
+    | |-D                  ::   :: D_turnstile {{ tex \vdash_{\mathit{conf} }^D }}
     | |=                  ::   :: models     {{ tex \models }}
     | in                  ::   :: in         {{ tex \in }}
     | <:                  ::   :: sub        {{ tex \leq }}
@@ -424,7 +426,7 @@ grammar
 
   judgment :: 'j_' ::=
     | G |- T1 <: T2       ::   :: sub
-	| R |- T :: :: valid_sub {{ tex [[R]][[|-]]_{S} [[T]] }}
+	| R |- T :: :: valid_sub {{ tex [[R]][[|-]]_{vs} [[T]] }}
 	| B |- T => G :: :: wftenv {{ tex [[B]] [[|-]]_{\wf} [[T]] [[=>]] [[G]] }}
     | G1 <: G2            ::   :: subG
 	| G1 , T1 <: G2 , T2 :: :: subRes
@@ -441,7 +443,7 @@ grammar
 	| Th |- d :: :: fun_typ
 	| |- P :: :: prog_typ
 	| Th |- D :: :: f_typing
-	| |- D C :: :: ctxt_type {{ tex \vdash_C^D [[ C ]] }}
+	| |- D C :: :: ctxt_type {{ tex \vdash_{\mathit{conf} }^D [[ C ]] }}
 	| Th | [] : T => G | B |-e E : T' => G' :: :: ctxt_typing
 	| Th | [] : T => G | B |-e CE : T' => G' :: :: ectxt_typing
 	| |- Th :: :: funenvWf {{ tex [[|-]]_{\wf} [[Th]] }}
