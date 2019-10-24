@@ -97,7 +97,7 @@ ownership variables and constrained Horn clauses (CHC) over the refinement relat
 The inference process generates subtyping constraints for every variable at
 each program point so the number of constraints, relations, and ownership variables
 is quadratic in the size of the program in the worst case.\footnote{In practice we can
-simplify away many ``intermediate'' relations giving dramatic speed-ups.}
+simplify away many ``intermediate'' relations to improve performance.}
 These systems are not independent; the relation constraints may mention the value
 of ownership variables due to the well-formedness constraints described above.
 The ownership constraints are first solved with Z3 \cite{de2008z3}. These constraints
@@ -208,12 +208,12 @@ arrays of pointers to future work.
 
 \subsection{Limitations}
 Our current approach is not complete; there are safe programs that will be
-rejected by our type system. As mentioned in \Cref{sec:types}, our well-formedness
+rejected by our type system.
+As mentioned in \Cref{sec:types}, our well-formedness
 condition forbids refinements that refer to memory locations. As a result,
 \name cannot in general express, e.g., that the contents of two references are equal.
-Due to our reliance on automated theorem provers and (by extension) our
-restriction to logics with sound but potentially incomplete decision procedures,
-our approach is itself incomplete.
+Further, due to our reliance on automated theorem provers
+we are restricted to logics with sound but potentially incomplete decision procedures.
 For example, from the undecidability of non-linear integer arithmetic,
 \name cannot verify a program that requires a proof of Fermat's last theorem.
 \name also does not support conditional or context-sensitive ownerships, and therefore

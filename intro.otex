@@ -43,7 +43,7 @@ loop(a, b) {
   else
     loop(b,a)$\label{line:call2}$
 }
-loop(mkref $\star$, mkref $\star$)
+loop(mkref $\star$, mkref $\star$)$\label{line:start}$
 \end{lstlisting}
   \caption{Example with non-trivial aliasing behavior.}
   \label{fig:hard-loop}
@@ -56,7 +56,7 @@ In a setting with mutability, a single invariant may not necessarily
 hold throughout the lifetime of a memory cell; as the program
 mutates the memory the invariant may change or evolve.
 To model these changes, a program verifier
-must support different, incompatible invariants that hold at
+must support different, incompatible invariants which hold at
 different points during program execution. Further, precise
 program verification requires supporting different invariants
 on distinct pieces of memory.
@@ -81,7 +81,7 @@ by the existence of unrestricted aliasing.
 In general, updating the type of just the mutated reference
 is insufficient: due to aliasing, other variables may point to the mutated
 memory and their refinements must be updated as well. However,
-in the presence of conditional, \emph{may} aliasing it is
+in the presence of conditional, \emph{may} aliasing, it is
 impossible to strongly update the refinements on all possible
 aliases; given the static uncertainty
 about whether a variable points to the mutated memory, that variable's
@@ -148,11 +148,14 @@ Our type system can also verify the example in
 \Cref{fig:hard-loop} \emph{without} expensive
 side analyses. As \imp{a} and \imp{b} are both
 mutated, they must both have ownership 1; i.e., they cannot alias.
-At the invocation of \imp{loop} on \cref{line:alloc1}, \imp{b} has
+This pre-condition is satisfied by invocations of \imp{loop};
+on \cref{line:alloc1}, \imp{b} has
 ownership 1 (from the argument type), and the newly allocated
 reference must also have ownership 1.
 Similarly, both arguments on \cref{line:call2} have ownership $[[1]]$
-(from the assumed ownership on the argument types).
+(from the assumed ownership on the argument types). % Finally,
+% the two freshly allocated references on \cref{line:start} trivially have
+% ownership 1.
 
 Ownerships behave linearly;
 they cannot be duplicated, only \emph{split}
@@ -222,7 +225,7 @@ give \imp{get} a function type that distinguishes between these two calling
 contexts and selects the appropriate summary of \imp{get}'s behavior.
 
 We have formalized \name as a type system for a small imperative calculus
-and proved the system sound: i.e., a well-typed program never encounters assertion
+and proved the system is sound: i.e., a well-typed program never encounters assertion
 failures during execution. We have
 implemented a prototype type inference tool targeting this
 imperative language and found it can automatically verify several

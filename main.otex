@@ -85,23 +85,25 @@
   We present \name, a type system for safety verification in the
   presence of mutability and aliasing. Mutability requires
   \emph{strong updates} to model changing invariants
-  during program execution, but aliasing between makes it difficult
+  during program execution, but aliasing between pointers
+  makes it difficult
   to determine which invariants must be updated
   in response to mutation.
-  Our type system addresses this difficulty with novel combination of refinement types and
+  Our type system addresses this difficulty with a
+  novel combination of refinement types and
   fractional ownership types. Fractional ownership types
   provide flow-sensitive and precise aliasing information
   for reference variables. \name interprets this ownership information
   to soundly handle strong updates of potentially aliased references.
   We have proved our type system sound and implemented a prototype,
-  fully automated inference tool. We evaluate \name and found it verifies
+  fully automated inference tool. We evaluated \name and found it verifies
   several non-trivial programs.
 \keywords{refinement types, mutable references, aliasing, strong updates, fractional ownerships, program verification, type systems}
 \end{abstract}
 %
 %
 %
-
+%
 \input{intro}
 \input{preliminaries}
 \input{typesystem}

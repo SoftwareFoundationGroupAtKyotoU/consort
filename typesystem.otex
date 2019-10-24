@@ -172,7 +172,7 @@ A function type takes the form
 $[[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]]$.
 The arguments of a function are an $n$-ary tuple of types $[[Ti]]$.
 To model side-effects on arguments, the function type includes the same number of \emph{output types}
-$[[Ti']]$. In addition, function types have a direct type $[[T]]$. 
+$[[Ti']]$. In addition, function types have a direct return type $[[T]]$. 
 The argument and output types are given names: refinements within the function type
 may refer to these names.
 Function types in our language are context polymorphic,
@@ -187,7 +187,7 @@ A context query predicate $[[CQP]]$ usually takes the
 form $[[ ll <= A ]]$, and is true iff $[[ll]]$ is a
 prefix of the concrete context represented by $[[A]]$.
 Intuitively, a refinement $[[ ll <= A ==> ph ]]$
-states $[[ ph ]]$ holds in any concrete execution context
+states that $[[ ph ]]$ holds in any concrete execution context
 with prefix $[[ll]]$, and provides no information in any other
 context. In full generality, a context query predicate may
 be of the form $[[ ll1 <= ll2 ]]$ or $[[ ll1 <= l1,,ln:A ]]$;
@@ -198,7 +198,7 @@ $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
   \label{exmp:cs-type-example}
   The type $[[ {nu:int| (l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 5)} ]]$ represents
   an integer that is 3 if the most recent active
-  function call site is $[[l1]]$, 6 if the most recent call site is $[[l2]]$,
+  function call site is $[[l1]]$, 5 if the most recent call site is $[[l2]]$,
   and is otherwise unconstrained. This type may be used for the argument of
   \imp{f} in, e.g., \imp[mathescape]{/*...*/  f$^{[[l1]]}$(3) + f$^{[[l2]]}$(5) /*...*/}.
 \AI{Are we going to fill the ellipses in the comments?}  \JT{No}
@@ -356,7 +356,7 @@ omit it for space reasons (the full definition may be found in \Cref{sec:aux-def
 \subsection{Intraprocedural Type System}
 \label{sec:intra-types}
 We now introduce the type system for the intraprocedural fragment of
-our language. Accordingly, this section focuses on interplay of
+our language. Accordingly, this section focuses on the interplay of
 mutability and refinement types. The typing rules are given in
 \Cref{fig:intra-type,fig:pointer-typing}.  
 A typing judgment takes the
@@ -370,7 +370,7 @@ the input and output type environments and result type must
 be well-formed.
 
 The typing rules in \Cref{fig:intra-type} handle the relatively
-standard features in our language.  \rn{T-Seq} for sequential
+standard features in our language. The rule \rn{T-Seq} for sequential
 composition is fairly straightforward except that the output type
 environment for $[[e1]]$ is the input type environment for $[[e2]]$.
 \rn{T-LetInt} is also straightforward; since $[[x]]$ is bound to a
@@ -611,10 +611,10 @@ provided that the sum of the new types, $[[(T1' ref r1') + (T2' ref r2')]]$ is
 equivalent (denoted $[[~]]$) to the sum of the original types.
 Formally, $[[~]]$ is defined as in \Cref{fig:pointer-typing}; it implies
 that any refinements in the two types must be logically equivalent and
-that ownerships must also be equal.
-\AI{It's a bit unfortunate that $[[~]]$ is mentioned before subtyping is discussed (but the following description seems sufficient to understand the intuition).}
-\AI{Why does $[[~]]$ compare two types under the empty type environment?
-Could it use assumptions on other integer variables in $[[G]]$?}
+that ownerships must also be equal. 
+%\AI{It's a bit unfortunate that $[[~]]$ is mentioned before subtyping is discussed (but the following description seems sufficient to understand the intuition).}
+% \AI{Why does $[[~]]$ compare two types under the empty type environment?
+% Could it use assumptions on other integer variables in $[[G]]$?}
 This redistribution is sound precisely because the two references are
 assumed to alias; the total ownership for the single memory cell pointed
 to by both references cannot be increased by this shuffling. Further,
@@ -666,11 +666,11 @@ that only a small number of annotations are required for larger programs.
 \end{example}
 
 Finally, we describe the subtyping rule. The rules for subtyping types
-and environments are shown in \Cref{fig:subtyping}. For base integer types,
+and environments are shown in \Cref{fig:subtyping}. For integer types,
 the rules require the refinement of a supertype is a logical consequence of
-the subtype's refinement conjoined with the denotation of $[[G]]$.
+the subtype's refinement conjoined with the lifting of $[[G]]$.
 The subtype rule for references is \emph{covariant} in the type
-of reference contents. It is widely known that in a type system with unrestricted aliasing
+of reference contents. It is widely known that in a language with unrestricted aliasing
 and mutable references such a rule is unsound: after a write into the coerced
 pointer, reads from an alias may yield a value disallowed by the alias' type
 \cite{pierce2002types}. However, as in
@@ -737,7 +737,7 @@ refining the behavior of the callee function with partial context
 information.  If $[[B]]$ is itself a context variable $[[A']]$, this
 substitution effectively transforms any context prefix queries over
 $[[A]]$ in the argument/return/output types into a queries over
-$[[A']]$.  In other words, while the exact concrete execution context
+$[[l:A']]$.  In other words, while the exact concrete execution context
 of the callee is unknown, the context must at least begin with $[[l]]$
 which can potentially rule out certain behaviors.
 
@@ -771,7 +771,7 @@ q := get$^{\ell2}$(q) + 1;
   \[
     [[{nu:int|(l1 <= A ==> nu = 3) /\ (l2 <= A ==> nu = 5)}]]
   \]
-  we can give \lstinline{get} the function type $[[ A <z: Tp ref 1> -> <z: Tp ref 1 | Tp>]]$.
+  we can give \lstinline{get} the type $[[ A <z: Tp ref 1> -> <z: Tp ref 1 | Tp>]]$.
 \end{example}
 \begin{example}[2-CFA]
   To see how context information propagates across multiple calls, consider
@@ -786,7 +786,7 @@ q := get$^{\ell2}$(q) + 1;
   \]
   the type of \imp{get_real} is: $[[ A' <z: T ref 1> -> <z: T ref 1 | T>]]$.
 
-  We focus on the typing of the call to \imp{get_real} in \imp{get}, it
+  We focus on the typing of the call to \imp{get_real} in \imp{get}; it
   is typed in context $[[A]]$ and a type environment where
   \imp{p} is given type $[[Tp]]$ from \Cref{exmp:1cfa}.
 

@@ -104,19 +104,19 @@ We investigated the cause of time outs and discovered that after verification fa
 with an unbounded heap model, JayHorn attempts verification on increasingly
 larger bounded heaps. In every case, JayHorn exceeded the 60 second timeout
 before reaching heap limit bound. This suggests JayHorn struggles in the presence
-of per-object invariants and unbounded allocations; in fact,
+of per-object invariants and unbounded allocations; 
 the only test JayHorn successfully verified (Shuffle) contains
 just a single object allocation.
 
 We do not believe
 this struggle is indicative of a shortcoming in JayHorn's implementation,
 but stems from the fundamental limitations of JayHorn's memory representation.
-Like many verification tools (see \cref{sec:rw}), JayHorn uses a single, unchanging
+Like many verification tools (see \Cref{sec:rw}), JayHorn uses a single, unchanging
 invariant to for every object allocated at the same syntactic location;
 effectively, all objects allocated at the same location
 are assumed to alias with one another.
 This representation cannot, in general, handle programs with different
-invariants for distinct object that evolve over time.
+invariants for distinct objects that evolve over time.
 We hypothesize other tools that adopt a similar approach will exhibit
 the same difficulty. 
 

@@ -10,7 +10,7 @@ As abstract locations summarize many concrete locations, this approach
 does not in general admit strong updates and flow-sensitivity; in particular, the refinement
 associated with an abstract location is fixed for the lifetime of the program.
 The techniques cited above include various workarounds for this limitation. For
-example, \cite{rondon2010low,chugh2012dependent} temporarily allow
+example, \cite{rondon2010low,chugh2012dependent} temporarily allows
 breaking these invariants through a distinguished program name
 as long as the abstract location is not accessed through another name.
 The programmer must therefore eventually bring the invariant back in sync with the summary location.
@@ -27,11 +27,11 @@ using any may-aliased pointers while the restrict binding is live.
 A related technique used in the field of object-oriented verification is
 to declare object invariants at the class level and allow these
 invariants on object fields to be broken during a limited period of time
-\cite{barnett2011specification,flanagan2002extended} \JT{find and cite}. In particular, the work on
+\cite{barnett2011specification,flanagan2002extended}. In particular, the work on
 Spec\# \cite{barnett2011specification} uses an ownership system which tracks
 whether object $a$ owns object $b$; like \name's ownership system,
 these ownerships are used contain the effects of mutation. However, Spec\#'s ownership
-is quite strict, and does admit references to $b$ outside of the owning object $a$.
+is quite strict and does admit references to $b$ outside of the owning object $a$.
 % These techniques implicitly use \emph{type-based} abstract heap; like the
 % techniques above, any temporarily broken invariants on an abstract location
 % (i.e., class invariant) must be eventually brought back in sync with the
@@ -49,9 +49,9 @@ al. \cite{gordon2013rely,gordon2017verifying} uses refinement
 types in a language mutable references and aliasing.
 Their approach extends reference types with rely/guarantee predicates;
 the rely predicate describes possible mutations via aliases,
-and the guarantee predicate describes the admissible mutations through the current reference reference.
-If two references may alias, then guarantee predicate of one of
-the references implies the rely of the other and vice versa. 
+and the guarantee predicate describes the admissible mutations through the current reference.
+If two references may alias, then the guarantee predicate of one
+reference implies the rely predicate of the other and vice versa. 
 This invariant is maintained with a splitting operation that
 is similar to our $+$ operator.
 Further, their type system allows strong updates to reference refinements
