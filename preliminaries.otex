@@ -185,7 +185,7 @@ denoted by $[[ E[let y = [] l in e] ]][x]$.
 
 In the rules \rn{R-Assert} we write $[[|= [R]ph]]$ to mean that the formula
 yielded by substituting the concrete values in $[[R]]$ for the variables in $[[ph]]$
-is valid within some decidable logic; in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
+is valid within some chosen logic (see \Cref{sec:types}); in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
 when the formula is \emph{not} valid.
 The substitution operation $[[ [R]ph ]]$ is defined inductively as $[[ [empty] ph = ph ]], [[ [R { x |-> nn }]ph = [R][nn/x]ph ]], [[ [R { x |-> a }] ph = [R]ph ]]$.
 In the case of an assertion failure, the semantics step to a distinguished

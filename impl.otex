@@ -211,9 +211,10 @@ Our current approach is not complete; there are safe programs that will be
 rejected by our type system. As mentioned in \Cref{sec:types}, our well-formedness
 condition forbids refinements that refer to memory locations. As a result,
 \name cannot in general express, e.g., that the contents of two references are equal.
-Further, like other verification techniques built upon automated theorem provers,
-our type system is limited by the restriction to a decidable, first-order logic for
-refinement predicates. For example, from the undecidability of non-linear integer arithmetic,
+Due to our reliance on automated theorem provers and (by extension) our
+restriction to logics with sound but potentially incomplete decision procedures,
+our approach is itself incomplete.
+For example, from the undecidability of non-linear integer arithmetic,
 \name cannot verify a program that requires a proof of Fermat's last theorem.
 \name also does not support conditional or context-sensitive ownerships, and therefore
 cannot precisely handle conditional mutation or aliasing.

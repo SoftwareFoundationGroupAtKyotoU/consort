@@ -122,7 +122,8 @@ $[[pfun]]$ as the basic atoms. We include a special
 value being refined by the predicate. For simplicity, we omit the
 connectives $[[ ph1 /\ ph2 ]]$ and $[[ ph1 ==> ph2 ]]$; they can be written
 as derived forms using the given connectives.
-We do not fix a particular theory from which $[[pfun]]$ are drawn provided it is decidable.
+We do not fix a particular theory from which $[[pfun]]$ are drawn, provided a sound
+(but not necessarily complete) decision procedure exists.
 $\mathcal{CP}$ are context predicates, which are used for context sensitivity as
 explained below.
 
@@ -463,9 +464,10 @@ that these conflicting refinements are rectified within the
 type derivations of the two branches.
 
 The type rule for assert statements has the precondition
-$[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$. $[[ [G] ]]$
-lifts the refinements on the integer valued variables into a proposition
-in the decidable logic used for verification. This denotation
+$[[ G |= ph ]]$ which is defined to be $[[|= [G] ==> ph]]$, i.e.,
+the logical formula $[[ [G] ==> ph ]]$ is valid in the chosen theory.
+$[[ [G] ]]$ lifts the refinements on the integer valued variables into a proposition
+in the logic used for verification. This denotation
 operation is defined as:
 \[
 \begin{array}{rlcrl}
