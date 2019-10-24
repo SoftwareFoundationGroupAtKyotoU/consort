@@ -2,7 +2,7 @@
 \label{sec:eval}
 
 We now present the results of some preliminary experiments performed with the implementation
-described in \Cref{sec:infr}. The goal of these experiments was to answer the following questions:
+described in \Cref{sec:infr}.\footnote{Our experiments and the \name source code are available at \url{https://www.fos.kuis.kyoto-u.ac.jp/projects/consort/}.} The goal of these experiments was to answer the following questions:
 \begin{enumerate}
 \item Is the type system (and extensions of \Cref{sec:infr}) expressive enough to type and verify non-trivial programs?
 \item Is type inference feasible?

@@ -38,12 +38,11 @@ is quite strict, and does admit references to $b$ outside of the owning object $
 % fixed invariant.
 
 F*, a dependently typed dialect of ML, includes an update/select
-theory of heaps and require explicit annotations summarizing the heap
-effects on a method
+theory of heaps and requires explicit annotations summarizing the heap
+effects of a method
 \cite{protzenko2017verified,swamy2016dependent,swamy2013verifying}.
 This approach enables modular reasoning and precise specification of
-method pre- and post-conditions with respect to the heap, but requires
-manual annotation from the programmer.
+pre- and post-conditions with respect to the heap, but precludes full automation.
 
 The work on rely--guarantee reference types by Gordon et
 al. \cite{gordon2013rely,gordon2017verifying} uses refinement
@@ -120,7 +119,7 @@ a context-sensitive dependent type system for a functional language \cite{zhu201
 that indexed function types by unique labels attached to call-sites. Our
 context-sensitivity approach was inspired by this work.
 In fact, we could have formalized context-polymorphism within the framework of full dependent
-types, but chose the current presentation for simplicity.
+types, but chose the current presentation for simplicity.\looseness=-1
 
 %%% Local Variables:
 %%% mode: latex
