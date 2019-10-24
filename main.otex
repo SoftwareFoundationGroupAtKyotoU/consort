@@ -96,7 +96,7 @@
   We have proved our type system sound and implemented a prototype,
   fully automated inference tool. We evaluate \name and found it verifies
   several non-trivial programs.
-\keywords{}
+\keywords{refinement types, mutable references, aliasing, strong updates, fractional ownerships, program verification, type systems}
 \end{abstract}
 %
 %
