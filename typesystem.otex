@@ -141,12 +141,14 @@ that $[[G(x) = T]]$ where $[[x in dom G]]$, $[[G,x:T]]$ to indicate the
 extension of $[[G]]$ with the type binding $[[x : T]]$, and $[[G[x <- T] ]]$
 to indicate the type environment $[[G]]$ with the binding of $[[x]]$
 updated to $[[T]]$. We write the empty environment as $[[:G_em: empty]]$.
-  The treatment of type environments as mappings instead of sequences
-  in a dependent type system is somewhat non-standard. However, this
-  approach does not cause problems in our formalism as we do not include
-  higher-order functions; all arguments are bound simultaneously
-  in our abstract \AI{operational?} semantics.
-  \AI{I'm not sure this argument justifies our choice.  We have let-expressions to introduce additional bindings.}
+The treatment of type environments as mappings instead of sequences
+in a dependent type system is somewhat non-standard.
+The standard formulation based on ordered sequences of bindings and
+its corresponding well-formedness condition did not easily admit
+variables with mutually dependent refinements as introduced by
+our function types (see below). We therefore use an unordered
+environment and relax well-formedness to ignore variable binding order.
+\AI{I'm not sure this argument justifies our choice.  We have let-expressions to introduce additional bindings.}
 
 
 \AI{If we are desperate for space, we might want to omit ``$[[pval1 = pval2]]$'' (which could be assumed in $[[pfun]]$) and ``$[[Top]]$'' (which could be expressed by, say, $[[0=0]]$) from the syntax of refinements.}
