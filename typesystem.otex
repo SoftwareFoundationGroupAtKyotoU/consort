@@ -170,7 +170,7 @@ A function type takes the form
 $[[ A <x1 : T1 ,, xn : Tn> -> <x1: T1' ,, xn : Tn' | T> ]]$.
 The arguments of a function are an $n$-ary tuple of types $[[Ti]]$.
 To model side-effects on arguments, the function type includes the same number of \emph{output types}
-$[[Ti']]$. In addition, function types have a direct return value $[[T']]$. 
+$[[Ti']]$. In addition, function types have a direct type $[[T]]$. 
 The argument and output types are given names: refinements within the function type
 may refer to these names.
 Function types in our language are context polymorphic,
@@ -620,7 +620,7 @@ any refinements that hold for the contents of one reference must necessarily
 hold for contents of the other and vice versa.
 
 \begin{example}[Shuffling ownerships and refinements]
-  Let $[[(=nn)]]$ be $[[nu = x]]$.
+  Let $[[(=nn)]]$ be $[[nu = nn]]$.
   \begin{lstlisting}
     let x = mkref 5 in     // $\color{comment-green}{[[x:{nu:int|(=5)} ref 1]]}$
     let y = x in           // $\color{comment-green}{[[x:top1,y:{nu:int|(=5)} ref 1]]}$
