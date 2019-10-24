@@ -612,7 +612,7 @@ equivalent (denoted $[[~]]$) to the sum of the original types.
 Formally, $[[~]]$ is defined as in \Cref{fig:pointer-typing}; it implies
 that any refinements in the two types must be logically equivalent and
 that ownerships must also be equal.
-\AI{It's a bit unfortunate that $[[~]]$ is menioned before subtyping is discussed (but the following description seems sufficient to understand the intuition).}
+\AI{It's a bit unfortunate that $[[~]]$ is mentioned before subtyping is discussed (but the following description seems sufficient to understand the intuition).}
 \AI{Why does $[[~]]$ compare two types under the empty type environment?
 Could it use assumptions on other integer variables in $[[G]]$?}
 This redistribution is sound precisely because the two references are

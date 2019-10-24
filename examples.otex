@@ -344,7 +344,7 @@ and \lstinline{false} (i.e., \lstinline{0}) must have type:
   \{ n : bool | (\ell_3\alpha = \ell_3? \produces n = 0) \wedge (\ell_3\alpha \neq \ell_3? \produces n = 1) \}
 \]
 The latter type simplifies to $\{ n : bool \mid n = 0 \}$ which the constant \lstinline{0} has
-(tehnically an application of the subtyping rule is required, but it is straightforward).
+(technically an application of the subtyping rule is required, but it is straightforward).
 We must also verify that:
 \[
   \tenv \p \{ n : int \mid (\alpha = \ell_3? \produces n \geq 2) \wedge n \geq 1 \} \subt \{ n : int \mid (\ell_3\alpha = \ell_3? \produces n \geq 1) \wedge n \geq 0 \}

@@ -3,7 +3,7 @@
 % roughly
 % * Execution Context properties
 % * context substitution properties
-% * variable subsitution
+% * variable substitution
 % * variable removal
 % * subtype properties
 % * homomorphisms
@@ -223,7 +223,7 @@ and substituting a well-typed expression matching a context's hole type yields a
 \begin{proof}\leavevmode
   \begin{enumerate}
   \item By straightforward induction on the definition of $[[ T1 + T2 = T3 ]]$.
-  \item Observe that any subsitution of context variables cannot change simple
+  \item Observe that any substitution of context variables cannot change simple
     types within $[[G]]$ and thus all types and refinements remain well-formed with respect
     to integer variables in $[[G]]$.
     It thus suffices to show that $[[ FPCV ( [ll/A]ph ) ]] \subseteq [[CV(ll)]] = \emptyset$

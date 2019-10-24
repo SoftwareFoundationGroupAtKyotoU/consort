@@ -99,7 +99,7 @@ call cases respectively; we have separated them into separate lemmas for clarity
   To prove the first part, from the well-typing of the function body, we have
   $[[ Th | x1:T1,,xn:Tn | A |- e : Tq => x1:T1',,xn:Tn' ]]$.
   From our assumption that all variable names are distinct,
-  by $n$ applications of the substituion lemma (\Cref{lem:substitution}) we have:
+  by $n$ applications of the substitution lemma (\Cref{lem:substitution}) we have:
   $[[ Th | y1:vsub T1,,yn:vsub Tn | A |- vsub e : vsub Tq => y1:vsub T1',,yn:vsub Tn']]$.
   By \subref{lem:ctxt-substitution}{itm:ctxt-subst-well-typed} we then have
   $[[ Th | y1:csub vsub T1,,yn:csub vsub Tn | l:ll |- vsub e : csub vsub Tq => y1:csub vsub T1',,yn:csub vsub Tn']]$.
