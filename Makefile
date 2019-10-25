@@ -4,7 +4,7 @@ OTTNAME=lang
 TEX=intro.tex preliminaries.tex typesystem.tex appendix.tex	\
 	related_work.tex impl.tex experiments.tex conclusion.tex semantics.tex \
 	wf_rules.tex appendix-thm1.tex appendix-aux.tex appendix-preservation.tex \
-	abstract.tex appendix-progress.tex
+	appendix-progress.tex
 
 all: main.pdf src/all
 
