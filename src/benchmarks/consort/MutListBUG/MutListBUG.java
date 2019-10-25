@@ -1,6 +1,6 @@
 import java.util.Random;
 
-public class MutableListBUG {
+public class MutListBUG {
 	public static class Node {
 		int data;
 		Node next;
