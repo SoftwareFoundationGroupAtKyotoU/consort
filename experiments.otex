@@ -21,7 +21,7 @@ specific features, most could be adapted
 into our low-level language.
 The tests we could adapt provide a comparison with existing state-of-the-art
 verification techniques.
-A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}
+A detailed breakdown of the adapted benchmark suite can be found in \Cref{tab:breakdown}.
 
 \begin{table}[t]
   \caption{Description of benchmark suite adapted from JayHorn. \textbf{Java} are programs
@@ -70,7 +70,7 @@ end-to-end runtime of \name for each test;
 we do not give a performance comparison with
 JayHorn given the many differences in target languages.
 For the JayHorn suite, we first ran our tool on the adapted version of
-each test program and ran JayHorn on the original Java version. We did not
+each test program and ran JayHorn on the original Java version. We also did not
 collect runtime information for this set of experiments because our goal
 is a comparison of tool precision, not performance.
 All tests were run on a machine with 16 GB RAM and 4 CPUs at 2GHz

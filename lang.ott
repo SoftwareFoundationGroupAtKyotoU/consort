@@ -400,7 +400,7 @@ grammar
 	| FPCV ( plhs ) :: :: fpcv_plhs
 	| FPCV ( T ) :: :: fpcv_tx
     | FV ( e ) :: :: fv
-	| FV pp :: :: fv_at_point {{ tex [[FV]]_[[pp]] }}
+	| FV pp :: :: fv_at_point {{ tex [[FV]]_{[[pp]]} }}
 	| CC k :: :: context_fv {{ tex [[CC]]^[[k]] }}
 	| FVF1 U FVF2 :: :: union_fv {{ tex [[FVF1]] \cup [[FVF2]] }}
 	| { x1 , .. , x2 } :: :: set

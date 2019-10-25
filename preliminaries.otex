@@ -64,7 +64,7 @@ an extension to null will be discussed in \Cref{sec:infr}.
 Function calls must occur on the right hand side of a variable binding
 and take the form $[[f l (x1,,xn)]]$, where $[[x1,,xn]]$ are distinct variables and $[[l]]$ is a
 (unique) label. % drawn from \textbf{Labels}.
-These labels are used to make our type system context-sensitivity as
+These labels are used to make our type system context-sensitive as
 discussed in \Cref{sec:cs}.
 
 The single base case for expressions is a single variable.
@@ -77,7 +77,7 @@ $[[ifz]]$ checks whether the condition variable $[[x]]$ equals zero and chooses
 the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
 
-Our grammar requires that side-effecting, result free statements, \lstinline{assert}($[[ph]]$)
+Our grammar requires that side-effecting, result-free statements, \lstinline{assert}($[[ph]]$)
 \lstinline{alias}($[[x]]$ = $[[y]]$), \lstinline{alias}($[[x]] = *[[y]]$) and
 assignment $[[x]] := [[y]]$ are followed by a continuation expression.
 We impose this requirement for technical reasons to ease our formal
@@ -135,10 +135,10 @@ as syntactic sugar for:
 We now introduce the operational semantics for our language.
 We assume a finite domain of heap addresses \textbf{Addr}:
 we denote an arbitrary address with $[[a]]$.
-A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consist of a heap,
+A runtime state is represented by a configuration $[[<H, R,Es,e>]]$, which consists of a heap,
 register file, stack, and currently reducing expression respectively.
 The register file maps variables to runtime values $[[Rv]]$, which are
-either integers $[[nn]]$ or addresses $[[a]]$. The heap maps a subset
+either integers $[[nn]]$ or addresses $[[a]]$. The heap maps a finite subset
 of addresses to runtime values. The runtime stack represents pending
 function calls as a sequence of return contexts, which we
 describe below.
@@ -166,8 +166,7 @@ by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
 The semantics are mostly standard; we highlight some important points below.
 
-First we introduce return contexts $[[CE]]$, which
-take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pending
+Return contexts $[[CE]]$ take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pending
 function call with label $[[l]]$, and indicates that the return value of the
 callee should be bound to $[[y]]$ in $[[e]]$ within the larger execution context $[[E]]$.
 The call stack $[[Es]]$ is a sequence of these contexts, with
@@ -197,7 +196,7 @@ If not, our semantics step to the distinguished $[[AliasFail]]$ configuration.
 Our type system does \emph{not} guarantee that $[[AliasFail]]$ is unreachable;
 aliasing assertions are effectively trusted annotations that are assumed to hold.
 
-In order avoid duplicates variable names in our register file due to recursive functions,
+In order to avoid duplicates variable names in our register file due to recursive functions,
 we refresh the bound variable $[[x]]$ in a \imp{let} expression to $[[x']]$.
 Take expression $[[let x=y in e]]$ as an example;
 we substitute a fresh variable $[[x']]$ for $[[x]]$ in $[[e]]$, then bind $[[x']]$ to the value

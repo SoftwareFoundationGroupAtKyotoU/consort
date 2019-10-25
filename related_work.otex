@@ -17,7 +17,7 @@ The programmer must therefore eventually bring the invariant back in sync with t
 As a result, these systems ultimately cannot precisely handle programs that require
 evolving invariants on mutable memory.\looseness=-1
 
-As similar approach was taken in
+A similar approach was taken in
 CQual \cite{foster2002flow} by Aiken et al. \cite{aiken2003checking}.
 They used an explicit \emph{restrict} binding for pointers.
 Strong updates are permitted through pointers bound
@@ -31,7 +31,7 @@ invariants on object fields to be broken during a limited period of time
 Spec\# \cite{barnett2011specification} uses an ownership system which tracks
 whether object $a$ owns object $b$; like \name's ownership system,
 these ownerships are used contain the effects of mutation. However, Spec\#'s ownership
-is quite strict and does admit references to $b$ outside of the owning object $a$.
+is quite strict and does not admit references to $b$ outside of the owning object $a$.
 % These techniques implicitly use \emph{type-based} abstract heap; like the
 % techniques above, any temporarily broken invariants on an abstract location
 % (i.e., class invariant) must be eventually brought back in sync with the
@@ -71,22 +71,6 @@ However, their system cannot handle multiple, immutable aliases with non-trivial
 annotation information; \emph{only} the mutable reference may
 have non-trivial annotation information.
 
-The idea of using a rational number to express permissions to access a
-reference dates back to the type system of \emph{fractional
-permissions} by Boyland~\cite{DBLP:conf/sas/Boyland03}.  His work used
-fractional permissions to verify race freedom of a concurrent program
-without a may-alias analysis.  Later,
-Terauchi~\cite{terauchi2008checking} proposed a type-inference
-algorithm that reduces typing constraints to a set of linear
-inequalities over rational numbers.  Boyland's idea also inspired a
-variant of separation logic for a concurrent programming
-language~\cite{DBLP:conf/popl/BornatCOP05} to express sharing of read
-permissions among several threads.  Our previous
-work~\cite{suenaga2009fractional,suenaga2012type}, inspired by
-Boyland's work and Terauchi's work, proposed methods for type-based
-verification of resource-leak freedom, in which a rational number
-expresses an \emph{obligation} to deallocate certain resource, not
-just a permission.
 
 The fractional ownerships in \name and their counterparts in
 \cite{suenaga2009fractional,suenaga2012type} have a clear relation to
@@ -106,6 +90,22 @@ fine-grained, per-statement changes in mutability and even further
 control with \imp{alias} annotations, which allows it to verify larger
 classes of programs.
 
+The idea of using a rational number to express permissions to access a
+reference dates back to the type system of \emph{fractional
+permissions} by Boyland~\cite{DBLP:conf/sas/Boyland03}.  His work used
+fractional permissions to verify race freedom of a concurrent program
+without a may-alias analysis.  Later,
+Terauchi~\cite{terauchi2008checking} proposed a type-inference
+algorithm that reduces typing constraints to a set of linear
+inequalities over rational numbers.  Boyland's idea also inspired a
+variant of separation logic for a concurrent programming
+language~\cite{DBLP:conf/popl/BornatCOP05} to express sharing of read
+permissions among several threads.  Our previous
+work~\cite{suenaga2009fractional,suenaga2012type}, inspired by
+Boyland's work and Terauchi's work, proposed methods for type-based
+verification of resource-leak freedom, in which a rational number
+expresses an \emph{obligation} to deallocate certain resource, not
+just a permission.
 
 The issue of context-sensitivity (sometimes called \emph{polyvariance})
 is well-studied in the field of abstract interpretation

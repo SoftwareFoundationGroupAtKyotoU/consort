@@ -200,8 +200,7 @@ $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
   an integer that is 3 if the most recent active
   function call site is $[[l1]]$, 5 if the most recent call site is $[[l2]]$,
   and is otherwise unconstrained. This type may be used for the argument of
-  \imp{f} in, e.g., \imp[mathescape]{/*...*/  f$^{[[l1]]}$(3) + f$^{[[l2]]}$(5) /*...*/}.
-\AI{Are we going to fill the ellipses in the comments?}  \JT{No}
+  \imp{f} in, e.g., \imp[mathescape]{f$^{[[l1]]}$(3) + f$^{[[l2]]}$(5)}.
 \end{example}
 
 As types in our type system may contain context variables, our typing judgment
@@ -435,7 +434,7 @@ is obtained by splitting the type of $[[y]]$.  In \rn{T-Deref},
 the content type of $[[y]]$ is split and distributed to
 $[[x]]$.  The strengthening is \emph{conditionally} applied depending
 on the ownership of the dereferenced pointer, that is, if $[[r]] = 0$,
-$[[T']]$ has to be a ``top'' type $[[topi]]$.
+$[[T']]$ has to be a maximal type $[[topi]]$.
 
 % The most noteworthy feature is the
 % type addition operator $[[T1 + T2]]$ used in \rn{T-Let}, \rn{T-MkRef}, and
@@ -674,7 +673,7 @@ of reference contents. It is widely known that in a language with unrestricted a
 and mutable references such a rule is unsound: after a write into the coerced
 pointer, reads from an alias may yield a value disallowed by the alias' type
 \cite{pierce2002types}. However, as in
-the assign case, ownership types prevents unsoundness; a write to the
+the assign case, ownership types prevent unsoundness; a write to the
 coerced pointer requires the pointer to have ownership 1, which guarantees
 any aliased pointers have the maximal type and provide no information about their contents
 beyond simple types.\looseness=-1

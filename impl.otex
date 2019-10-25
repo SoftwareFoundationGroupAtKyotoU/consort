@@ -91,7 +91,7 @@ The solver may then instantiate relation symbols with predicates
 that are conditional over the values of $[[ci]]$.
 
 \subsubsection{Solving}
-The result of the above process are two systems of constraints;
+The results of the above process are two systems of constraints;
 real arithmetic constraints over
 ownership variables and constrained Horn clauses (CHC) over the refinement relations.
 The inference process generates subtyping constraints for every variable at
@@ -143,7 +143,7 @@ that returns integers refined with $[[Top]]$.
 
 \paragraph{Dependent Tuples}
 Our implementation supports types of the form:
-$[[ (x1: T1 ,, xn: Tn) ]]$, where $[[xi]]$ is free within $[[Tj]]$
+$[[ (x1: T1 ,, xn: Tn) ]]$, where $[[xi]]$ can appear within $[[Tj]]$
 ($j\neq i$) if $[[Ti]]$ is not a reference type. For example,
 $[[ (x: {nu:int|Top}, y:{nu:int|nu>x})]]$ is the type of tuples whose
 second element is strictly greater than the first. We also extend
