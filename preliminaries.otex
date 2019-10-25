@@ -72,7 +72,7 @@ If the variable expression is executed in a tail position of a function,
 then the value of that variable is the return value of the function,
 otherwise the value is ignored.
 
-The only control-flow operation in our language are if statements.
+The only intraprocedural control-flow operations in our language are if statements.
 $[[ifz]]$ checks whether the condition variable $[[x]]$ equals zero and chooses
 the corresponding branch. Loops can be implemented with recursive functions and
 we do not include them explicitly in our formalism.
