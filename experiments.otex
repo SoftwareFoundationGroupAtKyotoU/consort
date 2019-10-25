@@ -111,9 +111,9 @@ JayHorn times out on all tests except for \textbf{Shuffle} and \textbf{ShuffleBU
 We investigated the cause of time outs and discovered that after verification failed
 with an unbounded heap model, JayHorn attempts verification on increasingly
 larger bounded heaps. In every case, JayHorn exceeded the 60 second timeout
-before reaching heap limit bound. This suggests JayHorn struggles in the presence
+before reaching a preconfigured limit on the heap bound. This result suggests JayHorn struggles in the presence
 of per-object invariants and unbounded allocations; 
-the only two tests JayHorn successfully analyzed contain just a single object allocation.
+the only two tests JayHorn successfully analyzed contain just a single object allocation.\looseness=-1
 
 We do not believe
 this struggle is indicative of a shortcoming in JayHorn's implementation,

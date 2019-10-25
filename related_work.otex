@@ -22,7 +22,7 @@ CQual \cite{foster2002flow} by Aiken et al. \cite{aiken2003checking}.
 They used an explicit \emph{restrict} binding for pointers.
 Strong updates are permitted through pointers bound
 with \emph{restrict}, but the program is forbidden from
-using any may-aliased pointers while the restrict binding is live.
+using any pointers which share an allocation site while the restrict binding is live.
 
 A related technique used in the field of object-oriented verification is
 to declare object invariants at the class level and allow these
@@ -66,7 +66,7 @@ Work by Degen et al. \cite{degen2007tracking} introduced linear \emph{state anno
 To effect strong updates in the presence of aliasing, like \name,
 their system requires annotated memory locations are mutated only through
 a distinguished reference. Further, all aliases of this mutable reference give
-no information about the state of the object, much like our $0$ ownership pointers.
+no information about the state of the object much like our $0$ ownership pointers.
 However, their system cannot handle multiple, immutable aliases with non-trivial
 annotation information; \emph{only} the mutable reference may
 have non-trivial annotation information.

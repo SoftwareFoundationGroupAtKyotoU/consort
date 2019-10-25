@@ -46,7 +46,7 @@ we discuss these formulas later in \Cref{sec:types}.
 \AI{\textbf{Labels} is removed because it is rarely used.}
 
 Variables are introduced by function parameters or let bindings.
-Like ML, the variable bindings introduced by let-expressions and parameters
+Like ML, the variable bindings introduced by let expressions and parameters
 are immutable.
 A mutable variable declaration like \texttt{int x = 1;} in C is achieved in our language with:\looseness=-1
 \[
@@ -160,9 +160,9 @@ where $[[ a in dom H]]$ to denote a map equivalent to $[[H]]$ except that $[[a]]
 We use similar notation for $[[dom R]]$ and $[[R{x |-> Rv}]]$.
 We also write $\emptyset$ for the empty register file and heap.
 %
-Notice that the step relation  $[[ --> D ]]$ is parameterized
+The step relation  $[[ --> D ]]$ is parameterized
 by a set of function definitions $[[D]]$; a program $[[<D, e>]]$ is executed
-by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
+by stepping the initial configuration $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
 The semantics is mostly standard; we highlight some important points below.
 
@@ -196,14 +196,14 @@ If not, our semantics steps to the distinguished $[[AliasFail]]$ configuration.
 Our type system does \emph{not} guarantee that $[[AliasFail]]$ is unreachable;
 aliasing assertions are effectively trusted annotations that are assumed to hold.
 
-In order to avoid duplicates variable names in our register file due to recursive functions,
-we refresh the bound variable $[[x]]$ in a \imp{let} expression to $[[x']]$.
+In order to avoid duplicate variable names in our register file due to recursive functions,
+we refresh the bound variable $[[x]]$ in a let expression to $[[x']]$.
 Take expression $[[let x=y in e]]$ as an example;
 we substitute a fresh variable $[[x']]$ for $[[x]]$ in $[[e]]$, then bind $[[x']]$ to the value
 of variable $[[y]]$.
 We assume this refreshing of variables preserves our assumption that all variable
 bindings introduced with let and function parameters are unique, i.e. $[[x']]$ does
-not overlap with a variable name that occurs in the program.
+not overlap with variable names that occur in the program.
 % \JT{Do we want to mention this at all?}
 % \AI{We may want to remove if we need more space.}
 % Finally, although $\rn{R-MkRef}$ allocates memory, our language does not

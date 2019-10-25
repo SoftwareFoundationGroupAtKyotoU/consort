@@ -106,10 +106,9 @@ are non-linear but Z3 appears
 particularly well-engineered to quickly find solutions for the instances generated
 by \name.
 We also constrain Z3 to maximize the number of non-zero ownership
-variables; this ensures minimal
-refinement information is lost due to $0$ ownerships.
+variables; this ensures as few refinements as possible are constrained to be $[[Top]]$ due to ownership well-formedness.
 
-The inferred values for ownership variables are then substituted into the
+The values of ownership variables inferred by Z3 are then substituted into the
 constrained Horn clauses, and the resulting system is checked
 for satisfiability with an off-the-shelf CHC solver.
 Our implementation generates constraints in the industry standard
@@ -145,7 +144,7 @@ that returns integers refined with $[[Top]]$.
 \paragraph{Dependent Tuples}
 Our implementation supports types of the form:
 $[[ (x1: T1 ,, xn: Tn) ]]$, where $[[xi]]$ can appear within $[[Tj]]$
-($j\neq i$) if $[[Ti]]$ is not a reference type. For example,
+($j\neq i$) if $[[Ti]]$ is an integer type. For example,
 $[[ (x: {nu:int|Top}, y:{nu:int|nu>x})]]$ is the type of tuples whose
 second element is strictly greater than the first. We also extend
 the language with tuple constructors as a new value form, and
@@ -154,7 +153,7 @@ let bindings with tuple patterns as the LHS.
 The extension to type checking is relatively straightforward; the only
 significant extensions are to the subtyping rules.
 Specifically, the subtyping check for a tuple element
-$[[xi:Ti]]$ is performed in a type environment elaborated with
+$[[xi:Ti]]$ is performed in a type environment elaborated with the
 types and names of other tuple elements.
 The extension to type inference is also
 straightforward; the arguments for a
@@ -198,7 +197,7 @@ The array type contains two refinements: the first refines the length of the arr
 and the second refines the entire array contents.
 The content refinement may refer to a symbolic index variable
 for precise, per-index refinements. At reads and writes to the
-array \name instantiates the refinement's symbolic index variable with
+array, \name instantiates the refinement's symbolic index variable with
 the concrete variable used at the read/write.
 
 As in \cite{suenaga2009fractional}, our restriction to arrays of integers

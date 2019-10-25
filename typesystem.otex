@@ -159,7 +159,7 @@ Our type system achieves context sensitivity
 by allowing function types to depend on where and how a function
 is called, i.e., the \emph{execution context} of the function invocation.
 Our system represents a \emph{concrete} execution contexts with
-string of call site labels (or just ``call strings''),
+strings of call site labels (or just ``call strings''),
 defined by $[[ll]] ::= [[.]] \mid [[l : ll ]]$.
 As is standard (e.g., \cite{sharir1978two,shivers1991control}), the string $[[ l : ll ]]$ abstracts
 an execution context where the most recent, active function call occurred
@@ -190,7 +190,7 @@ Intuitively, a refinement $[[ ll <= A ==> ph ]]$
 states that $[[ ph ]]$ holds in any concrete execution context
 with prefix $[[ll]]$, and provides no information in any other
 context. In full generality, a context query predicate may
-be of the form $[[ ll1 <= ll2 ]]$ or $[[ ll1 <= l1,,ln:A ]]$;
+be of the form $[[ ll1 <= ll2 ]]$ or $[[ ll <= l1,,ln:A ]]$;
 these forms may be immediately simplified to
 $[[ Top ]]$, $[[ Bot ]]$ or $[[ ll' <= A ]]$.
 
@@ -221,7 +221,7 @@ in a typing derivation yields a valid type derivation under concrete context $[[
   \label{rem:cfa}
   The context-sensitivity scheme described here corresponds
   to the standard CFA approach \cite{shivers1991control} without \emph{a priori} call-string limiting.
-  We chose this scheme because it can be easily encoded with equality over integer variables (see \Cref{sec:cs,sec:infr}),
+  We chose this scheme because it can be easily encoded with equality over integer variables (see \Cref{sec:infr}),
   but in principle another context-sensitivity strategy could be used instead. The important
   feature of our type system is the inclusion of predicates over
   contexts, not the specific choice for these predicates.
@@ -248,7 +248,7 @@ heap writes do not violate the invariant of ownership types \emph{and} that refi
 are consistent with updates performed through mutable aliases. Recall our ownership type invariant
 ensures all aliases of a mutable reference have 0 ownership.
 Any mutations through that alias will therefore be consistent with the
-``no information'' $[[ Top ]]$ refinement required by the
+``no information'' $[[ Top ]]$ refinement required by this
 well-formedness condition.
 
 Refinement well-formedness, denoted $[[ G | B |- ph ]]$,
@@ -595,14 +595,14 @@ As described thus far, the type system is quite strict: if ownership
 has been completely transferred from one reference to another, the
 refinement information found in the original reference is effectively useless.
 Additionally, once
-a mutable pointer has been split through an assignment or let binding, there is no
+a mutable pointer has been split through an assignment or let expression, there is no
 way to recover mutability. The typing rule for
 must alias assertions, \rn{T-Alias} and \rn{T-AliasPtr}, overcomes this restriction
 by exploiting the must-aliasing information to
 ``shuffle'' or redistribute ownerships \emph{and refinements} between two
 aliased pointers. The typing rule assigns
 two fresh types $[[T1' ref r1']]$ and $[[T2' ref r2']]$ to the two operand pointers.
-The choice of $[[T1']], [[r1']], [[T2']]$, and $[[r2']]$ is left open,
+The choice of $[[T1']], [[r1']], [[T2']]$, and $[[r2']]$ is left open
 provided that the sum of the new types, $[[(T1' ref r1') + (T2' ref r2')]]$ is
 equivalent (denoted $[[~]]$) to the sum of the original types.
 Formally, $[[~]]$ is defined as in \Cref{fig:pointer-typing}; it implies
@@ -637,7 +637,7 @@ Provided sufficient aliasing annotations, the type system may shuffle ownerships
 one or more live references, enabling and disabling mutability as required. Although the
 reliance on these annotations appears to decrease the practicality of our type system,
 we expect these aliasing annotations can be inserted by a conservative must-aliasing
-analysis, and empirical experience from prior work \cite{suenaga2009fractional} indicates
+analysis. Further, empirical experience from our prior work \cite{suenaga2009fractional} indicates
 that only a small number of annotations are required for larger programs.
 
 \begin{example}[Shuffling Mutability]
@@ -751,7 +751,7 @@ variable $[[A]]$ that occurs in the function type.
 Finally, the rule for typing programs (\rn{T-Prog}) checks that
 all function definitions are well typed under a well-formed
 function type environment, and that the entry point $[[e]]$
-is well typed in an empty environment and typing context
+is well typed in an empty type environment and the typing context
 $[[.]]$, i.e., the initial context.
 
 \begin{example}[1-CFA]
@@ -794,7 +794,7 @@ q := get$^{\ell2}$(q) + 1;
   \end{align*}
   which is exactly the type of \imp{p}.
   A similar derivation applies to
-  give the return type of \imp{get_real} and thus \imp{get}.
+  the return type of \imp{get_real} and thus \imp{get}.
 \end{example}
 
 \subsection{Soundness}

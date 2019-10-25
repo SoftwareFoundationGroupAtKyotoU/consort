@@ -88,19 +88,19 @@ about whether a variable points to the mutated memory, that variable's
 refinement may only be \emph{weakly updated}. For example,
 suppose we used a simple alias analysis that imprecisely (but soundly)
 concluded all references allocated at the same program point \emph{might} alias.
-\imp{p} and \imp{q} share the allocation site on
-\cref{line:mk}, so we would have to weakly update
+Variables \imp{p} and \imp{q} share the allocation site on
+\cref{line:mk}, so on \cref{line:first-p-write} we would have to weakly update
 \imp{q}'s type to $[[ {nu:int|nu = 4 \/ nu = 5 } ]]$,
 indicating it may hold either 4 \emph{or} 5.
 Under this same imprecise aliasing assumption,
 we would also have to weakly update
-\imp{p}'s type on \cref{line:r-write}
+\imp{p}'s type on \cref{line:r-write},
 preventing the verification of the example program.
 
 Given the precision loss associated with weak updates,
 it is critical that verification techniques built upon
 refinement types use precise aliasing information and
-that spuriously applied weak updates are avoided. Although it
+avoid spuriously applied weak updates. Although it
 is relatively simple to conclude that \imp{p} and \imp{q}
 do not alias in \Cref{fig:strong-update-example}, consider
 the example in \Cref{fig:hard-loop}. (In this example,
@@ -111,7 +111,7 @@ In fact, \imp{a} and \imp{b} \emph{may} point to the same
 memory location, but only in different invocations of \imp{loop};
 this pattern may confound even sophisticated symbolic alias analyses.
 Additionally, \imp{a} and \imp{b} share an allocation site on \cref{line:alloc1},
-so the simple alias analysis described above will also fail on
+so an approach based on the simple alias analysis described above will also fail on
 this example. This obligation \emph{can} be discharged with existing
 techniques \cite{spath2016boomerang,spath2019context}, but requires an expensive, on-demand,
 interprocedural, flow-sensitive alias analysis. 
@@ -209,7 +209,7 @@ q := get(q) + 1;$\label{line:get2}$
 assert(*p = 4);
 assert(*q = 6);
   \end{lstlisting}
-  \caption{Context Sensitivity Example}
+  \caption{Context-sensitivity example}
   \label{fig:running-example}
 \end{wrapfigure}
 of \Cref{fig:strong-update-example}
