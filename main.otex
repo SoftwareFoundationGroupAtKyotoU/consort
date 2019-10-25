@@ -95,9 +95,9 @@
   provide flow-sensitive and precise aliasing information
   for reference variables. \name interprets this ownership information
   to soundly handle strong updates of potentially aliased references.
-  We have proved our type system sound and implemented a prototype,
-  fully automated inference tool. We evaluated \name and found it verifies
-  several non-trivial programs.
+  We have proved \name sound and implemented a prototype,
+  fully automated inference tool. We evaluated our tool
+  and found it verifies non-trivial programs including data structure implementations.
 \keywords{refinement types, mutable references, aliasing, strong updates, fractional ownerships, program verification, type systems}
 \end{abstract}
 %

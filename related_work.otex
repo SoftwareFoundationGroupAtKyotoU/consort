@@ -82,7 +82,7 @@ in particular with the goal of supporting strong updates
 Matsushita et al. \cite{matsushita2019rusthorn}. Much like
 \name, RustHorn uses CHC and linear aliasing information for
 the sound and---unlike \name---complete verification of
-programs with aliasing and mutability. However, their approach depends Rust's
+programs with aliasing and mutability. However, their approach depends on Rust's
 strict \emph{borrowing discipline}. In particular, it cannot handle programs
 where multiple aliased references are used to
 mutate memory in the same lexical region. In contrast, \name supports

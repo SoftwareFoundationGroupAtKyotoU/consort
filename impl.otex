@@ -1,7 +1,7 @@
 \section{Inference and Extensions}
 \label{sec:infr}
 We now briefly describe the inference algorithm implemented in
-our tool \name. We sketch some extensions needed to type more
+our tool \name. We sketch some implemented extensions needed to type more
 interesting programs and close with a discussion of current
 limitations of our prototype.
 
@@ -85,13 +85,13 @@ $[[ph(yi,nn,pp)[nu,c1,,ck;FV pp] ]]$ which occurs in the type template of $[[yi]
 Effectively, we have encoded $[[ l1 ,, lk <= A ]]$ as $\land_{0<i\leq k} c_i = [[ li ]]$.
 In the above, the shift from $[[ c0,,ck]]$ to $[[ l,c0,,ck-1]]$ plays the role of
 $[[ csub ]]$ in the \rn{T-Call} rule. The above constraint effectively
-constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
+determines the value of $[[c0]]$ within the body of the function $[[f]]$.
 If $[[f]]$ calls another function $[[g]]$, the above rule
 propagates this value of $[[c0]]$ to $[[c1]]$ within $[[g]]$ and so on.
 The solver may then instantiate relation symbols with predicates
 that are conditional over the values of $[[ci]]$.
 
-\subsubsection{Solving}
+\subsubsection{Solving Constraints}
 The results of the above process are two systems of constraints;
 real arithmetic constraints over
 ownership variables and constrained Horn clauses (CHC) over the refinement relations.
@@ -215,8 +215,6 @@ condition forbids refinements that refer to memory locations. As a result,
 \name cannot in general express, e.g., that the contents of two references are equal.
 Further, due to our reliance on automated theorem provers
 we are restricted to logics with sound but potentially incomplete decision procedures.
-For example, from the undecidability of non-linear integer arithmetic,
-\name cannot verify a program that requires a proof of Fermat's last theorem.
 \name also does not support conditional or context-sensitive ownerships, and therefore
 cannot precisely handle conditional mutation or aliasing.
 

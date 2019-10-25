@@ -164,7 +164,7 @@ Notice that the step relation  $[[ --> D ]]$ is parameterized
 by a set of function definitions $[[D]]$; a program $[[<D, e>]]$ is executed
 by stepping the initial context $[[ <empty,empty,.,e> ]]$ according
 to $[[-->]]_{[[D]]}$.
-The semantics are mostly standard; we highlight some important points below.
+The semantics is mostly standard; we highlight some important points below.
 
 Return contexts $[[CE]]$ take the form $[[ E[let y = [] l in e] ]]$. A return context represents a pending
 function call with label $[[l]]$, and indicates that the return value of the
@@ -187,12 +187,12 @@ yielded by substituting the concrete values in $[[R]]$ for the variables in $[[p
 is valid within some chosen logic (see \Cref{sec:types}); in \rn{R-AssertFail} we write $[[ !|= [R]ph ]]$
 when the formula is \emph{not} valid.
 The substitution operation $[[ [R]ph ]]$ is defined inductively as $[[ [empty] ph = ph ]], [[ [R { x |-> nn }]ph = [R][nn/x]ph ]], [[ [R { x |-> a }] ph = [R]ph ]]$.
-In the case of an assertion failure, the semantics step to a distinguished
+In the case of an assertion failure, the semantics steps to a distinguished
 configuration $[[AssertFail]]$. The goal of our type system to show that no
 execution of a well-typed program may reach this configuration.
 The \imp{alias} form checks whether the two references actually alias;
 i.e., if the must-alias assertion provided by the programmer is correct.
-If not, our semantics step to the distinguished $[[AliasFail]]$ configuration.
+If not, our semantics steps to the distinguished $[[AliasFail]]$ configuration.
 Our type system does \emph{not} guarantee that $[[AliasFail]]$ is unreachable;
 aliasing assertions are effectively trusted annotations that are assumed to hold.
 
