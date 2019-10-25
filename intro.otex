@@ -183,15 +183,14 @@ where memory is mutated through multiple, live references.
   we do not mention alias annotations at all.  Ownership transfer (without annotations) has been a difficult problem.
 }\fi
 
-Ownerships also obviate updating the refinements
-of all aliases at mutation. \name ensures that only the trivial refinement
-$[[Top]]$ is used within the type of all mutably-aliased references; i.e.,
-references with $0$ ownership. When
-memory is mutated through a reference with ownership $1$,
+Ownerships also obviate updating refinement information
+of aliases at mutation. \name ensures that only the trivial refinement
+$[[Top]]$ is used in reference types with ownership $0$, i.e., mutably-aliased references.
+When memory is mutated through a reference with ownership $1$,
 \name simply updates the refinement of the mutated reference variable.
-From the soundness of ownership types and the above condition
-enforced by \name, the types of any aliases must only use the
-refinement $[[Top]]$, and already soundly describe all possible contents.\footnote{This
+From the soundness of ownership types, all aliases have ownership 0
+and must therefore only contain the $[[Top]]$ refinement. Thus, the types of all aliases already
+soundly describe \emph{all} possible contents.\footnote{This
   assumption holds only if updates do not change simple types, a condition our type-system enforces.}
 
 \name is also \emph{context-sensitive}, and can
