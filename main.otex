@@ -145,6 +145,7 @@ the former is unsound.
 
 \bibliographystyle{plain}
 \bibliography{main.bib}
+\newpage
 \input{appendix}
 
 \end{document}
