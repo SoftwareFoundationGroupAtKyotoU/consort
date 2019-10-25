@@ -476,9 +476,6 @@ operation is defined as:
   [[ [G,x: T] ]] &= [[ [G] /\ [T] x ]] &   &  [[ [T' ref r] y ]] & = [[ Top ]] \\
 \end{array}
 \]
-If the underlying theory does not directly support strings or context prefix queries,
-$[[ l1 ,, ln <= A ]]$ can be encoded with $\land_{0<i\leq n} c_i = [[ li ]]$ for
-some fresh set of variables $c_i$.
 If the formula $[[ [G] ==> ph]]$
 is valid, then in any context and under any valuation of program variables that satisfy
 the refinements in $[[ [G] ]]$,

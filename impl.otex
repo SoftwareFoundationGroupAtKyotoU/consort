@@ -82,6 +82,7 @@ $[[ph(yi,nn,pp)[nu,c1,,ck;FV pp] ]]$ which occurs in the type template of $[[yi]
   & [[ vsub ph(xi,nn,f end)[nu,l,c0,,ck-1;FV f end] ==> ph(yi,nn,pp')[nu,c0,,ck;FV pp']  ]] \\
   & [[ vsub = [y1/x1] ,, [yn/xn] ]]
 \end{align*}
+Effectively, we have encoded $[[ l1 ,, lk <= A ]]$ as $\land_{0<i\leq k} c_i = [[ li ]]$.
 In the above, the shift from $[[ c0,,ck]]$ to $[[ l,c0,,ck-1]]$ plays the role of
 $[[ csub ]]$ in the \rn{T-Call} rule. The above constraint effectively
 constrains the value of $[[c0]]$ within the body of the function $[[f]]$.
@@ -116,7 +117,7 @@ SMT-Lib2 format \cite{BarFT-SMTLIB}; any solver that accepts
 this format can be used as a backend for \name. Our implementation
 currently supports Spacer \cite{komuravelli2013automatic} (part of the Z3 solver \cite{de2008z3}),
 HoICE \cite{champion2018hoice}, and Eldarica \cite{rummer2013disjunctive}
-(adding a new backend requires only a handful of lines of OCaml glue code).
+(adding a new backend requires only a handful of lines of glue code).
 We found that different solvers are better tuned to different problems;
 we also implemented \emph{parallel mode} which runs all supported solvers
 in parallel and uses the result of the first solver to complete. 
