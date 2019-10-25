@@ -52,6 +52,7 @@
 
 % \input{../effgrad/def/ott/coe}
 \input{./lang}
+\input{stats}
 
 \begin{document}
 %

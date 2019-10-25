@@ -16,4 +16,5 @@ consort_bench:
     - { name: "Sorted-List-BUG", path: "negative-tests/recursive-tests/sorted-list-test-nondet-BAD1.imp" }
     - { name: "Mut-List-BUG", path: "negative-tests/recursive-tests/simple-list_BAD.imp" }
     - { name: "Array-Inv-BUG", path: "negative-tests/arrays/array_rec_BAD.imp" }
+    - { name: "Shuffle-BUG", path: "negative-tests/swapping_BAD.imp" }
   java: "benchmarks/consort"

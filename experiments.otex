@@ -55,9 +55,16 @@ The programs included in this suite are:
 \item \textbf{Array-Inv} A program which allocates a length $n$ array and writes the value $i$ at every index $i$.
 \item \textbf{Intro2} The motivating program shown in \Cref{fig:hard-loop} in \Cref{sec:intro}.
 \end{itemize}
-We introduced unsafe mutations to some of these programs to
+We introduced unsafe mutations to these programs to
 check our tool for unsoundness and translated these programs
-into Java for further comparison with JayHorn.
+into Java for further comparison with JayHorn.\looseness=-1
+
+Our benchmarks and JayHorn's require a small number of trivially identified alias annotations.
+The adapted JayHorn benchmarks contain a total of \jhaliascount{}
+annotations; the most for any individual test was \jhmaxalias.
+The number of annotations required for our benchmark suite are shown in column
+\textbf{Ann.} of \Cref{tab:jh-results}.
+
 
 \subsubsection{Experimental Setup}
 We first ran \name on each program in our benchmark suite and ran the
@@ -99,14 +106,13 @@ JayHorn timed out on one test, and answered \textsc{Unknown} for 6 others (colum
 On our own benchmark set, \name correctly verifies all safe versions
 of the programs within 60 seconds. For the unsafe variants,
 \name was able to quickly and definitively determine these programs unsafe.
-JayHorn times out on all tests except for \textbf{Shuffle} (column \textbf{JH}).
+JayHorn times out on all tests except for \textbf{Shuffle} and \textbf{ShuffleBUG} (column \textbf{JH}).
 We investigated the cause of time outs and discovered that after verification failed
 with an unbounded heap model, JayHorn attempts verification on increasingly
 larger bounded heaps. In every case, JayHorn exceeded the 60 second timeout
 before reaching heap limit bound. This suggests JayHorn struggles in the presence
 of per-object invariants and unbounded allocations; 
-the only test JayHorn successfully verified (Shuffle) contains
-just a single object allocation.
+the only two tests JayHorn successfully analyzed contain just a single object allocation.
 
 We do not believe
 this struggle is indicative of a shortcoming in JayHorn's implementation,
@@ -125,4 +131,4 @@ the same difficulty.
 %%% TeX-master: t
 %%% End:
 
-%  LocalWords:  JayHorn
+%  LocalWords:  JayHorn JayHorn's

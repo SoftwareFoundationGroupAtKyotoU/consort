@@ -14,11 +14,14 @@ sat_robustness = 0
 # their tool spun out
 sat_finished = 0
 
+aliases = []
+
 sat_correct = 0
 sat_timeout = 0
 sat_under_performed = 0
 for s in sat:
     j = s["jayhorn"]
+    aliases.append(s["alias"])
     if s["result"]:
         sat_correct += 1
         if not j["result"]:
@@ -48,6 +51,7 @@ unsat_robustness = 0
 unsat_out_performed = 0
 for u in unsat:
     j = u["jayhorn"]
+    aliases.append(u["alias"])
     if u["result"]:
         print "UNSOUND RESULT"
     else:
@@ -111,22 +115,22 @@ with open(sys.argv[2], 'w') as result_table:
     print >> result_table, r'\end{tabular}'
 
 with open(sys.argv[3], 'w') as consort_table:
-    print >> consort_table, r'\begin{tabular}{lccc|lccc}\toprule'
-    print >> consort_table, r'\textbf{Name} & \textbf{Verified?} & \textbf{Time(s)} & \textbf{JH} & \textbf{Name} & \textbf{Verified?} & \textbf{Time(s)} & \textbf{JH} \\ \midrule'
+    print >> consort_table, r'\begin{tabular}{lcccc|lcccc}\toprule'
+    print >> consort_table, r'\textbf{Name} & \textbf{Safe?} & \textbf{Time(s)} & \textbf{Ann} & \textbf{JH} & \textbf{Name} & \textbf{Safe?} & \textbf{Time(s)} & \textbf{Ann} & \textbf{JH} \\ \midrule'
     neg_map = {}
     for d in data["consort"]["neg"]:
         neg_map[d["name"]] = d
     l = sorted(data["consort"]["pos"], key = lambda d: d["name"])
     for d in l:
         assert d["result"]
-        print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f & %s &' % (d["name"], d["elapsed"], jayhorn_column(d["jayhorn"]))
+        print >> consort_table, r'\textbf{%s} & \checkmark & %0.2f & %d & %s &' % (d["name"], d["elapsed"], d["alias"], jayhorn_column(d["jayhorn"]))
         n = d["name"]
         if n + "-BUG" in neg_map:
             nd = neg_map[n + "-BUG"]
             assert not nd["result"]
-            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f & %s \\' % (nd["name"], nd["elapsed"], jayhorn_column(nd["jayhorn"]))
+            print >> consort_table, r'\textbf{%s} & \text{\sffamily X} & %0.2f & %d & %s \\' % (nd["name"], nd["elapsed"], nd["alias"], jayhorn_column(nd["jayhorn"]))
         else:
-            print >> consort_table, r' --- & --- & --- \\'
+            print >> consort_table, r' &  & \\'
     print >> consort_table, r'\end{tabular}'
 
 def print_bench_line(benchmark_table, nm, stat):
@@ -141,3 +145,8 @@ with open(sys.argv[4], 'w') as benchmark_table:
     print >> benchmark_table, r'\\'
     print_bench_line(benchmark_table, "Unsafe", test_stat["unsat"])
     print >> benchmark_table, r'\end{tabular}'
+
+with open(sys.argv[5], 'w') as stats_file:
+    print >> stats_file, r'\def\jhaliascount{%d}' % sum(aliases)
+    print >> stats_file, r'\def\jhtotaltests{%d}' % len(aliases)
+    print >> stats_file, r'\def\jhmaxalias{%d}' % sorted(aliases)[-1]
