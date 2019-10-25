@@ -148,7 +148,7 @@ Our type system can also verify the example in
 \Cref{fig:hard-loop} \emph{without} expensive
 side analyses. As \imp{a} and \imp{b} are both
 mutated, they must both have ownership 1; i.e., they cannot alias.
-This pre-condition is satisfied by invocations of \imp{loop};
+This pre-condition is satisfied by all invocations of \imp{loop};
 on \cref{line:alloc1}, \imp{b} has
 ownership 1 (from the argument type), and the newly allocated
 reference must also have ownership 1.

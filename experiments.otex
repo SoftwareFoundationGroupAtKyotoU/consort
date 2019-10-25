@@ -87,7 +87,8 @@ with Z3 version 4.8.4, HoICE version 1.8.1, and Eldarica version 2.0.1 and JayHo
   included with JayHorn, but it required an extremely old version of Z3 (4.3.2) and crashed the JVM on several of our tests.}
 
 \begin{table}[t]
-  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} (top) and our custom benchmark suite (bottom).}
+  \caption{Comparison of \name to JayHorn on the benchmark set of \cite{kahsai2017quantified} (top) and our custom benchmark suite (bottom). \emph{T/O}
+  indicates a time out.}
   \begin{center}
     \input{jayhorn_table}
     \input{consort_table}
