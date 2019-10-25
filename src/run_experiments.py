@@ -117,12 +117,13 @@ def run_consort(config, benchimp):
 def run_and_check(config, benchimp):
     print " - Running", benchimp
     (raw_result, elapse) = run_consort(config, benchimp)
+    aliases = count_aliases(benchimp)
     if raw_result.startswith("VERIFIED"):
-        return mk_result(True, elapse, name = benchimp)
+        return mk_result(True, elapse, name = benchimp, alias = aliases)
     else:
         assert raw_result.startswith("UNVERIFIED ")
         rest = raw_result[len("UNVERIFIED "):]
-        return mk_result(False, elapse, reason = rest, name = benchimp)
+        return mk_result(False, elapse, reason = rest, name = benchimp, alias = aliases)
 
 def to_test_name(f):
     if f.endswith(".imp"):
@@ -184,13 +185,15 @@ def collect_test_stats(config, consort_imp, sat, unsat, fail, trivial):
         "unsat": unsat_stat.to_dict()
     }
 
+def to_path(config, nm):
+    if not os.path.isabs(nm):
+        return os.path.join(config["path"], nm)
+    return nm
+
 def run_jayhorn_bench(config):
     config_dir = config["path"]
     jayhorn_bench = config["jayhorn_bench"]
-    consort_imp = jayhorn_bench["consort_imp"]
-    
-    if not os.path.isabs(consort_imp):
-        consort_imp = os.path.join(config_dir, consort_imp)
+    consort_imp = to_path(config, jayhorn_bench["consort_imp"])
 
     impl = [ s for s in os.listdir(consort_imp) if s.endswith(".imp") ]
     direct,adjusted = partition(impl, key = lambda k: not k.endswith("_CON.imp"))
@@ -223,13 +226,17 @@ def run_jayhorn_bench(config):
     stats = collect_test_stats(config, consort_imp, sat, unsat, fail, trivial)
     return (sat_result,unsat_result,stats)
 
+def count_aliases(f):
+    p = subprocess.Popen(["grep", "-c", "alias", f], stdout = subprocess.PIPE, stdin = subprocess.PIPE)
+    (out, _) = p.communicate()
+    return int(out.strip())
+
 def run_consort_bench(config, bench_name):
     consort_res = []
     for l in config["consort_bench"][bench_name]:
-        f = l["path"]
-        if not os.path.isabs(f):
-            f = os.path.join(config["path"], f)
+        f = to_path(config, l["path"])
         d = run_and_check(config, f)
+        d["alias"] = count_aliases(f)
         d["name"] = l["name"]
         d["jayhorn"] = run_jayhorn(config, config["consort_bench"]["java"], l["name"].replace("-", ""))
         consort_res.append(d)
@@ -252,8 +259,7 @@ def main(args):
     elif "timeout" not in config:
         config["timeout"] = 60
     config["path"] = os.path.dirname(args.config)
-    if not os.path.isabs(config["consort_bench"]["java"]):
-        config["consort_bench"]["java"] = os.path.join(config["path"], config["consort_bench"]["java"])
+    config["consort_bench"]["java"] = to_path(config, config["consort_bench"]["java"])
     jayhorn_results = run_jayhorn_bench(config)
     consort_results = run_consort_bench(config, "pos")
     consort_neg_results = run_consort_bench(config, "neg")

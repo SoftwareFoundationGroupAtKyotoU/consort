@@ -3,6 +3,7 @@
 *.pdf
 *.tex
 !*_table.tex
+!stats.tex
 auto/
 *.fdb_latexmk
 *.fls
