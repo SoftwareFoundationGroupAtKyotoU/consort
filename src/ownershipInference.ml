@@ -495,6 +495,12 @@ let rec process_expr ?output ((e_id,_),expr) =
   | Let (PVar v,(Null | MkArray _),body) ->
     let%bind t = get_type_scheme e_id v in
     with_types [(v,t)] @@ process_expr ?output body
+  | Let (PVar v,Mkref (RNone | RInt _), body) ->
+    let%bind new_var = alloc_ovar (MGen e_id) (P.var v) in
+    begin%m
+        add_constraint @@ Write new_var;
+         with_types [(v,Ref (Int, new_var))] @@ process_expr ?output body
+    end
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
@@ -526,9 +532,9 @@ let rec process_expr ?output ((e_id,_),expr) =
           update_type v @@ Ref (t1,o);
              return t2
         end
-      | Mkref (RVar src) ->
-        let%bind t2 = lkp_split (SBind e_id) src in
-        return @@ Ref (t2,OConst 1.0)
+      | Mkref (RVar _) ->
+      (* this should not be possible *)
+        assert false
       | Mkref (RNone | RInt _) ->
         return @@ Ref (Int, OConst 1.0)
       | Tuple t_init ->
