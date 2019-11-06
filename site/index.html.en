@@ -1,0 +1,153 @@
+<html>
+<head>
+<title>ConSORT: Context- and Flow-Sensitive Ownership Refinement Types</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css" />
+<link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700|Inconsolata:400,700" rel="stylesheet" type="text/css" />
+<link rel="stylesheet" href="typebase.css" />
+<link rel="stylesheet" href="custom.css" />
+<link rel="stylesheet" href="colorful.css" />
+</head>
+<body>
+<div id="content">
+      <h1 class="no_toc" id="consort-context--and-flow-sensitive-ownership-refinement-types">ConSORT: Context- and Flow-Sensitive Ownership Refinement Types</h1>
+
+      <p>This is the project website for the ConSORT project. It provides the source code for ConSORT, its experiments, and basic instructions
+for building and running.</p>
+
+      <h3 class="no_toc" id="table-of-contents">Table of Contents</h3>
+<ul id="markdown-toc">
+  <li><a href="#source-code" id="markdown-toc-source-code">Source Code</a></li>
+  <li><a href="#building" id="markdown-toc-building">Building</a>    <ul>
+      <li><a href="#system-requirements" id="markdown-toc-system-requirements">System Requirements</a></li>
+      <li><a href="#dependencies" id="markdown-toc-dependencies">Dependencies</a></li>
+      <li><a href="#compilation" id="markdown-toc-compilation">Compilation</a></li>
+    </ul>
+  </li>
+  <li><a href="#running" id="markdown-toc-running">Running</a>    <ul>
+      <li><a href="#environment" id="markdown-toc-environment">Environment</a></li>
+      <li><a href="#invocation" id="markdown-toc-invocation">Invocation</a></li>
+      <li><a href="#additional-options" id="markdown-toc-additional-options">Additional Options</a></li>
+      <li><a href="#interpreting-the-output" id="markdown-toc-interpreting-the-output">Interpreting the Output</a></li>
+    </ul>
+  </li>
+  <li><a href="#running-the-experiments" id="markdown-toc-running-the-experiments">Running the Experiments</a>    <ul>
+      <li><a href="#comparison-with-jayhorn" id="markdown-toc-comparison-with-jayhorn">Comparison with JayHorn</a></li>
+    </ul>
+  </li>
+</ul>
+
+      <h2 id="source-code">Source Code</h2>
+
+      <p>The source code for ConSORT is available <a href="consort.tar.bz2">here</a>. The MD5 hash of the archive is <code>3c2a4595f4fdaa8ecc258b0bfc05d1e9</code>.</p>
+
+      <h2 id="building">Building</h2>
+
+      <h3 id="system-requirements">System Requirements</h3>
+
+      <p>ConSORT is known to build and run on Linux. It has been successfully built under <strong>32-bit</strong> Cygwin on Windows (<strong>64-bit</strong> Cygwin does <em>not</em> work).
+Mac remains untested.</p>
+
+      <h3 id="dependencies">Dependencies</h3>
+
+      <p>At the time of writing, ConSORT requires at least OCaml 4.08 and is known to work with this version. It also depends on the following
+OCaml packages (known, working OPAM versions show in parentheses):</p>
+
+      <ul>
+        <li><code>menhir</code> (20190626)</li>
+        <li><code>ppx_sexp_conv</code> (v0.12.0)</li>
+        <li><code>ppx_let</code> (v0.12.0)</li>
+        <li><code>ppxlib</code> (0.8.1)</li>
+        <li><code>sexplib</code> (v0.12.0)</li>
+      </ul>
+
+      <p>Additionally, ConSORT uses <a href="https://github.com/ocaml/dune/">dune</a> for compilation. Version 1.11.3 is known to work. We also use <code>make</code> as a wrapper
+to invoke dune.</p>
+
+      <h3 id="compilation">Compilation</h3>
+
+      <p><code>cd</code> into the extracted archive and run <code>make</code>.</p>
+
+      <h2 id="running">Running</h2>
+
+      <h3 id="environment">Environment</h3>
+
+      <p>In general, ConSORT requires that the depended upon CHC solvers exist
+somewhere in your path. Accordingly, ensure that at least one of <a href="https://github.com/Z3Prover/z3/">Z3</a>, <a href="https://github.com/hopv/hoice/">HoICE</a>, or
+<a href="https://github.com/uuverifiers/eldarica">Eldarica</a>
+are available in your path. (The executable used for invoking a solver
+can be overridden with command line options; see the help output of ConSORT for details.)</p>
+
+      <h3 id="invocation">Invocation</h3>
+
+      <p>To run ConSORT, we recommend using the <code>test.sh</code> script available in source directory; this script
+automatically includes the definitions of arithmetic and boolean primitives when invoking ConSORT.
+ConSORT can be invoked directly with <code>build/_default/test.exe</code> from the source directory. The basic
+invocation is:</p>
+
+      <p><code>
+./test.sh test-program.imp
+</code></p>
+
+      <p><code>test-program.imp</code> is the path to some file written in our extended IMP language.</p>
+
+      <h3 id="additional-options">Additional Options</h3>
+
+      <p>All available command line options are described by passing the
+<code>-help</code> flag to either <code>test.sh</code> or the underlying executable. The most important
+flag is likely <code>-timeout</code>, which takes an integer argument which indicates the timeout in seconds
+for the solver.</p>
+
+      <h3 id="interpreting-the-output">Interpreting the Output</h3>
+
+      <p>After invoking the solver, ConSORT will generally return one of 4 outputs:</p>
+
+      <ul>
+        <li><code>VERIFIED</code>: indicating the program was safe</li>
+        <li><code>UNVERIFIED (unsafe)</code>: indicating the program is unsafe</li>
+        <li><code>UNVERIFIED (ownership)</code>: indicating the program could not be assigned ownership types (you may need alias annotations)</li>
+        <li><code>UNVERIFIED (timeout)</code>: ConSORT hit the preconfigured solving timeout (see above)</li>
+      </ul>
+
+      <p>Currently ConSORT does not produce explanatory output giving, e.g., concrete counter-examples to safety.</p>
+
+      <h2 id="running-the-experiments">Running the Experiments</h2>
+
+      <p>Our implementations of the benchmarks mentioned in the paper are
+available under the <code>benchmarks/</code> folder. <code>jayhorn/</code> contains the
+implementations of the JayHorn benchmarks, and <code>consort/</code> contains the
+implementations of our custom benchmark suite.</p>
+
+      <p>To run ConSORT on our experiments, run</p>
+
+      <p><code>
+./test.sh -solver parallel -timeout 60 path/to/prog.imp
+</code></p>
+
+      <p>Note that using the parallel solver requires Eldarica, HoICE, and Z3 to be installed on your system.</p>
+
+      <h3 id="comparison-with-jayhorn">Comparison with JayHorn</h3>
+
+      <p>Due to licensing concerns, we cannot distribute JayHorn or the
+benchmarks used in the LPAR ‘17 paper. To perform the full comparison,
+you will need to download and build the JayHorn tool. The GitHub repository is <a href="https://github.com/jayhorn/jayhorn/">here</a>.
+We used revision <code>b933502ae7ee8da469939e8cb45bc3b2f801fc0a</code> in our experiments.</p>
+
+      <p>After downloading and building the tool you will need to update the experiment configuration. Set the key <code>jayhorn</code> in <code>config.yml</code>
+to point to the <code>jayhorn.jar</code> file produced by the JayHorn build.</p>
+
+      <p>In addition you will need to download the benchmarks themselves from <a href="https://github.com/jayhorn/benchmarks/">here</a>.
+After downloading, update the key <code>jayhorn_bench.jayhorn_imp</code> with the path to the <code>lpar17-benchmarks/jayhorn-benchmark</code> subdirectory within
+the repository.</p>
+
+      <p>Once configuration is complete, the experiments can be run by executing <code>python run_experiments.py results.yml</code>. After completion,
+results.yml will contain the complete experiment results on all test files.</p>
+
+      <p><strong>Acknowledgments</strong>: The CSS for this site was written by
+<a href="https://www.cs.utexas.edu/~bornholt/">James Bornholt</a> for the
+<a href="http://synapse.uwplse.org/popl16-aec/">Synapse artifact site</a> and is used with permission.</p>
+
+    </div>
+</body>
+</html>
