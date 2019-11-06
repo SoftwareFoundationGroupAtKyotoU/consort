@@ -30,7 +30,11 @@ module Options = struct
     | Eldarica
     | Parallel
     | Null
-  
+
+  type mode =
+    | Unified
+    | Refinement
+
   type t = {
     debug_cons: bool;
     debug_ast: bool;
@@ -40,6 +44,7 @@ module Options = struct
     check_trivial: bool;
     dry_run : bool;
     solver: solver;
+    mode: mode;
     solver_opts: Solver.options;
     own_solv_opts: OwnershipSolver.options
   }
@@ -55,6 +60,7 @@ module Options = struct
     check_trivial = false;
     dry_run = false;
     solver = Spacer;
+    mode = Refinement;
     solver_opts = Solver.default;
     own_solv_opts = OwnershipSolver.default
   }
@@ -113,9 +119,15 @@ module Options = struct
     let open Arg in
     let check_trivial = ref default.check_trivial in
     let solver = ref default.solver in
+    let mode = ref default.mode in
     ([
       ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
+      ("-mode", Symbol (["refinement"; "unified"], function
+         | "refinement" -> mode := Refinement
+         | "unified" -> mode := Unified
+         | _ -> assert false
+       ), " Use mode <mode>. (default: refinement)");
       ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
          | "spacer" -> solver := Spacer
          | "hoice" -> solver := Hoice
@@ -128,6 +140,7 @@ module Options = struct
        { comb with
          check_trivial = !check_trivial;
          solver = !solver;
+         mode = !mode
        }))
 
   let solver_opt_gen () =
@@ -271,7 +284,12 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
           ?save_cons:opts.save_cons
           ~get_model:(opts.print_model || opts.check_trivial)
     end in
-    let s_mod = (module TypeInference.Make(Backend) : SOLVER) in
+    let s_mod =
+      match opts.mode with
+      | Unified -> (module FlowBackend.Make(Backend) : SOLVER)
+      | Refinement ->
+        (module TypeInference.Make(Backend) : SOLVER)
+    in
     let module S = (val s_mod : SOLVER) in
     let (_,ans) = S.solve ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
     let open Solver in

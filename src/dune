@@ -39,7 +39,7 @@
           Z3BasedBackend Consort
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
-          TypeInference))
+          FlowInference FlowBackend TypeInference))
 
 (executable
  (name test)
