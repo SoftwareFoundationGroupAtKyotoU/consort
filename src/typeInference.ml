@@ -1,17 +1,12 @@
-module type STRATEGY = sig
-  val solve: Solver.solve_fn
-end
 
-type intrinsic_interp  = (string StringMap.t) * string option
-type solver_intf = (interp:intrinsic_interp -> Inference.Result.t -> Solver.result) Solver.option_fn
-module Make(S: STRATEGY) : sig
-  val solve : solver_intf
-end = struct
+module Make(S: Solver.SOLVER_BACKEND) = struct
   open SexpPrinter
   open Inference
   open RefinementTypes
   open Std.StateMonad
   open Std
+
+  type t = Inference.Result.t
 
   let pred_name p = p
 
@@ -296,7 +291,8 @@ end = struct
       else
         psl (bif::args) ff
 
-  let solve ~opts ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
+
+  let solve_inf ~interp:(interp,defn_file) infer_res =
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
     let { refinements; arity; _ } = infer_res in
@@ -334,5 +330,39 @@ end = struct
     ) arity;
     List.iter (pp_constraint bif_inliner ~interp ff) refinements;
     SexpPrinter.finish ff;
-    S.solve ~opts ~debug_cons ?save_cons ~get_model ~defn_file ff
+    S.solve ~defn_file ff
+
+  let pprint_ty_env =
+    let open PrettyPrint in
+    fun ty_envs (i,_) _ ->
+      let ty_env = Hashtbl.find ty_envs i in
+      if (StringMap.cardinal ty_env) = 0 then
+        pl [ ps "/* empty */"; newline ]
+      else
+        let pp_ty_env = StringMap.bindings ty_env
+          |> List.map (fun (k,t) ->
+              pb [
+                pf "%s: " k;
+                RefinementTypes.pp_type t
+              ]
+            )
+          |> psep_gen newline
+        in
+        pblock ~nl:true ~op:(ps "/*") ~body:pp_ty_env ~close:(ps "*/")
+    
+  let solve ~annot_infr ~intr simple_res o_hints ast =
+    let res = infer
+        ~save_types:true
+        ~intrinsics:intr.Intrinsics.op_interp
+        simple_res o_hints ast
+    in
+    let () =
+      if annot_infr then
+        let ty_envs = res.Result.ty_envs in
+        AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) stderr ast;
+        flush stderr
+    in
+    let answer = solve_inf ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) res in
+    (res,answer)
+
 end

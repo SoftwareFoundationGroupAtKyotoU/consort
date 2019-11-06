@@ -31,9 +31,7 @@ module Make(D: sig
 
       let name = D.name
     end)
-  include SmtLibBackend.Make(struct
-      let solve = Ch.call ~strat:D.strat
-    end)
-
+      
+  let solve = Ch.call ~strat:D.strat
   let solve_cont = Ch.call_cont ~strat:D.strat
 end

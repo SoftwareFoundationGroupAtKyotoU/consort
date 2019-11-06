@@ -1,4 +1,4 @@
-module Backend = ExternalFileBackend.Make(struct
+include ExternalFileBackend.Make(struct
     let name = "eldarica"
     let spawn ~command ~timeout =
       Printf.sprintf
@@ -7,5 +7,3 @@ module Backend = ExternalFileBackend.Make(struct
         timeout
     let strat = "(check-sat)"
   end)
-
-let solve = Backend.solve

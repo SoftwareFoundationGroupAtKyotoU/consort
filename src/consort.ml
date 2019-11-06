@@ -1,24 +1,3 @@
-open Std
-
-let pprint_ty_env =
-  let open PrettyPrint in
-  fun ty_envs (i,_) _ ->
-    let ty_env = Hashtbl.find ty_envs i in
-    if (StringMap.cardinal ty_env) = 0 then
-      pl [ ps "/* empty */"; newline ]
-    else
-      let pp_ty_env = StringMap.bindings ty_env
-        |> List.map (fun (k,t) ->
-            pb [
-              pf "%s: " k;
-              RefinementTypes.pp_type t
-            ]
-          )
-        |> psep_gen newline
-      in
-      pblock ~nl:true ~op:(ps "/*") ~body:pp_ty_env ~close:(ps "*/")
-
-
 type reason =
   | Timeout
   | Unsafe
@@ -161,9 +140,8 @@ module Options = struct
        }))
 end
 
-let infer opts intr simple_res ast =
+let infer_ownership opts intr simple_res ast =
   let open Options in
-  let save_types = opts.Options.annot_infr || opts.Options.check_trivial in
   let module OI = OwnershipInference in
   let o_result = OI.infer simple_res intr.Intrinsics.op_interp ast in
   match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons) with
@@ -179,14 +157,8 @@ let infer opts intr simple_res ast =
         ) o_result.OI.Result.op_record.OI.splits;
       OI.gen = OI.GenMap.map map_ownership o_result.OI.Result.op_record.gen
     } in
-    Inference.infer
-      ~save_types
-      ~intrinsics:intr.Intrinsics.op_interp
-      simple_res
-      o_hints
-      ast
-    |> Option.some
-
+    Some o_hints
+(*
 let check_triviality res ast t =
   let rec is_trivial_refinemnt ss =
     let open RefinementTypes in
@@ -251,12 +223,19 @@ let check_triviality res ast t =
   if (not t) then Option.iter (fun _ -> ())
   else
     Option.iter check_model
-
+*)
 let print_model t =
   if t then
     Option.iter (fun s -> prerr_endline s; flush stderr)
   else
     Option.iter (fun _ -> ())
+
+
+module type SOLVER = sig
+  type t
+  val solve : annot_infr:bool -> intr:Intrinsics.interp_t -> SimpleChecker.simple_results -> float OwnershipInference.ownership_ops -> Ast.prog -> (t * Solver.result)
+    
+end
 
 let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
   let open Options in
@@ -271,15 +250,10 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
     ) program_types;
     flush stderr
   end;
-  let r_opt = infer opts intr simple_res ast in
-  match r_opt with
+  let infer_opt = infer_ownership opts intr simple_res ast in
+  match infer_opt with
   | None -> Unverified Aliasing
   | Some r ->
-    if opts.annot_infr then begin
-      let ty_envs = r.Inference.Result.ty_envs in
-      AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_ty_env ty_envs) stderr ast;
-      flush stderr
-    end;
     let solver =
       match opts.solver with
       | Spacer -> HornBackend.solve
@@ -289,16 +263,21 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       | Eldarica -> EldaricaBackend.solve
       | Parallel -> ParallelBackend.solve
     in
-    let res = solver
-        ~opts:opts.solver_opts
-        ~debug_cons:opts.debug_cons
-        ?save_cons:opts.save_cons
-        ~get_model:(opts.print_model || opts.check_trivial)
-        ~interp:(intr.Intrinsics.rel_interp,intr.Intrinsics.def_file) r
-    in
-    match res with
+    let module Backend = struct
+      let solve =
+        solver
+          ~opts:opts.solver_opts
+          ~debug_cons:opts.debug_cons
+          ?save_cons:opts.save_cons
+          ~get_model:(opts.print_model || opts.check_trivial)
+    end in
+    let s_mod = (module TypeInference.Make(Backend) : SOLVER) in
+    let module S = (val s_mod : SOLVER) in
+    let (_,ans) = S.solve ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let open Solver in
+    match ans with
     | Sat m ->
-      check_triviality r ast opts.check_trivial m;
+      (*      check_triviality state ast opts.check_trivial m;*)
       print_model opts.print_model m;
       Verified
     | Unsat -> Unverified Unsafe

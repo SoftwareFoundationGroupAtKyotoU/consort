@@ -36,9 +36,10 @@
  (libraries sexplib util lang str solving ownership)
  (modules Inference KCFA
           HornBackend SmtBackend
-          Z3BasedBackend Consort SmtLibBackend
+          Z3BasedBackend Consort
           HoiceBackend NullSolver
-          ExternalFileBackend EldaricaBackend ParallelBackend))
+          ExternalFileBackend EldaricaBackend ParallelBackend
+          TypeInference))
 
 (executable
  (name test)
