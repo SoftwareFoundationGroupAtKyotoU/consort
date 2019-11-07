@@ -165,7 +165,9 @@ let apply_patt_type ~e_id patt path ty in_rel out_rel =
     | PNone,_ -> return acc
     | PVar v,`Int ->
       return @@ (mk_flow ~havoc:false path (P.var v))::(mk_flow ~havoc:false path path)::acc
-    | PVar v,ty -> do_flow ~sloc:(SBind e_id) path (P.var v) ty
+    | PVar v,ty ->
+      let%bind sub_flow = do_flow ~sloc:(SBind e_id) path (P.var v) ty in
+      return @@ acc @ sub_flow
     | PTuple t,`Tuple tl ->
       let ind_types = List.mapi (fun i t -> (i,t)) tl in
       mfold_left2 (fun acc p (i,t) ->
