@@ -35,9 +35,10 @@ type ctxt = {
   relations: relation list;
   impl: (clause list * clause) list;
   o_hints: float OI.ownership_ops;
-  fenv: (relation * relation * SimpleTypes.funtyp) StringMap.t;
+  fenv: (relation * relation * SimpleTypes.funtyp) SM.t;
   curr_fun : string option;
-  let_types: SimpleTypes.r_typ Std.IntMap.t
+  let_types: SimpleTypes.r_typ Std.IntMap.t;
+  bif_types : RefinementTypes.funtype SM.t
 }
 
 let mk_flow ~havoc in_ap out_ap =
@@ -250,6 +251,8 @@ let return_bind out_patt ret_type =
   in
   loop [] out_patt `ARet ret_type
 
+let%lq copy_state ctxt = ctxt
+
 (* switch on whether we find the bif in a special summary table ... ? *)
 let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let callee = call_expr.callee in
@@ -271,9 +274,54 @@ let bind_args ~e_id out_patt call_expr curr_rel body_rel =
        ] @@ PRelation (body_rel,return_bindings)
   end
 
+let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
+  (* check pre-conditions *)
+  (* TODO: factor this out *)
+  let arg_names = fold_lefti (fun i acc arg ->
+      StringMap.add (P.arg_name i) arg acc
+    ) StringMap.empty call_expr.arg_names
+  in
+  let to_relation nu_arg = RT.(function
+    | Int Top -> None
+    | Int (NamedPred (nm,sym_names)) ->
+      let named_args = List.map (function
+        | `Sym _ -> assert false (* TODO: better error *)
+        | #P.concr_ap as cap ->
+          P.map_root (fun n -> SM.find n arg_names) cap
+        ) sym_names in
+      let val_args = List.map (fun l -> RT.RAp l) @@ nu_arg::named_args in
+      Some (NamedRel (nm,val_args))
+    | Int _ -> assert false
+    | _ -> failwith @@ "Cannot handle non-integer typed args in built in functions: " ^ call_expr.callee)
+  in
+  let%bind () =
+    miteri (fun i t ->
+      let nu_arg = P.var (List.nth call_expr.arg_names i) in
+      to_relation nu_arg t |> Option.fold ~none:(return ()) ~some:(fun rel ->
+          add_implication [ PRelation (curr_rel,[]) ] rel
+        )
+    ) intr_type.RT.arg_types
+  in
+  match out_patt with
+  | PNone -> return ()
+  | PVar v ->
+    let pre = to_relation (P.var v) intr_type.RT.result_type
+      |> Option.to_list
+    in
+    apply_identity_flow ~pre curr_rel body_rel
+  | PTuple _ -> failwith @@ "Cannot handle non-integer typed args in built in functions: " ^ call_expr.callee
+
+
+let process_call ~e_id out_patt call_expr curr_rel body_rel =
+  let%bind st = copy_state in
+  if StringMap.mem call_expr.callee st.bif_types then
+    process_intrinsic out_patt call_expr (StringMap.find call_expr.callee st.bif_types) curr_rel body_rel
+  else
+    bind_args ~e_id out_patt call_expr curr_rel body_rel
+
 let apply_patt ~e_id tyenv patt rhs =
   match patt,rhs with
-  | PNone,Call c -> bind_args ~e_id patt c
+  | _,Call c -> process_call ~e_id patt c
   | PNone,_ -> apply_identity_flow ?pre:None
   | _,Var s ->
     let path = P.var s in
@@ -310,7 +358,6 @@ let apply_patt ~e_id tyenv patt rhs =
       add_relation_flow flows i o)
 
   | PTuple _,Tuple _ -> assert false
-  | _,Call c -> bind_args ~e_id patt c
   | PTuple _,_ -> assert false
   | PVar v,Nondet None -> add_relation_flow [ Havoc (P.var v) ]
   | PVar _,Nondet (Some _) -> assert false
@@ -496,7 +543,7 @@ let analyze_main start_rel main ctxt =
   let ctxt,() = process_expr (start_rel,[]) (None,None) main ctxt in
   ctxt
 
-let infer (simple_theta,side_results) o_hints (fns,main) =
+let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
   let (fenv,relations) = StringMap.fold (fun name ty (theta,rel) ->
       let arg_paths =
         List.mapi (fun i arg_t ->
@@ -519,6 +566,7 @@ let infer (simple_theta,side_results) o_hints (fns,main) =
     o_hints;
     curr_fun = None;
     let_types = side_results.SimpleChecker.SideAnalysis.let_types;
+    bif_types;
     fenv
   } in
   let ctxt = List.fold_left (fun ctxt fn ->

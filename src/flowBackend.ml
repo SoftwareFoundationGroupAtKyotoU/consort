@@ -38,7 +38,15 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
             pp_imm p.rel_op2
           ]
         )
-    | NamedRel _ -> failwith "Not yet implemented"
+    | NamedRel (name,args) ->
+      miter (function
+        | RT.RAp p -> add_ident p ZInt
+        | _ -> return ()
+        ) args >>
+      return @@ pg name @@ List.map pp_imm args
+          
+
+    (* TODO: get rid of this hack*)
     | PRelation (("program-start",[]),[]) -> return @@ pl "true"
     | PRelation ((name,formals),subst) ->
       let subst_map = List.fold_left (fun acc (k,v) ->
@@ -110,5 +118,5 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
   let solve ~annot_infr:_ ~intr simple_res o_hints ast =
     let open Intrinsics in
-    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) @@ FlowInference.infer simple_res o_hints ast
+    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) @@ FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast
 end
