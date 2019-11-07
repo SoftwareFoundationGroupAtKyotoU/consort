@@ -27,7 +27,7 @@ type relation = string * (P.concr_ap * z3_types) list
 type concr_arg = P.concr_ap RT.rel_imm
 
 type clause =
-  | PRelation of relation * ((P.concr_ap * concr_arg) list)
+  | PRelation of relation * ((P.concr_ap * concr_arg) list) * int option
   | Relation of P.concr_ap RT.refinement_rel
   | NamedRel of string * (concr_arg list)
 
@@ -72,7 +72,7 @@ let%lm add_assert assert_cond curr_relation  ctxt =
         rel_cond = assert_cond.cond;
         rel_op2 = lift_to_imm assert_cond.rop2
       }) in
-  let ante = [ PRelation (curr_relation,[]) ] in
+  let ante = [ PRelation (curr_relation,[], None) ] in
   { ctxt with impl = (ante,relation)::ctxt.impl }
 
 let path_simple_type tyenv path =
@@ -100,15 +100,15 @@ let havoc_ap d = P.map_root (to_havoc d)
 let%lm add_implication ante conseq ctxt =
   {ctxt with impl = (ante,conseq)::ctxt.impl }
 
-let%lm add_relation_flow ?(pre=[]) subst in_rel out_rel ctxt =
+let%lm add_relation_flow ?out_ctxt ?(pre=[]) subst in_rel out_rel ctxt =
   let lifted_subst = List.mapi (fun i elem ->
       match elem with
       | Havoc p -> (p,RT.RAp (havoc_ap i p))
       | Const (p,c) -> (p,RT.RConst c)
       | Copy (p1,p2) -> (p2,RT.RAp p1)
     ) subst in
-  let ante = PRelation (in_rel,[])::pre in
-  let conseq = PRelation (out_rel,lifted_subst) in
+  let ante = PRelation (in_rel,[],None)::pre in
+  let conseq = PRelation (out_rel,lifted_subst,out_ctxt) in
   {
     ctxt with impl = ((ante,conseq)::ctxt.impl)
   }
@@ -267,11 +267,11 @@ let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let return_bindings = return_bind out_patt callee_type.ret_type in
 
   begin%m
-      add_relation_flow in_bindings curr_rel in_rel;
+      add_relation_flow ~out_ctxt:call_expr.label in_bindings curr_rel in_rel;
        add_implication [
-         PRelation (curr_rel,pre_bindings);
-         PRelation (out_rel,out_bindings)
-       ] @@ PRelation (body_rel,return_bindings)
+         PRelation (curr_rel,pre_bindings,None);
+         PRelation (out_rel,out_bindings,Some call_expr.label)
+       ] @@ PRelation (body_rel,return_bindings,None)
   end
 
 let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
@@ -298,7 +298,7 @@ let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
     miteri (fun i t ->
       let nu_arg = P.var (List.nth call_expr.arg_names i) in
       to_relation nu_arg t |> Option.fold ~none:(return ()) ~some:(fun rel ->
-          add_implication [ PRelation (curr_rel,[]) ] rel
+          add_implication [ PRelation (curr_rel,[],None) ] rel
         )
     ) intr_type.RT.arg_types
   in
@@ -514,7 +514,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         else
           (src,out)::acc
       ) lhs_output rhs_subst in
-    add_implication [ PRelation (relation,rhs_subst) ] @@ PRelation (k_rel,out_subst) >>
+    add_implication [ PRelation (relation,rhs_subst,None) ] @@ PRelation (k_rel,out_subst,None) >>
     process_expr (k_rel,tyenv) continuation k
 
 let analyze_function fn ctxt =
@@ -558,19 +558,20 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       let ftype = (in_rel,out_rel,ty) in
       (StringMap.add name ftype theta,in_rel::out_rel::rel)
     ) simple_theta (StringMap.empty, []) in
-  let entry_relation = ("program-start", []) in
+  let start_name = "program-start" in
+  let entry_relation = (start_name, []) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
     relations;
-    impl = [ ([],PRelation (entry_relation,[])) ];
     o_hints;
     curr_fun = None;
     let_types = side_results.SimpleChecker.SideAnalysis.let_types;
     bif_types;
-    fenv
+    fenv;
+    impl = []
   } in
   let ctxt = List.fold_left (fun ctxt fn ->
       analyze_function fn ctxt
     ) empty_ctxt fns in
   let ctxt = analyze_main entry_relation main { ctxt with curr_fun = None } in
-  (ctxt.relations,ctxt.impl)
+  (ctxt.relations,ctxt.impl,start_name)

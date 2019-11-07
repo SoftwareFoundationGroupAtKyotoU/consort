@@ -24,9 +24,11 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
   let add_ident path ty map =
     (Paths.PathMap.update path (function
-    | None -> Some ty
-    | Some ty' -> if ty' <> ty then failwith "Something has gone wrong" else Some ty'
-    ) map),()
+     | None -> Some ty
+     | Some ty' -> if ty' <> ty then failwith "Something has gone wrong" else Some ty'
+     ) map),()
+
+  let context_at = Printf.sprintf "ctxt$%d"
 
   let close_and_print rel_op clause =
     match clause with
@@ -43,17 +45,14 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         | RT.RAp p -> add_ident p ZInt
         | _ -> return ()
         ) args >>
-      return @@ pg name @@ List.map pp_imm args
-          
+      return @@ pg name @@ List.map pp_imm args       
 
-    (* TODO: get rid of this hack*)
-    | PRelation (("program-start",[]),[]) -> return @@ pl "true"
-    | PRelation ((name,formals),subst) ->
+    | PRelation ((name,formals),subst,ctxt_shift) ->
       let subst_map = List.fold_left (fun acc (k,v) ->
           Paths.PathMap.add k v acc
         ) Paths.PathMap.empty subst
       in
-      let%bind args =
+      let%bind val_args =
         mmap (fun (arg_path,ty) ->
           let subst = Paths.PathMap.find_opt arg_path subst_map in
           match subst with
@@ -62,7 +61,23 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           | Some (RConst i) -> return @@ pl @@ string_of_int i
         ) formals
       in
-      return @@ pg name args
+      let%bind ctxt_args =
+        if !KCFA.cfa = 0 then
+          return []
+        else
+          let tl_adj = Option.fold ~none:0 ~some:(Fun.const 1) ctxt_shift in
+          let%bind tail = List.init (!KCFA.cfa - tl_adj) context_at |> List.map P.var |> mmap (fun ap ->
+                add_ident ap ZInt >> return @@ pp_ap ap
+              ) in
+          match ctxt_shift with
+          | None -> return tail
+          | Some i -> return @@ (pl @@ string_of_int i)::tail
+      in
+      let args = ctxt_args @ val_args in
+      if (List.compare_length_with args 0) > 0 then
+        return @@ pg name args
+      else
+        return @@ pl name
 
   let close_impl relops ante conseq =
     let path_types = Paths.PathMap.empty in
@@ -97,13 +112,20 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         ]
       ] ff.printer
 
-  let solve_constraints ~interp:(relops,defn_file) (rel,impl) =
+  let solve_constraints ~interp:(relops,defn_file) (rel,impl,start_relation) =
     let ff = SexpPrinter.fresh () in
+    let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
+    let grounded =
+      if !KCFA.cfa = 0 then
+        pl start_relation
+      else
+        pg start_relation @@ List.init !KCFA.cfa (fun _ -> pl "0")
+    in
     let () =
       List.iter (fun (nm,args) ->
         pg "declare-fun" [
           pl nm;
-          ll @@ List.map (fun (_,ty) -> pp_ztype ty) args;
+          ll @@ ctxt_args @ List.map (fun (_,ty) -> pp_ztype ty) args;
           pl "Bool"
         ] ff.printer;
         break ff
@@ -111,7 +133,13 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       List.iter (fun imp ->
         pp_impl relops imp ff;
         break ff
-      ) impl
+      ) impl;
+
+      (* now ground the entry point *)
+      pg "assert" [
+        grounded
+      ] ff.printer;
+      break ff
     in
     SexpPrinter.finish ff;
     C.solve ~defn_file ff
