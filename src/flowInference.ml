@@ -94,13 +94,15 @@ let path_simple_type tyenv path =
 
 let to_havoc d = Printf.sprintf "havoc!%d!%s" d
 
+let havoc_ap d = P.map_root (to_havoc d)
+
 let%lm add_implication ante conseq ctxt =
   {ctxt with impl = (ante,conseq)::ctxt.impl }
 
 let%lm add_relation_flow ?(pre=[]) subst in_rel out_rel ctxt =
   let lifted_subst = List.mapi (fun i elem ->
       match elem with
-      | Havoc p -> (p,RT.RAp (P.map_root (to_havoc i) p))
+      | Havoc p -> (p,RT.RAp (havoc_ap i p))
       | Const (p,c) -> (p,RT.RConst c)
       | Copy (p1,p2) -> (p2,RT.RAp p1)
     ) subst in
@@ -362,6 +364,20 @@ let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
   let relation = (name, new_args) in
   { ctxt with relations = relation::ctxt.relations },(relation,tyenv')
 
+let%lq gen_for_alias e_id ctxt =
+  let gen_map = ctxt.o_hints.OI.gen in
+  (fun p ->
+    let rec loop = function
+      | `APre _
+      | `AVar _ -> false
+      | `AProj (ap,_) -> loop ap
+      | `ADeref p ->
+        let key = (OI.MAlias e_id, p) in
+        (OI.GenMap.find key gen_map) = 0.0
+      | _ -> assert false
+    in
+    loop p)
+
 let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
   match e with
   | EVar v ->
@@ -423,7 +439,33 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     apply_identity_flow relation k_rel >>
     process_expr (k_rel,tyenv) continuation k
       
-  | Alias _ (* (lhs,s_ap,k) *) -> assert false
+  | Alias (lhs,s_ap,k) ->
+    let%bind k_rel = fresh_relation_for relation k in
+    let rhs_ap = match s_ap with
+      | AVar v -> P.var v
+      | AProj (v,i) -> P.t_ind (P.var v) i
+      | ADeref v -> P.deref @@ P.var v
+      | APtrProj (v,i) -> P.t_ind (P.deref @@ P.var v) i
+    in
+    let lhs_type = List.assoc lhs tyenv in
+    let rhs_subst = subst_for_type (P.var lhs) rhs_ap lhs_type NoPre [] in
+    let%bind havoc_oracle = gen_for_alias e_id in
+    let lhs_output = type_to_paths (P.var lhs) lhs_type |>
+        List.mapi (fun i p ->
+          if (havoc_oracle p) then
+            Some (p,RT.RAp (havoc_ap i p))
+          else
+            None
+        ) |> List.filter_map Fun.id
+    in
+    let out_subst = fold_lefti (fun i acc (src,out) ->
+        if (havoc_oracle src) then
+          (src,RT.RAp (havoc_ap i src))::acc
+        else
+          (src,out)::acc
+      ) lhs_output rhs_subst in
+    add_implication [ PRelation (relation,rhs_subst) ] @@ PRelation (k_rel,out_subst) >>
+    process_expr (k_rel,tyenv) continuation k
 
 let analyze_function fn ctxt =
   let ((in_nm,in_args),(out_nm,out_args),fn_type) = StringMap.find fn.name ctxt.fenv in
