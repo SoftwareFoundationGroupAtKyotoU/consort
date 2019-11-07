@@ -42,11 +42,11 @@ end = struct
     | `NLive -> "true"
     | `NVar v -> v
 
-  let rec pp_refine ~nullity ~interp ?nu r ff =
+  let rec pp_refine ~bif_inliner ~nullity ~interp ?nu r (ff : Sexplib.Sexp.t -> 'a) =
     let binding_opt = Option.map Paths.to_z3_ident nu in
     match binding_opt,r with
     | Some binding,NamedPred (n,(args,o)) ->
-      ff |> psl @@ [ n; binding ] @ (refine_args o args)
+      bif_inliner ~bif:n (binding :: (refine_args o args)) ff
     | Some binding,Pred (i,(args,o)) ->
       let ctxt = List.init !KCFA.cfa ctxt_var in
       print_string_list (pred_name i::ctxt @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ]) ff
@@ -72,8 +72,8 @@ end = struct
       ] ff
     | _,And (r1,r2) ->
       pg "and" [
-          pp_refine ~nullity ~interp ?nu r1;
-          pp_refine ~nullity ~interp ?nu r2
+          pp_refine ~bif_inliner ~nullity ~interp ?nu r1;
+          pp_refine ~bif_inliner ~nullity ~interp ?nu r2
         ] ff
     | None,(CtxtPred _ | NamedPred _ | Pred _ | ConstEq _) ->
       failwith "Malformed refinement: expect a nu binder but none was provided"
@@ -112,6 +112,33 @@ end = struct
     List.filter (fun (k,_,_) ->
       SS.mem (Paths.to_z3_ident k) closed_names
     ) env
+      
+  let propagate_const assum =
+    let open Sexplib.Sexp in
+    let inline = List.fold_left (fun acc eq ->
+        match eq with
+        | List [ Atom "="; Atom nm; Atom eq ] ->
+          begin
+            try
+              let _ = int_of_string eq in
+              StringMap.add nm eq acc
+            with _ -> acc
+          end
+        | _ -> acc
+      ) StringMap.empty assum
+    in
+    let rec propagate expr =
+      match expr with
+      | Atom nm when StringMap.mem nm inline ->
+        Atom (StringMap.find nm inline)
+      | Atom _ -> expr
+      | List l -> List (List.map propagate l)
+    in
+    List.map (fun expr ->
+      match expr with
+      | List (Atom "="::(Atom nm)::_) when StringMap.mem nm inline -> expr
+      | _ -> propagate expr
+    ) assum
 
   let simplify sexpr =
     let open Sexplib.Sexp in
@@ -123,7 +150,7 @@ end = struct
         | Atom "true" -> acc
         | _ -> r::acc
       in
-      match simplify_loop [] sexpr with
+      match simplify_loop [] sexpr |> propagate_const with
       | [] -> k @@ Atom "true"
       | [h] -> k h
       | l -> k @@ List (Atom "and"::l)
@@ -182,7 +209,7 @@ end = struct
       in
       impl_loop lh t
 
-  let pp_constraint ~interp ff { env; ante; conseq; nullity; target } =     
+  let pp_constraint bif_inliner ~interp ff { env; ante; conseq; nullity; target } =     
     let gamma = close_env env ante conseq in
     let context_vars = List.init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
     let env_vars =
@@ -192,7 +219,7 @@ end = struct
     do_with_context (NullityMap.empty,StringSet.empty) @@
       let%bind denote_gamma = mmap (fun (p,r,nl) ->
           let%bind n' = lift_nullity_chain nl in
-          return @@ pp_refine ~nullity:n' ~nu:p ~interp r
+          return @@ pp_refine ~bif_inliner ~nullity:n' ~nu:p ~interp r
         ) gamma
       in
       let%bind pred_nullity = lift_nullity_chain nullity in
@@ -215,22 +242,74 @@ end = struct
       in
       let atomic_preds = to_atomic_preds conseq in
       return @@ List.iter (fun atomic_conseq ->
+          let precond = pg "and" ((pp_refine ~bif_inliner ~nullity:pred_nullity ~interp ?nu:target ante)::e_assum) simplify in
           pg "assert" [
             pg "forall" [
               print_string_list free_vars;
               pg "=>" [
-                pg "and" ((pp_refine ~nullity:pred_nullity ~interp ante ?nu:target)::e_assum) simplify;
-                pp_refine ~nullity:pred_nullity ~interp atomic_conseq ?nu:target
+                precond;
+                pp_refine ~bif_inliner ~nullity:pred_nullity ~interp ?nu:target atomic_conseq (fun k -> fun ff -> ff k)
               ]
             ]
           ] ff.printer;
           break ff
         ) atomic_preds
 
+  let create_inliner defns =
+    let open Sexplib.Sexp in
+    let module Result = Stdlib.Result in
+    let subst =
+      List.fold_left (fun acc defn ->
+        match defn with
+        | List [ Atom "define-fun"; Atom nm; List args; Atom "Bool"; body ] ->
+          let arg_names_r = List.fold_left (fun acc arg_sexp ->
+              match arg_sexp with
+              | List [ Atom nm; Atom "Int" ] -> Result.map (List.cons nm) acc
+              | _ -> Result.error ()
+            ) (Result.ok []) args in
+          begin
+            match arg_names_r with
+            | Result.Error () -> acc
+            | Result.Ok nm_rev ->
+              let names = List.rev nm_rev in
+              StringMap.add nm (names,body) acc
+          end
+        | _ -> acc
+      ) StringMap.empty defns
+    in
+    fun ~bif args ff ->
+      if StringMap.mem bif subst then
+        let (arg_names,body) = StringMap.find bif subst in
+        assert ((List.length arg_names) = (List.length args));
+        let sigma =
+          List.fold_left2 (fun acc formal actual ->
+            StringMap.add formal actual acc
+          ) StringMap.empty arg_names args
+        in
+        let rec apply = function
+          | Atom nm when StringMap.mem nm sigma ->
+            Atom (StringMap.find nm sigma)
+          | Atom a -> Atom a
+          | List l -> List (List.map apply l)
+        in
+        ff @@ apply body
+      else
+        psl (bif::args) ff
+
   let solve ~opts ~debug_cons ?save_cons ~get_model ~interp:(interp,defn_file) infer_res =
     let ff = SexpPrinter.fresh () in
     let open Inference.Result in
     let { refinements; arity; _ } = infer_res in
+    let bif_inliner =
+      match defn_file with
+      | None -> fun ~bif args ->
+        psl @@ bif::args
+      | Some file ->
+        let s_channel = open_in file in
+        let defns = Sexplib.Sexp.input_sexps s_channel in
+        close_in s_channel;
+        create_inliner defns
+    in
     StringMap.iter (fun k (ground,v) ->
       pg "declare-fun" [
         pl @@ pred_name k;
@@ -253,7 +332,7 @@ end = struct
           
       end;
     ) arity;
-    List.iter (pp_constraint ~interp ff) refinements;
+    List.iter (pp_constraint bif_inliner ~interp ff) refinements;
     SexpPrinter.finish ff;
     S.solve ~opts ~debug_cons ?save_cons ~get_model ~defn_file ff
 end
