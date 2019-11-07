@@ -14,3 +14,17 @@ loop(a, b) {
 {
   loop((mkref _), (mkref _))
 }
+
+
+/*
+Expected conterexample: slice
+loop(a, b) {
+  b := _;
+  a := _;
+  let b__ = b in loop(b, b__)
+}
+
+{
+  loop((mkref _), (mkref _))
+}
+*/

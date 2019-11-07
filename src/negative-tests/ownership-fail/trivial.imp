@@ -1,0 +1,21 @@
+{
+  let x = mkref _ in 
+  let a = *x in 
+  let y = x in 
+  {
+    y := 1;
+    x := 0
+  }
+}
+/*
+  Expected counterexample: slice
+  {
+    let x = mkref _ in 
+    let y = x in 
+    {
+      y := 1;
+      x := 0
+    }
+  }
+*/
+

@@ -1,0 +1,15 @@
+
+{
+  let x = mkref _ in
+  let y = x in
+  if _ then {
+    x := 1
+  }else {
+    y := 1
+  }
+}
+
+
+
+
+

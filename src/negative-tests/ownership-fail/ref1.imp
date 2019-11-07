@@ -1,0 +1,25 @@
+{
+  let a1 = mkref 0 in 
+  let a2 = mkref a1 in 
+  let a3 = mkref a2 in 
+  let b1 = mkref 1 in 
+  let b2 = mkref b1 in 
+  let b3 = mkref b2 in 
+  {
+    b3 := a2;
+    let a2c = *b3 in
+    {
+      a2c := b1;
+      a2 := a1
+    }
+  }
+}
+/*
+{
+ b3 := a2;
+ let a2c = *b3 in {
+   a2c := b1;
+   a2 := a1;
+ }
+}
+*/

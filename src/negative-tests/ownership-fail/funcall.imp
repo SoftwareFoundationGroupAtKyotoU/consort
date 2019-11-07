@@ -1,0 +1,33 @@
+f(x, y, c){
+  if _ then {
+    x:=1
+  } else {
+    y:=1
+  }
+}
+
+{
+  let x = mkref 1 in
+  let y = x in
+  let r = mkref 0 in
+  {
+    f(x, r, _);
+    f(y, r, _); 
+    f(x, y, _)
+  }
+}
+
+/*
+  Expected counterexample: slice
+  f(x, y, c) {
+      x:=1;
+      y:=1
+  }
+
+  {
+    let x = mkref 1 in
+    let y = x in
+      f(x, y, _)
+  }
+*/
+

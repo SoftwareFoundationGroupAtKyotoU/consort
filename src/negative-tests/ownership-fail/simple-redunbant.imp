@@ -1,0 +1,27 @@
+{
+  let x = mkref 0 in
+  let a = mkref 0 in
+  let y = x in
+  let b = a in
+  {
+    y := 0;
+    a := 1;
+    alias(x=y);
+    x := 0;
+    alias(a=b);
+    y := 1;
+  }
+}
+
+/*
+  Expected counterexample: slice
+  {
+    let x = mkref 0 in
+    let y = x in
+    {
+      x := 0;
+      y := 1;
+    }
+  }
+*/
+
