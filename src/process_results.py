@@ -5,6 +5,12 @@ with open(sys.argv[1], 'r') as f:
     data = yaml.load(f)
 
 (sat,unsat,test_stat) = data["jayhorn"]
+
+sat_jayhorn_timeout = 0
+sat_jayhorn_correct = 0
+sat_jayhorn_imprecise = 0
+sat_jayhorn_robustness = 0
+
 sat_out_performed = 0
 # when did we do better than jayhorn?
 # we were more precise (correctly answering safe vs. their unsafe)
@@ -16,39 +22,50 @@ sat_finished = 0
 
 aliases = []
 
+def interpret_jayhorn(j, stat_block, expect = True):
+    if j["result"] == expect and (expect or j["reason"] == "(unsafe)"):
+        stat_block["correct"] += 1
+    else:
+        if j["reason"] == "(timeout)":
+            stat_block["timeout"] += 1
+        elif j["reason"] == "(unsafe)" or j["reason"] == "(unknown)":
+            stat_block["imprecise"] += 1
+        elif j["reason"] == "(error)":
+            stat_block["error"] += 1
+        else:
+            print "unhandled reason"
+
 sat_correct = 0
 sat_timeout = 0
 sat_under_performed = 0
+jayhorn_sat = {
+    "correct": 0,
+    "timeout": 0,
+    "error": 0,
+    "imprecise": 0
+}
+    
 for s in sat:
     j = s["jayhorn"]
     aliases.append(s["alias"])
     if s["result"]:
         sat_correct += 1
-        if not j["result"]:
-            if j["reason"] == "(timeout)":
-                sat_finished += 1
-                sat_out_performed += 1
-            elif j["reason"] == "(unsafe)" or j["reason"] == "(unknown)":
-                sat_precise += 1
-                sat_out_performed += 1
-            elif j["reason"] == "(error)":
-                sat_out_performed += 1
-                sat_robustness += 1
-            else:
-                print "unhandled reason"
     else:
         if s["reason"] != "(timeout)":
             print "WARNING WARNING WARNING", s["name"]
         sat_timeout += 1
         if j["result"]:
             sat_under_performed += 1
-
+    interpret_jayhorn(j, jayhorn_sat)
+    
 unsat_correct = 0
 unsat_timeout = 0
-unsat_finished = 0
-unsat_precise = 0
-unsat_robustness = 0
-unsat_out_performed = 0
+jayhorn_unsat = {
+    "correct": 0,
+    "timeout": 0,
+    "error": 0,
+    "imprecise": 0
+}
 for u in unsat:
     j = u["jayhorn"]
     aliases.append(u["alias"])
@@ -61,39 +78,20 @@ for u in unsat:
             unsat_timeout += 1
         else:
             unsat_correct += 1
+        interpret_jayhorn(j, jayhorn_unsat, expect = False)
 
-        if not j["result"]:
-            if j["reason"] == "(timeout)":
-                unsat_finished += 1
-                sat_out_performed += 1
-            elif j["reason"] == "(unknown)":
-                unsat_precise += 1
-                unsat_out_performed += 1
-            elif j["reason"] == "(error)":
-                unsat_out_performed += 1
-                unsat_robustness += 1
-            elif j["reason"] == "(unsafe)":
-                # this is fine
-                pass
-            else:
-                print "Unhandled reason", j["reason"]
-        else:
-            unsat_precise += 1
-            unsat_out_performed += 1
+print sat_under_performed
 
 def print_jayhorn_line(table, name, pref, nl = ''):
     # don't try this at home kids
     g = globals()
     correct = g[pref + "_correct"]
     timeout = g[pref + "_timeout"]
-    out_performed = g[pref + "_out_performed"]
-    finished = g[pref + "_finished"]
-    robust = g[pref + "_robustness"]
-    precision = g[pref + "_precise"]
+    stat_block = g["jayhorn_" + pref]
     print >> table, r'\textbf{%s} & %d & %d & %d &  %d &  %d &  %d & %d%s' % (
         name,
         correct + timeout, correct, timeout,
-        (correct + timeout) - out_performed, finished, robust, precision, nl
+        stat_block["correct"], stat_block["timeout"], stat_block["error"], stat_block["imprecise"], nl
     )
 
 def jayhorn_column(j):
