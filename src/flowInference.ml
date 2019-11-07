@@ -271,6 +271,7 @@ let bind_args ~e_id out_patt call_expr curr_rel body_rel =
 
 let apply_patt ~e_id tyenv patt rhs =
   match patt,rhs with
+  | PNone,Call c -> bind_args ~e_id patt c
   | PNone,_ -> apply_identity_flow ?pre:None
   | _,Var s ->
     let path = P.var s in
