@@ -28,7 +28,7 @@ type concr_arg = P.concr_ap RT.rel_imm
 
 type clause =
   | PRelation of relation * ((P.concr_ap * concr_arg) list) * int option
-  | Relation of P.concr_ap RT.refinement_rel
+  | Relation of (concr_arg,concr_arg) RT.relation
   | NamedRel of string * (concr_arg list)
 
 type ctxt = {
@@ -68,12 +68,45 @@ let%lm add_assert assert_cond curr_relation  ctxt =
     | IInt i -> RT.RConst i
   in
   let relation = Relation RT.({
-        rel_op1 = RImm (lift_to_imm assert_cond.rop1);
+        rel_op1 = (lift_to_imm assert_cond.rop1);
         rel_cond = assert_cond.cond;
         rel_op2 = lift_to_imm assert_cond.rop2
       }) in
   let ante = [ PRelation (curr_relation,[], None) ] in
   { ctxt with impl = (ante,relation)::ctxt.impl }
+
+let mk_relation lhs op rhs = RT.({
+    rel_op1 = lhs;
+    rel_cond = op;
+    rel_op2 = rhs
+  })
+
+let rel k = Relation k
+
+let rec lift_refinement ?(map=Fun.id) ?nu_arg =
+  let lift_symbolic_ap = function
+    | `Sym _ -> assert false
+    | #P.concr_ap as cap -> map cap
+  in
+  let lift_symbolic_imm = function
+    | RT.RConst i -> RT.RConst i
+    | RT.RAp p -> RT.RAp (lift_symbolic_ap p)
+  in
+  RT.(function
+  | Top -> []
+  | And (r1, r2) -> lift_refinement ~map ?nu_arg r1 @ lift_refinement ~map ?nu_arg r2
+  | ConstEq i ->
+    [ rel @@ mk_relation (RAp (Option.get nu_arg)) "=" (RConst i) ]
+  | Relation r when r.rel_op1 = Nu ->
+    [ rel { r with rel_op1 = RAp (Option.get nu_arg); rel_op2 = lift_symbolic_imm r.rel_op2 } ]
+  | Relation ({ rel_op1 = RImm i; _ } as r) ->
+    [ rel { r with rel_op1 = (lift_symbolic_imm i); rel_op2 = lift_symbolic_imm r.rel_op2 } ]
+  | NamedPred (nm,sym_names) ->
+    let nu_arg = Option.get nu_arg in
+    let named_args = List.map lift_symbolic_ap sym_names in
+    let val_args = List.map (fun l -> RT.RAp l) @@ nu_arg::named_args in
+    [ NamedRel (nm,val_args) ]
+  | _ -> failwith "Refinement form not supported")
 
 let path_simple_type tyenv path =
   let rec loop path k =
@@ -281,35 +314,27 @@ let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
       StringMap.add (P.arg_name i) arg acc
     ) StringMap.empty call_expr.arg_names
   in
-  let to_relation nu_arg = RT.(function
-    | Int Top -> None
-    | Int (NamedPred (nm,sym_names)) ->
-      let named_args = List.map (function
-        | `Sym _ -> assert false (* TODO: better error *)
-        | #P.concr_ap as cap ->
-          P.map_root (fun n -> SM.find n arg_names) cap
-        ) sym_names in
-      let val_args = List.map (fun l -> RT.RAp l) @@ nu_arg::named_args in
-      Some (NamedRel (nm,val_args))
-    | Int _ -> assert false
-    | _ -> failwith @@ "Cannot handle non-integer typed args in built in functions: " ^ call_expr.callee)
-  in
+  let type_fail () = failwith @@ "Cannot handle non-integer typed args in built in functions: " ^ call_expr.callee in
   let%bind () =
     miteri (fun i t ->
       let nu_arg = P.var (List.nth call_expr.arg_names i) in
-      to_relation nu_arg t |> Option.fold ~none:(return ()) ~some:(fun rel ->
-          add_implication [ PRelation (curr_rel,[],None) ] rel
-        )
+      match t with
+      | RT.Int r ->
+        lift_refinement ~map:(P.map_root (fun n -> SM.find n arg_names)) ~nu_arg r
+        |> miter @@ add_implication [ PRelation (curr_rel,[],None) ]
+      | _ -> type_fail ()
     ) intr_type.RT.arg_types
   in
   match out_patt with
   | PNone -> return ()
-  | PVar v ->
-    let pre = to_relation (P.var v) intr_type.RT.result_type
-      |> Option.to_list
+  | PVar v -> 
+    let pre =
+      match intr_type.RT.result_type with
+      | Int r -> lift_refinement ~map:(P.map_root (fun n -> SM.find n arg_names)) ~nu_arg:(P.var v) r
+      | _ -> type_fail ()
     in
     apply_identity_flow ~pre curr_rel body_rel
-  | PTuple _ -> failwith @@ "Cannot handle non-integer typed args in built in functions: " ^ call_expr.callee
+  | PTuple _ -> type_fail ()
 
 
 let process_call ~e_id out_patt call_expr curr_rel body_rel =
@@ -360,7 +385,9 @@ let apply_patt ~e_id tyenv patt rhs =
   | PTuple _,Tuple _ -> assert false
   | PTuple _,_ -> assert false
   | PVar v,Nondet None -> add_relation_flow [ Havoc (P.var v) ]
-  | PVar _,Nondet (Some _) -> assert false
+  | PVar v,Nondet (Some r) ->
+    let refinement = lift_refinement ~nu_arg:(P.var v) r in
+    apply_identity_flow ~pre:refinement
     
   (* not yet implemented *)
   | _,MkArray _
@@ -466,7 +493,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let%bind e2_rel = fresh_relation_for relation e2 in
     
     let mk_pre rel_cond = Relation RT.({
-        rel_op1 = RImm (RAp (P.var v)); rel_cond; rel_op2 = RConst 0 
+        rel_op1 = RAp (P.var v); rel_cond; rel_op2 = RConst 0 
         })
     in
     begin%m

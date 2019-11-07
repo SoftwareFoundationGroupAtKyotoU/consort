@@ -11,11 +11,13 @@ type 'r rel_op =
     Nu
   | RImm of 'r rel_imm [@@deriving sexp]
 
-type 'r refinement_rel = {
-  rel_op1: 'r rel_op;
+type ('a,'b) relation = {
+  rel_op1: 'a;
   rel_cond: string;
-  rel_op2: 'r rel_imm;
+  rel_op2: 'b
 } [@@deriving sexp]
+
+type 'r refinement_rel = ('r rel_op,'r rel_imm) relation [@@deriving sexp]
 
 type refine_ap = [
   Paths.concr_ap

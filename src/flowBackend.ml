@@ -36,7 +36,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       return RefinementTypes.(
           let rel_sym = StringMap.find p.rel_cond rel_op in
           pg rel_sym [
-            pp_rel_op p.rel_op1;
+            pp_imm p.rel_op1;
             pp_imm p.rel_op2
           ]
         )
