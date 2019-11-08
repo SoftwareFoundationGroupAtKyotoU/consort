@@ -33,12 +33,12 @@ let rec to_z3_ident = function
 let rec pre = function
   | `ADeref f -> `ADeref (pre f)
   | `AProj (d,i) -> `AProj (pre d,i)
+  | `ALen p -> `ALen (pre p)
   | `AVar v -> `APre v
   | `APre v -> `APre v
   | `ARet
   | `AInd _
-  | `AElem _
-  | `ALen _ -> failwith "Not supported"
+  | `AElem _ -> failwith "Not supported"
 
 let t_ind a i = `AProj (a,i)
 let elem p = `AElem p
@@ -84,7 +84,7 @@ let rec map_root (f: string -> string) = function
   | `ARet -> `ARet 
   | `ALen ap -> `ALen (map_root f ap)
   | `AElem ap -> `AElem (map_root f ap)
-  | `AInd ap -> `AElem (map_root f ap)
+  | `AInd ap -> `AInd (map_root f ap)
   | `AProj (ap,i) -> `AProj (map_root f ap,i)
   | `ADeref ap -> `ADeref (map_root f ap)
 

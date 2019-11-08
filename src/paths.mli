@@ -24,7 +24,7 @@ val to_z3_ident :
   string
 val has_prefix : ([< 'a t_templ] as 'a) -> 'a -> bool
 val pre :
-  ([< 'a t_templ > `ADeref `APre `AProj ] as 'a) ->
+  ([< 'a t_templ > `ADeref `APre `AProj `ALen ] as 'a) ->
   'a
     
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
@@ -50,7 +50,7 @@ val has_root_p :
   bool
 
 val map_root :
-  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `APre `AProj `AVar `ARet] as 'b) -> 'b
+  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `APre `AProj `AVar `ARet `AInd] as 'b) -> 'b
 
 val is_array_path:
   ([< 'a t_templ > `ADeref `AElem `AInd `ALen `AProj ] as 'a) -> bool

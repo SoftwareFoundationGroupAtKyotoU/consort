@@ -63,20 +63,6 @@ let%lm set_havoc_state havoc_state ctxt = { ctxt with havoc_set = havoc_state }
 
 let%lq get_havoc_state ctxt = ctxt.havoc_set
 
-
-let%lm add_assert assert_cond curr_relation  ctxt =
-  let lift_to_imm = function
-    | IVar v -> RT.RAp (P.var v)
-    | IInt i -> RT.RConst i
-  in
-  let relation = Relation RT.({
-        rel_op1 = (lift_to_imm assert_cond.rop1);
-        rel_cond = assert_cond.cond;
-        rel_op2 = lift_to_imm assert_cond.rop2
-      }) in
-  let ante = [ PRelation (curr_relation,[], None) ] in
-  { ctxt with impl = (ante,relation)::ctxt.impl }
-
 let mk_relation lhs op rhs = RT.({
     rel_op1 = lhs;
     rel_cond = op;
@@ -85,6 +71,21 @@ let mk_relation lhs op rhs = RT.({
 
 let rel k = Relation k
 
+let%lm add_assert op1 cond op2 curr_relation ctxt =
+  let ante = [ PRelation (curr_relation,[],None) ] in
+  let relation = rel @@ mk_relation op1 cond op2 in
+  { ctxt with impl = (ante,relation)::ctxt.impl }
+
+let add_assert_cond assert_cond curr_relation =
+  let lift_to_imm = function
+    | IVar v -> RT.RAp (P.var v)
+    | IInt i -> RT.RConst i
+  in
+  add_assert
+    (lift_to_imm assert_cond.rop1)
+    assert_cond.cond
+    (lift_to_imm assert_cond.rop2)
+    curr_relation
 let rec havoc_oracle ctxt ml = function
   | `ADeref ap ->
     let o = OI.GenMap.find (ml,ap) ctxt.o_hints.OI.gen in
@@ -110,9 +111,9 @@ let%lq split_oracle sl ctxt =
     | _,`APre _
     | _,`ARet
     | `AVar _,_ -> (false,false)
-    | ((`AElem _) as p),`AElem _
+    | (`AInd p),`AInd _
+    | (`AElem p),`AElem _
     | (`ADeref p),(`ADeref _) -> from_path p
-    | (`AInd p),(`AInd _) -> from_path @@ `AElem p
     | (`ALen p1),(`ALen p2)
     | `AProj (p1,_),`AProj (p2,_) -> loop (p1,p2)
     | a,b -> failwith @@ Printf.sprintf "Incompatible paths %s => %s"
@@ -441,6 +442,11 @@ let process_call ~e_id out_patt call_expr curr_rel body_rel =
   else
     bind_args ~e_id out_patt call_expr curr_rel body_rel
 
+let add_indexing_assertion arr_ap ind_ap relation =
+  let array_len = P.len arr_ap in
+  let%bind () = add_implication [ PRelation(relation,[],None) ] @@ NamedRel ("valid-ind",[RT.RAp ind_ap; RT.RAp array_len ]) in
+  add_implication [ PRelation(relation,[],None) ] @@ rel (mk_relation (RT.RAp array_len) ">" (RT.RConst 0))
+
 let apply_patt ~e_id tyenv patt rhs =
   match patt,rhs with
   | _,Call c -> process_call ~e_id patt c
@@ -482,9 +488,33 @@ let apply_patt ~e_id tyenv patt rhs =
     apply_identity_flow ~pre:refinement
     
   (* not yet implemented *)
-  | _,MkArray _
-  | _,Read _
-  | _,LengthOf _
+  | PVar v,MkArray len_var ->
+    (fun in_rel out_rel ->
+      let%bind () = add_assert (RT.RAp (P.var len_var)) ">=" (RT.RConst 0) in_rel in
+      let array_root = (P.var v) in
+      let l = P.var len_var in
+      let ind = P.ind array_root in
+      let elem = P.elem array_root in
+      let valid_sym_ind = [
+        NamedRel ("valid-ind", [RT.RAp ind; RT.RAp l ])
+      ] in
+      add_relation_flow ~pre:valid_sym_ind [ Const (elem, 0); Copy (l,P.len array_root) ] in_rel out_rel)
+  | PVar v,LengthOf arr ->
+    add_relation_flow ?pre:None [ Copy (P.len (P.var arr), P.var v) ]
+  | PVar v,Read (arr,ind) ->
+    (fun in_rel out_rel ->
+      let arr_ap = P.var arr in
+      let ind_ap = P.var ind in
+      
+      let array_ind = P.ind arr_ap in
+      let elem_ap = P.elem arr_ap in
+      let%bind () = add_indexing_assertion arr_ap ind_ap in_rel in
+      let copy_pre_cond = PRelation (in_rel,[
+            (array_ind, RT.RAp ind_ap);
+            (elem_ap, RT.RAp (P.var v))
+          ], None) in
+      let identity_cond = PRelation (in_rel, [], None) in
+      add_implication [ copy_pre_cond; identity_cond ] @@ PRelation (out_rel,[],None))
   | _,Null -> assert false
 
 let relation_name ((e_id,_),expr) ctxt =
@@ -552,7 +582,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         (* intra procedural successor *)
         apply_identity_flow relation out_relation
           
-      (* should only happen at the main function *)                
+      (* should only happen at the main function *)
       | None,None ->
         return ()
 
@@ -578,7 +608,26 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     apply_copies ~havoc:true ~sl:(SBind e_id) copies relation k_rel >>
     process_expr (k_rel,tyenv) continuation k
       
-  | Update _ -> assert false
+  | Update (arr,ind,rhs,k) ->
+    let%bind k_rel = fresh_relation_for relation k in
+    let array_ap = P.var arr in
+    let ind_ap = P.var ind in
+    let rhs_ap = P.var rhs in
+
+    let sym_ind = P.ind array_ap in
+    let sym_elem = P.elem array_ap in
+    begin%m
+        add_indexing_assertion array_ap ind_ap relation;
+
+         add_implication [
+           PRelation (relation,[],None)
+         ] @@ PRelation (k_rel,[ (sym_elem, RT.RAp rhs_ap); (sym_ind, RT.RAp ind_ap) ], None);
+         add_implication [
+           PRelation (relation,[],None);
+           rel @@ mk_relation (RT.RAp sym_ind) "!=" (RT.RAp ind_ap)
+         ] @@ PRelation (k_rel,[], None);
+         process_expr (k_rel,tyenv) continuation k
+    end
   | Cond (v,e1,e2) ->
     let%bind e1_rel = fresh_relation_for relation e1 in
     let%bind e2_rel = fresh_relation_for relation e2 in
@@ -604,7 +653,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     
   | Assert (assrt, k) ->
     let%bind k_rel = fresh_relation_for relation k in
-    add_assert assrt relation >>
+    add_assert_cond assrt relation >>
     apply_identity_flow relation k_rel >>
     process_expr (k_rel,tyenv) continuation k
       
