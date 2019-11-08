@@ -203,7 +203,7 @@ let ref_ap :=
 						 match i with
 						 | `Deref -> `ADeref acc
 						 | `Proj i -> `AProj (acc,i)
-					   ) (`AVar root) rest
+					   ) (Paths.var root) rest
 	  }
 
 let rel_arg :=

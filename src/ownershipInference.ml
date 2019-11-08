@@ -377,7 +377,7 @@ let%lm with_types bindings cont ctxt =
 
 let lkp_split loc v =
   let%bind t = lkp v in
-  let%bind (t1,t2) = split_type loc (`AVar v) t in
+  let%bind (t1,t2) = split_type loc (P.var v) t in
   update_type v t1 >> return t2
 
 let%lq is_unfold eid ctxt =
@@ -513,14 +513,14 @@ let rec process_expr ?output ((e_id,_),expr) =
       | MkArray _ -> assert false
       | Read (v,_) ->
         let%bind (t_cont,o) = lkp_array v in
-        let%bind (t_cont1,t_cont2) = split_type (SBind e_id) (`AElem (`AVar v)) t_cont in
+        let%bind (t_cont1,t_cont2) = split_type (SBind e_id) (`AElem (P.var v)) t_cont in
         begin%m
             update_type v @@ Array (t_cont1,o);
              return t_cont2
         end
       | Deref v -> 
         let%bind (t,o) = lkp_ref v in
-        let%bind (t1,t2_pre) = split_type (SBind e_id) (`ADeref (`AVar v)) t in
+        let%bind (t1,t2_pre) = split_type (SBind e_id) (`ADeref (P.var v)) t in
         let%bind uf = is_unfold e_id in
         let t2 =
           if uf then
@@ -544,7 +544,7 @@ let rec process_expr ?output ((e_id,_),expr) =
             | RInt _ -> return Int
             | RVar v ->
               let%bind t = lkp v in
-              let%bind (t1,t2) = split_type (SBind e_id) (`AVar v) t in
+              let%bind (t1,t2) = split_type (SBind e_id) (P.var v) t in
               update_type v t1 >> return t2
           ) t_init in
         return @@ Tuple tl
@@ -604,7 +604,7 @@ let infer (simple_types,iso) intr (fn,prog) =
   let lift_simple_ft nm ft =
     let%bind arg_types = lift_plist (MArg nm) ft.SimpleTypes.arg_types
     and output_types = lift_plist (MOut nm) ft.SimpleTypes.arg_types
-    and result_type = lift_to_ownership (MRet nm) `ARet ft.SimpleTypes.ret_type in
+    and result_type = lift_to_ownership (MRet nm) P.ret ft.SimpleTypes.ret_type in
     return RefinementTypes.{ arg_types; output_types; result_type }
   in
   let rec lift_reft loc p =
@@ -630,7 +630,7 @@ let infer (simple_types,iso) intr (fn,prog) =
     let open RefinementTypes in
     let%bind arg_mapped = lift_refp (MArg nm) ft.arg_types
     and out_mapped = lift_refp (MOut nm) ft.output_types
-    and ret_type = lift_reft (MRet nm) `ARet ft.result_type in
+    and ret_type = lift_reft (MRet nm) P.ret ft.result_type in
     return {
       arg_types = arg_mapped;
       output_types = out_mapped;

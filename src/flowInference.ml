@@ -90,9 +90,8 @@ let rec havoc_oracle ctxt ml = function
   | `ADeref ap ->
     let o = OI.GenMap.find (ml,ap) ctxt.o_hints.OI.gen in
     o = 0.0
-  | `ARet
-  | `AVar _
-  | `APre _ -> false
+  | `ARet _
+  | `AVar _ -> false
 
   | `ALen ap
   | `AInd ap
@@ -105,11 +104,9 @@ let%lq split_oracle sl ctxt =
     (f1 = 0.0, f2 = 0.0)
   in
   let rec loop = function
-    | `ARet, _
-    | `APre _,_
+    | `ARet _, _
     | _,`AVar _
-    | _,`APre _
-    | _,`ARet
+    | _,`ARet _
     | `AVar _,_ -> (false,false)
     | (`AInd p),`AInd _
     | (`AElem p),`AElem _
@@ -155,7 +152,7 @@ let rec lift_refinement ?(map=Fun.id) ?nu_arg =
 let path_simple_type tyenv path =
   let rec loop path k =
     match path with
-    | `AVar v -> k @@ List.assoc v tyenv
+    | `AVar (v,false,false) -> k @@ List.assoc v tyenv
     | `ADeref p ->
       loop p (function
         | `Ref t -> k t
@@ -305,7 +302,7 @@ let rec is_pre_path = function
   | `APre _ -> false
   | `ALen p
   | `AProj (p,_) -> is_pre_path p
-  | `ARet -> assert false (* impossible? *)
+  | `ARet _ -> assert false (* impossible? *)
 
 let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty =
   let direct_copies = compute_copies actual formal ty in
@@ -366,7 +363,7 @@ let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty
   return (havoc,stable,in_copies @ in_bind,out_bind, pre_bind)
 
 let bind_return ~fn out_patt ret_type =
-  let copies = compute_patt_copies `ARet out_patt ret_type in
+  let copies = compute_patt_copies P.ret out_patt ret_type in
   let%bind havoc_oracle = gen_oracle @@ MRet fn in
   let havoc_ret = List.fold_left (fun acc (src,dst) ->
       if havoc_oracle src then
@@ -713,7 +710,7 @@ let analyze_function fn ctxt =
     ) P.PathSet.empty fn.args fn_type.arg_types in
   let mapped_in_args = map_args in_args in
   let mapped_out_args = map_args out_args in
-  let cont = (Some (out_nm, mapped_out_args)),Some `ARet in
+  let cont = (Some (out_nm, mapped_out_args)),Some P.ret in
   let ctxt,() = process_expr ((in_nm,mapped_in_args),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set } in
   ctxt
 
@@ -729,7 +726,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
         ) ty.arg_types
       in
       let in_rel_types = List.map (fun p -> (p,ZInt)) @@ List.concat arg_paths in
-      let ret_rel = type_to_paths `ARet ty.ret_type |> List.map (fun p -> (p,ZInt)) in
+      let ret_rel = type_to_paths P.ret ty.ret_type |> List.map (fun p -> (p,ZInt)) in
       let out_rel_types = in_rel_types @ ret_rel in
       let in_rel = (name ^ "-in", in_rel_types) in
       let out_rel = (name ^ "-out", out_rel_types) in

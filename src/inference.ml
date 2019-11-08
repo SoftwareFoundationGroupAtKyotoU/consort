@@ -155,7 +155,7 @@ let rec denote_type path (bind: (int * Paths.concr_ap) list) acc t =
 
 let denote_gamma gamma =
   SM.fold (fun v t acc ->
-    denote_type (`AVar v) [] acc t
+    denote_type (P.var v) [] acc t
   ) gamma []
 
 let denote_gamma_m ctxt = (ctxt,denote_gamma ctxt.gamma)
@@ -277,7 +277,7 @@ let%lm add_type_implication ?(path_filter=(fun _ -> true)) ?(init_bind=[]) ?ante
   impl_loop ~nullity:[] gamma root init_bind init_bind t1_ t2_ ctxt_
 
 let add_var_type_implication dg var t1 t2 ctxt =
-  add_type_implication dg (`AVar var) t1 t2 ctxt
+  add_type_implication dg (P.var var) t1 t2 ctxt
 
 let add_var_implication dg gamma var t ctxt =
   add_var_type_implication dg var (SM.find var gamma) t ctxt
@@ -482,8 +482,8 @@ let dump_env ?(msg) tev =
 let predicate_vars kv =
   List.fold_left (fun acc (k, t) ->
       match t with
-      | Int _ -> (`AVar k)::acc
-      | Array _ -> (`ALen (`AVar k))::acc
+      | Int _ -> (P.var k)::acc
+      | Array _ -> (`ALen (P.var k))::acc
       | _ -> acc
   ) [] kv |> List.rev
 
@@ -774,10 +774,10 @@ let lift_to_refinement loc ~nullity ~pred initial_path fv t =
   return applied
 
 let lift_src_ap = function
-  | AVar v -> `AVar v
-  | ADeref v -> `ADeref (`AVar v)
-  | AProj (v,i) -> `AProj (`AVar v,i)
-  | APtrProj (v,i) -> `AProj (`ADeref (`AVar v), i)
+  | AVar v -> P.var v
+  | ADeref v -> `ADeref (P.var v)
+  | AProj (v,i) -> `AProj (P.var v,i)
+  | APtrProj (v,i) -> `AProj (`ADeref (P.var v), i)
 
 
 let get_ref_aps_gen proj =
@@ -817,7 +817,7 @@ let merge_types ~gloc ~loc ~path ?(fv_filter=(fun _ -> true)) ?(e1_expl=[]) ?(bi
       let expl' = List.fold_left (fun acc (i,p) ->
           match p with
           | SProj _ -> acc
-          | SVar v -> (i,`AVar v)::acc
+          | SVar v -> (i,P.var v)::acc
         ) expl b in
       Tuple (b,List.map (to_type_template expl') tl)
     | Array (b,l,_,t) ->
@@ -970,7 +970,7 @@ let remove_var ~loc to_remove ctxt =
           |> do_with @@ Std.fold_left_fst (fun a ->
                 do_with @@ StrUF.union eq_ref a)
           |> List.fold_left (Fun.flip Paths.PathSet.add) a
-        ) (`AVar var) ([],[]) (SM.find var ctxt.gamma) Paths.PathSet.empty
+        ) (P.var var) ([],[]) (SM.find var ctxt.gamma) Paths.PathSet.empty
       in
       (SM.add var ref_in by_var, Paths.PathSet.union all_ref ref_in)
     ) to_remove (StringMap.empty,Paths.PathSet.empty)
@@ -1051,18 +1051,18 @@ let remove_var ~loc to_remove ctxt =
       if SS.mem v_name to_remove then
         c
       else
-        let ((c',impl_paths),t') = remove_fn ~mk_fv:(free_var_manager v_name) (`AVar v_name) t c in
+        let ((c',impl_paths),t') = remove_fn ~mk_fv:(free_var_manager v_name) (P.var v_name) t c in
         let t_purge = purge_tuple_fv to_remove t' in
         let c'',() = add_type_implication ~path_filter:(fun p ->
             Paths.PathSet.mem p impl_paths
-          ) curr_te (`AVar v_name) t t_purge c' in
+          ) curr_te (P.var v_name) t t_purge c' in
         { c'' with gamma = SM.add v_name t_purge c''.gamma }
     ) ctxt.gamma { ctxt with gamma = SM.empty }
   in
   updated
 
 let lift_imm_op_to_rel = function
-  | IVar v -> RAp ((`AVar v) :> concr_ap)
+  | IVar v -> RAp ((P.var v) :> concr_ap)
   | IInt n -> RConst n
 
 let lift_relation { rop1; cond; rop2 } =
@@ -1114,7 +1114,7 @@ let step_tup wc ?b_out:out_o b tl =
           ) l |> fst
         in
         tv,`Sym out_tvar
-      | tv,SVar v -> (tv,`AVar v)
+      | tv,SVar v -> (tv,P.var v)
       ) b
     ) out_o
     |> Option.fold ~none:wc.sym_bindings ~some:(fun l -> l @ wc.sym_bindings)
@@ -1322,7 +1322,7 @@ let apply_matrix ?(env_seed=[]) ?pp_constr ~t1 ?(t2_bind=[]) ~t2 ?(force_cons=tr
 
 let rec push_subst bind = function
   | Int r ->
-    let sigma = List.map (fun (i,v) -> (i,`AVar v)) bind in
+    let sigma = List.map (fun (i,v) -> (i,P.var v)) bind in
     Int (partial_subst sigma r)
   | Ref (t,o,n) -> map_ref (push_subst bind) t o n
   | Tuple (b,tl) ->
@@ -1331,7 +1331,7 @@ let rec push_subst bind = function
   | TVar id -> TVar id
   | Mu (i,fv,a,t) -> Mu (i,fv,a,push_subst bind t)
   | Array (b,len_p,o,t) ->
-    let sigma = List.map (fun (i,v) -> (i,`AVar v)) bind in
+    let sigma = List.map (fun (i,v) -> (i,P.var v)) bind in
     let len_p' = partial_subst sigma len_p in
     Array (b,len_p',o,push_subst bind t)
 
@@ -1402,18 +1402,18 @@ let rec strengthen_type ?root t patt ctxt =
   match t,patt with
   | Int _,PVar v ->
     maybe_strengthen_patt v ctxt
-    |> with_type @@ strengthen_eq ~strengthen_type:t ~target:(`AVar v)
+    |> with_type @@ strengthen_eq ~strengthen_type:t ~target:(P.var v)
   | Ref _,_ ->
     (ctxt,t)
   | Array _,PVar v ->
     maybe_strengthen_patt v ctxt
     (* strengthen eq, as a special case, can propagate length equalites *)
-    |> with_type @@ strengthen_eq ~strengthen_type:t ~target:(`AVar v)
+    |> with_type @@ strengthen_eq ~strengthen_type:t ~target:(P.var v)
   | Array _,_ ->
     (ctxt,t)
   | Tuple (b,tl),PVar v ->
     let tl' = List.mapi (fun i t ->
-        strengthen_eq ~strengthen_type:t ~target:(`AProj ((`AVar v),i))
+        strengthen_eq ~strengthen_type:t ~target:(`AProj ((P.var v),i))
       ) tl in
     maybe_strengthen_patt v ctxt
     |> with_type @@ Tuple (b,tl')
@@ -1447,7 +1447,7 @@ let rec strengthen_let patt rhs ctxt =
   | _,Call _ -> ctxt
   | _,Var v ->
     let t = SM.find v ctxt.gamma in
-    let (ctxt',t') = strengthen_type ~root:(`AVar v) t patt ctxt in
+    let (ctxt',t') = strengthen_type ~root:(P.var v) t patt ctxt in
     update_type v t' ctxt'
   (* In the future, _maybe_ we want to explore strengthening equalities
      with array contents. I suspect it will just wreck z3 *)
@@ -1461,12 +1461,12 @@ let rec strengthen_let patt rhs ctxt =
   | _,MkArray _ -> ctxt
 
   | PVar lhs,LengthOf arr ->
-   let t' = strengthen_eq ~strengthen_type:(SM.find lhs ctxt.gamma) ~target:(`ALen (`AVar arr)) in
+   let t' = strengthen_eq ~strengthen_type:(SM.find lhs ctxt.gamma) ~target:(`ALen (P.var arr)) in
    let (b,l,o,et) = lkp_array arr in
    ctxt
    |> update_type lhs t'
    |> update_type arr @@ Array (b,And (l,Relation {
-             rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`AVar lhs)
+             rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (P.var lhs)
            }),o,et)
   | _,Deref v ->
     let (t,o,n) = lkp_ref v in
@@ -1477,7 +1477,7 @@ let rec strengthen_let patt rhs ctxt =
       ctxt
   | (PVar v),Mkref (RVar v') ->
     let (t,o,n) = lkp_ref v in
-    let t' = strengthen_eq ~strengthen_type:t ~target:(`AVar v') in
+    let t' = strengthen_eq ~strengthen_type:t ~target:(P.var v') in
     update_type v (Ref (t',o,n)) ctxt
   | (PTuple pl),Tuple vl ->
     (* .... why would you do this? *)
@@ -1497,8 +1497,8 @@ let rec strengthen_let patt rhs ctxt =
       | (e_t::ttl,(RVar v')::tvl) ->
         let (tl',c') = collect (ind + 1) c ttl tvl in
         let v_type = SM.find v' ctxt.gamma in
-        let vt' = strengthen_eq ~strengthen_type:v_type ~target:(`AProj ((`AVar v),ind)) in
-        let e_t' = strengthen_eq ~strengthen_type:e_t ~target:(`AVar v') in
+        let vt' = strengthen_eq ~strengthen_type:v_type ~target:(`AProj ((P.var v),ind)) in
+        let e_t' = strengthen_eq ~strengthen_type:e_t ~target:(P.var v') in
         (e_t'::tl', update_type v' vt' c')
       | _ -> failwith "type and value lengths don't match"
     in
@@ -1539,15 +1539,15 @@ let get_type_scheme mloc ?(is_null=false) ~loc ~fv id v =
   lift_to_refinement mloc ~nullity:(if is_null then NNull else NUnk)  ~pred:(fun ~mu ~pos:{under_mu; _} fv p ->
       let%bind p = alloc_pred ~mu ~ground:(under_mu || is_null) ~loc fv p in
       return @@ Pred (p,fv)
-  ) (`AVar v) fv st
+  ) (P.var v) fv st
 
 let%lm bind_var v t ctxt =
   { ctxt with gamma = SM.add v t ctxt.gamma }
 
 (* ind_var must be a local variable, and therefore must be in scope *)
 let%lm add_bounds_constraint dg arr_var ind_var ctxt =
-  let len_ap = RAp (`ALen (`AVar arr_var)) in
-  let ind_ap = RImm (RAp (`AVar ind_var)) in
+  let len_ap = RAp (`ALen (P.var arr_var)) in
+  let ind_ap = RImm (RAp (P.var ind_var)) in
   let index_constr = And (Relation {
         rel_op1 = ind_ap; rel_cond = ">="; rel_op2 = RConst 0
       }, Relation {
@@ -1636,7 +1636,7 @@ let propagate_nullity ~src ?(unfold_dst=false) ~dst =
 let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
   let lkp_split ?(loc=OI.SBind e_id) v ctxt =
     let t = SM.find v ctxt.gamma in
-    let ctxt,(t1,t2) = split_type loc (`AVar v) t ctxt in
+    let ctxt,(t1,t2) = split_type loc (P.var v) t ctxt in
     (update_type v t1 ctxt),t2
   in
   let lkp v ctxt = SM.find v ctxt.gamma in
@@ -1647,8 +1647,8 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
   in
   let lkp_array v = match SM.find v ctxt.gamma with
     | Array (b,l,o,et) ->
-      let cmp_l = compile_refinement (`ALen (`AVar v)) [] l in
-      let len_bind = (`ALen (`AVar v),cmp_l, []) in
+      let cmp_l = compile_refinement (`ALen (P.var v)) [] l in
+      let len_bind = (`ALen (P.var v),cmp_l, []) in
       (b,l,o,et,len_bind)
     | _ -> failwith "not an array"
   in
@@ -1667,7 +1667,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       let%bind gamma = Let_syntax.proj ~f:(fun ctxt -> ctxt.gamma) in
       match output with
       | Some (t,out_args) -> 
-        add_type_implication dg (`AVar v) t2 t
+        add_type_implication dg (P.var v) t2 t
         >> miter (fun (k,ty) ->
           add_var_implication dg gamma k ty
         ) out_args
@@ -1683,15 +1683,15 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       and (orig,o,_)  = lkp_ref lhs in
       let%bind t2_assign =
         if IntSet.mem e_id ctxt.iso.fold_locs then
-          let%bind t2_fresh_prenull = make_fresh_type ~os:(Ownership (OI.MGen e_id)) ~target_var:(`ADeref (`AVar lhs)) ~fv:(gamma_predicate_vars ctxt.gamma) ~loc:(LFold e_id) orig in
+          let%bind t2_fresh_prenull = make_fresh_type ~os:(Ownership (OI.MGen e_id)) ~target_var:(`ADeref (P.var lhs)) ~fv:(gamma_predicate_vars ctxt.gamma) ~loc:(LFold e_id) orig in
           let t2_fresh = propagate_nullity ~src:t2 ~unfold_dst:true ~dst:t2_fresh_prenull in
 
-          constrain_fold ~folded:(t2_fresh,`ADeref (`AVar lhs)) ~unfolded:(t2,rhs)
+          constrain_fold ~folded:(t2_fresh,`ADeref (P.var lhs)) ~unfolded:(t2,rhs)
           >> return t2_fresh
         else
           return t2
       in
-      let t2_eq = strengthen_eq ~strengthen_type:t2_assign ~target:(`AVar rhs) in
+      let t2_eq = strengthen_eq ~strengthen_type:t2_assign ~target:(P.var rhs) in
       mupdate_type lhs @@ ref_of t2_eq o NLive
       >> mutate @@ process_expr ?output ~remove_scope cont
 
@@ -1703,27 +1703,27 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
 
   | Update (base,ind,v,cont) ->
     let (b,l,o,et,lenr_comp) = lkp_array base in
-    let elem_ap = `AElem (`AVar base) in
-    let len_ap = `ALen (`AVar base) in
-    let ind_ap = RAp (`AVar ind) in
-    let arr_vars = bind_of_arr b (`AVar base) in
+    let elem_ap = `AElem (P.var base) in
+    let len_ap = `ALen (P.var base) in
+    let ind_ap = RAp (P.var ind) in
+    let arr_vars = bind_of_arr b (P.var base) in
 
 
     do_with_context ctxt @@
       let%bind et' = make_fresh_type ~os:Prev ~target_var:elem_ap ~loc:(LUpdate e_id) ~fv:(gamma_predicate_vars ctxt.gamma @ fv_of_arr b) ~bind:arr_vars et in
       let%bind t1 = lkp_split v in
       let%bind dg = denote_gamma_m in
-      let rel_ind_ap = RImm (RAp (`AInd (`AVar base))) in
+      let rel_ind_ap = RImm (RAp (`AInd (P.var base))) in
 
       let update_case_env = lenr_comp::dg in
       let update_bind = [
         b.len, len_ap;
-        b.ind, (`AVar ind);
+        b.ind, (P.var ind);
       ] in
-      let orig_case_env = update_array_env ~nullity:[] dg (`AVar base) [] l in
-      let orig_case_bind = update_array_bind b (`AVar base) [] in
+      let orig_case_env = update_array_env ~nullity:[] dg (P.var base) [] l in
+      let orig_case_bind = update_array_bind b (P.var base) [] in
       begin%m
-          add_type_implication ~init_bind:update_bind update_case_env (`AVar v) t1 et';
+          add_type_implication ~init_bind:update_bind update_case_env (P.var v) t1 et';
            add_type_implication ~init_bind:orig_case_bind ~ante_ext:(Relation { rel_op1 = rel_ind_ap; rel_cond = "!="; rel_op2 = ind_ap }) orig_case_env elem_ap et et';
            add_bounds_constraint (lenr_comp::dg) base ind;
            mupdate_type base @@ Array (b,l,o,et');
@@ -1738,9 +1738,9 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       let (fresh_cont_prenull,o,_) = unsafe_split_ref fresh_type in
       let%bind t2 = lkp_split v_ref in
       let fresh_cont = propagate_nullity ~src:t2 ~unfold_dst:true ~dst:fresh_cont_prenull in
-      let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(`AVar v_ref) in
+      let fresh_strengthened = strengthen_eq ~strengthen_type:fresh_cont ~target:(P.var v_ref) in
       begin%m
-          constrain_fold ~folded:(fresh_cont,(`ADeref (`AVar v))) ~unfolded:(t2,v_ref);
+          constrain_fold ~folded:(fresh_cont,(`ADeref (P.var v))) ~unfolded:(t2,v_ref);
            bind_var v @@ ref_of fresh_strengthened o NLive;
            mutate @@ process_expr ?output ~remove_scope:(SS.add v remove_scope) exp
       end
@@ -1753,8 +1753,8 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       let%bind a_type =
         lift_to_refinement (OI.MGen e_id) ~nullity:NLive ~pred:(fun ~mu ~pos:{under_ref; under_mu; _} fv path c ->
           match path with
-          | `ALen (`AVar v) when v = lhs ->
-            (c,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`AVar len) })
+          | `ALen (`AVar (v, false,false)) when v = lhs ->
+            (c,Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (P.var len) })
           | `ALen _ -> unsupported "Nested arrays"
           | _ -> if under_ref || under_mu then
               make_fresh_pred ~mu ~ground:true ~pred_vars:(fv,path) ~loc:(LMkArray e_id) c
@@ -1765,7 +1765,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       begin%m
           add_var_implication dg ctxt.gamma len @@ Int (Relation { rel_op1 = Nu; rel_cond = ">="; rel_op2 = RConst 0 });
            mupdate_type len (map_refinement (fun r ->
-               And (r,Relation {rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`ALen (`AVar lhs)) })
+               And (r,Relation {rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`ALen (P.var lhs)) })
              ) lent);
            bind_var lhs a_type;
            mutate @@ process_expr ?output ~remove_scope:(SS.add lhs remove_scope) nxt
@@ -1821,13 +1821,13 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
           let (b,lr,_,et,comp_l) = lkp_array base in
           let%bind fv = predicate_vars_m in
           (* TODO: no splitting because, uh, what would that look like? *)
-          let%bind res_t = make_fresh_type ~os:Prev ~loc:(LRead e_id) ~target_var:(`AElem (`AVar base)) ~fv et in
+          let%bind res_t = make_fresh_type ~os:Prev ~loc:(LRead e_id) ~target_var:(`AElem (P.var base)) ~fv et in
           let read_bind = [
-            (b.ind,`AVar ind);
-            (b.len,`ALen (`AVar base))
+            (b.ind,P.var ind);
+            (b.len,`ALen (P.var base))
           ] in
-          let impl_env = update_array_env ~nullity:[] dg (`AVar base) [] lr in
-          add_type_implication impl_env  ~init_bind:read_bind (`AElem (`AVar base)) et res_t
+          let impl_env = update_array_env ~nullity:[] dg (P.var base) [] lr in
+          add_type_implication impl_env  ~init_bind:read_bind (`AElem (P.var base)) et res_t
           >> add_bounds_constraint (comp_l::dg) base ind
           >> return res_t
         | LengthOf _ ->
@@ -1877,7 +1877,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
         let%bind t2_sub' = merge_types ~gloc:(OI.MAlias e_id) ~loc ~path:ap ~bind_seed:(fv,subst) ~unfold_t2:is_fold ~t1:t1 ~t2:sub_t in
         let const_subst = List.filter (fun (_,c) -> Paths.is_const_ap c) subst in
         let force_v1_cons = List.length const_subst <> List.length subst in
-        let%bind post_t1 = merge_types ~gloc:(OI.MAlias e_id) ~loc ~path:(`AVar v1) ~e1_expl:const_subst ~unfold_t1:is_fold ~t1:sub_t ~t2:t1 in
+        let%bind post_t1 = merge_types ~gloc:(OI.MAlias e_id) ~loc ~path:(P.var v1) ~e1_expl:const_subst ~unfold_t1:is_fold ~t1:sub_t ~t2:t1 in
         return (t2_sub',post_t1,force_v1_cons)
       in
       let merge_tuple_elem path b tl j =
@@ -1896,7 +1896,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
         | AProj (v,j) -> begin
             match%bind mlkp v with
             | Tuple (b,tl) ->
-              let%bind t2_sub,t2_sub',_,subst,t1',force_v1_cons = merge_tuple_elem (`AVar v) b tl j in
+              let%bind t2_sub,t2_sub',_,subst,t1',force_v1_cons = merge_tuple_elem (P.var v) b tl j in
               return @@ ((Tuple (b,update_nth tl j t2_sub')),t2_sub,t2_sub',[],subst,t1',force_v1_cons)
             | _ -> assert false
           end
@@ -1910,7 +1910,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
         | APtrProj (v,j) -> begin
             match%bind mlkp v with
             | Ref (Tuple (b,tl),o,_) ->
-              let%bind (t2_sub,t2_sub',env,subst,t1',force_v1_cons) = merge_tuple_elem (`ADeref (`AVar v)) b tl j in
+              let%bind (t2_sub,t2_sub',env,subst,t1',force_v1_cons) = merge_tuple_elem (`ADeref (P.var v)) b tl j in
               let t2' = Ref (Tuple (b,update_nth tl j t2_sub'),o,NLive) in
               return @@ (t2',t2_sub,t2_sub',env,subst,t1',force_v1_cons)
             | _ -> assert false
@@ -1924,13 +1924,13 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       let (t2_constr,t2_constr') = if is_fold then (unfold_once t2_sub,unfold_once t2_sub') else (t2_sub,t2_sub') in
       let app_matrix = apply_matrix ~env_seed:env ~t1 ~t2_bind:subst ~t2:t2_constr in
       let rec up_ap ap t2_base' = match ap with
-        | `APre _ -> assert false
-        | `AVar v -> mupdate_type v t2_base'
+        | `AVar (v,false,false) -> mupdate_type v t2_base'
+        | `AVar (_,_,_) -> assert false
         | `ADeref ap
         | `AProj (ap,_) -> up_ap ap t2_base'
       in
       let%bind psub2 = app_matrix ~force_cons:is_fold ~out_root:ap ~out_bind:subst ~out_type:t2_constr' in
-      let%bind psub1 = app_matrix ~force_cons:force_v1_cons ~out_root:(`AVar v1) ~out_type:t1' in
+      let%bind psub1 = app_matrix ~force_cons:force_v1_cons ~out_root:(P.var v1) ~out_type:t1' in
       begin%m
           up_ap ap @@ sub_pdef psub2 t2';
            mupdate_type v1 @@ sub_pdef psub1 t1';
@@ -1950,7 +1950,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       ctxt |>
         update_type v @@ map_refinement (fun r -> And (r,Relation branch_refinement)) curr_ref
     in
-    let fv_seed = if SS.mem v remove_scope then [] else [`AVar v] in
+    let fv_seed = if SS.mem v remove_scope then [] else [P.var v] in
     process_conditional
       ~fv_seed
       ?output ~remove_scope
@@ -1962,7 +1962,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
     process_conditional
       ?output ~remove_scope
       ~tr_path:(fun ctxt ->
-        let (ctxt',t) = make_fresh_type ~os:(Ownership (OI.MGen e_id)) ~ground:true ~target_var:(`AVar v) ~loc:(LNull e_id) ~fv:[] (lkp v ctxt) ctxt in
+        let (ctxt',t) = make_fresh_type ~os:(Ownership (OI.MGen e_id)) ~ground:true ~target_var:(P.var v) ~loc:(LNull e_id) ~fv:[] (lkp v ctxt) ctxt in
         update_type v (make_null t) ctxt'
       )
       ~fl_path:(fun ctxt ->
@@ -1976,7 +1976,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
     let env' =
       List.fold_left (fun acc (k,v) ->
         let (_,v') = walk_with_bindings_own ~mu_map:id_mu_map ~o_map:(fun o _ ->
-            return (o > 0.0)) id_pred_map (`AVar k) empty_bindings v ctxt
+            return (o > 0.0)) id_pred_map (P.var k) empty_bindings v ctxt
         in
         StringMap.add k v' acc
       ) StringMap.empty ty_env in
@@ -1998,7 +1998,7 @@ and process_conditional ?output ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_
     let dg1 = denote_gamma ctxt1.gamma in
     let dg2 = denote_gamma ctxt2.gamma in
     let subsume_types ~target_var t1 t2 =
-      let%bind t' = merge_types ~gloc:(OI.MJoin e_id) ~bind_seed:(fv_seed,[]) ~loc ~path:(`AVar target_var) ~t1 ~t2 in
+      let%bind t' = merge_types ~gloc:(OI.MJoin e_id) ~bind_seed:(fv_seed,[]) ~loc ~path:(P.var target_var) ~t1 ~t2 in
 
       add_var_type_implication dg1 target_var t1 t'
       >> add_var_type_implication dg2 target_var t2 t'
@@ -2028,9 +2028,9 @@ and process_call e_id c ctxt =
       do_with_context acc @@
         let loc = LCall (c.label,k) in
         let constrain_in t ctxt =
-          add_type_implication input_env (`AVar k) t in_t ctxt          
+          add_type_implication input_env (P.var k) t in_t ctxt          
         in
-        let ap = `AVar k in
+        let ap = P.var k in
         let%bind (resid,formal) = split_type (OI.SCall e_id) (P.var k) arg_t in
         (* the (to be) summed type, shape equiv to resid_eq and out_t_eq *)
         let%bind fresh_type = merge_types ~gloc:(OI.MGen e_id) ~fv_filter:(fun p ->
@@ -2040,7 +2040,7 @@ and process_call e_id c ctxt =
 
         let rec get_pred ap kt =
           match ap with
-          | `AVar v -> assert (v = k); kt (arg_t,[])
+          | `AVar (v,false,false) -> assert (v = k); kt (arg_t,[])
           | `ADeref ap -> get_pred ap (function
                             | Ref (t,_,n),l -> kt (t,n::l)
                             | Mu _,_ -> None
@@ -2146,7 +2146,7 @@ let process_function_bind ctxt fdef =
   let arg_names = fdef.args in
   let to_reif_name p = Paths.to_z3_ident @@ P.pre @@ Paths.map_root (fun root -> "reif!" ^ root) p in
   let inst_fn_type = instantiate_fn_type  ~pre_map:(fun ap ->
-      `AVar (to_reif_name ap)
+      P.var (to_reif_name ap)
     ) arg_names in
   let f_typ = SM.find fdef.name ctxt.theta in
   let typ_template = List.combine arg_names f_typ.arg_types in
@@ -2158,9 +2158,9 @@ let process_function_bind ctxt fdef =
             (g,p)
           else
             let pre_path = to_reif_name path in
-            (SM.add pre_path (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (`AVar pre_path) }))
+            (SM.add pre_path (Int Top) g, And (p, Relation { rel_op1 = Nu; rel_cond = "="; rel_op2 = RAp (P.var pre_path) }))
             
-        ) (`AVar n) inst g
+        ) (P.var n) inst g
       in
       SM.add n inst' g'
     ) SM.empty typ_template
@@ -2193,9 +2193,9 @@ let infer ~save_types ~intrinsics (st,iso) o_hints (fns,main) =
     in
     let gen_arg_preds ~gloc ~post ~loc fv arg_templ = mmap (fun (k,t) ->
         let fv' = List.filter (function
-          | `AVar v when v = k -> false
+          | `AVar (v,false,false) when v = k -> false
           | _ -> true) fv in
-        let%bind t' = lift_simple_type ~gloc ~post ~loc:(loc k) (`AVar k) fv' t in
+        let%bind t' = lift_simple_type ~gloc ~post ~loc:(loc k) (P.var k) fv' t in
         return t'
       ) arg_templ
     in
@@ -2220,7 +2220,7 @@ let infer ~save_types ~intrinsics (st,iso) o_hints (fns,main) =
     in
     let%bind output_types = gen_arg_preds ~gloc:(MOut f_def.name) ~post:(fun p -> P.PathSet.mem p post_positions) ~loc:(fun k -> LOutput (f_def.name,k)) free_vars arg_templ in
     let%bind result_type =
-      lift_simple_type ~gloc:(MRet f_def.name) ~post:(Fun.const false) `ARet ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type
+      lift_simple_type ~gloc:(MRet f_def.name) ~post:(Fun.const false) P.ret ~loc:(LReturn f_def.name) free_vars simple_ftype.SimpleTypes.ret_type
     in
     map_state (fun ctxt -> 
       { ctxt with

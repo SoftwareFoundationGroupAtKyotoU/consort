@@ -1,9 +1,13 @@
+type root = [
+  (* name, pre, null? *)
+  | `AVar of string * bool * bool
+  | `ARet of bool
+] [@@deriving sexp]
+
 type 'a _const_ap = [
-  `ALen of 'a
-| `APre of string
-| `ARet (* the return type *)
-| `AProj of 'a * int
-| `AVar of string
+  | root
+  |  `ALen of 'a
+  | `AProj of 'a * int
 ] [@@deriving sexp]
 type const_ap = const_ap _const_ap [@@deriving sexp]
 
@@ -24,21 +28,22 @@ val to_z3_ident :
   string
 val has_prefix : ([< 'a t_templ] as 'a) -> 'a -> bool
 val pre :
-  ([< 'a t_templ > `ADeref `APre `AProj `ALen ] as 'a) ->
+  ([< 'a t_templ > `ADeref `AProj `ALen `AVar ] as 'a) ->
   'a
     
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
 val elem : 'a -> [> `AElem of 'a]
 val deref : 'a -> [> `ADeref of 'a ]
-val var: string -> [> `AVar of string ]
-val arg : int -> [> `AVar of string ]
+val var: string -> [> `AVar of string * bool * bool ]
+val arg : int -> [> `AVar of string * bool * bool ]
 val arg_name : int -> string
 val len : 'a -> [> `ALen of 'a]
 val ind : 'a -> [> `AInd of 'a]
+val ret : [> `ARet of bool ]
 
-val is_pre : ([< 'a t_templ > `APre `ADeref `AProj] as 'a) -> bool
+val is_pre : ([< 'a t_templ >  `ADeref `AProj `AVar] as 'a) -> bool
 val is_const_ap :
-  ([< 'a t_templ > `APre `AProj `ADeref ] as 'a) ->
+  ([< 'a t_templ > `AProj `ADeref `AVar ] as 'a) ->
   bool
 val has_root :
   string ->
@@ -50,7 +55,7 @@ val has_root_p :
   bool
 
 val map_root :
-  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `APre `AProj `AVar `ARet `AInd] as 'b) -> 'b
+  (string -> string) -> ([< 'b t_templ > `ADeref `AElem `ALen `AProj `AVar `ARet `AInd] as 'b) -> 'b
 
 val is_array_path:
   ([< 'a t_templ > `ADeref `AElem `AInd `ALen `AProj ] as 'a) -> bool

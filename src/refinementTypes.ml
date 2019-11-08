@@ -2,6 +2,7 @@ open Sexplib.Std
 open Greek
 open Std
 open Std.StateMonad
+module P = Paths
 
 type 'r rel_imm =
   | RAp of 'r
@@ -357,7 +358,7 @@ let unfold ~gen arg ind_ref id t_in =
 let subst_of_binding root = List.map (fun (i,p) ->
     match p with
     | SProj ind -> (i,`AProj (root,ind))
-    | SVar v -> (i, `AVar v)
+    | SVar v -> (i, P.var v)
   )
 
 let update_binding_gen tup_b (fv_ap,sym_vals) : ('a * (int * Paths.concr_ap) list) =
@@ -476,7 +477,7 @@ let compile_refinement target subst_assoc =
 let compile_bindings blist root =
   List.map (fun (k,t) ->
     match t with
-    | SVar v -> (k,`AVar v)
+    | SVar v -> (k,P.var v)
     | SProj i -> (k,`AProj (root,i))
   ) blist
 
@@ -505,47 +506,7 @@ let compile_type_gen =
 let compile_type_path t1 ap = compile_type_gen t1 ap []
 
 let compile_type t1 root =
-  compile_type_path t1 @@ `AVar root
-
-(* TODO: get rid of this? do we even use it? *)
-let map_ap_with_bindings (ap : [< Paths.concr_ap]) fvs f gen =
-  let rec inner_loop ap' c =
-    match ap' with
-    | `ALen _
-    | `AInd _
-    | `ARet 
-    | `APre _ -> failwith "V illegal"
-    | `AElem ap ->
-      inner_loop ap (fun b t' ->
-          match t' with
-          | Array (ba,l,o,t) ->
-            let (a',mapped) = c (update_binding_gen (bind_of_arr ba ap) b) t in
-            (a',Array (ba,l,o,mapped))
-          | _ -> failwith "Invalid type for Elem"
-        )
-    | `AVar v -> c (fvs,[]) (gen v)
-    | `ADeref ap ->
-      inner_loop ap (fun b t' ->
-          match t' with
-          | Ref (t'',o,n) ->
-            let (a',mapped) = c b t'' in
-            (a',Ref (mapped,o,n))
-          | _ -> failwith "Invalid type for AP"
-        )
-    | `AProj (ap,i) ->
-      inner_loop ap (fun b t' ->
-          match t' with
-          | Tuple (bind,tl) ->
-            let t_sub = List.nth tl i in
-            let (a',mapped) = c (update_binding ap bind b) t_sub in
-            (a',Tuple (bind, update_nth tl i mapped))
-          | _ -> failwith "Invalid type for proj AP"
-        )
-  in
-  inner_loop ap f
-
-let map_ap ap f gen =
-  map_ap_with_bindings ap [] (fun _ t -> (f t,t)) gen |> fst
+  compile_type_path t1 @@ P.var root
 
 let refine_ap_to_string = function
   | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
