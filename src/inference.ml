@@ -1809,7 +1809,7 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
               | RNone -> return (Int Top,proj_ind)
               | RInt n -> return (Int (ConstEq n), proj_ind)
               | RVar v ->
-                let%bind t2 = lkp_split ~loc:(OI.STuple (e_id,i)) v in
+                let%bind t2 = lkp_split ~loc:(OI.SBind e_id) v in
                 return (t2, match t2 with Int _ -> proj_ind | _ -> None)
             ) tl
           in

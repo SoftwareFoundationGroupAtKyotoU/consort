@@ -538,13 +538,13 @@ let rec process_expr ?output ((e_id,_),expr) =
       | Mkref (RNone | RInt _) ->
         return @@ Ref (Int, OConst 1.0)
       | Tuple t_init ->
-        let%bind tl = mmapi (fun i k ->
+        let%bind tl = mmap (fun k ->
             match k with
             | RNone
             | RInt _ -> return Int
             | RVar v ->
               let%bind t = lkp v in
-              let%bind (t1,t2) = split_type (STuple (e_id,i)) (`AVar v) t in
+              let%bind (t1,t2) = split_type (SBind e_id) (`AVar v) t in
               update_type v t1 >> return t2
           ) t_init in
         return @@ Tuple tl

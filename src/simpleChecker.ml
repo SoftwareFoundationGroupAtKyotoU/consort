@@ -57,6 +57,7 @@ module TyConsUF = UnionFind.Make(TyCons)
 module TyConsResolv = Hashtbl.Make(TyCons)
 
 module SM = StringMap
+module StringSet = Std.StringSet
 
 type funenv = funtyp_v SM.t
 let _sexp_of_tyenv = SM.sexp_of_t ~v:sexp_of_typ
@@ -406,6 +407,17 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
         acc',tv
       | Null -> same @@ fresh_cons @@ fresh_var ()
       | Tuple tl ->
+        let _ = List.fold_left (fun acc r ->
+            match r with
+            | RInt _
+            | RNone -> acc
+            | RVar v ->
+              if StringSet.mem v acc then
+                failwith "Duplicate variables in tuple constructor"
+              else
+                StringSet.add v acc
+          ) StringSet.empty tl
+        in
         same @@ `Tuple (List.map (function
           | RInt _
           | RNone -> `Int
