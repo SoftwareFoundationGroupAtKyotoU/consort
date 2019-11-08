@@ -221,6 +221,14 @@ module StateMonad = struct
 
 end
 
+module ListMonad = struct
+  let return a = [a]
+
+  let bind f l = List.fold_left (fun a e ->
+      (f e)@a
+    ) [] l
+end
+
 module DefaultOrd(O: sig type t end) = struct
   type t = O.t
   let compare : t -> t -> int = Stdlib.compare

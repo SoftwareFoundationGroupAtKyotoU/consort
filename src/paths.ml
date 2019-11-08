@@ -47,6 +47,7 @@ let len p = `ALen p
 let var v = `AVar v
 let arg_name = Printf.sprintf "$%d"
 let arg i = var @@ arg_name i
+let ind i = `AInd i
       
 let rec is_pre : ([< 'b t_templ] as 'b) -> bool = function
   | `APre _ -> true

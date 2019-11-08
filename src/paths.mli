@@ -34,6 +34,7 @@ val var: string -> [> `AVar of string ]
 val arg : int -> [> `AVar of string ]
 val arg_name : int -> string
 val len : 'a -> [> `ALen of 'a]
+val ind : 'a -> [> `AInd of 'a]
 
 val is_pre : ([< 'a t_templ > `APre `ADeref `AProj] as 'a) -> bool
 val is_const_ap :

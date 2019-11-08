@@ -38,14 +38,9 @@ type ctxt = {
   fenv: (relation * relation * SimpleTypes.funtyp) SM.t;
   curr_fun : string option;
   let_types: SimpleTypes.r_typ Std.IntMap.t;
-  bif_types : RefinementTypes.funtype SM.t
+  bif_types : RefinementTypes.funtype SM.t;
+  havoc_set : P.PathSet.t;
 }
-
-let mk_flow ~havoc in_ap out_ap =
-    if havoc then
-      Havoc out_ap
-    else
-      Copy (in_ap,out_ap)
 
 let%lq split_mem sloc in_ap ctxt =
   OI.SplitMap.find (sloc,in_ap) ctxt.o_hints.OI.splits
@@ -61,6 +56,13 @@ let%lq get_in_relation f_name ctxt =
 let%lq get_out_relation f_name ctxt =
   let (_,o_rel,_) = StringMap.find f_name ctxt.fenv in
   o_rel
+
+let%lq copy_state ctxt = ctxt
+
+let%lm set_havoc_state havoc_state ctxt = { ctxt with havoc_set = havoc_state }
+
+let%lq get_havoc_state ctxt = ctxt.havoc_set
+
 
 let%lm add_assert assert_cond curr_relation  ctxt =
   let lift_to_imm = function
@@ -82,6 +84,47 @@ let mk_relation lhs op rhs = RT.({
   })
 
 let rel k = Relation k
+
+let rec havoc_oracle ctxt ml = function
+  | `ADeref ap ->
+    let o = OI.GenMap.find (ml,ap) ctxt.o_hints.OI.gen in
+    o = 0.0
+  | `ARet
+  | `AVar _
+  | `APre _ -> false
+
+  | `ALen ap
+  | `AInd ap
+  | `AElem ap
+  | `AProj (ap,_) -> havoc_oracle ctxt ml ap
+
+let%lq split_oracle sl ctxt =
+  let from_path p =
+    let (f1,f2) = OI.SplitMap.find (sl,p) ctxt.o_hints.OI.splits in
+    (f1 = 0.0, f2 = 0.0)
+  in
+  let rec loop = function
+    | `ARet, _
+    | `APre _,_
+    | _,`AVar _
+    | _,`APre _
+    | _,`ARet
+    | `AVar _,_ -> (false,false)
+    | ((`AElem _) as p),`AElem _
+    | (`ADeref p),(`ADeref _) -> from_path p
+    | (`AInd p),(`AInd _) -> from_path @@ `AElem p
+    | (`ALen p1),(`ALen p2)
+    | `AProj (p1,_),`AProj (p2,_) -> loop (p1,p2)
+    | a,b -> failwith @@ Printf.sprintf "Incompatible paths %s => %s"
+          (P.to_z3_ident a) (P.to_z3_ident b)
+  in
+  fun src dst -> loop (src,dst)
+
+let%lq gen_for_alias e_id ctxt =
+  havoc_oracle ctxt (OI.MAlias e_id)
+
+let%lq gen_oracle ml ctxt =
+  havoc_oracle ctxt ml
 
 let rec lift_refinement ?(map=Fun.id) ?nu_arg =
   let lift_symbolic_ap = function
@@ -130,6 +173,10 @@ let to_havoc d = Printf.sprintf "havoc!%d!%s" d
 
 let havoc_ap d = P.map_root (to_havoc d)
 
+(* we effect a copy from a to b by replacing b with a *)
+let copy_to_flow (src,dst) =
+  (dst, RT.RAp src)
+
 let%lm add_implication ante conseq ctxt =
   {ctxt with impl = (ante,conseq)::ctxt.impl }
 
@@ -154,157 +201,205 @@ let type_to_paths ?(pre=false) root ty =
       fold_lefti (fun i acc t ->
           loop under_ref acc (P.t_ind p i) t
         ) acc tl
-    | _ -> assert false
+    | `Array `Int ->
+      (`ALen p)::(`AInd p)::(`AElem p)::acc
+    | `Mu _ | `TVar _ -> assert false
   in
   loop false [] root ty
 
-let default_hook _ _ acc = acc
-    
-let do_flow ?(hook=default_hook) ~sloc in_ap out_ap ty =
-  let rec loop (in_ap,ih) (out_ap,oh) ty acc =
-      match ty with
-      | `Int ->
-        return @@ (mk_flow ~havoc:ih in_ap in_ap)::(mk_flow ~havoc:oh in_ap out_ap)::(hook (in_ap,ih) (out_ap,oh) acc)
-      | `Tuple tl ->
-        let susp_i = List.mapi (fun i s_ty ->
-            loop ((P.t_ind in_ap i),ih)
-              ((P.t_ind out_ap i),oh) s_ty) tl in
-        mfold_left (fun acc e ->
-          e acc
-        ) acc susp_i
-      | `Ref r ->
-        let%bind (o1,o2) = split_mem sloc in_ap in
-        loop (P.deref in_ap, o1 = 0.0) (P.deref out_ap, o2 = 0.0) r acc
-      | `Array _
-      | `TVar _
-      | `Mu _ -> assert false
+let compute_copies in_ap out_ap ty =
+  let rec loop in_ap out_ap ty acc =
+    match ty with
+    | `Int -> (in_ap, out_ap)::acc
+    | `Ref t -> loop (P.deref in_ap) (P.deref out_ap) t acc
+    | `Tuple tl ->
+        fold_lefti (fun i acc t ->
+          loop (P.t_ind in_ap i) (P.t_ind out_ap i) t acc
+        ) acc tl
+    | `Array `Int ->
+      (P.ind in_ap,P.ind out_ap)::(P.len in_ap, P.len out_ap)::(P.elem in_ap,P.elem out_ap)::acc
+    | _ -> assert false
   in
-  loop (in_ap, false) (out_ap, false) ty []
-  
-let apply_flow ~tyenv ~sloc in_path out_path in_rel out_relation =
-  let ty = path_simple_type tyenv in_path in
-  let%bind acc = do_flow ~sloc in_path out_path ty in
-  add_relation_flow acc in_rel out_relation
+  loop in_ap out_ap ty []
+
+
+let compute_patt_copies path patt ty =
+  let rec loop patt path ty acc =
+    match patt,ty with
+    | PNone,_ -> acc
+    | PVar v,`Int ->
+      (path,P.var v)::acc
+    | PVar v,ty ->
+      (compute_copies path (P.var v) ty) @ acc
+    | PTuple t,`Tuple tl ->
+      fold_left2i (fun i acc p t ->
+          loop p (P.t_ind path i) t acc
+        ) acc t tl
+    | PTuple _,_ -> assert false
+  in
+  loop patt path ty []
+
+let compute_flows ~sl copies =
+  let%bind split_oracle = split_oracle sl in
+  ListMonad.bind (fun (src,dst) ->
+    let (f1,f2) = split_oracle src dst in
+    let src_flow =
+      if f1 then
+        Havoc src
+      else Copy(src,src)
+    in
+    let dst_flow =
+      if f2 then
+        Havoc dst
+      else
+        Copy(src,dst)
+    in
+    [src_flow;dst_flow]
+  ) copies
+  |> List.fold_left (fun (havoc,stable,flows) flow ->
+      match flow with
+      | Havoc s ->
+        let () = assert (not (P.PathSet.mem s stable)) in (P.PathSet.add s havoc,stable,flow::flows)
+      | Copy (s,d) ->
+        if s <> d then
+          let () = assert (not (P.PathSet.mem d havoc)) in (havoc,P.PathSet.add d stable,flow::flows)
+        else
+          (havoc,stable,flow::flows)
+      | Const _ -> assert false
+    ) (P.PathSet.empty,P.PathSet.empty,[])
+  |> return
+
+let%lm apply_copies ~havoc:havoc_flag ~sl ?(flows=[]) copies in_rel out_rel ctxt =
+  let ctxt,(havoc,stable,copy_flows) = compute_flows ~sl copies ctxt in
+  let havoc_set = ctxt.havoc_set in
+  let havoc_set = P.PathSet.union havoc @@ P.PathSet.diff havoc_set stable in
+  let flows = flows @ copy_flows @ begin
+      if havoc_flag then
+        P.PathSet.elements havoc_set |> List.map (fun p -> Havoc p)
+      else
+        []
+    end
+  in
+  let ctxt,() = add_relation_flow flows in_rel out_rel ctxt in
+  { ctxt with havoc_set }
 
 let apply_identity_flow ?pre = add_relation_flow ?pre []
 
-let const_assign lhs const =
-  add_relation_flow [ Const (lhs,const) ]
+let const_assign lhs const in_rel out_rel =
+  let%bind havoc_state = get_havoc_state in
+  let flows = P.PathSet.elements havoc_state |>
+      List.fold_left (fun acc p ->
+        Havoc p::acc
+      ) [ Const (lhs,const) ]
+  in
+  add_relation_flow flows in_rel out_rel
 
 let vderef v = P.deref @@ P.var v
 
-let apply_patt_type ~e_id patt path ty in_rel out_rel =
-  let rec loop patt path ty acc =
-    match patt,ty with
-    | PNone,_ -> return acc
-    | PVar v,`Int ->
-      return @@ (mk_flow ~havoc:false path (P.var v))::(mk_flow ~havoc:false path path)::acc
-    | PVar v,ty ->
-      let%bind sub_flow = do_flow ~sloc:(SBind e_id) path (P.var v) ty in
-      return @@ acc @ sub_flow
-    | PTuple t,`Tuple tl ->
-      let ind_types = List.mapi (fun i t -> (i,t)) tl in
-      mfold_left2 (fun acc p (i,t) ->
-        loop p (P.t_ind path i) t acc
-      ) acc t ind_types
-    | PTuple _,_ -> assert false
+let rec is_pre_path = function
+  | `ADeref _ -> true
+  | `AInd _
+  | `AElem _
+  | `AVar _
+  | `APre _ -> false
+  | `ALen p
+  | `AProj (p,_) -> is_pre_path p
+  | `ARet -> assert false (* impossible? *)
+
+let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty =
+  let direct_copies = compute_copies actual formal ty in
+  let%bind split_oracle = split_oracle (SCall e_id) in
+  let id_paths = List.fold_left (fun acc (src,dst) ->
+      let (havoc,_) = split_oracle src dst in
+      if havoc then
+        acc
+      else
+        P.PathSet.add src acc
+    ) P.PathSet.empty direct_copies in
+  let in_copies = ListMonad.bind (fun (src,dst) ->
+      if is_pre_path dst then
+        [ Copy (src,P.pre dst); Copy (src,dst) ]
+      else
+        [ Copy (src,dst) ]
+    ) direct_copies
   in
-  let%bind flows = loop patt path ty [] in
-  add_relation_flow flows in_rel out_rel
+  
+  let%bind havoc_out_oracle = gen_oracle (OI.MOut fn) in
 
-(* This will fail miserably in the presence of bifs ... *)
+  (* dst is the access path for the argument *)
+  let (havoc,stable,out_bind,pre_bind) = List.fold_left (fun (havoc,stable,out_bind,pre_bind) (src,(dst : P.concr_ap)) ->
+      let is_pre = is_pre_path src in
+      let is_id = P.PathSet.mem src id_paths in
+      let havoc_out = havoc_out_oracle dst && (not is_id) in
+      let (havoc,stable) =
+        if havoc_out then
+          (P.PathSet.add src havoc),stable
+        else
+          havoc,(P.PathSet.add src stable)
+      in
 
-type _ pre_flag =
-  | Pre : ((P.concr_ap * concr_arg) list * (P.concr_ap * concr_arg) list) pre_flag
-  | NoPre : (P.concr_ap * concr_arg) list pre_flag
+      let out_copy = (dst,RT.RAp src) in
+      let pre_copy = (src,RT.RAp src) in
 
-let subst_for_type : type a.P.concr_ap -> P.concr_ap -> SimpleTypes.r_typ -> a pre_flag -> a -> a =
-  fun actual formal ty ->
-    let rec loop under_ref actual_ap formal_ap ty =
-      match ty with
-      | `Int ->
-        let bind = (formal_ap,RT.RAp actual_ap) in
-        let (ret : a pre_flag -> a -> a) = function
-          | Pre -> (fun (out_bind,pre_bind) ->
-              let out_bind = bind::out_bind in
-              if under_ref then
-                let pre_ap = P.pre actual_ap in
-                let pre_bind = (actual_ap,RT.RAp pre_ap)::pre_bind in
-                let out_bind = (P.pre formal_ap,RT.RAp pre_ap)::out_bind in
-                (out_bind,pre_bind)
-              else
-                (out_bind,pre_bind)
-            )
-          | NoPre -> (fun out_bind ->
-              bind::out_bind
-            )
-        in
-        ret
-      | `Tuple tl ->
-        fold_lefti (fun i cont t ->
-            (fun p acc ->
-              let d = cont p acc in
-              loop under_ref (P.t_ind actual_ap i) (P.t_ind formal_ap i) t p d
-            )
-          ) (fun _ acc -> acc) tl
-      | `Ref t -> loop true (P.deref actual_ap) (P.deref formal_ap) t
-      | _ -> assert false
-    in
-    loop false actual formal ty
-
-let bind_arg ~e_id (in_bind,out_bind,pre_bind) actual formal ty =
-  let (out_bind,pre_bind) = subst_for_type actual formal ty Pre (out_bind,pre_bind) in
-  let rec under_ref = function
-    | `ADeref _ -> true
-    | `AVar _
-    | `APre _
-    | `ARet -> false
-    | `AProj (ap,_) -> under_ref ap
-    | _ -> assert false
+      (* now compute the out flows, let's do the easy case first *)
+      if (not is_pre) && is_id then
+        (* Then this is an argument that may not change during execution and for which we do not track
+           pre-states then no pre-substitutions are necessary *)
+        (havoc,stable,out_copy::out_bind,pre_bind)
+      else if (not is_pre) then
+        (* this argument may change during execution, and we do not track pre-states. Then create a fresh
+           name for the input value (using pre) *)
+        (havoc,stable,out_copy::out_bind,pre_copy::pre_bind)
+      else if is_pre && is_id then
+        (* we track pre states but the argument won't change during execution.
+           So constrain the pre-value to be equal to the output argument (do not rename pre) *)
+        (havoc,stable,(P.pre dst,RT.RAp src)::out_copy::out_bind,pre_bind)
+      else
+        (* finally, we track pre states, and the value may change. rename the name in the prestate
+           to be pre, and rename the pre path in the output *)
+        (havoc,stable,(P.pre dst,RT.RAp (P.pre src))::out_copy::out_bind,pre_copy::pre_bind)
+    ) (havoc,stable,out_bind,pre_bind) direct_copies
   in
-  let propagate_pre (in_ap,_) (out_ap,_) acc =
-    if under_ref in_ap then
-      Copy (in_ap,P.pre out_ap)::acc
-    else
-      acc
-  in
-  let%bind in_bind' = do_flow ~hook:propagate_pre ~sloc:(SCall e_id) actual formal ty in
-  return (in_bind' @ in_bind,out_bind,pre_bind)
+  return (havoc,stable,in_copies @ in_bind,out_bind, pre_bind)
 
-let return_bind out_patt ret_type =
-  let rec loop acc out_patt ret_path ty =
-    match out_patt,ty with
-    | PVar v,_ -> subst_for_type ret_path (P.var v) ty NoPre acc
-    | PTuple pl,`Tuple tl ->
-      fold_left2i (fun i acc p t ->
-          loop acc p (P.t_ind ret_path i) t
-        ) acc pl tl
-    | PTuple _,_ -> assert false
-    | PNone,_ -> acc
-  in
-  loop [] out_patt `ARet ret_type
-
-let%lq copy_state ctxt = ctxt
-
-(* switch on whether we find the bif in a special summary table ... ? *)
+let bind_return ~fn out_patt ret_type =
+  let copies = compute_patt_copies `ARet out_patt ret_type in
+  let%bind havoc_oracle = gen_oracle @@ MRet fn in
+  let havoc_ret = List.fold_left (fun acc (src,dst) ->
+      if havoc_oracle src then
+        P.PathSet.add dst acc
+      else
+        acc
+    ) P.PathSet.empty copies in
+  return (List.map (fun (s,d) -> (s,RT.RAp d)) copies,havoc_ret)
+  
 let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let callee = call_expr.callee in
   let%bind callee_type = get_function_type callee in
   let%bind in_rel = get_in_relation callee in
   let%bind out_rel = get_out_relation callee in
   let args = call_expr.arg_names in
-  let%bind (in_bindings,out_bindings,pre_bindings) = fold_left2i (fun i acc arg_name arg_ty ->
+  let%bind (havoc,stable,in_bindings,out_bindings,pre_bindings) = fold_left2i (fun i acc arg_name arg_ty ->
       let%bind acc = acc in
-      bind_arg ~e_id acc (P.var arg_name) (P.arg i) arg_ty
-    ) (return ([],[],[])) args callee_type.arg_types in
-  let return_bindings = return_bind out_patt callee_type.ret_type in
+      bind_arg ~fn:callee ~e_id acc (P.var arg_name) (P.arg i) arg_ty
+    ) (return (P.PathSet.empty,P.PathSet.empty,[],[],[])) args callee_type.arg_types
+  in
+  let%bind (return_bindings,havoc_bind) = bind_return ~fn:callee out_patt callee_type.ret_type in
+  let%bind havoc_state = get_havoc_state in
+  let havoc_state = P.PathSet.union havoc_bind @@ P.PathSet.union (P.PathSet.diff havoc_state stable) havoc in
 
+  let havoc_subst =
+    P.PathSet.elements havoc_state |> List.mapi (fun i p ->
+        (p,RT.RAp (havoc_ap i p))
+      )
+  in
   begin%m
       add_relation_flow ~out_ctxt:call_expr.label in_bindings curr_rel in_rel;
        add_implication [
          PRelation (curr_rel,pre_bindings,None);
-         PRelation (out_rel,out_bindings,Some call_expr.label)
-       ] @@ PRelation (body_rel,return_bindings,None)
+         PRelation (out_rel,return_bindings @ out_bindings,Some call_expr.label)
+       ] @@ PRelation (body_rel,havoc_subst,None);
+       set_havoc_state havoc_state
   end
 
 let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
@@ -350,37 +445,32 @@ let apply_patt ~e_id tyenv patt rhs =
   | PNone,_ -> apply_identity_flow ?pre:None
   | _,Var s ->
     let path = P.var s in
-    apply_patt_type ~e_id patt path @@ path_simple_type tyenv path
+    apply_copies ~havoc:false ~sl:(OI.SBind e_id) @@ compute_patt_copies path patt @@ path_simple_type tyenv path
   | PVar s,Const n -> add_relation_flow [ Const (P.var s,n) ]
-
   | PVar s,Mkref RNone ->
     add_relation_flow [ Havoc (vderef s) ]
   | PVar s,Mkref (RInt n)  ->
     add_relation_flow [ Const (vderef s,n) ]
   | PVar s,Mkref (RVar v) ->
-    apply_flow ~tyenv ~sloc:(OI.SBind e_id) (P.var v) (vderef s)
+    apply_copies ~havoc:false ~sl:(OI.SBind e_id) @@ compute_copies (P.var v) (vderef s) @@ path_simple_type tyenv (P.var v)
 
   | _,Deref v ->
-    apply_patt_type ~e_id patt (vderef v) @@ path_simple_type tyenv (vderef v)
-        
+    let copies = compute_patt_copies (vderef v) patt @@ path_simple_type tyenv (vderef v) in
+    apply_copies ~havoc:false ~sl:(OI.SBind e_id) copies
+
   | PVar t,Tuple tl ->
     let tup_root = P.var t in
-    let susp = List.mapi (fun i r acc ->
+    let flows,copies = fold_lefti (fun i (flows,copies) r ->
         let tgt_ap = P.t_ind tup_root i in
         match r with
-        | RNone -> return @@ (Havoc tgt_ap)::acc
-        | RInt n -> return @@ (Const (tgt_ap,n))::acc
+        | RNone -> (Havoc tgt_ap)::flows,copies
+        | RInt n -> Const (tgt_ap,n)::flows,copies
         | RVar v ->
-          let in_typ = path_simple_type tyenv @@ P.var v in
-          let%bind acc' = do_flow ~sloc:(STuple (e_id,i)) (P.var v) tgt_ap in_typ in
-          return @@ acc' @ acc
-      ) tl
+          let src_type = path_simple_type tyenv @@ P.var v in
+          flows,(compute_copies (P.var v) tgt_ap src_type) @ copies
+      ) ([],[]) tl
     in
-    (fun i o ->
-      let%bind flows = mfold_left (fun acc e ->
-          e acc
-        ) [] susp in
-      add_relation_flow flows i o)
+    apply_copies ~havoc:false ~sl:(OI.SBind e_id) ~flows copies
 
   | PTuple _,Tuple _ -> assert false
   | PTuple _,_ -> assert false
@@ -436,26 +526,22 @@ let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
     | PNone,_ -> (tyenv,args)
   in
   let (tyenv',args) = destruct_loop (tyenv,[]) patt bound_type in
+  let bound_paths = List.map (fun (p,_) -> p) args |> P.PathSet.of_list in
   let new_args = curr_args @ (List.rev args) in
   let name = relation_name k ctxt in
   let relation = (name, new_args) in
-  { ctxt with relations = relation::ctxt.relations },(relation,tyenv')
-
-let%lq gen_for_alias e_id ctxt =
-  let gen_map = ctxt.o_hints.OI.gen in
-  (fun p ->
-    let rec loop = function
-      | `APre _
-      | `AVar _ -> false
-      | `AProj (ap,_) -> loop ap
-      | `ADeref p ->
-        let key = (OI.MAlias e_id, p) in
-        (OI.GenMap.find key gen_map) = 0.0
-      | _ -> assert false
-    in
-    loop p)
+  { ctxt with relations = relation::ctxt.relations },(relation,tyenv',bound_paths)
 
 let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
+  let scoped_havoc f ctxt =
+    let havoc_set = ctxt.havoc_set in
+    let ctxt,r = f ctxt in
+    { ctxt with havoc_set },r
+  in
+  let post_bind paths f ctxt =
+    let ctxt,r = f ctxt in
+    { ctxt with havoc_set = P.PathSet.diff ctxt.havoc_set paths },r
+  in
   match e with
   | EVar v ->
     begin
@@ -470,7 +556,8 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
 
       (* tail position *)
       | (Some out_relation),Some ret_var ->
-        apply_flow ~tyenv ~sloc:(SRet e_id) (P.var v) ret_var relation out_relation
+        let copies = compute_copies (P.var v) ret_var @@ path_simple_type tyenv (P.var v) in
+        apply_copies ~havoc:false ~sl:(SRet e_id) copies relation out_relation
       | None, Some _ -> assert false
     end
     
@@ -485,7 +572,9 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
       
   | Assign (lhs,IVar rhs,k) ->
     let%bind k_rel = fresh_relation_for relation k in
-    apply_flow ~tyenv ~sloc:(SBind e_id) (P.var rhs) (P.deref @@ P.var lhs) relation k_rel >> process_expr (k_rel,tyenv) continuation k
+    let copies = compute_copies (P.var rhs) (vderef lhs) @@ List.assoc rhs tyenv in
+    apply_copies ~havoc:true ~sl:(SBind e_id) copies relation k_rel >>
+    process_expr (k_rel,tyenv) continuation k
       
   | Update _ -> assert false
   | Cond (v,e1,e2) ->
@@ -498,15 +587,16 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     in
     begin%m
         apply_identity_flow ~pre:[ mk_pre "=" ] relation e1_rel;
-         process_expr (e1_rel,tyenv) continuation e1;
+         scoped_havoc @@ process_expr (e1_rel,tyenv) continuation e1;
          apply_identity_flow ~pre:[ mk_pre "!=" ] relation e2_rel;
          process_expr (e2_rel,tyenv) continuation e2
     end
   | NCond _ -> assert false
     
   | Let (patt,rhs,k) ->
-    let%bind k_rel,tyenv' = fresh_bind_relation e_id st patt k in
-    apply_patt ~e_id tyenv patt rhs relation k_rel >> process_expr (k_rel,tyenv') continuation k
+    let%bind k_rel,tyenv',bound_set = fresh_bind_relation e_id st patt k in
+    apply_patt ~e_id tyenv patt rhs relation k_rel >>
+    post_bind bound_set @@ process_expr (k_rel,tyenv') continuation k
       
   | EAnnot _ -> assert false
     
@@ -525,7 +615,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
       | APtrProj (v,i) -> P.t_ind (P.deref @@ P.var v) i
     in
     let lhs_type = List.assoc lhs tyenv in
-    let rhs_subst = subst_for_type (P.var lhs) rhs_ap lhs_type NoPre [] in
+    let rhs_subst = compute_copies (P.var lhs) rhs_ap lhs_type in
     let%bind havoc_oracle = gen_for_alias e_id in
     let lhs_output = type_to_paths (P.var lhs) lhs_type |>
         List.mapi (fun i p ->
@@ -536,12 +626,12 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         ) |> List.filter_map Fun.id
     in
     let out_subst = fold_lefti (fun i acc (src,out) ->
-        if (havoc_oracle src) then
-          (src,RT.RAp (havoc_ap i src))::acc
+        if (havoc_oracle out) then
+          (out,RT.RAp (havoc_ap i src))::acc
         else
-          (src,out)::acc
+          (copy_to_flow (src,out))::acc
       ) lhs_output rhs_subst in
-    add_implication [ PRelation (relation,rhs_subst,None) ] @@ PRelation (k_rel,out_subst,None) >>
+    add_implication [ PRelation (relation,(List.map copy_to_flow rhs_subst),None) ] @@ PRelation (k_rel,out_subst,None) >>
     process_expr (k_rel,tyenv) continuation k
 
 let analyze_function fn ctxt =
@@ -560,10 +650,20 @@ let analyze_function fn ctxt =
       (p',ty)
     )
   in
+                        
+  let havoc_set = fold_left2i (fun i acc nm ty ->
+      List.fold_left (fun acc path ->
+        let arg_id = P.map_root (fun _ -> P.arg_name i) path in
+        if havoc_oracle ctxt (OI.MArg fn.name) arg_id then 
+          P.PathSet.add path acc
+        else
+          acc
+      ) acc @@ type_to_paths (P.var nm) ty
+    ) P.PathSet.empty fn.args fn_type.arg_types in
   let mapped_in_args = map_args in_args in
   let mapped_out_args = map_args out_args in
   let cont = (Some (out_nm, mapped_out_args)),Some `ARet in
-  let ctxt,() = process_expr ((in_nm,mapped_in_args),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name } in
+  let ctxt,() = process_expr ((in_nm,mapped_in_args),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set } in
   ctxt
 
 let analyze_main start_rel main ctxt =
@@ -595,7 +695,8 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
     let_types = side_results.SimpleChecker.SideAnalysis.let_types;
     bif_types;
     fenv;
-    impl = []
+    impl = [];
+    havoc_set = P.PathSet.empty
   } in
   let ctxt = List.fold_left (fun ctxt fn ->
       analyze_function fn ctxt
