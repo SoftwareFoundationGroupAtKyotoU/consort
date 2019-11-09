@@ -41,11 +41,31 @@ let rec pre = function
   | `ADeref f -> `ADeref (pre f)
   | `AProj (d,i) -> `AProj (pre d,i)
   | `ALen p -> `ALen (pre p)
-  | `AVar (v,f,_)-> `AVar (v,f,true)
+  | `AVar (v,_,n)-> `AVar (v,true,n)
 
   | `ARet _
   | `AInd _
   | `AElem _ -> failwith "Not supported"
+
+let rec set_nullity f = function
+  | `AVar (v,p,_) -> `AVar (v,p,f)
+  | `ARet _ -> `ARet f
+  | `AProj (p,i) -> `AProj (set_nullity f p,i)
+  | `ADeref p -> `ADeref (set_nullity f p)
+  | `AElem p -> `AElem (set_nullity f p)
+  | `AInd p -> `AInd (set_nullity f p)
+  | `ALen p -> `ALen (set_nullity f p)
+
+let to_null = set_nullity true  
+let to_program_path = set_nullity false
+let rec is_nullity = function
+  | `ARet f
+  | `AVar (_,_,f) -> f
+  | `AProj (p,_)
+  | `ADeref p
+  | `AElem p
+  | `AInd p
+  | `ALen p -> is_nullity p
 
 let t_ind a i = `AProj (a,i)
 let elem p = `AElem p

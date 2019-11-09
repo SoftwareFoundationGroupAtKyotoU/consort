@@ -30,6 +30,10 @@ val has_prefix : ([< 'a t_templ] as 'a) -> 'a -> bool
 val pre :
   ([< 'a t_templ > `ADeref `AProj `ALen `AVar ] as 'a) ->
   'a
+
+val to_null : (('a t_templ) as 'a) -> 'a
+val is_nullity : ([< 'a t_templ] as 'a) -> bool
+val to_program_path : (('a t_templ as 'a)) -> 'a 
     
 val t_ind : 'a -> 'b -> [> `AProj of 'a * 'b ]
 val elem : 'a -> [> `AElem of 'a]

@@ -15,12 +15,9 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     | ZBool -> pl "Bool"
 
   let pp_imm = function
-    | RT.RAp p -> pl @@ Paths.to_z3_ident p
-    | RT.RConst i -> pl @@ string_of_int i
-
-  let pp_rel_op = function
-    | RT.Nu -> assert false
-    | RT.RImm r -> pp_imm r
+    | Ap p -> pl @@ Paths.to_z3_ident p
+    | IConst i -> pl @@ string_of_int i
+    | BConst b -> pl @@ Bool.to_string b
 
   let add_ident path ty map =
     (Paths.PathMap.update path (function
@@ -42,7 +39,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         )
     | NamedRel (name,args) ->
       miter (function
-        | RT.RAp p -> add_ident p ZInt
+        | Ap p -> add_ident p ZInt
         | _ -> return ()
         ) args >>
       return @@ pg name @@ List.map pp_imm args       
@@ -57,8 +54,9 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           let subst = Paths.PathMap.find_opt arg_path subst_map in
           match subst with
           | None -> add_ident arg_path ty >> return @@ pp_ap arg_path
-          | Some (RAp p) -> add_ident p ty >> return @@ pp_ap p
-          | Some (RConst i) -> return @@ pl @@ string_of_int i
+          | Some (Ap p) -> add_ident p ty >> return @@ pp_ap p
+          | Some (IConst i) -> return @@ pl @@ string_of_int i
+          | Some (BConst b) -> return @@ pl @@ Bool.to_string b
         ) formals
       in
       let%bind ctxt_args =
