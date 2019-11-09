@@ -339,7 +339,8 @@ let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty
       in
 
       let out_copy = (dst,RT.RAp src) in
-      let pre_copy = (src,RT.RAp src) in
+      let pre_path = P.map_root (fun p -> p ^ "!call") src in
+      let pre_copy = (src,RT.RAp pre_path) in
 
       (* now compute the out flows, let's do the easy case first *)
       if (not is_pre) && is_id then
@@ -355,9 +356,10 @@ let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty
            So constrain the pre-value to be equal to the output argument (do not rename pre) *)
         (havoc,stable,(P.pre dst,RT.RAp src)::out_copy::out_bind,pre_bind)
       else
-        (* finally, we track pre states, and the value may change. rename the name in the prestate
-           to be pre, and rename the pre path in the output *)
-        (havoc,stable,(P.pre dst,RT.RAp (P.pre src))::out_copy::out_bind,pre_copy::pre_bind)
+        (* finally, we track pre states, and the value may change.
+           rename the name in the prestate to be pre,
+           and rename the pre path in the output *)
+        (havoc,stable,(P.pre dst,RT.RAp pre_path)::out_copy::out_bind,pre_copy::pre_bind)
     ) (havoc,stable,out_bind,pre_bind) direct_copies
   in
   return (havoc,stable,in_copies @ in_bind,out_bind, pre_bind)
