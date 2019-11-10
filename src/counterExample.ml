@@ -210,12 +210,19 @@ let open Ast in
 function
 | Var(s) -> Printf.sprintf "%s: %d " s (f s)
 | Const(s) -> string_of_int s
-| Call fn_call -> Printf.sprintf "%s%s" fn_call.callee (deli fn_call.arg_names)
+| Call fn_call -> Printf.sprintf "%s%s" fn_call.callee (deli(List.map (fun x -> x ^":"^(string_of_int @@ f x)) fn_call.arg_names))
 | _ ->  "?"
 
 
+let rec last = function
+| [x] -> ([],x)
+| x::y -> let (z,la) = last y in (x::z, la)
+| _ -> assert false
 
-
+let take_ret = 
+(*FIXME *)
+last
+   
 
 
 let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} as node) nextnode= 
@@ -236,7 +243,11 @@ let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} a
   | CallIn(name) -> 
   (incr level);
   Printf.sprintf "  -- %s%s" name (deli (List.map string_of_int (List.tl args)))
-  | CallOut(name) -> (decr level); Printf.sprintf "-- %s end"name
+  | CallOut(name) -> begin (decr level); 
+  
+  let args,ret = take_ret @@ List.tl args  in
+  Printf.sprintf "-- %s%s -> %s end"name (deli (List.map string_of_int args)) (string_of_int ret)
+  end
   | Var(_,e_id) -> 
       let var= get_var_unsafe prog e_id in
       Printf.sprintf "%s: %d" var (get_var_from_node relations node var) 
@@ -249,7 +260,7 @@ let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} a
       | _ -> 
       Printf.sprintf "let %s = %s in" var (eval_lhs (get_var_from_node relations node) lhs)
       )
-  | _ -> failwith "unimplemented"
+  | _ -> failwith "Reference is not implemented(print_tr)"
   end in
   ind ^ v
  
@@ -258,52 +269,6 @@ let print_trs relations (prog:Ast.prog) graph trace=
 let r = ref 0 in
 let prod_next = List.map2 (fun a b -> (a,b))  trace (List.map Option.some (List.tl trace) @ [None]) in
 List.iter (fun (x,y) -> Printf.printf "%s\n" (print_tr r relations prog graph x y)) prod_next 
-
-let rec print_trace relations fns trace stack ((id,_), exp) = 
-  let open Ast in
-  let get x y= get_var_from_node relations x y in
-  let pr = print_trace relations fns in
-  let _ = Printf.printf "%s ->\n" (show_node @@ List.hd trace) in
-  match exp, trace with
-  | EVar s , x::y->
-      Printf.printf "%d: return %s : %d\n" id s (get x s);
-      (
-        match stack with
-        | [] -> ()
-        | e::stack' -> pr y stack' e
-      )
-  | Cond (s, e1, e2) , x::y->
-      Printf.printf "%d: if (%s : %d) \n" id s (get x s);
-      pr y stack (if (get x s) <> 0 then e1 else e2) 
-  | Seq (e1, e2), _::y -> 
-      Printf.printf "%d: seq \n" id;
-      pr y (e2::stack) e1
-  | Let(PVar s, Call fn_call, exp) , _::y-> 
-      Printf.printf "%d: let %s = %s in\n" id s fn_call.callee ;
-      (
-      match List.find_opt (fun x -> x.name = fn_call.callee) fns with
-      | Some fn (* not builtin *) -> pr y (exp::stack) fn.body
-      | None  -> pr y stack exp
-      )
-  | Let(PVar s, Const _, exp) , x::y 
-  | Let(PVar s, Nondet  _, exp) , x::y 
-  | Let(PVar s, Var _, exp) , x::y-> 
-      Printf.printf "%d: let %s = %d in\n" id s (get x s);
-      pr y stack exp 
-  | Assert _,_
-  | Let _,_ 
-  | Alias _, _ 
-  | Update _,_  
-  | Assign _,_  
-  | EAnnot _,_
-  | NCond _,_ -> 
-      failwith "Not implmented"
-  | _, [] -> ()
-
-
-
-
-
 
 let _ = 
   let g = parse_file Sys.argv.(1) in
