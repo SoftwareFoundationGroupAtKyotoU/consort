@@ -161,7 +161,7 @@ let rec get_something h f ((e_id,_), raw_exp)=
     | Let(_, _,z)
     | Update(_, _, _,z) 
     | EAnnot(_, z)
-    | Assert(_,z) -> g z
+    | Assert(_,z) 
     | Alias(_,_,z) -> g z 
     )
 
@@ -225,7 +225,7 @@ last
    
 
 
-let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} as node) nextnode= 
+let print_tr level st relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} as node) nextnode= 
   let ind = reps !level "  " in
   let v = begin
   match ty with
@@ -234,21 +234,28 @@ let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} a
       Printf.sprintf "assert%s" (map_rel (get_var_from_node relations node ) rel)
   | If(_, e_id) -> 
   (
+      (incr level);
       let cond = get_if_cond_unsafe prog e_id in
-      Printf.sprintf "if(%s: %d)" cond (get_var_from_node relations node cond) 
+      let v  = get_var_from_node relations node cond in
+      Printf.sprintf "if(%s: %d) goto %s" cond (get_var_from_node relations node cond) 
+      (if v = 0 then "else" else "then")
   )
   | Seq(_,_) -> ""
   | False -> "FALSE"
   | Goal -> "start"
   | CallIn(name) -> 
+      begin 
+  (Stack.push  !level st);
   (incr level);
   Printf.sprintf "  -- %s%s" name (deli (List.map string_of_int (List.tl args)))
-  | CallOut(name) -> begin (decr level); 
-  
+      end
+  | CallOut(name) -> begin  
+  (level := Stack.pop st); 
   let args,ret = take_ret @@ List.tl args  in
   Printf.sprintf "-- %s%s -> %s end"name (deli (List.map string_of_int args)) (string_of_int ret)
   end
   | Var(_,e_id) -> 
+      (decr level);
       let var= get_var_unsafe prog e_id in
       Printf.sprintf "%s: %d" var (get_var_from_node relations node var) 
   | Let(_, e_id) -> 
@@ -256,7 +263,7 @@ let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} a
       let lhs = get_letlhs_unsafe prog e_id in
       (
       match lhs with
-      | Nondet _ -> (Printf.sprintf "_ : %d" (get_var_from_node relations (Option.get nextnode) var))
+      | Nondet _ -> (Printf.sprintf "let %s = _:%d in" var (get_var_from_node relations (Option.get nextnode) var))
       | _ -> 
       Printf.sprintf "let %s = %s in" var (eval_lhs (get_var_from_node relations node) lhs)
       )
@@ -267,8 +274,9 @@ let print_tr level relations (prog:Ast.prog) _graph ({id=_id;ty;args;dst=_dst} a
 
 let print_trs relations (prog:Ast.prog) graph trace=
 let r = ref 0 in
+let rr = Stack.create() in
 let prod_next = List.map2 (fun a b -> (a,b))  trace (List.map Option.some (List.tl trace) @ [None]) in
-List.iter (fun (x,y) -> Printf.printf "%s\n" (print_tr r relations prog graph x y)) prod_next 
+List.iter (fun (x,y) -> Printf.printf "%s\n" (print_tr r rr relations prog graph x y)) prod_next 
 
 let _ = 
   let g = parse_file Sys.argv.(1) in
