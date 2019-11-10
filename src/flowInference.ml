@@ -24,6 +24,15 @@ type flow =
 
 type relation = string * (P.concr_ap * z3_types) list
 
+let print_relation (str, l) = 
+  let _ = Printf.printf "relation: %s " str  in
+  let _ = 
+    List.iter (fun (c,_) -> 
+      Printf.printf "%s " (P.to_z3_ident c)) l
+  in print_newline()
+
+
+
 type concr_arg = P.concr_ap RT.rel_imm
 
 type clause =
@@ -515,7 +524,7 @@ let apply_patt ~e_id tyenv patt rhs =
   | _,Null -> assert false
 
 let relation_name ((e_id,_),expr) ctxt =
-  let prefix = Printf.sprintf "%s-%d-" (Option.value ~default:"main-fn" ctxt.curr_fun) e_id in
+  let prefix = Printf.sprintf "%s-%d-" (Option.value ~default:"main_fn" ctxt.curr_fun) e_id in
   let kind =
     match expr with
     | Let _ -> "let"
@@ -733,7 +742,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       let ftype = (in_rel,out_rel,ty) in
       (StringMap.add name ftype theta,in_rel::out_rel::rel)
     ) simple_theta (StringMap.empty, []) in
-  let start_name = "program-start" in
+  let start_name = "program_start" in
   let entry_relation = (start_name, []) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
@@ -750,4 +759,6 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       analyze_function fn ctxt
     ) empty_ctxt fns in
   let ctxt = analyze_main entry_relation main { ctxt with curr_fun = None } in
+  let _ = List.iter print_relation ctxt.relations in
   (ctxt.relations,ctxt.impl,start_name)
+
