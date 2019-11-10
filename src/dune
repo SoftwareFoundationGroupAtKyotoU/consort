@@ -1,6 +1,10 @@
 (menhir (modules parser))
 (ocamllex lexer)
 
+(menhir (modules eldaricaParser))
+(ocamllex eldaricaLexer)
+
+
 (library
  (name util)
  (preprocess (pps ppx_sexp_conv ppx_let))
@@ -40,6 +44,12 @@
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
           FlowInference FlowBackend TypeInference))
+(library
+ (name counterexample)
+ (preprocess (pps ppx_sexp_conv ppx_let ppx_deriving.show))
+ (wrapped false)
+ (libraries lang sexplib util)
+ (modules counterExampleDAG EldaricaLexer EldaricaParser))
 
 (executable
  (name test)
@@ -71,3 +81,8 @@
  (name unsatCore)
  (libraries util sexplib)
  (modules UnsatCore))
+
+(executable
+ (name counterExample)
+ (libraries counterexample ownership consort)
+ (modules CounterExample))

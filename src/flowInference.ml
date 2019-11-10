@@ -759,6 +759,6 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       analyze_function fn ctxt
     ) empty_ctxt fns in
   let ctxt = analyze_main entry_relation main { ctxt with curr_fun = None } in
-  let _ = List.iter print_relation ctxt.relations in
+  (* let _ = List.iter print_relation ctxt.relations in *)
   (ctxt.relations,ctxt.impl,start_name)
 
