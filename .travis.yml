@@ -18,3 +18,4 @@ script: bash -ex .travis-ci.sh
 branches:
   except:
     - unified_repr
+    - counterexample-unsafe
