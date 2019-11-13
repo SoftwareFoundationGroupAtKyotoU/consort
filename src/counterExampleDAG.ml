@@ -43,9 +43,20 @@ let show_nodetype = function
 
 type node = {id: int; ty: nodetype; args: int list; dst: int list}
 
-type intlist = int list [@@deriving show]
+type intlist = int list 
+let show_intlist y = 
+  let rec sub =
+  function 
+    | [] -> "" 
+    | l :: ls -> (string_of_int l ) ^"; " ^ (sub ls) 
+  in
+  "[" ^ (sub y) ^ "]"
 
 let show_node {id; ty; args; _} =
   Printf.sprintf "%d %s %s" id (show_nodetype ty) (show_intlist args)
+
+let show_node_dst {id; ty; args; dst} = 
+  Printf.sprintf "%d %s %s -> %s" id (show_nodetype ty) (show_intlist args) (show_intlist dst)
+
 
 type graph = node list

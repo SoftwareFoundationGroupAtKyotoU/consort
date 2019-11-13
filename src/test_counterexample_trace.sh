@@ -11,4 +11,4 @@ $THIS_DIR/_build/default/test.exe -intrinsics $THIS_DIR/stdlib/lin.intr -save-co
 
 eld -cex -hsmt __tmp__eldarica__cons > __tmp__eldarica__cex
 
-$THIS_DIR/_build/default/counterExample.exe __tmp__eldarica__cex "$@" -intrinsics $THIS_DIR/stdlib/lin.intr
+$THIS_DIR/_build/default/counterExample.exe __tmp__eldarica__cex "$@" -cex-trace=__tmp__eldarica__cex -intrinsics $THIS_DIR/stdlib/lin.intr
