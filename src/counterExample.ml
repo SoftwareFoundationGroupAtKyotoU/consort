@@ -376,9 +376,14 @@ let print_tr level st relations (prog:Ast.prog) _graph ({id=id;ty;args;dst=_dst}
       let g = get_value_str relations node in
       Printf.sprintf "%s := %s;" var (imm_op_to2 g op) 
   | Alias(_, e_id) -> 
-      let (var, _src) = get_alias_unsafe prog e_id in
-      (* let g = get_value_str relations node in *)
-      Printf.sprintf "alias(%s = TODO);" var 
+      let (var, src) = get_alias_unsafe prog e_id in
+      let mem = (
+        match src with
+        | AVar(s) -> s
+        | ADeref(s) -> "*"^s
+        | _ -> assert false
+      ) in
+      Printf.sprintf "alias(%s = %s);" var mem
 
   | _ -> failwith "Reference is not implemented(print_tr)"
   end in
