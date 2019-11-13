@@ -24,15 +24,6 @@ type flow =
 
 type relation = string * (P.concr_ap * z3_types) list
 
-let print_relation (str, l) = 
-  let _ = Printf.printf "relation: %s " str  in
-  let _ = 
-    List.iter (fun (c,_) -> 
-      Printf.printf "%s " (P.to_z3_ident c)) l
-  in print_newline()
-
-
-
 type concr_arg = P.concr_ap RT.rel_imm
 
 type clause =
@@ -759,6 +750,4 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       analyze_function fn ctxt
     ) empty_ctxt fns in
   let ctxt = analyze_main entry_relation main { ctxt with curr_fun = None } in
-  (* let _ = List.iter print_relation ctxt.relations in *)
   (ctxt.relations,ctxt.impl,start_name)
-
