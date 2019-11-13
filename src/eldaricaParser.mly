@@ -31,7 +31,10 @@ let node_type :=
     | "seq" -> Seq(name, line)
     | "ifz" -> If(name, line)
     | "assert" -> Assert (name, line)
-    | _ -> failwith "Refence is not implemented"
+    | "alias" -> Alias (name, line)
+    | "update" -> Update (name, line)
+    | "assign" -> Assign(name, line)
+    | _ -> failwith "Tuple, Array, Null is not implemented"
       end
 
   }

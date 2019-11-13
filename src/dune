@@ -46,7 +46,7 @@
           FlowInference FlowBackend TypeInference))
 (library
  (name counterexample)
- (preprocess (pps ppx_sexp_conv ppx_let ppx_deriving.show))
+ (preprocess (pps ppx_sexp_conv ppx_let))
  (wrapped false)
  (libraries lang sexplib util)
  (modules counterExampleDAG EldaricaLexer EldaricaParser))
