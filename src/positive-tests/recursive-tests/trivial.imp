@@ -12,11 +12,20 @@ check(p) {
   else
    let (v,nxt) = *p in {
      assert(v = 1);
-	 check(nxt);
+	 let r = check(nxt) in {
+       alias(nxt = (*p).1);
+	   ()
+	 }
    }
 }
 
+check_loop(d) {
+  check(d);
+  check_loop(d)
+}
+
 {
-  let d = f() in
-  check(d)
+  let d = f() in {
+  check_loop(d)
+  }
 }

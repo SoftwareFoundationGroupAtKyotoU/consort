@@ -5,12 +5,6 @@ type z3_types =
   | ZBool
   | ZInt
 
-type flow =
-  | Havoc of P.concr_ap
-  | Copy of P.concr_ap * P.concr_ap
-  | Const of P.concr_ap * int
-  | NullConst of P.concr_ap * bool
-
 type relation = string * (P.concr_ap * z3_types) list
 
 type concr_arg =
@@ -18,13 +12,13 @@ type concr_arg =
   | BConst of bool
   | IConst of int
   | NondetChoice of concr_arg list
-  | KeyedChoice of P.concr_ap * concr_arg * concr_arg
+  | KeyedChoice of P.concr_ap * concr_arg * concr_arg [@@deriving sexp]
 
 type clause =
   | PRelation of relation * ((P.concr_ap * concr_arg) list) * int option
-  | Relation of (concr_arg,concr_arg) RT.relation
+  | Relation of (concr_arg,concr_arg) RT.relation * z3_types
   | NamedRel of string * (concr_arg list)
-  | NullCons of P.concr_ap * P.concr_ap
+  | NullCons of concr_arg * concr_arg
 
 val infer :
   bif_types:(RefinementTypes.funtype StringMap.t) ->

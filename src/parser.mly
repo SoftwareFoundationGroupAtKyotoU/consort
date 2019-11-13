@@ -199,11 +199,11 @@ let ap_elem :=
 
 let ref_ap :=
   | root = ID; rest = separated_list(ARROW, ap_elem); {
-		List.fold_left (fun acc i ->
+		`Concr (List.fold_left (fun acc i ->
 						 match i with
-						 | `Deref -> `ADeref acc
-						 | `Proj i -> `AProj (acc,i)
-					   ) (Paths.var root) rest
+						 | `Deref -> Paths.deref acc
+						 | `Proj i -> Paths.t_ind acc i
+					   ) (Paths.var root) rest)
 	  }
 
 let rel_arg :=

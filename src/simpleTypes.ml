@@ -1,3 +1,5 @@
+open Sexplib.Std
+
 type r_typ = [
   | `Int
   | `TVar of int
@@ -6,13 +8,26 @@ type r_typ = [
   | `Mu of int * r_typ
   | `Array of a_typ
 ]
-and a_typ = [ `Int ]
+and a_typ = [ `Int ] [@@deriving sexp]
 
-type funtyp = {
-  arg_types: r_typ list;
-  ret_type: r_typ
+type 'a _funtyp = {
+  arg_types: 'a list;
+  ret_type: 'a
 }
 
+type funtyp = r_typ _funtyp
+
+let unfold_simple_type i t =
+    let rec loop = function
+      | `Int -> `Int
+      | `TVar j when i = j -> `Mu (i,t)
+      | `Tuple tl -> `Tuple (List.map loop tl)
+      | `Ref t -> `Ref (loop t)
+      | `Array `Int -> `Array `Int
+      | `TVar _
+      | `Mu (_,_) -> failwith "Malformed recursive type"
+    in
+    loop t
 
 let rec type_to_string = function
   | `Int -> "int"

@@ -3,35 +3,35 @@
 
 (library
  (name util)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries sexplib)
  (modules StringMap UnionFind PrettyPrint Files SexpPrinter Greek Std Log))
 
 (library
  (name lang)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries sexplib util)
  (modules Parser Ast SurfaceAst AstPrinter SimpleChecker Lexer LabelManager SimpleTypes RefinementTypes Paths AstUtil Intrinsics Locations))
 
 (library
  (name solving)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries util)
  (modules Z3Channel Solver SolverBridge Process))
 
 (library
  (name ownership)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries lang util solving)
  (modules OwnershipInference OwnershipSolver))
 
 (library
  (name consort)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries sexplib util lang str solving ownership)
  (modules Inference KCFA
@@ -43,37 +43,37 @@
 
 (executable
  (name test)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (libraries consort)
  (modules Test))
 
 (executable
  (name test_suite)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (libraries consort)
  (modules Test_suite))
 
 (executable
  (name genLin)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (libraries lang)
  (modules genLin))
 
 (executable
  (name typecheck)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (libraries lang)
  (modules Typecheck))
 
 (executable
  (name ownership)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (libraries ownership)
  (modules Ownership))
             
 (executable
  (name unsatCore)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad))
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (libraries util sexplib)
  (modules UnsatCore))
 

@@ -21,8 +21,8 @@ type ('a,'b) relation = {
 type 'r refinement_rel = ('r rel_op,'r rel_imm) relation [@@deriving sexp]
 
 type refine_ap = [
-  Paths.concr_ap
-| `Sym of int
+  | `Concr of P.path
+  | `Sym of int
 ] [@@deriving sexp]
 
 (* 
@@ -41,7 +41,7 @@ type ('c,'r) refinement =
   | And of ('c,'r) refinement * ('c,'r) refinement
   | NamedPred of string * 'c [@@deriving sexp]
 
-type concr_refinement = ((Paths.concr_ap list * Paths.concr_ap), Paths.concr_ap) refinement [@@deriving sexp]
+type concr_refinement = ((P.concr_ap list * P.concr_ap), P.concr_ap) refinement [@@deriving sexp]
 
 type ownership =
     OVar of int
@@ -209,18 +209,18 @@ let to_simple_funenv env  = StringMap.map (fun { arg_types; result_type; _ } ->
       SimpleTypes.ret_type = to_simple_type result_type;
     }) env
 
-let map_ap mapping : refine_ap -> Paths.concr_ap = function
+let map_ap mapping : refine_ap -> P.concr_ap = function
   | `Sym i -> begin
     try
       List.assoc_opt i mapping |> Option.get
     with
       Invalid_argument _ -> failwith @@ Printf.sprintf "Could not find symbol %d" i
     end
-  | #Paths.concr_ap as cp -> cp
+  | `Concr cp -> cp
 
 let partial_map_ap mapping : refine_ap -> refine_ap = function
   | `Sym i -> List.assoc_opt i mapping |> Option.map (fun x -> (x :> refine_ap)) |> Option.value ~default:(`Sym i)
-  | r -> r
+  | `Concr r -> `Concr r
 
 let subst_pv mapping pl =
   let map_ap = map_ap mapping in
@@ -357,11 +357,11 @@ let unfold ~gen arg ind_ref id t_in =
 (* TODO: this is the exact same function as compile_bindings... *)
 let subst_of_binding root = List.map (fun (i,p) ->
     match p with
-    | SProj ind -> (i,`AProj (root,ind))
+    | SProj ind -> (i,P.t_ind root ind)
     | SVar v -> (i, P.var v)
   )
 
-let update_binding_gen tup_b (fv_ap,sym_vals) : ('a * (int * Paths.concr_ap) list) =
+let update_binding_gen tup_b (fv_ap,sym_vals) : ('a * (int * P.concr_ap) list) =
   let added_bindings = List.map (fun (i,_) -> `Sym i) tup_b in
   let fv_ap' = fv_ap @ added_bindings in
   let sym_vals' = tup_b @ sym_vals in
@@ -372,14 +372,14 @@ let update_binding path tup_b binding =
   update_binding_gen b_vals binding
 
 let bind_of_arr b root =
-  [(b.ind,`AInd root);(b.len,`ALen root)]
+  [(b.ind,P.ind root);(b.len,P.len root)]
 
 let fv_of_arr b =
   [ `Sym b.ind; `Sym b.len ]
 
 let ap_is_target target sym_vals ap =
   match ap with
-  | #Paths.concr_ap as cr_ap -> cr_ap = target
+  | `Concr cr_ap -> cr_ap = target
   | `Sym i -> (List.assoc i sym_vals) = target
 
 let filter_fv path sym_vals =
@@ -401,18 +401,18 @@ let rec walk_with_bindings_own ?(pos=empty_pos) ~mu_map ~o_map f root bindings t
     return @@ Int r'
   | Ref (t',o,n) ->
     let%bind o' = o_map o root in
-    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true; olist = o'::pos.olist} ~o_map ~mu_map f (`ADeref root) bindings t' in
+    let%bind t'' = walk_with_bindings_own ~pos:{pos with under_ref = true; olist = o'::pos.olist} ~o_map ~mu_map f (P.deref root) bindings t' in
     return @@ Ref (t'',o',n)
   | Array (b,len_r,o,et) ->
-    let len_path = `ALen root in
+    let len_path = P.len root in
     let bindings' = update_binding_gen (bind_of_arr b root) bindings in
     let%bind len_r' = f ~pos:{pos with array_ref = true} len_path bindings len_r in
     let%bind o' = o_map o root in
-    let%bind et' = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true;olist = o'::pos.olist} ~mu_map ~o_map f (`AElem root) bindings' et in
+    let%bind et' = walk_with_bindings_own ~pos:{pos with array = b::pos.array; array_ref = true;olist = o'::pos.olist} ~mu_map ~o_map f (P.elem root) bindings' et in
     return @@ Array (b,len_r',o',et')
   | Tuple (b,tl) ->
     let tl_named = List.mapi (fun i t ->
-        let nm = Paths.t_ind root i in
+        let nm = P.t_ind root i in
         (nm,t)
       ) tl in
     let bindings' = update_binding root b bindings in
@@ -478,18 +478,18 @@ let compile_bindings blist root =
   List.map (fun (k,t) ->
     match t with
     | SVar v -> (k,P.var v)
-    | SProj i -> (k,`AProj (root,i))
+    | SProj i -> (k,P.t_ind root i)
   ) blist
 
 let compile_type_gen =
   let rec compile_loop t1 root bindings =
     match t1 with
     | Int r -> Int (compile_refinement root bindings r)
-    | Ref (t,o,n) -> Ref (compile_loop t (`ADeref root) bindings,o,n)
+    | Ref (t,o,n) -> Ref (compile_loop t (P.deref root) bindings,o,n)
     | Tuple (b,tl) ->
       let bindings' = bindings @ (compile_bindings b root) in
       let tl' = List.mapi (fun i t ->
-          compile_loop t (`AProj (root,i)) bindings'
+          compile_loop t (P.t_ind root i) bindings'
         ) tl in
       Tuple ([],tl')
     | TVar v  -> TVar v
@@ -497,9 +497,9 @@ let compile_type_gen =
       let compiled_t = compile_loop t root bindings in
       Mu (a,(),v, compiled_t)
     | Array (b,len_r,o,et) ->
-      let bindings' = bindings @ [(b.ind,`AInd root); (b.len,`ALen root)] in
-      let len_rc = compile_refinement (`ALen root) bindings len_r in
-      Array (b,len_rc,o,compile_loop et (`AElem root) bindings')
+      let bindings' = bindings @ [(b.ind,P.ind root); (b.len,P.len root)] in
+      let len_rc = compile_refinement (P.len root) bindings len_r in
+      Array (b,len_rc,o,compile_loop et (P.len root) bindings')
   in
   compile_loop
 
@@ -509,7 +509,7 @@ let compile_type t1 root =
   compile_type_path t1 @@ P.var root
 
 let refine_ap_to_string = function
-  | #Paths.concr_ap as cp -> Paths.to_z3_ident cp
+  | `Concr cp -> P.to_z3_ident cp
   | `Sym i -> Printf.sprintf "$%d" i
 
 

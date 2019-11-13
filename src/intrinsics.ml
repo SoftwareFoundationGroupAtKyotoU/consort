@@ -24,7 +24,7 @@ let lift_type t = RefinementTypes.walk_with_bindings_own
     (fun ~pos:_ _ _ bif_r () ->
       match bif_r with
       | `Unconstrained -> (),RefinementTypes.Top
-      | `BifPred (t,n) -> (),RefinementTypes.NamedPred (t,List.map (fun v -> Paths.arg v) n)
+      | `BifPred (t,n) -> (),RefinementTypes.NamedPred (t,List.map (fun v -> `Concr (Paths.arg v)) n)
     ) (Paths.var "$dummy") ([],[]) t () |> snd
 
 (* just a mapping of connectives onto Z3 functions *)

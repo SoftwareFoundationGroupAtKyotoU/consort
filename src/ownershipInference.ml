@@ -222,7 +222,7 @@ let lift_to_ownership loc root t_simp =
   constrain_well_formed t >> return t
 
 let mtmap p f tl =
-  mmapi (fun i e -> f (`AProj (p,i)) e) tl
+  mmapi (fun i e -> f (P.t_ind p i) e) tl
 
 (* This needs to record *)
 let make_fresh_type loc root t =
@@ -451,12 +451,17 @@ let rec process_expr ?output ((e_id,_),expr) =
   | Assign (v, IVar i,nxt) ->
     let%bind t2 = lkp_split (SBind e_id) i
     and (vt,o) = lkp_ref v in
-    let%bind vt' = make_fresh_type (MGen e_id) (P.deref @@ P.var v) vt in
+    let%bind t = make_fresh_type (MGen e_id) (P.var v) (Ref (vt,o)) in
+    let (vt',o') = match t with
+      | Ref (vt',o') -> (vt',o')
+      | _ -> assert false
+    in
     begin%m
-        constrain_wf_loop o vt';
+        constrain_wf_loop o' vt';
          constrain_eq ~e_id ~src:t2 ~dst:vt';
-         update_type v @@ Ref (vt',o);
+         update_type v @@ Ref (vt',o');
          constrain_write o;
+         constrain_write o';
          process_expr ?output nxt
     end
   | Update (base,_,contents,nxt) ->
@@ -513,14 +518,14 @@ let rec process_expr ?output ((e_id,_),expr) =
       | MkArray _ -> assert false
       | Read (v,_) ->
         let%bind (t_cont,o) = lkp_array v in
-        let%bind (t_cont1,t_cont2) = split_type (SBind e_id) (`AElem (P.var v)) t_cont in
+        let%bind (t_cont1,t_cont2) = split_type (SBind e_id) (P.elem (P.var v)) t_cont in
         begin%m
             update_type v @@ Array (t_cont1,o);
              return t_cont2
         end
       | Deref v -> 
         let%bind (t,o) = lkp_ref v in
-        let%bind (t1,t2_pre) = split_type (SBind e_id) (`ADeref (P.var v)) t in
+        let%bind (t1,t2_pre) = split_type (SBind e_id) (P.deref (P.var v)) t in
         let%bind uf = is_unfold e_id in
         let t2 =
           if uf then

@@ -2,7 +2,6 @@ open Ast
 open Format
 open PrettyPrint
 
-
 let is_operator_id s =
   let lbux = Lexing.from_string s in
   let t = Lexer.read lbux in
@@ -49,7 +48,7 @@ let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_a
     let print_rimm () = function
       | RConst i -> pi i
       | RAp (`Sym i) -> pf "$%d" i
-      | RAp (#Paths.concr_ap as c) -> ps @@ Paths.to_z3_ident c
+      | RAp (`Concr c) -> ps @@ Paths.to_z3_ident c
     in
     let r1_printer () r1 = match r1 with
       | Nu -> ps "~"

@@ -2,6 +2,19 @@ module IntMap = Map.Make(Int)
 module IntSet = Set.Make(Int)
 module StringSet = Set.Make(String)
 
+module type BINDSET = sig
+  include Set.S
+  val bind : (elt -> t) -> t -> t
+end
+
+module WithBind(D : Set.S) : BINDSET with type elt = D.elt = struct
+  include D
+  let bind f s =
+    D.fold (fun elt acc ->
+      D.union (f elt) acc
+    ) s D.empty
+end
+
 let double_fold_k f l k =
   List.fold_left (fun acc t ->
     (fun d1 d2 ->
@@ -65,6 +78,14 @@ let rec update_nth l i v =
     else
       h::(update_nth t (i - 1) v)
   | [] -> raise @@ Invalid_argument "Bad index"
+
+module IntExt = struct
+  let rec fold f acc i =
+    if i < 0 then
+      raise @@ Invalid_argument "negative fold"
+    else if i = 0 then acc
+    else fold f (f acc) (i - 1)
+end
 
 module StringExt = struct
   let starts_with s pref =
@@ -224,9 +245,11 @@ end
 module ListMonad = struct
   let return a = [a]
 
-  let bind f l = List.fold_left (fun a e ->
-      (f e)@a
+  let bindi f l = fold_lefti (fun i a e ->
+      (f i e)@a
     ) [] l
+      
+  let bind f l = bindi (fun _ e -> f e) l
 end
 
 module DefaultOrd(O: sig type t end) = struct

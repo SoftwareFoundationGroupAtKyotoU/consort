@@ -6,6 +6,8 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
   open FlowInference
   open Std.StateMonad
 
+  include (val Log.located ~where:"FB")
+
   module RT = RefinementTypes
 
   let pp_ap p = pl @@ Paths.to_z3_ident p
@@ -18,23 +20,57 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     | Ap p -> pl @@ Paths.to_z3_ident p
     | IConst i -> pl @@ string_of_int i
     | BConst b -> pl @@ Bool.to_string b
+    | _ -> assert false
 
   let add_ident path ty map =
     (Paths.PathMap.update path (function
      | None -> Some ty
-     | Some ty' -> if ty' <> ty then failwith "Something has gone wrong" else Some ty'
+     | Some ty' -> if ty' <> ty then failwith @@ Printf.sprintf "Something has gone wrong for path %s" (Paths.to_z3_ident path) else Some ty'
      ) map),()
 
   let context_at = Printf.sprintf "ctxt$%d"
 
+  let choice_counter = ref 0
+
   let close_and_print rel_op clause =
+    let rec pp_arg ty = function
+      | Ap p -> add_ident p ty >> return @@ pp_ap p
+      | IConst i -> return @@ pl @@ string_of_int i
+      | BConst b -> return @@ pl @@ Bool.to_string b
+      | KeyedChoice (b,a1,a2) ->
+        let%bind a1_pp = pp_arg ty a1 in
+        let%bind a2_pp = pp_arg ty a2 in
+        add_ident b ZBool >>
+        return @@ pg "ite" [
+            pp_ap b;
+            a1_pp;
+            a2_pp
+          ]
+      | NondetChoice (arg::(_::_ as l)) ->
+        let%bind fst = pp_arg ty arg in
+        mfold_left (fun expr choice ->
+          let flg = Printf.sprintf "star!%d" !choice_counter in
+          incr choice_counter;
+          let id = P.var flg in
+          let%bind pp_choice = pp_arg ty choice in
+          add_ident id ZBool >>
+          return @@ pg "ite" [
+              pl flg;
+              pp_choice;
+              expr
+            ]
+        ) fst l
+      | NondetChoice _ -> assert false
+    in
     match clause with
-    | Relation p ->
+    | Relation (p,ty) ->
+      let%bind p1 = pp_arg ty p.rel_op1 in
+      let%bind p2 = pp_arg ty p.rel_op2 in
       return RefinementTypes.(
           let rel_sym = StringMap.find p.rel_cond rel_op in
           pg rel_sym [
-            pp_imm p.rel_op1;
-            pp_imm p.rel_op2
+            p1;
+            p2
           ]
         )
     | NamedRel (name,args) ->
@@ -42,7 +78,14 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         | Ap p -> add_ident p ZInt
         | _ -> return ()
         ) args >>
-      return @@ pg name @@ List.map pp_imm args       
+      return @@ pg name @@ List.map pp_imm args
+    | NullCons (p1,p2) ->
+      let%bind p1 = pp_arg ZBool p1 in
+      let%bind p2 = pp_arg ZBool p2 in
+      return @@ pg "=>" [
+          p1;
+          p2
+        ]
 
     | PRelation ((name,formals),subst,ctxt_shift) ->
       let subst_map = List.fold_left (fun acc (k,v) ->
@@ -54,9 +97,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           let subst = Paths.PathMap.find_opt arg_path subst_map in
           match subst with
           | None -> add_ident arg_path ty >> return @@ pp_ap arg_path
-          | Some (Ap p) -> add_ident p ty >> return @@ pp_ap p
-          | Some (IConst i) -> return @@ pl @@ string_of_int i
-          | Some (BConst b) -> return @@ pl @@ Bool.to_string b
+          | Some subst -> pp_arg ty subst
         ) formals
       in
       let%bind ctxt_args =
