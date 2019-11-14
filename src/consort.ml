@@ -90,6 +90,7 @@ module Options = struct
           ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
           ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
           ("-show-model", Set show_model, "Print model produced from successful verification");
+          ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
           ("-save-cons", string_opt save_cons, "Save constraints in <file>");
           ("-show-all", Unit (fun () ->
              List.iter (fun r -> r := true) all_debug_flags
