@@ -30,7 +30,7 @@ type split_loc =
   | SBind of int
   | STuple of int * int
   | SCall of int
-  | SRet of int
+  | SRet of int [@@deriving sexp]
 
 module SplitMap : Map.S with type key = (split_loc * Paths.concr_ap) = Map.Make(OrderedPair(DefaultOrd(struct type t = split_loc end))(P.PathOrd))
 module GenMap = Map.Make(OrderedPair(DefaultOrd(struct type t = magic_loc end))(P.PathOrd))
