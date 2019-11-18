@@ -93,11 +93,17 @@ module Options = struct
           ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
           ("-save-cons", string_opt save_cons, "Save constraints in <file>");
           ("-show-all", Unit (fun () ->
-             List.iter (fun r -> r := true) all_debug_flags
+             List.iter (fun r -> r := true) all_debug_flags;
+             Log.all ();
            ), "Show all debug output");
           ("-none", Unit (fun () ->
-             List.iter (fun r -> r:= false) all_debug_flags
-           ), "Suppress all debug output")
+             List.iter (fun r -> r:= false) all_debug_flags;
+             Log.disable ()
+           ), "Suppress all debug output");
+          ("-debug", String (fun s ->
+             Log.filter @@ List.map String.trim @@ String.split_on_char ',' s
+           ), "Debug sources s1,s2,...");
+          ("-debug-all", Unit Log.all, "Show all debug output")
         ] in
     (arg_defs, (fun ?(comb=default) () ->
        { comb with
