@@ -13,7 +13,7 @@ module OI = OwnershipInference
 module RT = RefinementTypes
 
 module L = Log.Located(struct let where = "FLOW" end)
-open L
+open L [@@ocaml.warning "-33"]
 
 type z3_types =
   | ZBool
@@ -593,6 +593,7 @@ module RecursiveRefinements = struct
     let to_string l = List.map (fun (p,a) ->
         Printf.sprintf !"%{P} |-> %s" p @@ concr_arg_to_string a
       ) l |> String.concat "; " |> Printf.sprintf "[ %s ]"
+          [@@ocaml.warning "-32"]
   end
 
   let to_mu_template ty =
