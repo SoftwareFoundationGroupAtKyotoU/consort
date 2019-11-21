@@ -3,7 +3,8 @@
     let (i,j_) = *a in
       a := (42,j_);
 	let (i,j_) = *a in
-	  a := (i,i);
+	  let i2 = i in
+	  a := (i,i2);
 	let (i,j) = *a in
 	  assert(i = j)
   }

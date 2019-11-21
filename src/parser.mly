@@ -38,11 +38,9 @@
 %token UNDERSCORE
 
 // types
-%token DOLLAR INT_T REF TOP
-%token GAMMA
+%token DOLLAR TOP
 %token ARROW
 %token NU AND
-%token <float> FLOAT
 
 %left AND
 
@@ -97,14 +95,9 @@ let expr :=
   | lbl = pre_label; (b,i) = array_expr; LARROW; y = lhs; {
 		Update ((lbl,$startpos),b,i,y)
 	  }
-  | GAMMA; lbl = expr_label; LBRACE; ty_env = ty_env; RBRACE; {
-		EAnnot ((lbl,$startpos),ty_env)
-	  }
   | lbl = pre_label; ~ = lhs; {
 		Value ((lbl,$startpos),lhs)
 	  }
-
-let ty_env == separated_list(SEMI, separated_pair(ID, COLON, typ))
 
 let ap :=
   | ~ = ID; <Ast.AVar>
@@ -180,19 +173,6 @@ let pre_label == id = INT; COLON; {
 						 LabelManager._internal_incr id; id
 					   } | { LabelManager._internal_fresh () }
 
-let typ :=
-  | ~ = refine; INT_T; { RefinementTypes.Int refine }
-  | ~ = typ; REF; o = FLOAT; { RefinementTypes.Ref (typ,o,RefinementTypes.NUnk) }
-  | LPAREN; ~ = tup_list; RPAREN; {
-		let (m_bind,t_l) =
-		  List.mapi (fun i (b_l,t) ->
-					  (List.map (fun b -> (b,RefinementTypes.SProj i)) b_l,t)
-					) tup_list
-		  |> List.split
-		in
-		RefinementTypes.Tuple (List.concat m_bind,t_l)
-	  }
-
 let ap_elem :=
   | STAR; { `Deref }
   | ~ = INT; <`Proj>
@@ -220,8 +200,3 @@ let refine :=
 		Relation { rel_op1 = Nu; rel_cond = op; rel_op2 = arg }
 	  }
   | r1 = refine; AND; r2 = refine; <RefinementTypes.And>
-
-let tup_list == separated_nonempty_list(COMMA, tup_typ)
-let tup_typ :=
-  | DOLLAR; s_var = INT; COLON; ~ = typ; { ([s_var],typ) }
-  | ~ = typ; { ([],typ) }

@@ -38,7 +38,6 @@ type exp =
   | Alias of pos * string * A.src_ap
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
-  | EAnnot of pos * (string * RefinementTypes.src_typ) list
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -84,7 +83,7 @@ let rec simplify_expr ?next count e : pos * A.raw_exp =
         A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
         |> tag_with i
       )
-  | Seq (_,((Assign _ | Alias _ | Assert _ | EAnnot _ | Update _) as ue),e1) ->
+  | Seq (_,((Assign _ | Alias _ | Assert _ | Update _) as ue),e1) ->
     simplify_expr ~next:e1 count ue
   | Seq (pos,e1,e2) ->
     A.Seq (simplify_expr count e1,simplify_expr count e2)
@@ -119,7 +118,6 @@ let rec simplify_expr ?next count e : pos * A.raw_exp =
           |> tag_with i
         )
       )
-  | EAnnot (i,g) -> A.EAnnot (g, get_continuation ~ctxt:i count) |> tag_with i
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in

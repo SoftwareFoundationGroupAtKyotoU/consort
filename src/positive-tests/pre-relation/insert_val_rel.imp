@@ -8,12 +8,10 @@ insert_val(p,n) {
 }
 
 {
-  let b = (_,_) in
+  let y = _ in
+  let x = (_ : ~ <= y) in
+  let b = (x,y) in
   let p = mkref b in {
-    $gamma {
-      p: ($1: ~ <= $2 int, $2: T int) ref 1.0;
-	  b: (T int, T int)
-    };
 	insert_val(p, _);
 	let (x1,y2) = *p in
 	assert(x1 <= y2)

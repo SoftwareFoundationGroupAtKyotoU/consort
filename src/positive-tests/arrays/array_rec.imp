@@ -17,7 +17,7 @@ check_up(i,a) {
 }
 
 {
-  let x = mkarray (_ : ~ > 0) in {
+  let x = mkarray 7 in {
     let g = do_up(0,x) in
 	check_up(0,x)
   }

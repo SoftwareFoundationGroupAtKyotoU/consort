@@ -18,11 +18,9 @@ push(p) {
 }
 
 {
-  let k = (_, _) in {
-    $gamma {
-      k: ($0: ~ <= $1 /\ ~ >= 0 int,
-	    $1: ~ >= 0 int)
-    };
+  let y = (_: ~ >= 0) in
+  let x = (_: ~ >= 0 /\ ~ <= y) in
+  let k = (x, y) in {
     let p = mkref k in
     push(p)
   }

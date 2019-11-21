@@ -59,7 +59,7 @@ type raw_exp =
   | Let of patt * lhs * exp
   | Alias of string * src_ap * exp
   | Assert of relation * exp
-  | EAnnot of (string * RefinementTypes.src_typ) list * exp
+
 and exp = position * raw_exp
 
 type fn = { name: string; args: (string list); body: exp }

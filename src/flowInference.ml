@@ -12,8 +12,7 @@ module P = Paths
 module OI = OwnershipInference
 module RT = RefinementTypes
 
-module L = Log.Located(struct let where = "FLOW" end)
-open L [@@ocaml.warning "-33"]
+open (val Log.located ~where:"FLOW" : Log.LocatedD) [@@ocaml.warning "-33"]
 
 type z3_types =
   | ZBool
@@ -166,12 +165,13 @@ let rec havoc_oracle ctxt ml p =
 let%lq split_oracle sl ctxt =
   let from_path p =
     let (f1,f2) = OI.SplitMap.find (sl,p) ctxt.o_hints.OI.splits in
-    (f1 = 0.0, f2 = 0.0)
+    let to_flag b = if b then `Havoc else `Stable in
+    (to_flag (f1 = 0.0), to_flag (f2 = 0.0))
   in
   let rec loop p1 p2 =
     match (P.tail p1),(P.tail p2) with
-    | None,_ -> (false,false)
-    | _,None -> (false, false)
+    | None,_ -> (`Trivial,`Trivial)
+    | _,None -> (`Trivial, `Trivial)
     | Some a,Some b ->
       let () =  assert (a = b) in
       if a = `Deref || a = `Ind || a = `Elem then
@@ -361,12 +361,12 @@ let rec walk_type ty step f st acc =
   | `IntArray ->
     let mst = step `Length st in
     continue ~acc mst (fun st' acc ->
-      let acc = walk_type ty step f st' acc in
+      let acc = f st' acc in
       let mst = step `Ind st in
       continue ~acc mst (fun st' acc ->
-        let acc = walk_type ty step f st' acc in
+        let acc = f st' acc in
         let mst = step `Elem st in
-        continue ~acc mst (walk_type ty step f)
+        continue ~acc mst f
       )
     )
 
@@ -478,6 +478,10 @@ let compute_flows ~sl copies ctxt =
       let (h_in,h_out) = match k with
         | `Summ (a,b) -> split_oracle a b
         | _ -> split_oracle src dst
+      in
+      let add_havoc p f ostate =
+        if f = `Trivial then ostate
+        else add_havoc p (f = `Havoc) ostate
       in
       let hstate = add_havoc src h_in @@ add_havoc dst h_out hstate in
       let rename_copy, copy_subst, out_subst = match k with
@@ -973,7 +977,7 @@ let%lm do_fold_copy ~e_id in_ap out_ap folded_ty in_rel out_rel ctxt =
   let ctxt,so = split_oracle (OI.SBind e_id) ctxt in
   let src_oracle p =
     let (f1,_) = so p p in
-    f1
+    f1 = `Havoc
   in
   RecursiveRefinements.fold_to ~oracle:(dst_oracle,src_oracle) ~copy_policy:RecursiveRefinements.Weak folded_ty in_ap out_ap in_rel out_rel ctxt       
 
@@ -1007,7 +1011,7 @@ let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty
         | `Summ (s,d) -> split_oracle s d
         | `Direct | `Mu -> split_oracle src dst
       in
-      if havoc then
+      if havoc = `Havoc then
         acc
       else
         P.PathSet.add src acc
@@ -1261,7 +1265,6 @@ let relation_name ((e_id,_),expr) ctxt =
     | NCond _ -> "ifnull"
     | Cond _ -> "ifz"
     | EVar _ -> "var"
-    | EAnnot _ -> "$gamma"
   in
   prefix ^ kind
 
@@ -1434,9 +1437,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let%bind k_rel,tyenv',bound_set = fresh_bind_relation e_id st patt k in
     apply_patt ~e_id tyenv patt rhs relation k_rel >>
     post_bind bound_set @@ process_expr (k_rel,tyenv') continuation k
-      
-  | EAnnot _ -> assert false
-    
+
   | Assert (assrt, k) ->
     let%bind k_rel = fresh_relation_for relation k in
     add_assert_cond assrt relation >>
@@ -1547,6 +1548,7 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let%bind havoc_set = get_havoc_state in
     let havoc_set = P.PathSet.union havoc @@ P.PathSet.diff havoc_set stable in
     let out_subst = augment_havocs direct havoc_set in
+    set_havoc_state havoc_set >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
     process_expr (k_rel,tyenv) continuation k
 

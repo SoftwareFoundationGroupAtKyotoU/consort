@@ -483,7 +483,6 @@ let rec process_expr ?output ((e_id,_),expr) =
          dst_up;
          process_expr ?output nxt
     end
-  | EAnnot (_,nxt)
   | Assert (_,nxt) -> process_expr ?output nxt
   | Let (PVar v,Mkref (RVar src),body) ->
     let%bind t2 = lkp_split (SBind e_id) src in

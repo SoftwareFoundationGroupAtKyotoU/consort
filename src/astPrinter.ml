@@ -191,14 +191,6 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
                     pv v;
                     po_id () id
                   ]
-    | EAnnot(ty_env,e) ->
-      pl [
-          indent_from_here;
-          pf "$gamma%a {" po_id id; newline;
-          pp_ty_env ty_env;
-          dedent; newline; ps "}"; semi;
-          pp_expr ~ip ~annot e
-        ]
   in
   match e with
   | Seq _ -> e_printer
@@ -224,7 +216,6 @@ and maybe_brace ~ip ~annot ?(all_seq=false) ?pre ((_,e) as tagged_e) : formatter
       | Alias _ when all_seq -> true
       | Assert _ when all_seq -> true
       | Assign _ when all_seq -> true
-      | EAnnot _ when all_seq -> true
       | Update _ when all_seq -> true
       | _ -> false
   in

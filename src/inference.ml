@@ -1974,15 +1974,6 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
         | _ -> assert false)
       e_id e1 e2 ctxt
 
-  | EAnnot (ty_env,next) ->
-    let env' =
-      List.fold_left (fun acc (k,v) ->
-        let (_,v') = walk_with_bindings_own ~mu_map:id_mu_map ~o_map:(fun o _ ->
-            return (o > 0.0)) id_pred_map (P.var k) empty_bindings v ctxt
-        in
-        StringMap.add k v' acc
-      ) StringMap.empty ty_env in
-    process_expr ?output ~remove_scope next { ctxt with gamma = env' }
 
 and process_conditional ?output ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_id e1 e2 ctxt =
   let ctxt1 = process_expr ?output ~remove_scope e1 @@ tr_path ctxt in

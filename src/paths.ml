@@ -57,13 +57,13 @@ let pre (root,step,suff) =
 
 let check_extend step (root,steps,suff) =
   if suff <> `None then
-    failwith "Cannot extend terminal path"
+    failwith @@ Printf.sprintf !"Cannot extend terminal path (curr %{sexp:suff})" suff
   else
     (root,step::steps,suff)
 
 let set_suff suff' (root,steps,suff) =
   if suff <> `None then
-    failwith "Cannot extend terminal path"
+    failwith @@ Printf.sprintf !"Cannot extend terminal path (new %{sexp:suff}) (curr %{sexp:suff})" suff' suff
   else
     match root,suff' with
     | Pre _,(`Null | `Len) -> (root, steps,suff')

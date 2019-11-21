@@ -29,7 +29,6 @@ rule read =
   | white    { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "()" { UNIT }
-  | float { FLOAT (float_of_string @@ Lexing.lexeme lexbuf) }
   | int { let i = int_of_string @@ Lexing.lexeme lexbuf in LabelManager._internal_incr i; INT i }
   | "ifnull" { IFNULL }
   | "if" { IF }
@@ -51,15 +50,12 @@ rule read =
   | "assert" { ASSERT }
   | "true" { TRUE }
   | "false" { FALSE }
-  | "$gamma" { GAMMA }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
   | "/\\" { AND }
   | '.' { DOT }
-  | "int" { INT_T }
-  | "ref" { REF }
   | '=' { EQ }
   | 'T' { TOP }
   | "->" { ARROW }

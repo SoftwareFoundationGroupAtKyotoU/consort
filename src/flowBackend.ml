@@ -32,10 +32,17 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
   let choice_counter = ref 0
 
+  let pp_int i =
+    if i < 0 then
+      ll [ pl "-"; pl @@ string_of_int @@ ~-i ]
+    else
+      pl @@ string_of_int i
+     
+
   let close_and_print rel_op clause =
     let rec pp_arg ty = function
       | Ap p -> add_ident p ty >> return @@ pp_ap p
-      | IConst i -> return @@ pl @@ string_of_int i
+      | IConst i -> return @@ pp_int i
       | BConst b -> return @@ pl @@ Bool.to_string b
       | KeyedChoice (b,a1,a2) ->
         let%bind a1_pp = pp_arg ty a1 in
@@ -176,7 +183,10 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
       (* now ground the entry point *)
       pg "assert" [
-        grounded
+        pg "forall" [
+          ll [ ll [ pl "dummy"; pl "Int" ] ];
+          grounded
+        ]
       ] ff.printer;
       break ff
     in

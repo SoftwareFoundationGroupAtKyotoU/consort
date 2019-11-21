@@ -373,11 +373,6 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
     unify_imm rop1 `Int;
     unify_imm rop2 `Int;
     process_expr ctxt e res_acc
-  | EAnnot (g,e) ->
-    List.iter (fun (k,t) ->
-        unify_var k @@ abstract_type ctxt.sub @@ RefinementTypes.to_simple_type t
-      ) g;
-    process_expr ctxt e res_acc
   | Let (PVar v,Mkref (RVar v'),expr) ->
     let acc,c_id = save_assign v' in
     process_expr (add_var v (`TyCons c_id) ctxt) expr @@ save_let (`TyCons c_id) acc
