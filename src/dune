@@ -49,7 +49,7 @@
 (executable
  (name genLin)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
- (libraries lang)
+ (libraries lang solverlib)
  (modules genLin))
 
 (executable

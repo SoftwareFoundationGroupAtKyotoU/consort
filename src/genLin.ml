@@ -1,6 +1,8 @@
 open Intrinsics
 open Sexplib.Std
 
+module SexpPrinter = Solverlib.SexpPrinter
+
 let ind_pred = "(define-fun valid-ind ((ind Int) (len Int)) Bool
   (and (>= ind 0) (=> (> len 0) (< ind len))))
 "
