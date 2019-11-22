@@ -1,0 +1,5 @@
+{
+  let x = (_ : ~ >= 4) in
+  let y = (_ : ~ > x) in
+  assert(y > 4)
+}

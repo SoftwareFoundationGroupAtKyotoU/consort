@@ -1,0 +1,19 @@
+cond_set(p) {
+  ifnull p then () else {
+    p := 1
+  }
+}
+
+maybe_null() {
+ if _ then null else mkref 0
+}
+
+{
+  let p = maybe_null() in {
+    cond_set(p);
+	ifnull p then
+	  ()
+	else
+	  assert(*p = 1)
+  }
+}

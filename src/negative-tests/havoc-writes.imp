@@ -1,0 +1,9 @@
+{
+  let y = mkref _ in
+  let x = y in
+  let q = *y in {
+    x := 4;
+	let g = *y in
+	assert(q = g)
+  }
+}

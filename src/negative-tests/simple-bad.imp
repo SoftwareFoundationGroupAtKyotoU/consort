@@ -1,0 +1,9 @@
+{
+  let x = mkref 0 in {
+  let b = _ in
+  if b then
+    x := 1
+  else ();
+  assert(*x = 0)
+  }
+}

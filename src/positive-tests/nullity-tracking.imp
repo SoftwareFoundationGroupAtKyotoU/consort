@@ -1,0 +1,12 @@
+{
+  let a = mkref mkref _ in
+  let b = a in {
+    let c = mkref 4 in b := c;
+	alias(b = a);
+	let a_ = *a in
+	ifnull a_ then
+	  assert(1 = 0)
+	 else
+      assert(*a_ = 4)
+  }
+}

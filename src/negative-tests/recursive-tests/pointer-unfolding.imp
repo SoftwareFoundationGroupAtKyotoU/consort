@@ -1,0 +1,20 @@
+gen() {
+  if _ then
+    null
+  else mkref gen()
+}
+
+traverse(l) {
+  ifnull l then ()
+  else {
+    let p = *l in {
+	  let r = traverse(p) in
+	  assert(1 = 0)
+	}
+  }
+}
+
+{
+  let l = gen() in
+  traverse(l)
+}

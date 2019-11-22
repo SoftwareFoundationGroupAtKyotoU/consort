@@ -1,0 +1,13 @@
+f(p) {
+  if p then
+    f(p)
+  else ()
+}
+
+{
+  let x = _ in
+  let _ = f(x) in
+  if x then
+    assert(1 = 0)
+  else ()
+}
