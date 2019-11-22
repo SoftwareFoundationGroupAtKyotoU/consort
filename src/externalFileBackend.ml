@@ -1,3 +1,4 @@
+open Solverlib
 module Make(D: sig
       val name : string
       val spawn : command:string option -> timeout:int -> string

@@ -1,0 +1,3 @@
+[submodule "src/solverlib"]
+	path = src/solverlib
+	url = git@github.com:SoftwareFoundationGroupAtKyotoU/solverlib.git

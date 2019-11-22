@@ -1,8 +1,6 @@
-
-(* TODO: factor this out better *)
-module Make(C : Solver.SOLVER_BACKEND) = struct
+module Make(C : SolverIntf.SOLVER_BACKEND) = struct
   type t = unit
-  open SexpPrinter
+  open Solverlib.SexpPrinter
   open FlowInference
   open Std.StateMonad
 
@@ -159,7 +157,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       ] ff.printer
 
   let solve_constraints ~interp:(relops,defn_file) (rel,impl,start_relation) =
-    let ff = SexpPrinter.fresh () in
+    let ff = fresh () in
     let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
     let grounded =
       if !KCFA.cfa = 0 then
@@ -190,7 +188,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       ] ff.printer;
       break ff
     in
-    SexpPrinter.finish ff;
+    finish ff;
     C.solve ~defn_file ff
 
   let solve ~annot_infr:_ ~intr simple_res o_hints ast =

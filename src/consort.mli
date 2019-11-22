@@ -23,7 +23,7 @@ module Options :
       dry_run : bool;
       solver: solver;
       mode: mode;
-      solver_opts: Solver.options;
+      solver_opts: Solverlib.Solver.options;
       own_solv_opts: OwnershipSolver.options;
     }
 

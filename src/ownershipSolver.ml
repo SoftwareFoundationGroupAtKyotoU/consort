@@ -1,4 +1,5 @@
-open SexpPrinter
+open Solverlib.SexpPrinter
+module Solver = Solverlib.Solver
 
 type ownership =
     OVar of int
@@ -42,7 +43,7 @@ let pp_wf o_buf i =
 
 let print_owner_decl ovars ff =
   List.iter (fun ov ->
-    print_string_list [ "declare-const"; ovar_name ov; "Real" ] ff.printer;
+    psl [ "declare-const"; ovar_name ov; "Real" ] ff.printer;
     break ff
   ) ovars
 
@@ -135,10 +136,10 @@ let rec extract_assoc m acc =
   | _::l -> extract_assoc l acc
   | [] -> acc
     
-let solve_ownership ~opts ?save_cons (ovars,ocons) =
-  let o_buf = SexpPrinter.fresh () in
+let solve_ownership ~opts ?save_cons:_ (ovars,ocons) =
+  let o_buf = fresh () in
   print_ownership_constraints ovars ocons o_buf;
-  atom o_buf.printer pred;
+  raw pred o_buf;
   break o_buf;
   let live_count = List.map (fun ov ->
     pg "ite" [
@@ -161,7 +162,7 @@ let solve_ownership ~opts ?save_cons (ovars,ocons) =
     ] o_buf.printer
   end;
   finish o_buf;
-  let res = Z3Channel.call_z3_raw ~opts ?save_cons ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
+  let res = Solverlib.Z3Channel.call_z3 ~opts ~save_cons:"sigh.smt" ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
   match res with
   | Solver.Sat Some m ->
     begin
@@ -180,5 +181,7 @@ let solve_ownership ~opts ?save_cons (ovars,ocons) =
         ) ovars)
       | _ -> None
     end
+  | Solver.Sat None -> failwith "ruh roh"
+  | Error m -> failwith m
   | _ -> None
 

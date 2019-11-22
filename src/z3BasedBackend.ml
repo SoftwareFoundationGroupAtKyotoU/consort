@@ -3,6 +3,6 @@ module type STRATEGY = sig
 end
 
 module Make(S: STRATEGY) = struct
-  let solve = Z3Channel.call_z3 ~strat:S.z3_tactic
-  let solve_cont = Z3Channel.Ch.call_cont ~strat:S.z3_tactic
+  let solve = Solverlib.Z3Channel.call_z3 ~strat:S.z3_tactic
+  let solve_cont = Solverlib.Z3Channel.Ch.call_cont ~strat:S.z3_tactic
 end

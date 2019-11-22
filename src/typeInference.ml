@@ -1,6 +1,6 @@
 
-module Make(S: Solver.SOLVER_BACKEND) = struct
-  open SexpPrinter
+module Make(S: SolverIntf.SOLVER_BACKEND) = struct
+  open Solverlib.SexpPrinter
   open Inference
   open RefinementTypes
   open Std.StateMonad
@@ -19,13 +19,13 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
       pl @@ string_of_int i
         
 
-  let pp_imm o ff = match o with
-    | RAp ap -> atom ff @@ Paths.to_z3_ident ap
-    | RConst i -> pp_int i ff
+  let pp_imm o = match o with
+    | RAp ap -> pl @@ Paths.to_z3_ident ap
+    | RConst i -> pp_int i
 
-  let pp_relop ?nu r ff = match nu,r with
-    | Some binding,Nu -> atom ff binding
-    | _,RImm ri -> pp_imm ri ff
+  let pp_relop ?nu r = match nu,r with
+    | Some binding,Nu -> pl binding 
+    | _,RImm ri -> pp_imm ri
     | None,_ -> failwith "Malformed constraint: did not bind a target for nu"
 
   let refine_args _ l = List.map Paths.to_z3_ident l
@@ -37,14 +37,19 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
     | `NLive -> "true"
     | `NVar v -> v
 
-  let rec pp_refine ~bif_inliner ~nullity ~interp ?nu r (ff : Sexplib.Sexp.t -> 'a) =
+
+  type bif_inliner = {
+    f: 'a.bif:string -> string list -> (Sexplib.Sexp.t -> 'a) -> 'a
+  }
+
+  let rec pp_refine ~bif_inliner  ~nullity ~interp ?nu r =
     let binding_opt = Option.map Paths.to_z3_ident nu in
     match binding_opt,r with
     | Some binding,NamedPred (n,(args,o)) ->
-      bif_inliner ~bif:n (binding :: (refine_args o args)) ff
+      bif_inliner.f ~bif:n (binding :: (refine_args o args))
     | Some binding,Pred (i,(args,o)) ->
       let ctxt = List.init !KCFA.cfa ctxt_var in
-      print_string_list (pred_name i::ctxt @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ]) ff
+      psl (pred_name i::ctxt @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ])
     | Some binding,CtxtPred (ctxt,i,(args,o)) ->
       let c_string =
         if !KCFA.cfa > 0 then
@@ -52,24 +57,24 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
         else
           []
       in
-      print_string_list (pred_name i::c_string @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ]) ff
-    | _,Top -> atom ff "true"
+      psl (pred_name i::c_string @ [ binding ] @ (refine_args o args) @ [ string_of_nullity nullity ])
+    | _,Top -> pl "true"
     | Some binding,ConstEq n ->
       pg "=" [
           pl binding;
           pp_int n
-        ] ff
+        ]
     | _,Relation { rel_op1; rel_cond = cond_name; rel_op2 } ->
       let intr = StringMap.find cond_name interp in
       pg intr [
         pp_relop ?nu:binding_opt rel_op1;
         pp_imm rel_op2
-      ] ff
+      ]
     | _,And (r1,r2) ->
       pg "and" [
           pp_refine ~bif_inliner ~nullity ~interp ?nu r1;
           pp_refine ~bif_inliner ~nullity ~interp ?nu r2
-        ] ff
+        ]
     | None,(CtxtPred _ | NamedPred _ | Pred _ | ConstEq _) ->
       failwith "Malformed refinement: expect a nu binder but none was provided"
         
@@ -204,9 +209,9 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
       in
       impl_loop lh t
 
-  let pp_constraint bif_inliner ~interp ff { env; ante; conseq; nullity; target } =     
+  let pp_constraint (bif_inliner : bif_inliner) ~interp ff { env; ante; conseq; nullity; target } =     
     let gamma = close_env env ante conseq in
-    let context_vars = List.init !KCFA.cfa (fun i -> Printf.sprintf "(%s Int)" @@ ctxt_var i) in
+    let context_vars = List.init !KCFA.cfa (fun i -> psl [ ctxt_var i; "Int"]) in
     let env_vars =
       List.fold_left (fun acc (ap,_,_) -> StringSet.add (Paths.to_z3_ident ap) acc) StringSet.empty gamma
       |> Option.fold ~none:(Fun.id) ~some:(fun p -> StringSet.add (Paths.to_z3_ident p)) target
@@ -219,7 +224,7 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
       in
       let%bind pred_nullity = lift_nullity_chain nullity in
       let%bind (nullity_ante,b_vars) = get_state in
-      let null_args = List.map (Printf.sprintf "(%s Bool)") @@ StringSet.elements b_vars in
+      let null_args = List.map (fun nm -> psl [ nm; "Bool" ] ) @@ StringSet.elements b_vars in
       
       let nullity_assume =
         NullityMap.fold (fun src dst_set acc1 ->
@@ -232,18 +237,17 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
         ) nullity_ante [] in
       let e_assum = nullity_assume @ denote_gamma in
       let free_vars = StringSet.fold (fun nm acc ->
-          (Printf.sprintf "(%s Int)" nm)::acc
+          (psl [ nm; "Int" ])::acc
         ) env_vars @@ context_vars @ null_args
       in
       let atomic_preds = to_atomic_preds conseq in
       return @@ List.iter (fun atomic_conseq ->
-          let precond = pg "and" ((pp_refine ~bif_inliner ~nullity:pred_nullity ~interp ?nu:target ante)::e_assum) simplify in
           pg "assert" [
             pg "forall" [
-              print_string_list free_vars;
+              ll free_vars;
               pg "=>" [
-                precond;
-                pp_refine ~bif_inliner ~nullity:pred_nullity ~interp ?nu:target atomic_conseq (fun k -> fun ff -> ff k)
+                 pg "and" ((pp_refine ~bif_inliner ~nullity:pred_nullity ~interp ?nu:target ante)::e_assum) simplify;
+                 pp_refine ~bif_inliner ~nullity:pred_nullity ~interp ?nu:target atomic_conseq
               ]
             ]
           ] ff.printer;
@@ -272,7 +276,7 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
         | _ -> acc
       ) StringMap.empty defns
     in
-    fun ~bif args ff ->
+    {f = fun ~bif args ff ->
       if StringMap.mem bif subst then
         let (arg_names,body) = StringMap.find bif subst in
         assert ((List.length arg_names) = (List.length args));
@@ -290,16 +294,17 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
         ff @@ apply body
       else
         psl (bif::args) ff
-
+    }
 
   let solve_inf ~interp:(interp,defn_file) infer_res =
-    let ff = SexpPrinter.fresh () in
+    let ff = fresh () in
     let open Inference.Result in
     let { refinements; arity; _ } = infer_res in
-    let bif_inliner =
+    let bif_inliner : bif_inliner =
       match defn_file with
-      | None -> fun ~bif args ->
-        psl @@ bif::args
+      | None ->
+         { f = fun ~bif args  ->
+           psl (bif::args) }
       | Some file ->
         let s_channel = open_in file in
         let defns = Sexplib.Sexp.input_sexps s_channel in
@@ -329,7 +334,7 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
       end;
     ) arity;
     List.iter (pp_constraint bif_inliner ~interp ff) refinements;
-    SexpPrinter.finish ff;
+    finish ff;
     S.solve ~defn_file ff
 
   let pprint_ty_env =

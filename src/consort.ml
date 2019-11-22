@@ -1,3 +1,4 @@
+open Solverlib
 type reason =
   | Timeout
   | Unsafe

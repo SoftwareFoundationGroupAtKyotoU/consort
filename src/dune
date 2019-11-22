@@ -6,7 +6,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries sexplib)
- (modules StringMap UnionFind PrettyPrint Files SexpPrinter Greek Std Log))
+ (modules StringMap UnionFind PrettyPrint Files Greek Std Log))
 
 (library
  (name lang)
@@ -16,28 +16,21 @@
  (modules Parser Ast SurfaceAst AstPrinter SimpleChecker Lexer LabelManager SimpleTypes RefinementTypes Paths AstUtil Intrinsics Locations))
 
 (library
- (name solving)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
- (wrapped false)
- (libraries util)
- (modules Z3Channel Solver SolverBridge Process))
-
-(library
  (name ownership)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
- (libraries lang util solving)
+ (libraries lang util solverlib)
  (modules OwnershipInference OwnershipSolver))
 
 (library
  (name consort)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
- (libraries sexplib util lang str solving ownership)
+ (libraries sexplib util lang str solverlib ownership)
  (modules Inference KCFA
           HornBackend SmtBackend
           Z3BasedBackend Consort
-          HoiceBackend NullSolver
+          HoiceBackend NullSolver SolverIntf
           ExternalFileBackend EldaricaBackend ParallelBackend
           FlowInference FlowBackend TypeInference))
 
