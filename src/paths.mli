@@ -4,8 +4,7 @@ type suff = [`Len | `Ind | `Elem | `None | `Null ] [@@deriving sexp]
 type root = private
   | Pre of string
   | Var of string
-  | Ret of bool
-  | Summ of string
+  | Ret
   | T [@@deriving sexp]
 
 type steps = [
@@ -40,10 +39,7 @@ val has_root_p : (string -> bool) -> path -> bool
 
 val template : path
 
-val summ : path -> path
-val is_summ : path -> bool
-
-val to_concrete : path -> path
+val is_template : path -> bool
 
 val root_at : child:path -> parent:path -> path
 
@@ -61,6 +57,6 @@ val compare : path -> path -> int
 
 val tail : path -> [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option
 
-module PathSet : Std.BINDSET with type elt = path
+module PathSet : Std.PRINTSET with type elt = path
 module PathMap : Map.S with type key = path
 module PathOrd : Set.OrderedType with type t = path

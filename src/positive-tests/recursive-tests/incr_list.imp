@@ -3,7 +3,9 @@ mk_list(v) {
   else {
     let v2 = v + 1 in
 	let nxt = mk_list(v2) in
-	mkref (v,nxt)
+	let to_fold = (v,nxt) in
+	let to_ret = mkref to_fold in
+	to_ret
   }
 }
 
@@ -22,6 +24,7 @@ verify_incr(p) {
 }
 
 {
- let n = mk_list(0) in
+ let start = _ in
+ let n = mk_list(start) in
  verify_incr(n)
 }

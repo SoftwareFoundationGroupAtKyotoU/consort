@@ -58,17 +58,28 @@ let rec fltype_to_string = function
 
 type funtype = fltype _funtyp
 
+type recursive_ref_map = relation P.PathMap.t
+
+type function_info = {
+  in_rel : relation;
+  out_rel : relation;
+  f_type: funtype;
+  in_recursive_rel: recursive_ref_map;
+  out_recursive_rel : recursive_ref_map;
+}
+
 type ctxt = {
   relations: relation list;
   impl: (clause list * clause) list;
   o_hints: float OI.ownership_ops;
-  fenv: (relation * relation * funtype) SM.t;
+  fenv: function_info SM.t;
   curr_fun : string option;
   let_types: fltype Std.IntMap.t;
   bif_types : RefinementTypes.funtype SM.t;
   havoc_set : P.PathSet.t;
   unfold_iso: Std.IntSet.t;
   fold_iso: Std.IntSet.t;
+  recursive_rel : recursive_ref_map
 }
 
 let rec unfold_fltype subst = function
@@ -104,16 +115,19 @@ let rec simple_to_fltype ?tvar = function
   | `Tuple tl -> `Tuple (List.map (simple_to_fltype ?tvar) tl)
     
 let%lq get_function_type f_name ctxt =
-  let (_,_,to_ret) = StringMap.find f_name ctxt.fenv in
-  to_ret
+  let { f_type; _ } = StringMap.find f_name ctxt.fenv in
+  f_type
 
 let%lq get_in_relation f_name ctxt =
-  let (ir,_,_) = StringMap.find f_name ctxt.fenv in
+  let { in_rel = ir; _} = StringMap.find f_name ctxt.fenv in
   ir
 
 let%lq get_out_relation f_name ctxt =
-  let (_,o_rel,_) = StringMap.find f_name ctxt.fenv in
+  let { out_rel = o_rel; _ } = StringMap.find f_name ctxt.fenv in
   o_rel
+
+let%lq get_function_info f_name ctxt =
+  StringMap.find f_name ctxt.fenv
 
 let%lq copy_state ctxt = ctxt
 
@@ -131,6 +145,7 @@ let mk_relation lhs op rhs = RT.({
 
 let rel ~ty k = Relation (k,ty)
 
+(* TODO: make this function actually useful... *)
 let path_type p = if P.is_nullity p then ZBool else ZInt
 
 let%lm add_assert op1 cond op2 curr_relation ctxt =
@@ -150,7 +165,7 @@ let add_assert_cond assert_cond curr_relation =
     curr_relation
 
 let rec havoc_oracle ctxt ml p =
-  let p = P.to_concrete p in
+  Log.debug ~src:"FLOW-OWN" !"Looking for %{P} @ %{sexp:OI.magic_loc}" p ml;
   let from_path p_ =
     let o = OI.GenMap.find (ml,p_) ctxt.o_hints.OI.gen in
     o = 0.0
@@ -161,9 +176,10 @@ let rec havoc_oracle ctxt ml p =
   | Some `Elem -> from_path @@ P.parent p
   | Some _ -> havoc_oracle ctxt ml @@ P.parent p
   | None -> false
-    
+
 let%lq split_oracle sl ctxt =
   let from_path p =
+    Log.debug ~src:"FLOW-OWN" !"Splitting %{P} @ %{sexp:OI.split_loc}" p sl;
     let (f1,f2) = OI.SplitMap.find (sl,p) ctxt.o_hints.OI.splits in
     let to_flag b = if b then `Havoc else `Stable in
     (to_flag (f1 = 0.0), to_flag (f2 = 0.0))
@@ -264,7 +280,12 @@ let null_pre (_,args) subst =
 
 let to_havoc d = Printf.sprintf "havoc!%d!%s" d 
 
-let havoc_ap d = P.map_root (to_havoc d)
+let havoc_ap d p =
+  P.map_root (to_havoc d) @@
+  if P.is_template p then
+     P.root_at ~child:p ~parent:(P.var "$tmp")
+  else
+    p
 
 let to_pass_ap = P.map_root (fun s -> "pass!" ^ s)
 
@@ -288,30 +309,29 @@ let%lm add_relation_flow ?out_ctxt ?(pre=[]) subst in_rel out_rel ctxt =
   }
 
 let type_to_paths ?(pre=false) root (ty: fltype) =
-  let add_path pre under_summ under_ref under_mu acc p =
+  let add_path pre under_ref under_mu acc p =
     let paths =
-      (if under_summ then [P.summ p] else []) @
         (if under_ref && not under_mu && pre then
            [P.pre p] else []) @
         [p]
     in
     paths @ acc
   in
-  let rec loop under_summ under_ref under_mu acc p = function
-    | `Int -> add_path pre under_summ under_ref under_mu acc p
-    | `Ref (summ,t) ->
-      let acc = add_path pre (summ || under_summ) under_ref under_mu acc (P.to_null p) in
-      loop (summ || under_summ) true under_mu acc (P.deref p) t
+  let rec loop under_ref under_mu acc p = function
+    | `Int -> add_path pre under_ref under_mu acc p
+    | `Ref (_,t) ->
+      let acc = add_path pre under_ref under_mu acc (P.to_null p) in
+      loop true under_mu acc (P.deref p) t
     | `Tuple tl ->
       fold_lefti (fun i acc t ->
-          loop under_summ under_ref under_mu acc (P.t_ind p i) t
+          loop under_ref under_mu acc (P.t_ind p i) t
         ) acc tl
     | `IntArray ->
-      List.fold_left (add_path false under_summ under_ref under_mu) acc [(P.len p);(P.ind p);(P.elem p)]
-    | `Mu t -> loop false under_ref true acc p t
+      List.fold_left (add_path false under_ref under_mu) acc [(P.len p);(P.ind p);(P.elem p)]
+    | `Mu t -> loop under_ref true acc p t
     | `TVar -> acc
   in
-  loop false false false [] root ty
+  loop false false [] root ty
 
 let path_step k p = match k with
   | `Ind -> P.ind p
@@ -319,6 +339,7 @@ let path_step k p = match k with
   | `Elem -> P.elem p
   | `Tuple i -> P.t_ind p i
   | `Mu -> p
+  | `Summ -> p
   | `Ref -> P.deref p
   | `Null -> P.to_null p
   | _ -> failwith "Unsupported"
@@ -396,6 +417,106 @@ let parallel_type_walk in_ap out_ap ty step f st acc =
     f st in_ap out_ap acc
   ) (in_ap, out_ap, st) acc
 
+
+module RecRelations = struct
+
+  module MuChain = struct
+    let to_concr (s,p) =
+      Option.fold ~none:s ~some:(fun parent ->
+        P.root_at ~child:s ~parent
+      ) p
+
+    let step_mu (s,p) =
+      assert (p = None);
+      (P.template, Some s)
+
+    let get_mu_path (s,p) =
+      Option.map (fun p ->
+        (s,p)
+      ) p
+
+    let raw_stepper k (s,p) = match k with
+      | `Mu -> `Cont (step_mu (s,p))
+      | _ -> `Cont (path_step k s, p)
+  end
+
+  let get_recursive_roots root ty =
+    walk_type ty (fun k s ->
+      match k with
+      | `Summ -> `K (fun ty acc -> (s,ty)::acc)
+      | _ -> `Cont (path_step k s)
+    ) (fun _ acc -> acc) root []
+
+  let get_mu_binders root ty =
+    walk_type ty (fun k s ->
+      match k with
+      | `Mu -> `K (fun _ acc -> s::acc)
+      | _ -> `Cont (path_step k s)
+    ) (fun _ acc -> acc) root []
+
+  let mu_transposition_of ~ty path =
+    get_mu_binders P.template ty |> List.map (fun binders ->
+        P.root_at ~child:path ~parent:binders
+      )
+
+  let update_rel_map dst rel =
+    P.PathMap.add dst rel
+
+  let set_recursive_rel dst rel ctxt =
+    { ctxt with recursive_rel = update_rel_map dst rel ctxt.recursive_rel }
+
+  let recursive_rel_for ~e_id ty dst ctxt =
+    let name =
+      Printf.sprintf !"%{P}-%d-%s" dst e_id "mu"
+    in
+    let args = type_to_paths P.template ty |> List.map (fun p -> p, path_type p) in
+    let rel = (name, args) in
+    let ctxt = set_recursive_rel dst rel @@ { ctxt with relations = rel :: ctxt.relations } in
+    ctxt,rel
+
+  let recursive_havoc_subst ty havoc_paths =
+    havoc_paths |> ListMonad.bind (fun p ->
+        p::(mu_transposition_of ~ty p)
+      ) |> List.mapi (fun i s -> (s, Ap (havoc_ap i s)))
+
+  let impl_with_havoc ?out_shift ~by_havoc ~ante dst_root dst_rel ctxt =
+    let havoc_subst =
+      P.PathMap.find_opt dst_root by_havoc
+      |> Option.map (fun (ty,havoc_paths) ->
+          recursive_havoc_subst ty @@ P.PathSet.elements havoc_paths
+        )
+      |> Option.value ~default:[]
+    in
+    { ctxt with impl = (ante, PRelation (dst_rel, havoc_subst, out_shift))::ctxt.impl }
+
+  let recursive_rel_with_havoc ~by_havoc ~e_id ~ante dst_root ty (ctxt : ctxt) =
+    let ctxt,rel = recursive_rel_for ~e_id ty dst_root ctxt in
+    impl_with_havoc ~by_havoc ~ante dst_root rel ctxt
+
+  let%lm null_for_var ~e_id ~ty var ctxt =
+    get_recursive_roots (P.var var) ty
+    |> List.fold_left (fun ctxt (root,ty) ->
+        let args = type_to_paths P.template ty |> List.map (fun p -> p, path_type p) in
+        get_mu_binders root ty |> List.fold_left (fun ctxt bind ->
+            let name = Printf.sprintf !"null-%d-%{P}-%s" e_id bind "mu" in
+            let rel = (name, args) in
+            let grounding_subst = List.filter_map (fun (s, p) ->
+                match p with
+                | ZBool ->
+                  let () = assert (P.is_nullity s) in
+                  Some (s, BConst is_null_flag)
+                | _ -> None
+              ) args in
+            set_recursive_rel
+              bind rel
+              { ctxt with
+                relations = rel::ctxt.relations;
+                impl = ([], PRelation (rel, grounding_subst, None))::ctxt.impl
+              }
+          ) ctxt
+      ) ctxt
+end
+
 type copy_spec = {
   direct_copies: (P.concr_ap * P.concr_ap) list;
   weak_copies: (P.concr_ap * P.concr_ap * fltype) list
@@ -432,18 +553,30 @@ let to_copy_stream { direct_copies; weak_copies } =
     ) direct_copies
   in
   List.fold_left (fun acc (s,d,ty) ->
-    parallel_type_walk s d ty (fun k _ st ->
+    parallel_type_walk s d ty (fun k (in_ap,dst_ap) stack ->
       match k with
-      | `Summ -> `Cont false
-      | `Mu -> `Cont true
-      | `Ref | `Arr -> `Cont st
-    ) (fun mu in_ap out_ap acc ->
-      if mu then
-        (in_ap, out_ap, `Mu)::acc
-      else
-        (P.summ in_ap, P.summ out_ap, `Summ (in_ap, out_ap))::(in_ap, out_ap, `Direct)::acc
-    ) false acc
+      | `Summ -> `Cont stack
+      | `Mu -> `ContPath (P.template, dst_ap, Some (in_ap, dst_ap))
+      | `Ref | `Arr -> `Cont stack
+    ) (fun stack in_ap out_ap acc ->      
+      let s = (in_ap, Option.map fst stack) in 
+      let concr_in = RecRelations.MuChain.to_concr s in
+      let acc = (concr_in, out_ap, `Direct)::acc in
+      Option.fold ~none:acc ~some:(fun (in_mu,out_mu) ->
+        (concr_in,out_ap, `Mu (in_ap, in_mu,out_mu, ty))::acc
+      ) stack
+    ) None acc
   ) l weak_copies
+
+let to_mu_copies { weak_copies; _ } =
+  ListMonad.bind (fun (s,d,ty) ->
+    RecRelations.get_mu_binders P.template ty
+    |> List.map (fun st -> 
+        (st,
+         P.root_at ~child:st ~parent:s,
+         P.root_at ~child:st ~parent:d,ty)
+      )
+  ) weak_copies
 
 let compute_patt_copies path patt ty =
   let rec loop patt path ty acc =
@@ -461,42 +594,104 @@ let compute_patt_copies path patt ty =
   in
   loop patt path ty empty_copy
 
-let add_havoc p f (havoc,stable) =
-  if f then
-    P.PathSet.add p havoc, stable
-  else
-    havoc,P.PathSet.add p stable
+module Havoc = struct
+  type mu_havoc = (fltype * P.PathSet.t) P.PathMap.t
+
+  type havoc_state = {
+    havoc: P.PathSet.t;
+    stable: P.PathSet.t;
+    mu_havoc: mu_havoc
+  }
+
+  let empty_havoc_state = {
+    havoc = P.PathSet.empty;
+    stable = P.PathSet.empty;
+    mu_havoc = P.PathMap.empty;
+  }
+
+  let add_havoc p f m =
+    if f then
+      { m with havoc = P.PathSet.add p m.havoc }
+    else
+      { m with stable = P.PathSet.add p m.stable }
+
+  let add_mu_havoc ~binder ~ty p f m =
+    if f then
+      { m with mu_havoc =
+          P.PathMap.update binder (function
+          | None -> Some (ty, P.PathSet.singleton p)
+          | Some (ty',set) ->
+            let () = assert (ty = ty') in
+            Some (ty, P.PathSet.add p set)
+          ) m.mu_havoc
+      }
+    else
+      m
+
+  let to_rec_havoc { mu_havoc; _ } = mu_havoc
+
+  let%lm update_null_havoc ~e_id ~ty var ctxt =
+    let ref_havoc p = (OI.GenMap.find (OI.MGen e_id, p) ctxt.o_hints.OI.gen) = 0.0 in
+    let hstate =
+      walk_type ty (fun k (f,p) ->
+        let f =
+          match k with
+          | `Ref | `Array -> ref_havoc p
+          | _ -> f
+        in
+        `Cont (f, path_step k p)
+      ) (fun (f, p) acc ->
+        add_havoc p f acc
+      ) (false, P.var var) empty_havoc_state
+    in
+    { ctxt with havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff ctxt.havoc_set hstate.stable }
+end
+
+module H = Havoc
 
 let augment_havocs flows havoc_set =
   List.filter (fun (p,_) -> not (P.PathSet.mem p havoc_set)) flows |> P.PathSet.fold (fun p acc ->
       (p, Ap (havoc_ap 0 p))::acc
-    ) havoc_set  
+    ) havoc_set
 
 let compute_flows ~sl copies ctxt =
   let _,split_oracle = split_oracle sl ctxt in
   to_copy_stream copies |> List.fold_left (fun (hstate,rename_copy,copy_subst,out_subst) (src,dst,k) ->
-      let (h_in,h_out) = match k with
-        | `Summ (a,b) -> split_oracle a b
-        | _ -> split_oracle src dst
-      in
+      let (h_in,h_out) = split_oracle src dst in
       let add_havoc p f ostate =
         if f = `Trivial then ostate
-        else add_havoc p (f = `Havoc) ostate
+        else Havoc.add_havoc p (f = `Havoc) ostate
       in
       let hstate = add_havoc src h_in @@ add_havoc dst h_out hstate in
-      let rename_copy, copy_subst, out_subst = match k with
-        | `Direct -> rename_copy,copy_subst,(dst, Ap src)::out_subst
-        | `Mu | `Summ _ ->
-          (dst, Ap (to_pass_ap src))::rename_copy,(src, Ap dst)::copy_subst, out_subst
-      in
-      (hstate,rename_copy,copy_subst,out_subst)
-    ) ((P.PathSet.empty,P.PathSet.empty),[],[],[])
+      match k with
+      | `Direct -> hstate,rename_copy,copy_subst,(dst, Ap src)::out_subst
+      | `Mu (under_mu_path, s, d, ty) ->
+        let () =
+          assert (h_in <> `Trivial);
+          assert (h_out <> `Trivial)
+        in
+        let hstate =
+          Havoc.add_mu_havoc ~binder:s ~ty under_mu_path (h_in = `Havoc) hstate
+          |> Havoc.add_mu_havoc ~binder:d ~ty under_mu_path (h_out = `Havoc)
+        in
+        hstate,(dst, Ap (to_pass_ap src))::rename_copy,(src, Ap dst)::copy_subst, out_subst
 
-let%lm apply_copies ~havoc:havoc_flag ~sl ?(flows=[]) ?pre copies in_rel out_rel ctxt =
-  let (havoc,stable),rename_copy,copy_flows,out_flows = compute_flows ~sl copies ctxt in
+    ) (Havoc.empty_havoc_state,[],[],[])
+
+let copy_rel ~by_havoc ~e_id ~ty src_rel dst_root ctxt =
+  if P.PathMap.mem dst_root by_havoc then
+    RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante:([
+      PRelation (src_rel, [], None)
+    ]) dst_root ty ctxt
+  else
+    RecRelations.set_recursive_rel dst_root src_rel ctxt
+
+let%lm apply_copies ?out_rec_rel ~havoc:havoc_flag ~sl ?(flows=[]) ?pre copies in_rel out_rel ctxt =
+  let hstate,rename_copy,copy_flows,out_flows = compute_flows ~sl copies ctxt in
+  let mu_copies = to_mu_copies copies in
   let havoc_set = ctxt.havoc_set in
-  let havoc_set = P.PathSet.union havoc @@ P.PathSet.diff havoc_set stable in
-  let applied_havocs = if havoc_flag then havoc_set else havoc in
+  let havoc_set = P.PathSet.union hstate.H.havoc @@ P.PathSet.diff havoc_set hstate.H.stable in
+  let applied_havocs = if havoc_flag then havoc_set else hstate.H.havoc in
   let flows = List.mapi flow_to_subst flows in
   let out_flows = augment_havocs (flows @ out_flows) applied_havocs in
   let pre =
@@ -510,71 +705,65 @@ let%lm apply_copies ~havoc:havoc_flag ~sl ?(flows=[]) ?pre copies in_rel out_rel
         [ PRelation(in_rel, [], None) ]
   in
   let conseq = PRelation(out_rel, out_flows, None) in
+  let ctxt =
+    let by_havoc = H.to_rec_havoc hstate in
+    List.fold_left (fun ctxt (_,src,dst,ty) ->
+      let () =
+        assert (P.PathMap.mem src ctxt.recursive_rel);
+      in
+      let e_id =
+        match sl with
+        | OI.SRet e_id
+        | OI.SBind e_id
+        | OI.SCall e_id -> e_id
+      in
+      let src_rel = P.PathMap.find src ctxt.recursive_rel in
+      let ctxt = copy_rel ~by_havoc ~e_id ~ty src_rel src ctxt in
+      match out_rec_rel with
+      | Some (direct_flow,_) ->
+        P.PathMap.find_opt dst direct_flow
+        |> Option.fold ~none:ctxt ~some:(fun rel ->
+            RecRelations.impl_with_havoc ~by_havoc ~ante:[
+              PRelation (src_rel, [], None)
+            ] dst rel ctxt
+          )
+      | None -> copy_rel ~by_havoc ~e_id ~ty src_rel dst ctxt
+    ) ctxt mu_copies
+  in
+  let ctxt =
+    match out_rec_rel with
+    | None -> ctxt
+    | Some (_,extra_rec_flows) ->
+      List.fold_left (fun ctxt (src,rel) ->
+          let in_rel = P.PathMap.find src ctxt.recursive_rel in
+          { ctxt with impl = ([ PRelation(in_rel, [], None)], PRelation (rel, [], None))::ctxt.impl }
+        ) ctxt extra_rec_flows
+  in
   { ctxt with havoc_set; impl = (pre, conseq)::ctxt.impl }
 
-module type SUJMAP = sig
+module IdMap(M: Map.S) : sig
   type t
-  type f_key
-  type b_key
-  val empty : t
-  val add : f_key -> b_key -> t -> t
-  val mem : f_key -> t -> bool
-  val inv_mem : b_key -> t -> bool
-  val find : f_key -> t -> b_key
-  val inv_find : b_key -> t -> f_key
-  val forward : t -> (f_key * b_key) list
-end
-
-module SurjectiveMap(F: Map.OrderedType)(B: Map.OrderedType) : SUJMAP with type f_key = F.t with type b_key = B.t = struct
-  module FMap = Map.Make(F)
-  module BMap = Map.Make(B)
-  type t = (B.t FMap.t * F.t BMap.t)
-  type f_key = F.t
-  type b_key = B.t
-
-  let empty = (FMap.empty, BMap.empty)
-  let add k v (f,b) =
-    if BMap.mem v b && (BMap.find v b <> k) then
-      raise @@ Invalid_argument "duplicate codom elem"
-    else
-      (FMap.add k v f,BMap.add v k b)
-
-  let inv_mem k (_,d) = BMap.mem k d
-  let mem k (d,_) = FMap.mem k d
-  let find k (d,_) = FMap.find k d
-  let inv_find k (_,d) = BMap.find k d
-  let forward (f,_) = FMap.bindings f
-end
-
-module IdSurjMap(F: Map.OrderedType) : sig
-  include SUJMAP with type f_key = F.t with type b_key = F.t
   val id_map : t
+  val find : M.key -> t -> M.key
+  val add : M.key -> M.key -> t -> t
+  val mem : M.key -> t -> bool
+  val empty : t
 end = struct
-  module W = SurjectiveMap(F)(F)
-  type t = W.t option
-  type f_key = F.t
-  type b_key = F.t
-  let empty = Some W.empty
+  type t = (M.key M.t) option
+  let empty = Some M.empty
   let id_map = None
   let add k v = function
     | None -> failwith "Cannot add to infinite map"
-    | Some w -> Some (W.add k v w)
+    | Some w -> Some (M.add k v w)
 
   let q f = fun k -> Option.fold ~none:true ~some:(f k)
-
-  let mem = q W.mem
-  let inv_mem = q W.inv_mem
+  let mem = q M.mem
+      
   let l f = fun k -> Option.fold ~none:k ~some:(f k)
-
-  let find = l W.find
-  let inv_find = l W.inv_find
-
-  let forward = function
-    | None -> []
-    | Some w -> W.forward w
+  let find = l M.find
 end
 
-module PPMap = IdSurjMap(P.PathOrd)
+module PPMap = IdMap(P.PathMap)
 
 module RecursiveRefinements = struct
 
@@ -657,7 +846,7 @@ module RecursiveRefinements = struct
         ) indexed_sub acc
       ) (List.map lift_copy substs) indexed_subst
        
-  let compute_frag_subst ?(acc=[]) ~is_tail ~skip_ref concr src_frag dst_frag =
+  let compute_frag_subst ?(acc=[]) ~skip_ref src_frag dst_frag =
     let ty,src,dst =
       if skip_ref then
         match snd src_frag with
@@ -670,35 +859,39 @@ module RecursiveRefinements = struct
       | `Mu t -> t
       | _ -> ty
     in
-    let inj = if is_tail then Fun.id else P.summ in
     parallel_type_walk src dst ty (fun k _ () ->
       match k with
       | `Mu -> `K (fun _ acc -> acc)
       | `Summ | `Arr | `Ref -> `Cont ()
     ) (fun () in_ap out_ap acc ->
-      let out_ap = if concr then out_ap else P.summ out_ap in
-      (inj in_ap, out_ap)::acc
+      (in_ap, out_ap)::acc
     ) () acc
 
-  let compute_mu_subst ?(skip_hd_ref=false) src_templ ~hd:(hfrag,hconcr) ~tl:(tfrags,tconcr) =
-    let subst = compute_frag_subst ~skip_ref:skip_hd_ref ~is_tail:false hconcr src_templ.hd hfrag in
-    P.PathMap.fold (fun bind_path src_frag acc ->
-      let dst_frag = P.PathMap.find bind_path tfrags in
-      compute_frag_subst ~skip_ref:false ~is_tail:true ~acc tconcr src_frag dst_frag
-    ) src_templ.recurse subst |> List.map lift_copy
+  let compute_mu_template_subst { hd = (path,ty); _ } =
+    parallel_type_walk P.template path ty (fun _ _ () -> `Cont ()) (fun () in_ap out_ap acc ->
+      (in_ap, Ap out_ap)::acc
+    ) () []
 
-  let compute_mu_multi_subst ?(skip_hd_ref=false) src_templ ~hd:(hfrag,hconcr) ~tl:tfrags =
-    let subst = compute_frag_subst ~skip_ref:skip_hd_ref ~is_tail:false hconcr src_templ.hd hfrag in
+  let compute_mu_multi_subst ?(skip_hd_ref=false) src_templ ~hd:hfrag ~tl:tfrags =
+    let subst = compute_frag_subst ~skip_ref:skip_hd_ref src_templ.hd hfrag in
     let indexed_subst = P.PathMap.fold (fun bind_path src_frag acc ->
       let dst_frags = P.PathMap.find bind_path tfrags in
-      let sub_group = fold_lefti (fun i acc (dst_frag,tconcr) ->
-        let s = compute_frag_subst ~skip_ref:false ~is_tail:true tconcr src_frag dst_frag in
+      let sub_group = fold_lefti (fun i acc dst_frag ->
+        let s = compute_frag_subst ~skip_ref:false src_frag dst_frag in
         (i,s)::acc
         ) [] dst_frags in
       sub_group::acc
       ) src_templ.recurse []
     in
     to_multi_subst subst indexed_subst
+
+  let compute_mu_subst src_templ ~hd:hfrag ~tl:tfrags =
+    let subst = compute_frag_subst ~skip_ref:false src_templ.hd hfrag in
+    P.PathMap.fold (fun path src_frag acc ->
+      let dst_frag = P.PathMap.find path tfrags in
+      compute_frag_subst ~skip_ref:false ~acc src_frag dst_frag
+    ) src_templ.recurse subst
+    |> List.map lift_copy
 
   let partial_subst src dst ty =
     parallel_type_walk src dst ty (fun k _ () -> match k with
@@ -746,13 +939,14 @@ module RecursiveRefinements = struct
     let source_mu = root_template_at template source_path in
     let target_path = P.var target in
 
-    (* rougly speaking, we unfold a recursive relation R(x,?,y) as follows:
-       R(x,T,hd) /\ R(hd,F,tl) /\ R(x,T,tl) => T(hd,?,tl)
+    (* Roughly speaking, we unfold the relation R(hd, tl) as follows:
 
-       here, x is the head component y is the tail component. T is the relation describing the
-       recursive relationship in the unfolding.
+       R(hd, tl!pass) /\ R(hd, tl) /\ R(hd, tl->tl) /\ hd(tl, tl->tl) => R(hd, tl!pass, hd, tl, tl->tl)
+       hd(x,y) => tl(x, y)
 
-       We label the substitutions below following this intuition
+       R here encodes a relationship between hd and all tail elements, i.e. elements reachable from the tail pointer of hd.
+       hd(x,y) encodes the recursive refinement, i.e., after unfolding, what relationship should hold between tl and all
+       the elements reachable from tl, represented in the above by tl->tl.
     *)
     let mu_mapping = parallel_type_walk (P.deref @@ P.template) target_path cont_ty (fun k (in_ap,out_ap) () ->
         match k with
@@ -762,37 +956,39 @@ module RecursiveRefinements = struct
         | _ -> `Cont ()
       ) (fun _ _ _ acc -> acc) () []
     in
-    (* R(hd, F, tl), i.e. assert the output mu conforms to the input mu *)
-    let trans_subst = List.map (fun (_,out_mu) ->
-        compute_mu_subst source_mu ~hd:(out_mu.hd,false) ~tl:(out_mu.recurse,true)
+
+    (* now we compute the R(hd, tl) /\ R(hd, tl->tl) component. We use the multi_subst operation for this *)
+    let unfolding_mu = List.fold_left (fun acc (src_mu, target_mu) ->
+        let l = target_mu.hd :: (P.PathMap.bindings target_mu.recurse |> List.map snd) in
+        P.PathMap.add src_mu l acc
+      ) P.PathMap.empty mu_mapping
+    in
+
+    let rec combination_loop l =
+      match l with
+      | [] -> [P.PathMap.empty]
+      | (src_mu,possibilities)::t ->
+        let comb = combination_loop t in
+        ListMonad.bind (fun mu ->
+          List.map (fun m ->
+            P.PathMap.add src_mu mu m
+          ) comb
+        ) possibilities
+    in
+    let combinatorial_subst =
+      P.PathMap.bindings unfolding_mu
+      |> combination_loop
+      |> List.map (fun m ->
+          compute_mu_subst source_mu ~hd:source_mu.hd ~tl:m
+        )
+    in
+
+    let recursive_substs = List.map (fun (in_ap, out_mu) ->
+        let rel = P.PathMap.find (P.root_at ~child:in_ap ~parent:source_path) ctxt.recursive_rel in
+        (rel, compute_mu_template_subst out_mu)
       ) mu_mapping
     in
-    (* R(x,T, hd), i.e., the new heads are generated in relation to the current head *)
-    let hd_map = List.fold_left (fun acc (k,v) ->
-        P.PathMap.add k v.hd acc
-      ) P.PathMap.empty mu_mapping
-    in  
-    (* And now for the head element *)
-    let hd_gen_subst =
-      compute_mu_subst source_mu ~hd:(source_mu.hd,true) ~tl:(hd_map,true)
-    in
-
-    let outer_subst = compute_mu_subst source_mu ~hd:(source_mu.hd,true) ~tl:(hd_map,false) in
-
-    (* And now the messy bit, R(x, T, tl).
-
-       Given the existence of multiple mu binders, there will be multiple "tail" values
-       to be constrained for every (unfolded) head position. So we collapse them all
-       below using the to_multi_subst function
-    *)
-    let outer_trans =
-      let multi_bind = List.fold_left (fun acc (mu_path,mu) ->
-          let l = (mu.hd,false) :: (P.PathMap.bindings mu.recurse |> List.map (fun (_,m) -> (m,true))) in
-          P.PathMap.add mu_path l acc
-        ) P.PathMap.empty mu_mapping in
-      compute_mu_multi_subst source_mu ~hd:(source_mu.hd, true) ~tl:multi_bind
-    in
-
+    
     let output_flows = partial_subst (P.deref source_path) target_path cont_ty |> List.map (fun (s,d) ->
           (normalize_ap d, Ap s)
         )
@@ -801,60 +997,73 @@ module RecursiveRefinements = struct
     (* now compute the havocs (if requested) *)
     let all_havocs =
       if with_havoc then
-        parallel_type_walk (P.deref @@ P.template) P.template cont_ty (fun k (in_ap,out_ap) (ih,oh,parent_mu) ->
+        parallel_type_walk (P.deref @@ source_path) target_path cont_ty (fun k (in_ap,out_ap) (ih,oh,parent_mu) ->
           match k with
           | `Summ -> failwith "Impossible?"
-          | `Mu -> `ContPath (in_ap,P.template,(ih,oh,Some (in_ap,out_ap)))
+          | `Mu -> `ContPath (P.template,P.template,(ih,oh,Some (in_ap,out_ap)))
           | `Ref | `Arr ->
-            let concr_path = P.root_at ~child:in_ap ~parent:source_path in
+            let concr_path = Option.fold ~none:in_ap ~some:(fun (src,_) ->
+                P.root_at ~child:in_ap ~parent:src
+              ) parent_mu
+            in
             let (ih,oh) = OI.SplitMap.find (OI.SBind e_id,concr_path) ctxt.o_hints.OI.splits in
             `Cont (ih = 0.0, oh = 0.0, parent_mu)
         ) (fun (ih,oh,parent_mu) in_ap out_ap acc ->
-          let maybe_add ?(summ=false) f p acc =
-            if f then
-              P.PathSet.add p @@
-                if summ then
-                  P.PathSet.add (P.summ p) acc
-                else
-                  acc
-            else acc
-          in
+          
           match parent_mu with
           | None ->
-          (* then we have no reached the mu binder yet, these are all direct copies *)
-            let in_ap = P.root_at ~child:in_ap ~parent:source_path in
-            let out_ap = P.root_at ~child:out_ap ~parent:target_path in
-            maybe_add ~summ:true ih in_ap @@ maybe_add oh out_ap acc
-          | Some (_,tgt_ap) ->
-            let in_ap = P.root_at ~child:in_ap ~parent:source_path in
-            let child_mu = P.root_at ~child:tgt_ap ~parent:target_path in
-            let hd_path = P.root_at ~child:out_ap ~parent:child_mu in
-            let summ_hd = P.summ hd_path in
-            let tl_paths = P.PathMap.bindings template.recurse |> List.map (fun (k,_) ->
-                  P.root_at ~child:out_ap ~parent:(P.root_at ~child:k ~parent:child_mu)
-                ) in
-            let acc = if ih then P.PathSet.add in_ap acc else acc in
-            if oh then
-              P.PathSet.union acc @@ P.PathSet.of_list ([summ_hd; hd_path]@ tl_paths)
-            else
-              acc
-        ) (false, false, None) P.PathSet.empty |> normalize_havoc
+            (* then we have not reached the mu binder yet, these are all direct copies *)
+            H.add_havoc in_ap ih @@ H.add_havoc out_ap oh acc
+          | Some (mu_ap,dst_root_ap) ->
+            let in_path = P.root_at ~child:in_ap ~parent:mu_ap in
+            let out_hd = P.root_at ~child:out_ap ~parent:dst_root_ap in
+            let acc =
+              H.add_havoc out_hd oh acc
+              |> H.add_havoc in_path ih
+              |> H.add_mu_havoc ~binder:mu_ap ~ty:ref_ty in_ap ih
+            in
+            RecRelations.get_mu_binders P.template ref_ty |> List.fold_left (fun acc binder ->
+                let binder = normalize_ap @@ P.root_at ~child:binder ~parent:dst_root_ap in
+                H.add_mu_havoc ~binder ~ty:ref_ty out_ap oh acc
+              ) acc
+        ) (false, false, None) H.empty_havoc_state
       else
-        P.PathSet.empty
+        H.empty_havoc_state
+    in
+
+    let all_havocs = { all_havocs with havoc = normalize_havoc all_havocs.havoc } in
+    
+    let rec_havocs = H.to_rec_havoc all_havocs in
+    let ctxt = List.fold_left (fun ctxt (binder_path,target_mu) ->
+        let source_mu = (P.root_at ~child:binder_path ~parent:source_path) in
+        let src_rel = P.PathMap.find source_mu ctxt.recursive_rel in
+        let ctxt = copy_rel ~by_havoc:rec_havocs ~e_id src_rel ~ty:ref_ty source_mu ctxt in
+        let dst_root = fst target_mu.hd in
+        RecRelations.get_mu_binders P.template ref_ty |> List.fold_left (fun ctxt binder ->
+            let target_mu = P.root_at ~child:binder ~parent:dst_root in
+            if PPMap.mem target_mu out_mapping then
+              let target_mu = PPMap.find target_mu out_mapping in
+              copy_rel ~by_havoc:rec_havocs ~e_id ~ty:ref_ty src_rel target_mu ctxt
+            else
+              ctxt
+          ) ctxt
+      ) ctxt mu_mapping
     in
  
     let pre_flows = [
       rel ~ty:ZBool @@ mk_relation (Ap (P.to_null source_path)) "=" (BConst is_nonnull_flag);
-      relation_subst in_rel @@ normalize_subst outer_trans;
-      relation_subst in_rel @@ normalize_subst outer_subst;
-      relation_subst in_rel @@ normalize_subst hd_gen_subst;
       relation_subst in_rel [];
-    ] @ List.map (relation_subst in_rel) (List.map normalize_subst trans_subst)
+    ] @ List.map (fun (rel, subst) ->
+          PRelation (rel, normalize_subst subst, None)
+        ) recursive_substs
+      @ List.map (fun subst ->
+          PRelation (in_rel, normalize_subst subst, None)
+        ) combinatorial_subst
     in
-    let output_subst = augment_havocs output_flows all_havocs in
+    let output_subst = augment_havocs output_flows all_havocs.havoc in
     
     let unfold_impl = (pre_flows @ null_pre out_rel output_subst, PRelation (out_rel, output_subst, None)) in
-    { ctxt with impl = unfold_impl::ctxt.impl; havoc_set = P.PathSet.union ctxt.havoc_set all_havocs }
+    { ctxt with impl = unfold_impl::ctxt.impl; havoc_set = P.PathSet.union ctxt.havoc_set all_havocs.havoc }
 
   type ap_subst = (P.concr_ap * P.concr_ap) list
 
@@ -862,14 +1071,14 @@ module RecursiveRefinements = struct
     | Weak
     | Custom of { rename_src: ap_subst; rename_weak: ap_subst; rename_out: ap_subst }
 
-  let fold_to ~oracle:(dst_oracle,src_oracle) ~copy_policy ?havoc_ext ref_ty src_root target_root in_rel out_rel ctxt =
+  let fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy ?rec_ext ?havoc_ext ref_ty src_root target_root in_rel out_rel ctxt =
     let src_ap = P.var src_root in
     let cont_ty = match ref_ty with
       | `Ref (_,t) -> t
       | _ -> assert false
     in
     let mu_template = to_mu_template ref_ty in
-    let target_ap = P.deref @@ P.var target_root in
+    let target_ap = P.var target_root in
     let target_mu = root_template_at mu_template (P.var target_root) in
     let mu_map = parallel_type_walk (P.deref @@ P.template) (P.var src_root) cont_ty (fun k (in_ap, out_ap) () ->
         match k with
@@ -880,22 +1089,14 @@ module RecursiveRefinements = struct
       ) (fun () _ _ acc -> acc) () []
     in
 
-    let hd_frag = src_ap,cont_ty in
-    let fold_up_tl = List.fold_left (fun acc (mu_path,mu) ->
-        let l = [mu.hd, true; mu.hd, false] in
-        let l = l @ (P.PathMap.bindings mu.recurse |> List.map (fun (_,m) -> (m,true))) in
-        P.PathMap.add mu_path l acc
+    let fold_up_map = List.fold_left (fun acc (out_binder,input_mu) ->
+        let l = input_mu.hd :: (P.PathMap.bindings input_mu.recurse |> List.map snd) in
+        P.PathMap.add out_binder l acc
       ) P.PathMap.empty mu_map
     in
-    let direct_subst = partial_subst target_ap src_ap cont_ty |> List.map lift_copy in
-    let fold_up_subst = ((P.summ @@ P.to_null @@ P.var target_root),BConst is_nonnull_flag) :: compute_mu_multi_subst ~skip_hd_ref:true target_mu ~hd:(hd_frag,true) ~tl:fold_up_tl in
-    let fold_up_subst = fold_up_subst @ direct_subst in
 
-    let ind_substs = List.map (fun (_,mu) ->
-        direct_subst @ compute_mu_subst target_mu ~hd:(mu.hd,false) ~tl:(mu.recurse, true)
-      ) mu_map
-    in
-
+    let fold_up_subst = compute_mu_multi_subst ~skip_hd_ref:true target_mu ~hd:(src_ap, cont_ty) ~tl:fold_up_map in 
+    
     let (rename_src,rename_weak,rename_out) =
       match copy_policy with
       | Weak ->
@@ -913,36 +1114,62 @@ module RecursiveRefinements = struct
       | Custom { rename_src; rename_weak; rename_out } -> (rename_src, rename_weak, rename_out)
     in
 
-    let state_stepper = (fun k (st,p) ->
-        match k with
-        | `Mu -> `Cont (`None, p)
-        | `Summ -> `Cont (`Summ, p)
-        | _ -> `Cont (st,path_step k p))
+    let handle_term oracle st acc =
+      let full_path = RecRelations.MuChain.to_concr st in
+      let flg = oracle full_path in
+      let acc = H.add_havoc full_path flg acc in
+      Option.fold ~none:acc ~some:(fun (p,binder) ->
+        H.add_mu_havoc ~binder ~ty:ref_ty p flg acc
+      ) @@ RecRelations.MuChain.get_mu_path st
+    in
+    let hstate =
+      walk_type cont_ty RecRelations.MuChain.raw_stepper (handle_term dst_oracle) (P.deref @@ P.var target_root, None) H.empty_havoc_state
+      |> walk_type (deep_type_normalization cont_ty) RecRelations.MuChain.raw_stepper (handle_term src_oracle) (src_ap, None)
     in
 
-    let state_add (st,ap) set =
-      let set = P.PathSet.add ap set in
-      if st = `Summ then P.PathSet.add (P.summ ap) set else set
+    let by_havoc = H.to_rec_havoc hstate in
+    let ctxt = List.fold_left (fun ctxt (dst_binder,src_folded) ->
+        let target_mu = P.root_at ~child:dst_binder ~parent:target_ap in
+        let ctxt,rel = RecRelations.recursive_rel_for ~e_id ref_ty target_mu ctxt in
+        let with_havoc ante ctxt =
+          RecRelations.impl_with_havoc ~ante ~by_havoc target_mu rel ctxt
+        in
+        let (hd_subst,conj_ind) =
+          Option.bind rec_ext (P.PathMap.find_opt dst_binder)
+          |> Option.value ~default:([], P.PathMap.empty)
+        in
+        let ctxt =
+          RecRelations.get_mu_binders (fst src_folded.hd) (snd src_folded.hd)
+          |> List.fold_left (fun ctxt mu_path ->
+              let input_rec = P.PathMap.find mu_path ctxt.recursive_rel in
+              let input_rec = PRelation (input_rec, [], None) in
+              let ante = input_rec :: (Option.to_list @@ P.PathMap.find_opt mu_path conj_ind) in
+              with_havoc ante ctxt
+            ) ctxt
+        in
+        let subst = compute_mu_template_subst src_folded |> List.map (function
+            | (src, Ap dst) -> (dst, Ap src)
+            | _ -> assert false
+            ) in
+         with_havoc [ PRelation (in_rel, subst @ hd_subst, None) ] ctxt
+      ) ctxt mu_map
     in
-    
-    let havoc = walk_type (deep_type_normalization cont_ty) state_stepper (fun (st,ap) havoc ->
-        if src_oracle ap then
-          state_add (st,ap) havoc
-        else
-          havoc
-      ) (`None,src_ap) P.PathSet.empty in
-    let havoc,stable = walk_type cont_ty state_stepper (fun (st,ap) (havoc,stable) ->
-        if dst_oracle ap then
-          state_add (st,ap) havoc,stable
-        else
-          havoc,state_add (st,ap) stable
-      ) (`Summ,target_ap) (havoc,P.PathSet.empty) in
+    let ctxt = List.fold_left (fun ctxt (_, src_folded) ->
+        RecRelations.get_mu_binders (fst src_folded.hd) (snd src_folded.hd)
+        |> List.fold_left (fun ctxt src_mu ->
+            let src_rel = P.PathMap.find src_mu ctxt.recursive_rel in
+            copy_rel ~by_havoc ~e_id ~ty:ref_ty src_rel src_mu ctxt
+          ) ctxt
+      ) ctxt mu_map
+    in
 
-    let havoc,stable = match havoc_ext with
-      | Some f -> f ~havoc ~stable
-      | None -> havoc,stable
+    let hstate = match havoc_ext with
+      | Some f ->
+        let havoc,stable = f ~havoc:hstate.havoc ~stable:hstate.stable in
+        { hstate with havoc; stable }
+      | None -> hstate
     in
-    let havoc_set = P.PathSet.union havoc @@ P.PathSet.diff ctxt.havoc_set stable in
+    let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff ctxt.havoc_set hstate.stable in
 
     let output_flows flow_subst =
       augment_havocs (flow_subst @ List.map lift_copy rename_out) havoc_set
@@ -952,15 +1179,13 @@ module RecursiveRefinements = struct
       rel ~ty:ZBool @@ mk_relation (Ap (P.to_null @@ P.var target_root)) "=" (BConst is_nonnull_flag);
       PRelation (in_rel, List.map lift_copy rename_src, None)
     ] in
-    let all_subst = fold_up_subst::ind_substs in
-    let to_impl subst = 
-      let flows = output_flows subst in
-      let null_ante = null_pre out_rel subst in
+    let fold_impl =
+      let flows = output_flows fold_up_subst in
+      let null_ante = null_pre out_rel fold_up_subst in
       let conseq = relation_subst out_rel flows in
       (ante @ null_ante, conseq)
     in
-    let fold_impl = List.map to_impl all_subst in
-    { ctxt with impl = (fold_impl @ ctxt.impl); havoc_set }
+    { ctxt with impl = (fold_impl :: ctxt.impl); havoc_set }
 end
 
 
@@ -979,7 +1204,7 @@ let%lm do_fold_copy ~e_id in_ap out_ap folded_ty in_rel out_rel ctxt =
     let (f1,_) = so p p in
     f1 = `Havoc
   in
-  RecursiveRefinements.fold_to ~oracle:(dst_oracle,src_oracle) ~copy_policy:RecursiveRefinements.Weak folded_ty in_ap out_ap in_rel out_rel ctxt       
+  RecursiveRefinements.fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:RecursiveRefinements.Weak folded_ty in_ap out_ap in_rel out_rel ctxt       
 
 let apply_identity_flow ?pre = add_relation_flow ?pre []
 
@@ -1002,24 +1227,28 @@ let rec is_pre_path p =
   | Some `Proj _ -> is_pre_path @@ P.parent p
   | Some _ -> false
 
-let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty =
-  let direct_copies = compute_copies actual formal ty |> to_copy_stream in
+let bind_arg ~fn ~cid ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty =
+  let copies =  compute_copies actual formal ty in
+  let direct_copies = to_copy_stream copies in
   let%bind split_oracle = split_oracle (SCall e_id) in
+  let%bind fun_info = get_function_info fn in
 
-  let id_paths = List.fold_left (fun acc (src,dst,k) ->
-      let (havoc,_) = match k with
-        | `Summ (s,d) -> split_oracle s d
-        | `Direct | `Mu -> split_oracle src dst
+  let hstate = List.fold_left (fun acc (src,dst,k) ->
+      let (havoc,dst_havoc) = split_oracle src dst in
+      let acc = 
+        match k with
+        | `Mu (under_mu_path, _, dst_binder, ty) ->
+          H.add_mu_havoc ~ty ~binder:dst_binder under_mu_path (dst_havoc = `Havoc) acc
+        | _ -> acc
       in
-      if havoc = `Havoc then
-        acc
-      else
-        P.PathSet.add src acc
-    ) P.PathSet.empty direct_copies in
+      H.add_havoc src (havoc = `Havoc) acc
+    ) H.empty_havoc_state direct_copies
+  in
+  let id_paths = hstate.H.stable in
 
   let in_bind = List.fold_left (fun in_bind (src,dst,k) ->
       let in_bind = (dst, Ap src)::in_bind in
-      if is_pre_path src && k = `Direct then
+      if is_pre_path src && (k = `Direct) then
         (P.pre dst, Ap src)::in_bind
       else
         in_bind
@@ -1032,11 +1261,7 @@ let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty
   let (havoc,stable,out_bind,pre_bind) = List.fold_left (fun (havoc,stable,out_bind,pre_bind) (src,dst,k) ->
       let is_pre = is_pre_path src && k = `Direct in
       let is_id = P.PathSet.mem src id_paths in
-      let havoc_path = match k with
-        | `Summ (_,d) -> d
-        | _ -> dst
-      in
-      let havoc_out = havoc_out_oracle havoc_path && (not is_id) in
+      let havoc_out = havoc_out_oracle dst && (not is_id) in
       let (havoc,stable) =
         if havoc_out then
           (P.PathSet.add src havoc),stable
@@ -1084,20 +1309,48 @@ let bind_arg ~fn ~e_id (havoc,stable,in_bind,out_bind,pre_bind) actual formal ty
         (havoc,stable,(P.pre dst,Ap pre_path)::out_copy::out_bind,pre_copy::pre_bind)
     ) (havoc,stable,out_bind,pre_bind) direct_copies
   in
+  let mu_copy = to_mu_copies copies in
+  let%lm update_in_rel susp (_,src_mu, dst_mu, _) ctxt =
+    let ctxt,() = susp ctxt in
+    let in_rel = P.PathMap.find src_mu ctxt.recursive_rel in
+    let out_rel = P.PathMap.find dst_mu fun_info.in_recursive_rel in
+    RecRelations.impl_with_havoc ~out_shift:cid ~by_havoc:hstate.mu_havoc ~ante:[
+      PRelation (in_rel, [], None)
+    ] dst_mu out_rel ctxt
+  in
+  let%bind () = List.fold_left update_in_rel (return ()) mu_copy in
+  let%lm update_out_rel susp (_, src_mu, dst_mu, ty) ctxt =
+    let ctxt,() = susp ctxt in
+    let out_rel = P.PathMap.find dst_mu fun_info.out_recursive_rel in
+    let ctxt,result_rel = RecRelations.recursive_rel_for ~e_id ty src_mu ctxt in
+    { ctxt with impl = ([ PRelation (out_rel, [], Some cid) ], PRelation (result_rel, [], None))::ctxt.impl }
+  in
+  let%bind () = List.fold_left update_out_rel (return ()) mu_copy in
   return (havoc,stable,in_bind,out_bind, pre_bind)
 
-let bind_return ~fn out_patt ret_type =
-  let copies = compute_patt_copies P.ret out_patt ret_type |> to_copy_stream in
+let bind_return ~fn ~e_id ~cid out_patt ret_type =
+  let copies =  compute_patt_copies P.ret out_patt ret_type in
+  let direct_copies = to_copy_stream copies in
   let%bind havoc_oracle = gen_oracle @@ MRet fn in
-  let havoc_ret = List.fold_left (fun acc (src,dst,k) ->
-      let hsrc = match k with | `Summ (s,_) -> s | `Mu | `Direct -> src in
-      if havoc_oracle hsrc then
+  let havoc_ret = List.fold_left (fun acc (src,dst,_) ->
+      if havoc_oracle src then
         P.PathSet.add dst acc
       else
         acc
-    ) P.PathSet.empty copies in
-  return (List.map (fun (s,d,_) -> (s,Ap d)) copies,havoc_ret)
-  
+    ) P.PathSet.empty direct_copies in
+  let%bind fun_info = get_function_info fn in
+  let%bind () =
+    List.fold_left (fun m_unit (_,src_mu,dst_mu,ty) ->
+      (fun ctxt ->
+        let ctxt,() = m_unit ctxt in
+        let ctxt,rel = RecRelations.recursive_rel_for ~e_id ty dst_mu ctxt in
+        let return_rel = P.PathMap.find src_mu fun_info.out_recursive_rel in
+        { ctxt with impl = ([ PRelation(return_rel, [], Some cid) ], PRelation(rel, [], None))::ctxt.impl },()
+      )
+    ) (return ()) (to_mu_copies copies)
+  in
+  return (List.map (fun (s,d,_) -> (s,Ap d)) direct_copies,havoc_ret)
+
 let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let callee = call_expr.callee in
   let%bind callee_type = get_function_type callee in
@@ -1106,10 +1359,10 @@ let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let args = call_expr.arg_names in
   let%bind (havoc,stable,in_bindings,out_bindings,pre_bindings) = fold_left2i (fun i acc arg_name arg_ty ->
       let%bind acc = acc in
-      bind_arg ~fn:callee ~e_id acc (P.var arg_name) (P.arg i) arg_ty
+      bind_arg ~fn:callee ~cid:call_expr.label ~e_id acc (P.var arg_name) (P.arg i) arg_ty
     ) (return (P.PathSet.empty,P.PathSet.empty,[],[],[])) args callee_type.arg_types
   in
-  let%bind (return_bindings,havoc_bind) = bind_return ~fn:callee out_patt callee_type.ret_type in
+  let%bind (return_bindings,havoc_bind) = bind_return ~fn:callee ~e_id ~cid:call_expr.label out_patt callee_type.ret_type in
   let%bind havoc_state = get_havoc_state in
   let havoc_state = P.PathSet.union havoc_bind @@ P.PathSet.union (P.PathSet.diff havoc_state stable) havoc in
 
@@ -1250,6 +1503,8 @@ let apply_patt ~e_id tyenv patt rhs =
           else
             Havoc p
         ) paths in
+      RecRelations.null_for_var ~e_id ~ty:null_types v >>
+      H.update_null_havoc ~e_id ~ty:null_types v >>
       add_relation_flow ?pre:None flows in_rel out_rel)
 
 let relation_name ((e_id,_),expr) ctxt =
@@ -1283,25 +1538,26 @@ let to_cont k = (Some k),None
 let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
   let (_,curr_args) = relation in
   let bound_type = Std.IntMap.find e_id ctxt.let_types in
-  let rec destruct_loop (tyenv,args) patt ty =
+  let rec destruct_loop (tyenv,args,rec_paths) patt ty =
     match patt,ty with
     | PVar v,ty ->
       let ty = ty in
       let ty_env = (v,ty)::tyenv in
       let paths = List.rev @@ type_to_paths (P.var v) ty in
+      let rec_paths = (RecRelations.get_mu_binders (P.var v) ty) @ rec_paths in
       let args = (List.map (fun p -> (p,path_type p)) paths) @ args in
-      (ty_env,args)
+      (ty_env,args,rec_paths)
     | PTuple pl,`Tuple tl ->
-      List.fold_left2 destruct_loop (tyenv,args) pl tl
+      List.fold_left2 destruct_loop (tyenv,args,rec_paths) pl tl
     | PTuple _,_ -> assert false
-    | PNone,_ -> (tyenv,args)
+    | PNone,_ -> (tyenv,args,rec_paths)
   in
-  let (tyenv',args) = destruct_loop (tyenv,[]) patt bound_type in
+  let (tyenv',args,mu_paths) = destruct_loop (tyenv,[],[]) patt bound_type in
   let bound_paths = List.map (fun (p,_) -> p) args |> P.PathSet.of_list in
   let new_args = curr_args @ (List.rev args) in
   let name = relation_name k ctxt in
   let relation = (name, new_args) in
-  { ctxt with relations = relation::ctxt.relations },(relation,tyenv',bound_paths)
+  { ctxt with relations = relation::ctxt.relations },(relation,tyenv',(bound_paths,mu_paths))
 
 let%lq get_iso_at e_id ctxt =
   let fold = Std.IntSet.mem e_id ctxt.fold_iso in
@@ -1315,14 +1571,53 @@ let%lq get_iso_at e_id ctxt =
     `None
 
 let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
-  let scoped_havoc f ctxt =
-    let havoc_set = ctxt.havoc_set in
-    let ctxt,r = f ctxt in
-    { ctxt with havoc_set },r
+  let scoped_effect ~b1 ~b2 ctxt =
+    let orig_recursive_rel = ctxt.recursive_rel in
+    let orig_havoc_set = ctxt.havoc_set in
+    let ctxt1,r1 = b1 ctxt in
+    let roll_back = { ctxt1 with havoc_set = orig_havoc_set; recursive_rel = orig_recursive_rel } in
+    let ctxt2,r2 = b2 roll_back in
+    let () = assert (r1 = r2) in
+    let recursive_rel =
+      P.PathMap.merge (fun path b1 b2 ->
+        match b1,b2 with
+        | Some b1, Some b2 ->
+          if b1 = b2 then Some (`Keep b1)
+          else
+            Some (`Merge (b1, b2))
+        | None, None -> None
+        | _,_ -> failwith @@ Printf.sprintf !"Unbalanced rec maps %{P}" path
+      ) ctxt1.recursive_rel ctxt2.recursive_rel in
+    let ctxt,recursive_rel = P.PathMap.fold (fun path bind (ctxt,new_map) ->
+        match bind with
+        | `Keep b -> (ctxt, P.PathMap.add path b new_map)
+        | `Merge (b1, b2) ->
+          let args = snd b1 in
+          let name = Printf.sprintf !"join-%d-%{P}-%s" e_id path "mu" in
+          let rel = (name, args) in
+          let ctxt = {
+            ctxt with
+            impl = [
+              ([PRelation (b1, [], None)], PRelation(rel, [], None));
+              ([PRelation (b2, [], None)], PRelation(rel, [], None))
+            ] @ ctxt.impl;
+            relations = rel::ctxt.relations
+          }
+          in
+          ctxt, P.PathMap.add path rel new_map
+      ) recursive_rel (ctxt2, P.PathMap.empty)
+    in
+    { ctxt with recursive_rel; havoc_set = P.PathSet.union ctxt1.havoc_set ctxt2.havoc_set },r1
   in
-  let post_bind paths f ctxt =
+  let post_bind (paths,mu_binders) f ctxt =
+    let pset = P.PathSet.of_list mu_binders in
     let ctxt,r = f ctxt in
-    { ctxt with havoc_set = P.PathSet.diff ctxt.havoc_set paths },r
+    { ctxt with
+      havoc_set = P.PathSet.diff ctxt.havoc_set paths;
+      recursive_rel = P.PathMap.filter (fun p _ ->
+          not @@ P.PathSet.mem p pset
+        ) ctxt.recursive_rel
+    },r
   in
   let%bind iso = get_iso_at e_id in
   match e with
@@ -1338,9 +1633,9 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         return ()
 
       (* tail position *)
-      | (Some out_relation),Some ret_var ->
+      | (Some out_relation),Some (ret_var,out_rec_rel) ->
         let copies = compute_copies (P.var v) ret_var @@ path_simple_type tyenv (P.var v) in
-        apply_copies ~havoc:false ~sl:(SRet e_id) copies relation out_relation
+        apply_copies ~out_rec_rel ~havoc:false ~sl:(SRet e_id) copies relation out_relation
       | None, Some _ -> assert false
     end
     
@@ -1396,9 +1691,10 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     in
     begin%m
         apply_identity_flow ~pre:[ mk_pre "=" ] relation e1_rel;
-         scoped_havoc @@ process_expr (e1_rel,tyenv) continuation e1;
          apply_identity_flow ~pre:[ mk_pre "!=" ] relation e2_rel;
-         process_expr (e2_rel,tyenv) continuation e2
+         scoped_effect
+           ~b1:(process_expr (e1_rel,tyenv) continuation e1)
+           ~b2:(process_expr (e2_rel,tyenv) continuation e2)
     end
   | NCond (v,e1,e2) ->
     let%bind e1_rel = fresh_relation_for relation e1 in
@@ -1409,34 +1705,41 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
           rel_op1 = null_ap; rel_cond = "="; rel_op2 = BConst null
         }), ZBool);
     in
+    let var_type = path_simple_type tyenv @@ P.var v in
     begin%m
         apply_identity_flow ~pre:[ mk_pre is_null_flag ] relation e1_rel;
-         scoped_havoc @@ process_expr (e1_rel,tyenv) continuation e1;
          apply_identity_flow ~pre:[ mk_pre is_nonnull_flag ] relation e2_rel;
-         process_expr (e2_rel,tyenv) continuation e2
+         scoped_effect ~b1:(
+           RecRelations.null_for_var ~e_id ~ty:var_type v >>
+           H.update_null_havoc ~e_id ~ty:var_type v >>
+           process_expr (e1_rel,tyenv) continuation e1
+         ) ~b2:(process_expr (e2_rel,tyenv) continuation e2)
     end
 
   | Let (PVar lhs, Mkref (RVar rhs), k) when iso = `IsoFold ->
-    let%bind k_rel,tyenv',bound_set = fresh_bind_relation e_id st (PVar lhs) k in
+    let%bind k_rel,tyenv',bind_info = fresh_bind_relation e_id st (PVar lhs) k in
     let%bind bound_ty = get_bound_type e_id in
     do_fold_copy ~e_id rhs lhs bound_ty relation k_rel >>
-    post_bind bound_set @@ process_expr (k_rel,tyenv') continuation k
+    post_bind bind_info @@ process_expr (k_rel,tyenv') continuation k
 
   | Let (p, Deref rhs, k) when iso = `IsoUnfold ->
     let ref_ty = path_simple_type tyenv @@ P.var rhs in
-    let%bind k_rel,tyenv',bound_set = fresh_bind_relation e_id st p k in
+    let%bind k_rel,tyenv',bind_info = fresh_bind_relation e_id st p k in
     let%bind unfolded_type = get_bound_type e_id in
     let copies = compute_patt_copies (P.var "$uf") p unfolded_type in
     let out_mapping = List.fold_left (fun acc (uf,real_path,_) ->
         PPMap.add uf real_path acc
       ) PPMap.empty @@ to_copy_stream copies in
+    let out_mapping = List.fold_left (fun acc (_,uf,real_path,_) ->
+        PPMap.add uf real_path acc
+      ) out_mapping @@ to_mu_copies copies in
     do_unfold_copy ~with_havoc:true ~e_id ~out_mapping rhs "$uf" ref_ty relation k_rel >>
-    post_bind bound_set @@ process_expr (k_rel,tyenv') continuation k
+    post_bind bind_info @@ process_expr (k_rel,tyenv') continuation k
 
   | Let (patt,rhs,k) ->
-    let%bind k_rel,tyenv',bound_set = fresh_bind_relation e_id st patt k in
+    let%bind k_rel,tyenv',bind_info = fresh_bind_relation e_id st patt k in
     apply_patt ~e_id tyenv patt rhs relation k_rel >>
-    post_bind bound_set @@ process_expr (k_rel,tyenv') continuation k
+    post_bind bind_info @@ process_expr (k_rel,tyenv') continuation k
 
   | Assert (assrt, k) ->
     let%bind k_rel = fresh_relation_for relation k in
@@ -1459,8 +1762,9 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let%bind () = do_unfold_copy ~with_havoc:false ~e_id r_var "$uf" lhs_type relation temp_rel in
     let flow_root = P.t_ind (P.var "$uf") i in
     let folded_target = P.t_ind (P.deref @@ P.var r_var) i in
-    let alias_copies = compute_copies (P.var lhs) flow_root lhs_type |> to_copy_stream in
-    let direct_copies,weak_copies = alias_copies |> List.partition (fun (_,_,k) ->
+    let copies = compute_copies (P.var lhs) flow_root lhs_type in
+    let copy_stream = to_copy_stream copies in
+    let direct_copies,weak_copies = copy_stream |> List.partition (fun (_,_,k) ->
           k = `Direct
         )
     in
@@ -1474,29 +1778,60 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let rename_out = pass_through_subst @ List.map (fun (s,d,_) -> (s,d)) direct_copies in
     let rename_src = List.map (fun (s,d,_) ->
         (s,d)
-      ) alias_copies
+      ) copy_stream
     in
 
     let%lm do_alias_fold ctxt =
       let dst_oracle p =
-        let p' = P.to_concrete p in
-        if P.has_prefix ~prefix:folded_target p' && (p' <> (P.to_null folded_target)) then
+        if P.has_prefix ~prefix:folded_target p && (p <> (P.to_null folded_target)) then
           havoc_oracle ctxt (OI.MAlias e_id) p
         else
           P.PathSet.mem p ctxt.havoc_set
       in
       let src_oracle _ = true in
-      let havoc_ext ~havoc ~stable =
-        type_to_paths (P.var lhs) lhs_type |> List.fold_left (fun (havoc,stable) p ->
-            let p' = P.to_concrete p in
-            if havoc_oracle ctxt (OI.MAlias e_id) p' then
-              P.PathSet.add p havoc,stable
-            else
-              havoc,P.PathSet.add p stable
-          ) (havoc,stable)
+      let havoc_oracle = havoc_oracle ctxt (OI.MAlias e_id) in
+      let var_havoc = copy_stream |> List.fold_left (fun acc (src,_,k) ->
+            let havoc = havoc_oracle src in
+            let acc = H.add_havoc src havoc acc in
+            match k with
+            | `Mu (under_mu_path, binder, _, ty) ->
+              H.add_mu_havoc ~binder ~ty under_mu_path havoc acc
+            | _ -> acc
+          ) H.empty_havoc_state
       in
+      let by_havoc = H.to_rec_havoc var_havoc in
+      let ante,ctxt = to_mu_copies copies |> List.fold_left (fun (ante,ctxt) (_,src_root,dst_root,ty) ->
+            let src_rel = P.PathMap.find src_root ctxt.recursive_rel in
+            let ante = P.PathMap.add dst_root (PRelation (src_rel, [], None)) ante in
+            let dst_rel = P.PathMap.find dst_root ctxt.recursive_rel in
+            let ctxt = RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante:([
+                PRelation(src_rel, [], None);
+                PRelation(dst_rel, [], None)
+              ]) src_root ty ctxt
+            in
+            ante,ctxt
+          ) (P.PathMap.empty, ctxt)
+      in
+      let hd_subst = parallel_type_walk P.template (P.var lhs) lhs_type (fun _ _ () -> `Cont ()) (fun () i o acc ->
+          (o, Ap i)::acc
+        ) () []
+      in
+      
+      let havoc_ext ~havoc ~stable =
+        (P.PathSet.union havoc var_havoc.havoc, P.PathSet.union stable var_havoc.stable)
+      in
+      let rec_ext = P.PathMap.singleton (P.t_ind (P.deref P.template) i) (hd_subst, ante) in
       let open RecursiveRefinements in
-      fold_to ~oracle:(dst_oracle,src_oracle) ~copy_policy:(Custom { rename_src; rename_out; rename_weak}) ~havoc_ext lhs_type "$uf" r_var temp_rel k_rel ctxt
+      let ctxt = fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:(Custom { rename_src; rename_out; rename_weak}) ~rec_ext ~havoc_ext lhs_type "$uf" r_var temp_rel k_rel ctxt in
+      (* now remove all of the $uf stuff *)
+      let uf_root = P.var "$uf" in
+      let concr_root_p = Fun.negate @@ P.has_prefix ~prefix:uf_root in
+      { ctxt with
+        havoc_set = P.PathSet.filter concr_root_p ctxt.havoc_set;
+        recursive_rel = P.PathMap.filter (fun p _ ->
+            concr_root_p p
+          ) ctxt.recursive_rel
+      }
     in
     do_alias_fold >> process_expr (k_rel,tyenv) continuation k
       
@@ -1512,28 +1847,29 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let lhs_type = path_simple_type tyenv lhs_path in
     let rhs_subst = compute_copies lhs_path rhs_ap lhs_type in
     let%bind havoc_oracle = gen_for_alias e_id in
-    let direct,left,right,(havoc,stable) = List.fold_left (fun (direct,left,right,os) (src,dst,k) ->
-        let hs,hd =
-          match k with
-          | `Summ (s,d) -> s,d
-          | _ -> src,dst
-        in
-        let os =
-          if (P.to_null lhs_path) = hs then
-            os
+    let direct,left,right,hstate = List.fold_left (fun (direct,left,right,hstate) (src,dst,k) ->
+        let hstate =
+          if (P.to_null lhs_path) = src then
+            hstate
           else
-            let s_havoc = havoc_oracle hs in
-            let d_havoc = havoc_oracle hd in
-            let os = add_havoc src s_havoc os in
-            add_havoc dst d_havoc os
+            let s_havoc = havoc_oracle src in
+            let d_havoc = havoc_oracle dst in
+            let hstate =
+              H.add_havoc src s_havoc hstate
+              |> H.add_havoc dst d_havoc
+            in
+            match k with
+            | `Mu (under_mu_path, src_root, dst_root, ty) ->
+              H.add_mu_havoc ~binder:src_root ~ty under_mu_path s_havoc hstate
+              |> H.add_mu_havoc ~binder:dst_root ~ty under_mu_path d_havoc
+            | _ -> hstate
         in
         match k with
         | `Direct ->
-          (src,dst)::direct,left,right,os
-        | `Summ _
-        | `Mu ->
-          direct,(src,dst)::left,(dst,src)::right,os
-      ) ([],[],[],(P.PathSet.empty, P.PathSet.empty)) @@ to_copy_stream rhs_subst in
+          (src,dst)::direct,left,right,hstate
+        | `Mu _ ->
+          direct,(src,dst)::left,(dst,src)::right,hstate
+      ) ([],[],[],H.empty_havoc_state) @@ to_copy_stream rhs_subst in
     let direct = List.map lift_copy direct in
     let ante =
       if left <> [] then
@@ -1546,14 +1882,33 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         [ PRelation (relation, direct, None) ]
     in
     let%bind havoc_set = get_havoc_state in
-    let havoc_set = P.PathSet.union havoc @@ P.PathSet.diff havoc_set stable in
+    let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff havoc_set hstate.stable in
     let out_subst = augment_havocs direct havoc_set in
+    let%lm alias_recursive ctxt =
+      let by_havoc = H.to_rec_havoc hstate in
+      to_mu_copies rhs_subst |> List.fold_left (fun ctxt (_,src,dst,ty) ->
+          let src_rel = P.PathMap.find src ctxt.recursive_rel in
+          let dst_rel = P.PathMap.find dst ctxt.recursive_rel in
+          let ante = [
+            PRelation (src_rel, [], None);
+            PRelation (dst_rel, [], None)
+          ] in
+          RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante src ty ctxt
+          |> RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante dst ty
+        ) ctxt
+    in
     set_havoc_state havoc_set >>
+    alias_recursive >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
     process_expr (k_rel,tyenv) continuation k
 
 let analyze_function fn ctxt =
-  let ((in_nm,in_args),(out_nm,out_args),fn_type) = StringMap.find fn.name ctxt.fenv in
+  let { in_rel = (in_nm,in_args);
+        out_rel = (out_nm,out_args);
+        f_type = fn_type;
+        in_recursive_rel;
+        out_recursive_rel;
+      } = StringMap.find fn.name ctxt.fenv in
   let initial_env = List.map2 (fun v ty ->
       (v,ty)
     ) fn.args fn_type.arg_types in
@@ -1577,11 +1932,29 @@ let analyze_function fn ctxt =
         else
           acc
       ) acc @@ type_to_paths (P.var nm) ty
-    ) P.PathSet.empty fn.args fn_type.arg_types in
+    ) P.PathSet.empty fn.args fn_type.arg_types
+  in
+  let start_rel,direct_out = fold_lefti (fun i acc (arg_name,ty) ->
+      let mu_binders = RecRelations.get_mu_binders P.template ty in
+      let formal_name = P.arg i in
+      List.fold_left (fun (start_rel, out_list) mu_loc ->
+        let formal_root = P.root_at ~child:mu_loc ~parent:formal_name in
+        let arg_root = P.root_at ~child:mu_loc ~parent:(P.var arg_name) in
+        let orel = P.PathMap.find formal_root out_recursive_rel in
+        let irel = P.PathMap.find formal_root in_recursive_rel in
+        P.PathMap.add arg_root irel start_rel, (arg_root, orel)::out_list
+      ) acc mu_binders
+    ) (P.PathMap.empty, []) initial_env
+  in
+  let direct_flow =
+    P.PathMap.filter (fun p _ ->
+      P.has_prefix ~prefix:P.ret p
+    ) out_recursive_rel
+  in
   let mapped_in_args = map_args in_args in
   let mapped_out_args = map_args out_args in
-  let cont = (Some (out_nm, mapped_out_args)),Some P.ret in
-  let ctxt,() = process_expr ((in_nm,mapped_in_args),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set } in
+  let cont = (Some (out_nm, mapped_out_args)),Some (P.ret,(direct_flow, direct_out)) in
+  let ctxt,() = process_expr ((in_nm,mapped_in_args),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set; recursive_rel = start_rel } in
   ctxt
 
 let analyze_main start_rel main ctxt =
@@ -1607,9 +1980,44 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       let out_rel_types = in_rel_types @ ret_rel in
       let in_rel = (name ^ "-in", in_rel_types) in
       let out_rel = (name ^ "-out", out_rel_types) in
-      let ftype = (in_rel,out_rel,ty) in
+      let in_rec_rel,out_rec_rel,rel = fold_lefti (fun i acc arg_t ->
+          RecRelations.get_recursive_roots (P.arg i) arg_t
+          |> List.fold_left (fun acc (root,ty) ->
+              let args = type_to_paths P.template ty |> List.map (fun p -> p, path_type p) in
+              RecRelations.get_mu_binders root ty |> List.fold_left (fun (in_rec_rel, out_rec_rel, rel) mu_binder ->
+                  let f suff mu = Printf.sprintf !"%s-%s-%{P}-%s" name suff mu "mu" in
+                  let in_name = f "in" mu_binder in
+                  let out_name = f "out" mu_binder in
+                  let in_rel = (in_name, args) in
+                  let out_rel = (out_name, args) in
+                  (RecRelations.update_rel_map mu_binder in_rel in_rec_rel,
+                   RecRelations.update_rel_map mu_binder out_rel out_rec_rel,in_rel::out_rel::rel)
+                ) acc
+            ) acc
+        ) (P.PathMap.empty, P.PathMap.empty, rel) ty.arg_types
+      in
+      let out_rec_rel,rel =
+        RecRelations.get_recursive_roots P.ret ty.ret_type
+        |> List.fold_left (fun acc (root,ty) ->
+            let args = type_to_paths P.template ty |> List.map (fun p -> p, path_type p) in
+            RecRelations.get_mu_binders root ty
+            |> List.fold_left (fun (out_rec_rel,rel) root ->
+                let nm = Printf.sprintf !"%s-out-%{P}-%s" name root "mu" in
+                let ret_rel = (nm, args) in
+                RecRelations.update_rel_map root ret_rel out_rec_rel, ret_rel::rel
+              ) acc
+          ) (out_rec_rel,rel)
+      in
+      let ftype = {
+        in_recursive_rel = in_rec_rel;
+        out_recursive_rel = out_rec_rel;
+        in_rel;
+        out_rel;
+        f_type = ty
+      } in
       (StringMap.add name ftype theta,in_rel::out_rel::rel)
-    ) simple_theta (StringMap.empty, []) in
+    ) simple_theta (StringMap.empty, [])
+  in
   let start_name = "program-start" in
   let entry_relation = (start_name, []) in
   let relations = entry_relation::relations in
@@ -1623,10 +2031,15 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
     impl = [];
     havoc_set = P.PathSet.empty;
     fold_iso = side_results.SimpleChecker.SideAnalysis.fold_locs;
-    unfold_iso = side_results.SimpleChecker.SideAnalysis.unfold_locs
+    unfold_iso = side_results.SimpleChecker.SideAnalysis.unfold_locs;
+    recursive_rel = P.PathMap.empty
   } in
   let ctxt = List.fold_left (fun ctxt fn ->
       analyze_function fn ctxt
     ) empty_ctxt fns in
-  let ctxt = analyze_main entry_relation main { ctxt with curr_fun = None } in
+  let ctxt = analyze_main entry_relation main
+      { ctxt with
+        curr_fun = None; havoc_set = P.PathSet.empty; recursive_rel = P.PathMap.empty
+      }
+  in
   (ctxt.relations,ctxt.impl,start_name)

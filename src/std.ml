@@ -1,19 +1,24 @@
-module IntMap = Map.Make(Int)
-module IntSet = Set.Make(Int)
-module StringSet = Set.Make(String)
+module type PRINTABLE = sig
+  type t
+  val to_string : t -> string
+end
 
-module type BINDSET = sig
+module type PRINTSET = sig
   include Set.S
-  val bind : (elt -> t) -> t -> t
+  include PRINTABLE with type t := t
 end
 
-module WithBind(D : Set.S) : BINDSET with type elt = D.elt = struct
-  include D
-  let bind f s =
-    D.fold (fun elt acc ->
-      D.union (f elt) acc
-    ) s D.empty
+module PrintSet(P: sig
+      include Set.OrderedType
+      include PRINTABLE with type t := t
+    end) : PRINTSET with type elt = P.t = struct
+  include Set.Make(P)
+  let to_string e = elements e |> List.map P.to_string |> String.concat ", " |> Printf.sprintf "{%s}"
 end
+
+module IntMap = Map.Make(Int)
+module IntSet = PrintSet(Int)
+module StringSet = PrintSet(struct include String let to_string = Fun.id end)
 
 let double_fold_k f l k =
   List.fold_left (fun acc t ->

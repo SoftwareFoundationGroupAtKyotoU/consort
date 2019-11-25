@@ -28,7 +28,6 @@ type magic_loc =
 
 type split_loc =
   | SBind of int
-  | STuple of int * int
   | SCall of int
   | SRet of int [@@deriving sexp]
 

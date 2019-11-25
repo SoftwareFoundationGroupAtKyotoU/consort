@@ -6,8 +6,7 @@ type suff = [`Len | `Ind | `Elem | `None | `Null ] [@@deriving sexp]
 type root = 
   | Pre of string
   | Var of string
-  | Ret of bool
-  | Summ of string
+  | Ret
   | T [@@deriving sexp]
 
 type steps = [
@@ -21,8 +20,7 @@ type concr_ap = path [@@deriving sexp]
 
 let root_to_string = function
   | Pre v -> Printf.sprintf "%s!old" v
-  | Ret b -> Printf.sprintf "$ret%s" (if b then "!summ" else "")
-  | Summ v -> Printf.sprintf "%s!summ" v
+  | Ret -> Printf.sprintf "$ret"
   | Var v -> v
   | T -> "$$"
 
@@ -32,7 +30,6 @@ let string_of_suff = function
   | `None -> ""
   | `Ind -> "?ind"
   | `Elem -> "->$i"
-  | `Summ -> "?summ"
 
 let to_z3_ident (root,steps,suff) =
   let st = List.fold_left (fun acc s ->
@@ -46,9 +43,8 @@ let to_string = to_z3_ident
 
 let pre (root,step,suff) =
   match root with
-  | Summ _
   | T
-  | Ret _ -> failwith "illegal"
+  | Ret -> failwith "illegal"
   | Pre _ -> (root,step,suff)
   | Var v ->
     match suff with
@@ -76,7 +72,7 @@ let deref = check_extend `Deref
 
 let var v = (Var v,[],`None)
 
-let ret = (Ret false, [],`None)
+let ret = (Ret, [],`None)
 let elem = set_suff `Elem
 let ind = set_suff `Ind
 let len = set_suff `Len
@@ -85,33 +81,14 @@ let arg i = var @@ arg_name i
 
 let template = (T, [], `None)
 
-let summ (root, steps, suff) =
-  match root with
-  | Ret true
-  | Summ _ -> (root, steps, suff)
-  | T
-  | Ret false -> (Ret true, steps, suff)
-  | Var v -> (Summ v, steps, suff)
-  | Pre _ -> failwith "illegal"
-
-let to_concrete (root, steps, suff) =
-  match root with
-  | T
-  | Pre _ -> failwith "illegal"
-  | Ret false
-  | Var _ -> (root, steps, suff)
-  | Summ v -> (Var v, steps, suff)
-  | Ret true -> (Ret false, steps, suff)
-
-let is_summ (d,_,_) = match d with | Summ _ -> true | _ -> false
+let is_template (r,_,_) = r = T
 
 let map_root f (root,steps,suff) =
   match root with
   | Var v -> (Var (f v), steps, suff)
   | Pre v -> (Pre (f v), steps, suff)
-  | Ret b -> (Ret b,steps, suff)
-  | Summ v -> (Summ (f v), steps, suff)
-  | T -> failwith "illegal"
+  | Ret -> (Ret,steps, suff)
+  | T -> failwith "illegal root map"
 
 let is_array_path (_,_, suff) =
   suff = `Len || suff = `Ind || suff = `Elem
@@ -140,21 +117,19 @@ let has_prefix ~prefix:(pr,ps,psuff) (rr,rs,rsuff) =
 
 let has_root_p p (root,_,_) =
   match root with
-  | Summ v
   | Pre v
   | Var v -> p v
-  | Ret _ -> false
+  | Ret -> false
   | T -> false
 
 let has_root s = has_root_p ((=) s)
 
 let is_const_ap (root,steps,suff) =
   match root with
-  | Summ _
   | Var _
   | Pre _ ->
     (List.for_all ((<>) `Deref) steps) && (suff <> `Elem) && (suff <> `Ind)
-  | Ret _ -> false
+  | Ret -> false
   | T -> failwith "illegal"
 
 let compare = Stdlib.compare
@@ -197,7 +172,8 @@ let tail (_,l,f) =
 module PathOrd = struct
   type t = path
   let compare = compare
+  let to_string = to_string
 end
 
-module PathSet = Std.WithBind(Set.Make(PathOrd))
+module PathSet = Std.PrintSet(PathOrd)
 module PathMap = Map.Make(PathOrd)
