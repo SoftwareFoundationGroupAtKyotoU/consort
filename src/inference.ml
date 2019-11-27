@@ -1633,7 +1633,6 @@ let propagate_nullity ~src ?(unfold_dst=false) ~dst =
   (apply_nullity_loop tmpl : typ)
 
 (* TODO: thread context through everywhere A LA ownershipInference *)
-(* This will cut down on the awful <|> et al. sequencing operations *)
 let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
   let lkp_split ?(loc=OI.SBind e_id) v ctxt =
     let t = SM.find v ctxt.gamma in
@@ -1653,11 +1652,11 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       (b,l,o,et,len_bind)
     | _ -> failwith "not an array"
   in
-  let maybe_unfold ({ iso = { unfold_locs; _ }; _ } as ctxt) t =
+  let%lq maybe_unfold t ({ iso = { unfold_locs; _ }; _ }) =
     if IntSet.mem e_id unfold_locs then
-      ctxt,(unfold_once t)
+      (unfold_once t)
     else
-      ctxt,t
+      t
   in
   ctxt.store_env e_id @@ ctxt.gamma;
   match e with
@@ -1799,9 +1798,9 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
         | Deref ptr ->
           let%bind (target_type,o,_) = lkp_ref ptr in
           let%bind (t_rem,t_res) = split_type (OI.SBind e_id) (P.deref @@ P.var ptr) target_type in
-          let%bind tres_unfold = maybe_unfold @> t_res in
-          return_after tres_unfold
-          <|> update_type ptr @@ (ref_of t_rem o NLive)
+          let%bind tres_unfold = maybe_unfold t_res in
+          mupdate_type ptr @@ (ref_of t_rem o NLive)
+          >> return tres_unfold
 
         | Ast.Tuple tl ->
           let%bind res = mmapi (fun i h ->
@@ -1845,9 +1844,9 @@ let rec process_expr ?output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
       let%bind close_p = assign_patt ~let_id:e_id patt assign_type in
       let bound_vars = collect_bound_vars SS.empty close_p in
       map_state snd >>
-      return_mut
-      <|> strengthen_let close_p rhs
-      <|> process_expr ?output ~remove_scope:(SS.union bound_vars remove_scope) exp
+      mutate @@ strengthen_let close_p rhs >>
+      mutate @@ process_expr ?output ~remove_scope:(SS.union bound_vars remove_scope) exp >>
+      return ()
 
   | Assert (relation,cont) ->
     process_expr ?output ~remove_scope cont @@ {

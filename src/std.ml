@@ -142,16 +142,7 @@ module StateMonad = struct
 
   let return = Let_syntax.return
 
-  let return_mut ctxt = (ctxt,())
-
   (* combinators *)
-
-  (* pipelining. Take monad a producing a value r and state s,
-     and return a monad producing value r and state (b s) *)
-  let (<|>) a b = fun ctxt ->
-    let (c',r) = a ctxt in
-    let c'' = b c' in
-    (c'',r)
 
   (* sequencing and the dual of the above.
      Produce a computation that transforms the state according to d1
@@ -167,25 +158,14 @@ module StateMonad = struct
   (* sets the state *)
   let put_state ctxt () = (ctxt,())
 
-  (* exactly the same as return, but designed for us with the pipelining *)
-  let return_after b = (fun ctxt ->
-    (ctxt,b)
-  )
-
   (* produce a value from the current state according to f *)
-  let mwith f ctxt = ctxt,(f ctxt)
+  let mwith f = Let_syntax.proj ~f
 
-  (* placeholder "argument" for stateful computations who take the state
-     as the second to last argument *)
-  let (@>) f a = (fun ctxt -> f ctxt a)
   (* run a computation f in state c, expecting the computation to return (). Return
      the new state *)
   let do_with_context c f = let (c',()) = (f c) in c'
   (* produces a computation that mutates the state and generates no side effect *)
-  let mutate f ctxt = let ctxt' = f ctxt in (ctxt',())
-
-  (* generate the unit value *)
-  let and_done ctxt = (ctxt,())
+  let mutate f = Let_syntax.mut ~f
 
   (* stateful versions of list functions *)
   let mfold_left f a l = List.fold_left (fun a e ->
