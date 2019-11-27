@@ -1,11 +1,21 @@
 module P = Paths
 module RT = RefinementTypes
 
+
+type fltype
+val fltype_to_string : fltype -> string
+
 type z3_types =
   | ZBool
   | ZInt
 
 type relation = string * (P.concr_ap * z3_types) list
+
+type state_snapshot = {
+  mu_relations : relation P.PathMap.t;
+  gamma : (string * fltype) list;
+  relation : relation
+}
 
 type concr_arg =
   | Ap of P.concr_ap
@@ -25,4 +35,4 @@ val infer :
   SimpleTypes.funtyp StringMap.t * SimpleChecker.SideAnalysis.results ->
   float OwnershipInference.ownership_ops ->
   Ast.fn list * Ast.exp ->
-  relation list * (clause list * clause) list * string
+  relation list * (clause list * clause) list * state_snapshot Std.IntMap.t * string

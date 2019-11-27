@@ -586,12 +586,12 @@ let rec pp_ref pp_alist =
         pp_ref pp_alist r2
       ]
 
-let pp_map () l =
+let pp_map ff l =
   let open PrettyPrint in
-  psep_gen (pf ",@ ") @@
-    List.map (fun (i,j) ->
+  psep_gen (pf ",@ ")
+    (List.map (fun (i,j) ->
       pf "%d -> %d" i j
-    ) l
+    ) l) ff
 
 let pp_nullity = function
   | NUnk -> PrettyPrint.ps "?"

@@ -1,55 +1,6 @@
 open Format
 
-let pf =
-  let open CamlinternalFormatBasics in
-  let open CamlinternalFormat in
-  let rec pprint_acc = function
-    | Acc_formatting_lit (p, (Break (_, width, offset))) ->
-      (fun ff ->
-        pprint_acc p ff;
-        pp_print_break ff width offset)
-    | Acc_formatting_lit (p, fmting_lit) ->
-      let s = string_of_formatting_lit fmting_lit in
-      (fun ff ->
-        pprint_acc p ff;
-        pp_print_string ff s)
-    | Acc_formatting_gen (p, Acc_open_tag acc') ->
-      (fun ff ->
-        pprint_acc p ff;
-        pp_print_string ff "@{";
-        pprint_acc acc' ff)
-    | Acc_formatting_gen (p, Acc_open_box acc') ->
-      (fun ff ->
-        pprint_acc p ff;
-        pp_print_string ff "@[";
-        pprint_acc acc' ff)
-    | Acc_string_literal (p, s)
-    | Acc_data_string (p, s)   ->
-      (fun ff ->
-        pprint_acc p ff;
-        pp_print_string ff s)
-    | Acc_char_literal (p, c)
-    | Acc_data_char (p, c)     ->
-      (fun ff ->
-        pprint_acc p ff;
-        pp_print_char ff c)
-    | Acc_delay (p, f)         ->
-      (fun ff ->
-        pprint_acc p ff;
-        (f ()) ff)
-    | Acc_flush p              ->
-      (fun ff ->
-        pprint_acc p ff)
-    | Acc_invalid_arg (p, msg) ->
-      (fun ff ->
-        pprint_acc p ff; invalid_arg msg)
-    | End_of_acc               -> (fun _ff -> ())
-  in
-  fun (Format (fmt,_)) ->
-    make_printf (fun acc ->
-      pprint_acc acc
-    ) End_of_acc fmt
-
+let pf = dprintf
 
 let ps s ff = pp_print_string ff s
 
@@ -92,7 +43,7 @@ let pblock ?(nl=false) ~op ~body ~close =
     close; (if nl then newline else null)
   ]
 
-let ul f = fun () -> f
+let ul f ff v = f v ff
 
 let pretty_print_gen printer x =
   let buf = Buffer.create 1024 in

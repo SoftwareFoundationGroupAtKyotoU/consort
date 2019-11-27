@@ -45,14 +45,14 @@ let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_a
   | Top -> ps "T"
   | ConstEq n -> pf "~ = %d" n
   | Relation { rel_op1; rel_cond; rel_op2 } ->
-    let print_rimm () = function
-      | RConst i -> pi i
-      | RAp (`Sym i) -> pf "$%d" i
-      | RAp (`Concr c) -> ps @@ Paths.to_z3_ident c
+    let print_rimm ff = function
+      | RConst i -> pi i ff
+      | RAp (`Sym i) -> pf "$%d" i ff
+      | RAp (`Concr c) -> ps (Paths.to_z3_ident c) ff
     in
-    let r1_printer () r1 = match r1 with
-      | Nu -> ps "~"
-      | RImm i -> print_rimm () i
+    let r1_printer ff r1 = match r1 with
+      | Nu -> ps "~" ff
+      | RImm i -> print_rimm ff i
     in
     pf "%a@ %s@ %a"
       r1_printer rel_op1
@@ -187,10 +187,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
           semi;
           pp_expr ~ip ~annot e
         ]
-    | EVar v -> pl [
-                    pv v;
-                    po_id () id
-                  ]
+    | EVar v -> pf "%s:%a" v po_id id
   in
   match e with
   | Seq _ -> e_printer
@@ -257,9 +254,9 @@ let pprint_prog ~ip ~annot_fn ~annot ff (fn,body) =
 
 let id_printer labels =
   if labels then
-    (fun () (id,_) -> pf ":%d" id),(fun () (id,_) -> pf "%d:" id)
+    (fun ff (id,_) -> pf ":%d" id ff),(fun ff (id,_) -> pf "%d:" id ff)
   else
-    (fun () _ -> (fun _ff -> ())),(fun () _ -> (fun _ff -> ()))
+    (fun _ _ -> ()),(fun _ _ -> ())
     
 let pretty_print_program ?(with_labels=true) ?(annot_fn=(fun _ _ -> ())) ?(annot=(fun _ _ _ -> ())) out_chan prog =
   let ff = Format.formatter_of_out_channel out_chan in

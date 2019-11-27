@@ -68,18 +68,25 @@ type function_info = {
   out_recursive_rel : recursive_ref_map;
 }
 
+type state_snapshot = {
+  mu_relations : recursive_ref_map;
+  gamma : (string * fltype) list;
+  relation : relation
+}
+
 type ctxt = {
   relations: relation list;
   impl: (clause list * clause) list;
   o_hints: float OI.ownership_ops;
   fenv: function_info SM.t;
   curr_fun : string option;
-  let_types: fltype Std.IntMap.t;
+  let_types: fltype IntMap.t;
   bif_types : RefinementTypes.funtype SM.t;
   havoc_set : P.PathSet.t;
-  unfold_iso: Std.IntSet.t;
-  fold_iso: Std.IntSet.t;
-  recursive_rel : recursive_ref_map
+  unfold_iso: IntSet.t;
+  fold_iso: IntSet.t;
+  recursive_rel : recursive_ref_map;
+  snapshots : state_snapshot IntMap.t
 }
 
 let rec unfold_fltype subst = function
@@ -135,7 +142,7 @@ let%lm set_havoc_state havoc_state ctxt = { ctxt with havoc_set = havoc_state }
 
 let%lq get_havoc_state ctxt = ctxt.havoc_set
 
-let%lq get_bound_type e_id ctxt = Std.IntMap.find e_id ctxt.let_types
+let%lq get_bound_type e_id ctxt = IntMap.find e_id ctxt.let_types
 
 let mk_relation lhs op rhs = RT.({
     rel_op1 = lhs;
@@ -1541,7 +1548,7 @@ let to_cont k = (Some k),None
 
 let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
   let (_,curr_args) = relation in
-  let bound_type = Std.IntMap.find e_id ctxt.let_types in
+  let bound_type = IntMap.find e_id ctxt.let_types in
   let rec destruct_loop (tyenv,args,rec_paths) patt ty =
     match patt,ty with
     | PVar v,ty ->
@@ -1564,8 +1571,8 @@ let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
   { ctxt with relations = relation::ctxt.relations },(relation,tyenv',(bound_paths,mu_paths))
 
 let%lq get_iso_at e_id ctxt =
-  let fold = Std.IntSet.mem e_id ctxt.fold_iso in
-  let unfold = Std.IntSet.mem e_id ctxt.unfold_iso in
+  let fold = IntSet.mem e_id ctxt.fold_iso in
+  let unfold = IntSet.mem e_id ctxt.unfold_iso in
   assert ((fold <> unfold) || (not fold));
   if fold then
     `IsoFold
@@ -1623,7 +1630,16 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         ) ctxt.recursive_rel
     },r
   in
+  let%lm save_snapshot ctxt =
+    { ctxt with snapshots = IntMap.add e_id {
+          gamma = tyenv;
+          relation;
+          mu_relations = ctxt.recursive_rel
+        } ctxt.snapshots
+    }
+  in
   let%bind iso = get_iso_at e_id in
+  save_snapshot >>
   match e with
   | EVar v ->
     begin
@@ -2029,14 +2045,15 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
     relations;
     o_hints;
     curr_fun = None;
-    let_types = Std.IntMap.map lift_and_unfold (side_results.SimpleChecker.SideAnalysis.let_types);
+    let_types = IntMap.map lift_and_unfold (side_results.SimpleChecker.SideAnalysis.let_types);
     bif_types;
     fenv;
     impl = [];
     havoc_set = P.PathSet.empty;
     fold_iso = side_results.SimpleChecker.SideAnalysis.fold_locs;
     unfold_iso = side_results.SimpleChecker.SideAnalysis.unfold_locs;
-    recursive_rel = P.PathMap.empty
+    recursive_rel = P.PathMap.empty;
+    snapshots = IntMap.empty
   } in
   let ctxt = List.fold_left (fun ctxt fn ->
       analyze_function fn ctxt
@@ -2046,4 +2063,4 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
         curr_fun = None; havoc_set = P.PathSet.empty; recursive_rel = P.PathMap.empty
       }
   in
-  (ctxt.relations,ctxt.impl,start_name)
+  (ctxt.relations,ctxt.impl,ctxt.snapshots,start_name)

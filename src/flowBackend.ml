@@ -158,7 +158,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         ]
       ] ff.printer
 
-  let solve_constraints ~interp:(relops,defn_file) (rel,impl,start_relation) =
+  let solve_constraints ~interp:(relops,defn_file) rel impl start_relation =
     let ff = SexpPrinter.fresh () in
     let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
     let grounded =
@@ -193,7 +193,51 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     SexpPrinter.finish ff;
     C.solve ~defn_file ff
 
-  let solve ~annot_infr:_ ~intr simple_res o_hints ast =
+  let pprint_annot =
+    let open PrettyPrint in
+    fun m (i,_) _ ->
+      let { gamma; relation; mu_relations } = Std.IntMap.find i m in
+      let vars =
+        let bindings = List.map (fun (k, t) ->
+            pf !"%s: %{FlowInference.fltype_to_string}" k t
+          ) gamma |> psep_gen newline
+        in
+        pblock ~nl:false ~op:(ps "+ Variable Types:") ~body:bindings ~close:null
+      in
+      let pp_rel (name,args) =
+        let args = List.map (fun (p,_) -> ps @@ P.to_z3_ident p) args |> psep_gen (pf ",@ ") in
+        pl [
+          pf "%s(" name;
+          pb [ args ];
+          ps ")"
+        ]
+      in
+      let mu_rel =
+        let body = P.PathMap.bindings mu_relations |> List.map (fun (s,rel) ->
+            pb [
+              pf !"%{P}:@ " s;
+              pp_rel rel;
+            ]
+            ) |> psep_gen newline
+        in
+        pblock ~op:(ps "+ Mu Relations:") ~body ~close:null
+      in
+      let relation =
+        pb [
+          pf "+ Relation:@ ";
+          pp_rel relation
+        ]
+      in
+      let body = psep_gen null [ vars; mu_rel; relation ] in
+      pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
+
+  let solve ~annot_infr ~intr simple_res o_hints ast =
     let open Intrinsics in
-    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) @@ FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast
+    let rel,impl,snap,start = FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast in
+    let () =
+      if annot_infr then
+        AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
+      flush stderr
+    in
+    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) rel impl start
 end
