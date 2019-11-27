@@ -338,11 +338,12 @@ let path_step k p = match k with
   | `Length -> P.len p
   | `Elem -> P.elem p
   | `Tuple i -> P.t_ind p i
-  | `Mu -> p
-  | `Summ -> p
   | `Ref -> P.deref p
   | `Null -> P.to_null p
-  | _ -> failwith "Unsupported"
+  (* pseudo-path elements *)
+  | `Mu -> p
+  | `Summ -> p
+  | `Array -> p
 
 let rec walk_type ty step f st acc =
   let continue ~acc mst k =
@@ -361,11 +362,11 @@ let rec walk_type ty step f st acc =
       continue ~acc mst (walk_type t step f)
     )
   | `Ref (true,t) ->
-    let mst = step `Summ st in
+    let mst = step `Null st in
     continue ~acc mst (fun st' acc ->
-      let mst = step `Null st' in
-      continue ~acc mst (fun st'' acc ->
-        let acc = f st'' acc in
+      let acc = f st' acc in
+      let mst = step `Summ st in
+      continue ~acc mst (fun st' acc ->
         let mst = step `Ref st' in
         continue ~acc mst (walk_type t step f)
       )
@@ -383,11 +384,14 @@ let rec walk_type ty step f st acc =
     let mst = step `Length st in
     continue ~acc mst (fun st' acc ->
       let acc = f st' acc in
-      let mst = step `Ind st in
-      continue ~acc mst (fun st' acc ->
-        let acc = f st' acc in
-        let mst = step `Elem st in
-        continue ~acc mst f
+      let mst = step `Array st in
+      continue ~acc mst (fun st acc ->
+        let mst = step `Ind st in
+        continue ~acc mst (fun st' acc ->
+          let acc = f st' acc in
+          let mst = step `Elem st in
+          continue ~acc mst f
+        )
       )
     )
 
@@ -407,7 +411,8 @@ let parallel_type_walk in_ap out_ap ty step f st acc =
     match k with
     | `Ref -> user_step P.deref `Ref
     | `Mu -> user_step Fun.id `Mu
-    | `Ind -> user_step P.ind `Arr
+    | `Array -> user_step Fun.id `Array
+    | `Ind -> parallel_step P.ind
     | `Elem -> parallel_step P.elem
     | `Length -> parallel_step P.len
     | `Tuple i -> parallel_step ((Fun.flip P.t_ind) i)
@@ -555,9 +560,8 @@ let to_copy_stream { direct_copies; weak_copies } =
   List.fold_left (fun acc (s,d,ty) ->
     parallel_type_walk s d ty (fun k (in_ap,dst_ap) stack ->
       match k with
-      | `Summ -> `Cont stack
       | `Mu -> `ContPath (P.template, dst_ap, Some (in_ap, dst_ap))
-      | `Ref | `Arr -> `Cont stack
+      | `Summ | `Ref | `Array -> `Cont stack
     ) (fun stack in_ap out_ap acc ->      
       let s = (in_ap, Option.map fst stack) in 
       let concr_in = RecRelations.MuChain.to_concr s in
@@ -862,7 +866,7 @@ module RecursiveRefinements = struct
     parallel_type_walk src dst ty (fun k _ () ->
       match k with
       | `Mu -> `K (fun _ acc -> acc)
-      | `Summ | `Arr | `Ref -> `Cont ()
+      | `Summ | `Array | `Ref -> `Cont ()
     ) (fun () in_ap out_ap acc ->
       (in_ap, out_ap)::acc
     ) () acc
@@ -1001,7 +1005,7 @@ module RecursiveRefinements = struct
           match k with
           | `Summ -> failwith "Impossible?"
           | `Mu -> `ContPath (P.template,P.template,(ih,oh,Some (in_ap,out_ap)))
-          | `Ref | `Arr ->
+          | `Ref | `Array ->
             let concr_path = Option.fold ~none:in_ap ~some:(fun (src,_) ->
                 P.root_at ~child:in_ap ~parent:src
               ) parent_mu
