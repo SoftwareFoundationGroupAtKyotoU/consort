@@ -54,45 +54,45 @@ let lift_defn ~loc vl nm =
 
 let lift_inline_defn ~loc bind body nm =
   pexp_let ~loc Nonrecursive (wrap_value_binding nm bind) body
-
+    
 let () =
+  let ext = Context_free.Rule.extension in
   Driver.register_transformation "with_monad"
-    ~extensions:[
-      Extension.declare
-        "swith"
-        Extension.Context.expression
-        Ast_pattern.(single_expr_payload __)
-        (fun ~loc:_ ~path:_ expr ->
-          expand_with expr);
-      Extension.declare
-        "m"
-        Extension.Context.expression
-        Ast_pattern.(single_expr_payload __)
-        (fun ~loc:_ ~path:_ expr ->
-          expand_do expr);
-      Extension.declare
-        "lq"
-        Extension.Context.structure_item
-        Ast_pattern.(pstr ((pstr_value nonrecursive __) ^:: nil))
-        (fun ~loc ~path:_ bind ->
-          lift_defn ~loc bind "proj");
-      Extension.declare
-        "lm"
-        Extension.Context.structure_item
-        Ast_pattern.(pstr ((pstr_value nonrecursive __) ^:: nil))
-        (fun ~loc ~path:_ bind ->
-          lift_defn ~loc bind "mut");
-      Extension.declare
-        "lm"
-        Extension.Context.expression
-        Ast_pattern.(pstr (pstr_eval (pexp_let nonrecursive __ __) nil ^:: nil))
-        (fun ~loc ~path:_ bind body ->
-          lift_inline_defn ~loc bind body "mut");
-      Extension.declare
-        "lq"
-        Extension.Context.expression
-        Ast_pattern.(pstr (pstr_eval (pexp_let nonrecursive __ __) nil ^:: nil))
-        (fun ~loc ~path:_ bind body ->
-          lift_inline_defn ~loc bind body "proj")
-        
+    ~rules:[
+      ext @@ Extension.declare
+          "swith"
+          Extension.Context.expression
+          Ast_pattern.(single_expr_payload __)
+          (fun ~loc:_ ~path:_ expr ->
+            expand_with expr)
+    ; ext @@ Extension.declare
+          "m"
+          Extension.Context.expression
+          Ast_pattern.(single_expr_payload __)
+          (fun ~loc:_ ~path:_ expr ->
+            expand_do expr)
+      ; ext @@ Extension.declare
+          "lq"
+          Extension.Context.structure_item
+          Ast_pattern.(pstr ((pstr_value nonrecursive __) ^:: nil))
+          (fun ~loc ~path:_ bind ->
+            lift_defn ~loc bind "proj")
+      ; ext @@ Extension.declare
+          "lm"
+          Extension.Context.structure_item
+          Ast_pattern.(pstr ((pstr_value nonrecursive __) ^:: nil))
+          (fun ~loc ~path:_ bind ->
+            lift_defn ~loc bind "mut")
+      ; ext @@ Extension.declare
+          "lm"
+          Extension.Context.expression
+          Ast_pattern.(pstr (pstr_eval (pexp_let nonrecursive __ __) nil ^:: nil))
+          (fun ~loc ~path:_ bind body ->
+            lift_inline_defn ~loc bind body "mut")
+      ; ext @@ Extension.declare
+          "lq"
+          Extension.Context.expression
+          Ast_pattern.(pstr (pstr_eval (pexp_let nonrecursive __ __) nil ^:: nil))
+          (fun ~loc ~path:_ bind body ->
+            lift_inline_defn ~loc bind body "proj")
     ]
