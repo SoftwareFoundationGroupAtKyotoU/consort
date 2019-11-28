@@ -46,7 +46,8 @@ module Options = struct
     solver: solver;
     mode: mode;
     solver_opts: Solver.options;
-    own_solv_opts: OwnershipSolver.options
+    own_solv_opts: OwnershipSolver.options;
+    dump_ir : string option;
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -62,7 +63,8 @@ module Options = struct
     solver = Spacer;
     mode = Refinement;
     solver_opts = Solver.default;
-    own_solv_opts = OwnershipSolver.default
+    own_solv_opts = OwnershipSolver.default;
+    dump_ir = None;
   }
 
   let string_opt r =
@@ -127,6 +129,7 @@ module Options = struct
     let check_trivial = ref default.check_trivial in
     let solver = ref default.solver in
     let mode = ref default.mode in
+    let dump_ir = ref default.dump_ir in
     ([
       ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
@@ -135,6 +138,7 @@ module Options = struct
          | "unified" -> mode := Unified
          | _ -> assert false
        ), " Use mode <mode>. (default: refinement)");
+      ("-dump-ir", string_opt dump_ir, "Dump intermediate relations and debugging information (only implemented in unified)");
       ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
          | "spacer" -> solver := Spacer
          | "hoice" -> solver := Hoice
@@ -144,10 +148,16 @@ module Options = struct
          | "parallel" -> solver := Parallel
          | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
     ], (fun ?(comb=default) () ->
+       let () =
+           match !dump_ir,!mode with
+           | Some _, Refinement -> prerr_endline "Warning! dump-ir has no effect in refinement mode (use unified)"
+           | _ -> ()
+       in
        { comb with
          check_trivial = !check_trivial;
          solver = !solver;
-         mode = !mode
+         mode = !mode;
+         dump_ir = !dump_ir
        }))
 
   let solver_opt_gen () =
@@ -253,7 +263,7 @@ let print_model t =
 
 module type SOLVER = sig
   type t
-  val solve : annot_infr:bool -> intr:Intrinsics.interp_t -> SimpleChecker.simple_results -> float OwnershipInference.ownership_ops -> Ast.prog -> (t * Solver.result)
+  val solve : annot_infr:bool -> dump_ir:(string option) -> intr:Intrinsics.interp_t -> SimpleChecker.simple_results -> float OwnershipInference.ownership_ops -> Ast.prog -> (t * Solver.result)
     
 end
 
@@ -298,7 +308,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
         (module TypeInference.Make(Backend) : SOLVER)
     in
     let module S = (val s_mod : SOLVER) in
-    let (_,ans) = S.solve ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

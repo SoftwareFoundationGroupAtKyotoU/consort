@@ -94,7 +94,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           p2
         ]
 
-    | PRelation ((name,formals),subst,ctxt_shift) ->
+    | PRelation ((name,formals,_),subst,ctxt_shift) ->
       let subst_map = List.fold_left (fun acc (k,v) ->
           Paths.PathMap.add k v acc
         ) Paths.PathMap.empty subst
@@ -168,7 +168,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         pg start_relation @@ List.init !KCFA.cfa (fun _ -> pl "0")
     in
     let () =
-      List.iter (fun (nm,args) ->
+      List.iter (fun (nm,args,_) ->
         pg "declare-fun" [
           pl nm;
           ll @@ ctxt_args @ List.map (fun (_,ty) -> pp_ztype ty) args;
@@ -204,7 +204,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         in
         pblock ~nl:false ~op:(ps "+ Variable Types:") ~body:bindings ~close:null
       in
-      let pp_rel (name,args) =
+      let pp_rel (name,args,_) =
         let args = List.map (fun (p,_) -> ps @@ P.to_z3_ident p) args |> psep_gen (pf ",@ ") in
         pl [
           pf "%s(" name;
@@ -231,7 +231,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-  let solve ~annot_infr ~intr simple_res o_hints ast =
+  let solve ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
     let open Intrinsics in
     let rel,impl,snap,start = FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast in
     let () =
@@ -239,5 +239,20 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
       flush stderr
     in
+    let () = Option.iter (fun out_f ->
+        let f = open_out out_f in
+        Fun.protect ~finally:(fun () -> close_out f) (fun () ->
+          let open Std in
+          let open FlowInference in
+          let open Sexplib.Std in
+          let module P = Paths in
+          let mu_bind = IntMap.bindings snap |> ListMonad.bind (fun (i,pmap) ->
+                P.PathMap.bindings pmap.mu_relations |> List.map (fun (p,rel) -> (i,p,rel))
+              )
+          in
+          Sexplib.Sexp.output_hum f @@ [%sexp_of: Ast.prog * FlowInference.relation list * (int * P.concr_ap * relation) list] (ast,rel,mu_bind);
+          flush f;
+        )
+      ) dump_ir in
     (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) rel impl start
 end

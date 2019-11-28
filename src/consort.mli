@@ -25,6 +25,7 @@ module Options :
       mode: mode;
       solver_opts: Solver.options;
       own_solv_opts: OwnershipSolver.options;
+      dump_ir : string option
     }
 
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)

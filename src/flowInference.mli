@@ -7,9 +7,17 @@ val fltype_to_string : fltype -> string
 
 type z3_types =
   | ZBool
-  | ZInt
+  | ZInt [@@deriving sexp]
 
-type relation = string * (P.concr_ap * z3_types) list
+type relation_source =
+  | Expr of int
+  | Fun of string * [`In | `Out]
+  | FunMu of string * [`In | `Out] * P.concr_ap
+  | ExprMu of int * P.concr_ap * [ `Null | `Join | `Flow ]
+  | AliasUnfold of int
+  | Start [@@deriving sexp]
+
+type relation = string * (P.concr_ap * z3_types) list * relation_source [@@deriving sexp]
 
 type state_snapshot = {
   mu_relations : relation P.PathMap.t;

@@ -16,7 +16,15 @@ open (val Log.located ~where:"FLOW" : Log.LocatedD) [@@ocaml.warning "-33"]
 
 type z3_types =
   | ZBool
-  | ZInt
+  | ZInt [@@deriving sexp]
+
+type relation_source =
+  | Expr of int
+  | Fun of string * [`In | `Out]
+  | FunMu of string * [`In | `Out] * P.concr_ap
+  | ExprMu of int * P.concr_ap * [`Null | `Join | `Flow]
+  | AliasUnfold of int
+  | Start [@@deriving sexp]
 
 type flow =
   | Havoc of P.concr_ap
@@ -24,7 +32,7 @@ type flow =
   | Const of P.concr_ap * int
   | NullConst of P.concr_ap * bool
 
-type relation = string * (P.concr_ap * z3_types) list
+type relation = string * (P.concr_ap * z3_types) list * relation_source [@@deriving sexp]
 
 type concr_arg =
   | Ap of P.concr_ap
@@ -260,7 +268,7 @@ let path_simple_type tyenv path =
 let is_null_flag = true
 let is_nonnull_flag = false
 
-let null_pre (_,args) subst =
+let null_pre (_,args,_) subst =
   let subst_ap p =
     if List.mem_assoc p subst then
       List.assoc p subst
@@ -482,7 +490,7 @@ module RecRelations = struct
       Printf.sprintf !"%{P}-%d-%s" dst e_id "mu"
     in
     let args = type_to_paths P.template ty |> List.map (fun p -> p, path_type p) in
-    let rel = (name, args) in
+    let rel = (name, args, ExprMu (e_id, dst, `Flow)) in
     let ctxt = set_recursive_rel dst rel @@ { ctxt with relations = rel :: ctxt.relations } in
     ctxt,rel
 
@@ -511,7 +519,7 @@ module RecRelations = struct
         let args = type_to_paths P.template ty |> List.map (fun p -> p, path_type p) in
         get_mu_binders root ty |> List.fold_left (fun ctxt bind ->
             let name = Printf.sprintf !"null-%d-%{P}-%s" e_id bind "mu" in
-            let rel = (name, args) in
+            let rel = (name, args, ExprMu (e_id, bind, `Null)) in
             let grounding_subst = List.filter_map (fun (s, p) ->
                 match p with
                 | ZBool ->
@@ -1534,20 +1542,20 @@ let relation_name ((e_id,_),expr) ctxt =
   in
   prefix ^ kind
 
-let fresh_relation_for curr_relation k ctxt =
+let fresh_relation_for curr_relation (((e_id,_),_) as k) ctxt =
   let rel = relation_name k ctxt in
-  let (_,args) = curr_relation in
-  let to_ret = (rel,args) in
+  let (_,args,_) = curr_relation in
+  let to_ret = (rel,args, Expr e_id) in
   { ctxt with relations = to_ret::ctxt.relations },to_ret
 
-let fresh_relation ~name ~args ctxt =
-  let to_ret = name, args in
+let fresh_alias_relation ~e_id ~name ~args ctxt =
+  let to_ret = name, args, AliasUnfold e_id in
   { ctxt with relations = to_ret::ctxt.relations },to_ret
 
 let to_cont k = (Some k),None
 
 let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
-  let (_,curr_args) = relation in
+  let (_,curr_args,_) = relation in
   let bound_type = IntMap.find e_id ctxt.let_types in
   let rec destruct_loop (tyenv,args,rec_paths) patt ty =
     match patt,ty with
@@ -1567,7 +1575,7 @@ let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
   let bound_paths = List.map (fun (p,_) -> p) args |> P.PathSet.of_list in
   let new_args = curr_args @ (List.rev args) in
   let name = relation_name k ctxt in
-  let relation = (name, new_args) in
+  let relation = (name, new_args, Expr e_id) in
   { ctxt with relations = relation::ctxt.relations },(relation,tyenv',(bound_paths,mu_paths))
 
 let%lq get_iso_at e_id ctxt =
@@ -1581,7 +1589,7 @@ let%lq get_iso_at e_id ctxt =
   else
     `None
 
-let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
+let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_),e) =
   let scoped_effect ~b1 ~b2 ctxt =
     let orig_recursive_rel = ctxt.recursive_rel in
     let orig_havoc_set = ctxt.havoc_set in
@@ -1603,9 +1611,9 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
         match bind with
         | `Keep b -> (ctxt, P.PathMap.add path b new_map)
         | `Merge (b1, b2) ->
-          let args = snd b1 in
+          let (_,args,_) = b1 in
           let name = Printf.sprintf !"join-%d-%{P}-%s" e_id path "mu" in
-          let rel = (name, args) in
+          let rel = (name, args, ExprMu (e_id,path,`Join)) in
           let ctxt = {
             ctxt with
             impl = [
@@ -1777,8 +1785,8 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     let temp_args = type_to_paths (P.var "$uf") aliased_type |> List.map (fun p ->
           p, path_type p
         ) in
-    let (curr_rel, curr_args) = relation in
-    let%bind temp_rel = fresh_relation ~name:(curr_rel ^ "$alias") ~args:(curr_args @ temp_args) in
+    let (curr_rel, curr_args,_) = relation in
+    let%bind temp_rel = fresh_alias_relation ~e_id ~name:(curr_rel ^ "$alias") ~args:(curr_args @ temp_args) in
     let%bind () = do_unfold_copy ~with_havoc:false ~e_id r_var "$uf" lhs_type relation temp_rel in
     let flow_root = P.t_ind (P.var "$uf") i in
     let folded_target = P.t_ind (P.deref @@ P.var r_var) i in
@@ -1923,8 +1931,8 @@ let rec process_expr ((relation,tyenv) as st) continuation ((e_id,_),e) =
     process_expr (k_rel,tyenv) continuation k
 
 let analyze_function fn ctxt =
-  let { in_rel = (in_nm,in_args);
-        out_rel = (out_nm,out_args);
+  let { in_rel = (in_nm,in_args, isrc);
+        out_rel = (out_nm,out_args, osrc);
         f_type = fn_type;
         in_recursive_rel;
         out_recursive_rel;
@@ -1973,8 +1981,8 @@ let analyze_function fn ctxt =
   in
   let mapped_in_args = map_args in_args in
   let mapped_out_args = map_args out_args in
-  let cont = (Some (out_nm, mapped_out_args)),Some (P.ret,(direct_flow, direct_out)) in
-  let ctxt,() = process_expr ((in_nm,mapped_in_args),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set; recursive_rel = start_rel } in
+  let cont = (Some (out_nm, mapped_out_args,osrc)),Some (P.ret,(direct_flow, direct_out)) in
+  let ctxt,() = process_expr ((in_nm,mapped_in_args,isrc),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set; recursive_rel = start_rel } in
   ctxt
 
 let analyze_main start_rel main ctxt =
@@ -1998,8 +2006,8 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       let in_rel_types = List.map (fun p -> (p,path_type p)) @@ List.concat arg_paths in
       let ret_rel = type_to_paths P.ret ty.ret_type |> List.map (fun p -> (p,path_type p)) in
       let out_rel_types = in_rel_types @ ret_rel in
-      let in_rel = (name ^ "-in", in_rel_types) in
-      let out_rel = (name ^ "-out", out_rel_types) in
+      let in_rel = (name ^ "-in", in_rel_types, Fun (name, `In)) in
+      let out_rel = (name ^ "-out", out_rel_types, Fun (name, `Out)) in
       let in_rec_rel,out_rec_rel,rel = fold_lefti (fun i acc arg_t ->
           RecRelations.get_recursive_roots (P.arg i) arg_t
           |> List.fold_left (fun acc (root,ty) ->
@@ -2008,8 +2016,8 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
                   let f suff mu = Printf.sprintf !"%s-%s-%{P}-%s" name suff mu "mu" in
                   let in_name = f "in" mu_binder in
                   let out_name = f "out" mu_binder in
-                  let in_rel = (in_name, args) in
-                  let out_rel = (out_name, args) in
+                  let in_rel = (in_name, args, FunMu (name, `In, mu_binder)) in
+                  let out_rel = (out_name, args, FunMu (name, `Out, mu_binder)) in
                   (RecRelations.update_rel_map mu_binder in_rel in_rec_rel,
                    RecRelations.update_rel_map mu_binder out_rel out_rec_rel,in_rel::out_rel::rel)
                 ) acc
@@ -2023,7 +2031,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
             RecRelations.get_mu_binders root ty
             |> List.fold_left (fun (out_rec_rel,rel) root ->
                 let nm = Printf.sprintf !"%s-out-%{P}-%s" name root "mu" in
-                let ret_rel = (nm, args) in
+                let ret_rel = (nm, args, FunMu (name,`Out,root)) in
                 RecRelations.update_rel_map root ret_rel out_rec_rel, ret_rel::rel
               ) acc
           ) (out_rec_rel,rel)
@@ -2039,7 +2047,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
     ) simple_theta (StringMap.empty, [])
   in
   let start_name = "program-start" in
-  let entry_relation = (start_name, []) in
+  let entry_relation = (start_name, [], Start) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
     relations;

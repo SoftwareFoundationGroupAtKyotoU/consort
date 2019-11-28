@@ -12,8 +12,25 @@ let string_of_location p =
     print_endline @@ string_of_int @@ Obj.obj t;
     "<!!INVALID LOC>"
   end
-    
 
+let sexp_of_location p =
+  let open Lexing in
+  let open Sexplib.Std in
+  let t = Obj.repr p in
+  let p =
+    if Obj.is_block t then
+      p
+    else
+      Lexing.dummy_pos
+  in
+  [%sexp_of: (string * int * int * int)] (p.pos_fname, p.pos_lnum, p.pos_bol, p.pos_cnum)
+
+let location_of_sexp s =
+  let open Lexing in
+  let open Sexplib.Std in
+  let pos_fname, pos_lnum, pos_bol, pos_cnum = [%of_sexp: string * int * int * int] s in
+  { pos_fname; pos_lnum; pos_bol; pos_cnum }
+  
 let set_file_name lexbuf in_name lnum = 
   let open Lexing in
   lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = in_name; pos_lnum = lnum };
