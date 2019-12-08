@@ -11,7 +11,7 @@ import edu.kyoto.fos.regnant.cfg.graph.InstNode;
 import edu.kyoto.fos.regnant.cfg.graph.JumpCont;
 import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
-import edu.kyoto.fos.regnant.ir.ImpRHS;
+import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import fj.Ord;
@@ -68,7 +68,7 @@ public class Translate {
     this.stream = InstructionStream.fresh("main", l -> {
       Env e = Env.empty();
       if(flg.setFlag.size() > 0) {
-        l.addBinding(CONTROL_FLAG, ImpRHS.literalInt(0), true);
+        l.addBinding(CONTROL_FLAG, ImpExpr.literalInt(0), true);
         e = e.updateBound(Collections.singletonMap(new JimpleLocal(CONTROL_FLAG, IntType.v()), Binding.MUTABLE));
       }
       translateElem(l, startElem, e);
@@ -127,7 +127,7 @@ public class Translate {
       InstructionStream i = InstructionStream.fresh("gate-top");
       translateElemChoose(i, elem, e);
       outStream.addCond(
-          ImpRHS.controlFlag(cond.stream().map(this::getCoordId).collect(Collectors.toList())),
+          ImpExpr.controlFlag(cond.stream().map(this::getCoordId).collect(Collectors.toList())),
           i.andClose(),
           InstructionStream.unit("gate"));
       return e;
@@ -165,7 +165,7 @@ public class Translate {
       translateElemLoop(curr, hd, e);
       curr.close();
       translateElemChoose(rest, iterator, chooseBy, e);
-      i.addCond(ImpRHS.controlFlag(choiceBy), curr, rest.andClose());
+      i.addCond(ImpExpr.controlFlag(choiceBy), curr, rest.andClose());
     }
   }
 
@@ -190,7 +190,7 @@ public class Translate {
 
       String tmpName = loopName + "_ret";
       if(valueLoop) {
-        ImpRHS loopEnter = ImpRHS.call(loopName, args);
+        ImpExpr loopEnter = ImpExpr.call(loopName, args);
         i.addBinding(tmpName, loopEnter, false);
       } else {
         i.addInvoke(loopName, args);
@@ -200,20 +200,20 @@ public class Translate {
         assert e.currentLoop != null;
         Set<Coord> recFlags = elem.getAnnotation(RECURSE_ON, Set.class);
         InstructionStream l = InstructionStream.fresh("recurse-gate");
-        l.ret(ImpRHS.call(e.currentLoop._1(), e.currentLoop._2()));
+        l.ret(ImpExpr.call(e.currentLoop._1(), e.currentLoop._2()));
         List<Integer> gateOn = toChoiceFlags(recFlags);
         doIf.add(P.p(gateOn, l));
       }
       if(annot.containsKey(RETURN_ON) && !elem.getAnnotation(RETURN_ON,Set.class).isEmpty()) {
-        ImpRHS toReturn;
+        ImpExpr toReturn;
         if(!valueLoop) {
           if(e.inLoop && !e.valueLoop) {
-            toReturn = ImpRHS.unitValue();
+            toReturn = ImpExpr.unitValue();
           } else {
-            toReturn = ImpRHS.dummyValue(b.getMethod().getReturnType());
+            toReturn = ImpExpr.dummyValue(b.getMethod().getReturnType());
           }
         } else {
-          toReturn = ImpRHS.var(tmpName);
+          toReturn = ImpExpr.var(tmpName);
         }
         InstructionStream l = InstructionStream.fresh("return-gate");
         l.ret(toReturn);
@@ -238,7 +238,7 @@ public class Translate {
     } else {
       elseBranch = InstructionStream.unit("fallthrough");
     }
-    tgt.addCond(ImpRHS.controlFlag(g._1()), g._2(), elseBranch);
+    tgt.addCond(ImpExpr.controlFlag(g._1()), g._2(), elseBranch);
   }
 
   private String getMangledName() {
@@ -273,7 +273,7 @@ public class Translate {
 
   private void jumpFrom(final Coord c, final InstructionStream i, Env e) {
     if(flg.recurseFlag.contains(c)) {
-      i.ret(ImpRHS.call(e.currentLoop._1(), e.currentLoop._2()));
+      i.ret(ImpExpr.call(e.currentLoop._1(), e.currentLoop._2()));
       assert !flg.setFlag.contains(c) && !flg.returnJump.contains(c);
     }
     if(flg.setFlag.contains(c)) {
@@ -283,7 +283,7 @@ public class Translate {
     if(flg.returnJump.contains(c)) {
       assert !i.isTerminal();
       if(e.valueLoop) {
-        i.ret(ImpRHS.dummyValue(b.getMethod().getReturnType()));
+        i.ret(ImpExpr.dummyValue(b.getMethod().getReturnType()));
       } else {
         i.returnUnit();
       }
@@ -298,7 +298,7 @@ public class Translate {
       return encodeBasicBlock(cond.head, lBody, u -> {
         assert u instanceof IfStmt; return ((IfStmt)u);
       }, (env_, el) -> {
-        ImpRHS path = ImpRHS.liftCond(el.getCondition(), env_.boundVars);
+        ImpExpr path = ImpExpr.liftCond(el.getCondition(), env_.boundVars);
         lBody.addCond(path,
             compileJump(cond.tBranch, env_).andClose(), compileJump(cond.fBranch, env_).andClose());
       }, env);
@@ -310,7 +310,7 @@ public class Translate {
           if(flg.setFlag.contains(c)) {
             lBody.setControl(this.getCoordId(c));
           }
-          lBody.ret(ImpRHS.liftValue(rs.getOp(), env_.boundVars));
+          lBody.ret(ImpExpr.liftValue(rs.getOp(), env_.boundVars));
           return;
         }
         jumpFrom(c, lBody, env_);
@@ -352,7 +352,7 @@ public class Translate {
       assert env.contains(defn);
 
       needDefine.remove(defn);
-      str.addBinding(defn.getName(), ImpRHS.var(this.getParamName(paramNumber)), env.get(defn).some() == Binding.MUTABLE);
+      str.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), env.get(defn).some() == Binding.MUTABLE);
     } else if(unit instanceof AssignStmt) {
       AssignStmt as = (AssignStmt) unit;
       Value lhs = as.getLeftOp();
@@ -360,10 +360,10 @@ public class Translate {
       assert lhs instanceof Local;
       Local target = (Local) lhs;
       if(needDefine.contains(target)) {
-        str.addBinding(target.getName(), ImpRHS.liftValue(as.getRightOp(), env), env.get(target).some() == Binding.MUTABLE);
+        str.addBinding(target.getName(), ImpExpr.liftValue(as.getRightOp(), env), env.get(target).some() == Binding.MUTABLE);
       } else {
         assert env.get(target).some() == Binding.MUTABLE;
-        str.addWrite(target.getName(), ImpRHS.liftValue(as.getRightOp(), env));
+        str.addWrite(target.getName(), ImpExpr.liftValue(as.getRightOp(), env));
       }
     } else if(unit instanceof InvokeStmt) {
       // this is really hard, do it later
@@ -393,7 +393,7 @@ public class Translate {
     localStorage.forEach((loc, bind) -> {
       if(!defInBlock.contains(loc)) {
         assert bind == Binding.MUTABLE;
-        str.addBinding(loc.getName(), ImpRHS.dummyValue(loc.getType()), true);
+        str.addBinding(loc.getName(), ImpExpr.dummyValue(loc.getType()), true);
       } else {
         needDefined.add(loc);
       }

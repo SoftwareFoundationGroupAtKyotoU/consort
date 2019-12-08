@@ -1,4 +1,4 @@
-package edu.kyoto.fos.regnant.ir;
+package edu.kyoto.fos.regnant.ir.stmt;
 
 import soot.Local;
 

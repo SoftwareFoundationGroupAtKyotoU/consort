@@ -1,12 +1,12 @@
 package edu.kyoto.fos.regnant.translation;
 
 import edu.kyoto.fos.regnant.Printable;
-import edu.kyoto.fos.regnant.ir.Assign;
-import edu.kyoto.fos.regnant.ir.Bind;
-import edu.kyoto.fos.regnant.ir.Call;
-import edu.kyoto.fos.regnant.ir.Condition;
-import edu.kyoto.fos.regnant.ir.Effect;
-import edu.kyoto.fos.regnant.ir.ImpRHS;
+import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
+import edu.kyoto.fos.regnant.ir.stmt.Assign;
+import edu.kyoto.fos.regnant.ir.stmt.Bind;
+import edu.kyoto.fos.regnant.ir.stmt.Call;
+import edu.kyoto.fos.regnant.ir.stmt.Condition;
+import edu.kyoto.fos.regnant.ir.stmt.Effect;
 import fj.P;
 import fj.P3;
 import soot.Local;
@@ -37,7 +37,7 @@ public class InstructionStream implements Printable  {
     return l;
   }
 
-  public void addBinding(String name, ImpRHS rhs, boolean ref) {
+  public void addBinding(String name, ImpExpr rhs, boolean ref) {
     this.addBind(new Bind(name, rhs, ref));
   }
 
@@ -190,16 +190,16 @@ public class InstructionStream implements Printable  {
   }
 
   private static class Return extends Term {
-    private final ImpRHS returnOp;
+    private final ImpExpr returnOp;
 
-    private Return(final ImpRHS returnOp) {
+    private Return(final ImpExpr returnOp) {
       assert returnOp != null;
       this.returnOp = returnOp;
     }
 
     @Override public void printAt(int level, StringBuilder sb) {
       indent(level, sb).append("return ");
-      returnOp.toSyntax(sb);
+      returnOp.printOn(sb);
       sb.append("\n");
     }
   }
@@ -220,11 +220,11 @@ public class InstructionStream implements Printable  {
     this.state = this.state.addBind(b, this.stateStack);
   }
 
-  public void addWrite(String name, ImpRHS val) {
+  public void addWrite(String name, ImpExpr val) {
     this.addEffect(new Assign(name, val));
   }
 
-  public void addCond(ImpRHS cond, InstructionStream tr, InstructionStream fls) {
+  public void addCond(ImpExpr cond, InstructionStream tr, InstructionStream fls) {
     assert tr.isTerminal() : tr.tag;
     assert fls.isTerminal() : fls.tag;
     this.inheritFunctions(tr);
@@ -242,13 +242,13 @@ public class InstructionStream implements Printable  {
     return i;
   }
 
-  public void ret(ImpRHS val) {
+  public void ret(ImpExpr val) {
     this.state.onRet(this.stateStack);
     this.termNode = new Return(val);
   }
 
   public void returnUnit() {
-    this.ret(ImpRHS.unitValue());
+    this.ret(ImpExpr.unitValue());
   }
 
   public void addSideFunction(String name, List<Local> l, InstructionStream s) {
@@ -261,7 +261,7 @@ public class InstructionStream implements Printable  {
   }
 
   public void setControl(final int coordId) {
-    this.addWrite(Translate.CONTROL_FLAG, ImpRHS.literalInt(coordId));
+    this.addWrite(Translate.CONTROL_FLAG, ImpExpr.literalInt(coordId));
   }
 
   public boolean isTerminal() {

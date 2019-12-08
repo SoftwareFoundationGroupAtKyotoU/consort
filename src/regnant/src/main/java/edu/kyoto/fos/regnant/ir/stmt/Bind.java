@@ -1,27 +1,24 @@
-package edu.kyoto.fos.regnant.ir;
+package edu.kyoto.fos.regnant.ir.stmt;
 
 import edu.kyoto.fos.regnant.Printable;
+import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
+import edu.kyoto.fos.regnant.ir.expr.Mkref;
 
 public class Bind implements Printable {
   private String varName;
-  private ImpRHS rhs;
+  private ImpExpr rhs;
   private boolean mutable;
 
-  public Bind(final String varName, final ImpRHS rhs, final boolean mutable) {
+  public Bind(final String varName, final ImpExpr rhs, final boolean mutable) {
     this.varName = varName;
-    this.rhs = rhs;
+    this.rhs = mutable ? new Mkref(rhs) : rhs;
     this.mutable = mutable;
   }
 
   @Override public void printAt(final int level, final StringBuilder b) {
     StringBuilder sb = indent(level, b).append("let ").append(varName).append(" = ");
-    if(this.mutable) {
-      sb.append("mkref (");
-    } else {
-      sb.append("(");
-    }
-    this.rhs.toSyntax(sb);
-    sb.append(") in ");
+    this.rhs.printOn(sb);
+    sb.append(" in ");
   }
 
   @Override public String toString() {
