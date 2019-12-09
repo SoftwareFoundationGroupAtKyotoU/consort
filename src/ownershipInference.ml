@@ -363,8 +363,8 @@ let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1,o2))
 
 let constrain_write o = add_constraint @@ Write o
 
-let%lm with_types bindings cont ctxt =
-  let (ctxt',()) = cont {
+let with_types bindings cont ctxt =
+  let (ctxt',fl) = cont {
       ctxt with gamma =
         List.fold_left (fun acc (k,t) ->
           SM.add k t acc
@@ -372,7 +372,7 @@ let%lm with_types bindings cont ctxt =
   in
   { ctxt' with gamma = List.fold_left (fun acc (k,_) ->
         SM.remove k acc
-      ) ctxt'.gamma bindings }
+      ) ctxt'.gamma bindings },fl
 
 let lkp_split loc v =
   let%bind t = lkp v in
@@ -417,36 +417,36 @@ let process_call e_id c =
 let%lm save_type e_id ctxt =
   { ctxt with save_env = IntMap.add e_id ctxt.gamma ctxt.save_env }
 
-let rec process_expr ?output ((e_id,_),expr) =
+let rec process_expr ~output ((e_id,_),expr) =
   save_type e_id >>
   match expr with
-  | EVar v -> begin
-      let%bind t2 = lkp_split (SRet e_id) v in
-      match output with
-      | None -> return ()
-      | Some (output_types,return_type) ->
-        begin%m
-          constrain_eq ~e_id ~src:t2 ~dst:return_type;
-          miter (fun (v,out_t) ->
-            let%bind curr_t = lkp v in
-            constrain_eq ~e_id ~src:curr_t ~dst:out_t
-          ) output_types
-        end
-    end
+  | Return v ->
+    let () = assert (output <> None) in
+    let (output_types, return_type) = Option.get output in
+    let%bind t2 = lkp_split (SRet e_id) v in
+    constrain_eq ~e_id ~src:t2 ~dst:return_type
+    >> miter (fun (v,out_t) ->
+        let%bind curr_t = lkp v in
+        constrain_eq ~e_id ~src:curr_t ~dst:out_t
+      ) output_types
+    >> return `Return
+  | EVar _ -> return `Cont
   | Seq (e1,e2) ->
-    begin%m process_expr e1; process_expr ?output e2 end
+    let%bind stat = process_expr ~output e1 in
+    assert (stat <> `Return);
+    process_expr ~output e2
   | NCond (v,e1,e2) ->
     process_conditional ~e_id ~tr_branch:(
         let%bind t = lkp v in
         let%bind t' = make_fresh_type (MGen e_id) (P.var v) t in
         update_type v t'
-      ) ?output e1 e2
+      ) ~output e1 e2
   | Cond (_,e1,e2) ->
-    process_conditional ~e_id ~tr_branch:(return ()) ?output e1 e2
+    process_conditional ~e_id ~tr_branch:(return ()) ~output e1 e2
   | Assign (v,IInt _,nxt) ->
     let%bind (t,o) = lkp_ref v in
     assert (t = Int);
-    constrain_write o >> process_expr ?output nxt
+    constrain_write o >> process_expr ~output nxt
   | Assign (v, IVar i,nxt) ->
     let%bind t2 = lkp_split (SBind e_id) i
     and (vt,o) = lkp_ref v in
@@ -461,7 +461,7 @@ let rec process_expr ?output ((e_id,_),expr) =
          update_type v @@ Ref (vt',o');
          constrain_write o;
          constrain_write o';
-         process_expr ?output nxt
+         process_expr ~output nxt
     end
   | Update (base,_,contents,nxt) ->
     let%bind (cts,o) = lkp_array base
@@ -471,7 +471,7 @@ let rec process_expr ?output ((e_id,_),expr) =
          constrain_write o;
          constrain_eq ~e_id ~src:cts ~dst:new_cts;
          update_type base @@ Array (new_cts,o);
-         process_expr ?output nxt
+         process_expr ~output nxt
     end
   | Alias(src,dst,nxt) ->
     let%bind (src_up,st,st') = fresh_ap e_id @@ AVar src
@@ -480,9 +480,9 @@ let rec process_expr ?output ((e_id,_),expr) =
         shuffle_types ~e_id ~src:(st,st') ~dst:(dt,dt');
          src_up;
          dst_up;
-         process_expr ?output nxt
+         process_expr ~output nxt
     end
-  | Assert (_,nxt) -> process_expr ?output nxt
+  | Assert (_,nxt) -> process_expr ~output nxt
   | Let (PVar v,Mkref (RVar src),body) ->
     let%bind t2 = lkp_split (SBind e_id) src in
     begin
@@ -491,18 +491,18 @@ let rec process_expr ?output ((e_id,_),expr) =
         begin%m
             constrain_eq ~e_id ~src:t2 ~dst:ref_cont;
              add_constraint @@ Write o;
-             with_types [(v,t')] @@ process_expr ?output body
+             with_types [(v,t')] @@ process_expr ~output body
         end
       | _ -> assert false
     end
   | Let (PVar v,(Null | MkArray _),body) ->
     let%bind t = get_type_scheme e_id v in
-    with_types [(v,t)] @@ process_expr ?output body
+    with_types [(v,t)] @@ process_expr ~output body
   | Let (PVar v,Mkref (RNone | RInt _), body) ->
     let%bind new_var = alloc_ovar (MGen e_id) (P.var v) in
     begin%m
         add_constraint @@ Write new_var;
-         with_types [(v,Ref (Int, new_var))] @@ process_expr ?output body
+         with_types [(v,Ref (Int, new_var))] @@ process_expr ~output body
     end
   | Let (patt,rhs,body) ->
     let%bind to_bind =
@@ -562,23 +562,26 @@ let rec process_expr ?output ((e_id,_),expr) =
       | PTuple _,_ -> assert false
     in
     let bindings = assign_patt_loop [] patt to_bind in
-    with_types bindings @@ process_expr ?output body
-and process_conditional ~e_id ~tr_branch ?output e1 e2 ctxt =
+    with_types bindings @@ process_expr ~output body
+and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
   let (ctxt_tpre,()) = tr_branch ctxt in
-  let (ctxt_t,()) = process_expr ?output e1 ctxt_tpre in
-  let (ctxt_f,()) = process_expr ?output e2 { ctxt_t with gamma = ctxt.gamma } in
-  assert (StringMap.for_all (fun k _ -> StringMap.mem k ctxt_t.gamma) ctxt_f.gamma);
-  assert (StringMap.for_all (fun k _ -> StringMap.mem k ctxt_f.gamma) ctxt_t.gamma);
-  miter (fun (k,ft) ->
-    let%bind t' = make_fresh_type (MJoin e_id) (P.var k) ft in
-    let tt = StringMap.find k ctxt_t.gamma in
-    let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
-    begin%m
-        constrain_ge ~e_id ~src:tt ~dst:t';
-         constrain_ge ~e_id ~src:ft ~dst:t';
-         update_type k t'
-    end
-  ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty }
+  let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre in
+  let (ctxt_f,ffl) = process_expr ~output e2 { ctxt_t with gamma = ctxt.gamma } in
+  match tfl,ffl with
+  | `Return,f -> ctxt_f,f
+  | `Cont,`Return -> { ctxt_f with gamma = ctxt_t.gamma },`Cont
+  | `Cont,`Cont -> 
+    let ctxt,() = miter (fun (k,ft) ->
+        let%bind t' = make_fresh_type (MJoin e_id) (P.var k) ft in
+        let tt = StringMap.find k ctxt_t.gamma in
+        let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
+        begin%m
+            constrain_ge ~e_id ~src:tt ~dst:t';
+             constrain_ge ~e_id ~src:ft ~dst:t';
+             update_type k t'
+        end
+      ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in
+    ctxt,`Cont
 
 module Result = struct
   type t = {
@@ -595,7 +598,7 @@ let analyze_fn ctxt fn =
   let fn_type = SM.find fn.name ctxt.theta in
   let start_gamma = SM.of_bindings @@ List.combine arg_names fn_type.arg_types in
   let out_type = List.combine arg_names fn_type.output_types in
-  let (ctxt,()) = process_expr ~output:(out_type,fn_type.result_type) fn.body { ctxt with gamma = start_gamma } in
+  let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } in
   { ctxt with gamma = SM.empty }
 
 let infer (simple_types,iso) intr (fn,prog) =
@@ -664,7 +667,7 @@ let infer (simple_types,iso) intr (fn,prog) =
       ) intr 
   in
   let ctxt = List.fold_left analyze_fn ctxt fn in
-  let (ctxt,_) = process_expr prog ctxt in
+  let (ctxt,_) = process_expr ~output:None prog ctxt in
   {
     Result.ocons = ctxt.ocons;
     Result.ovars = ctxt.ovars;
