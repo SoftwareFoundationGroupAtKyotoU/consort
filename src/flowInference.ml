@@ -1539,6 +1539,7 @@ let relation_name ((e_id,_),expr) ctxt =
     | NCond _ -> "ifnull"
     | Cond _ -> "ifz"
     | EVar _ -> "var"
+    | Return _ -> "return"
   in
   prefix ^ kind
 
@@ -1552,7 +1553,7 @@ let fresh_alias_relation ~e_id ~name ~args ctxt =
   let to_ret = name, args, AliasUnfold e_id in
   { ctxt with relations = to_ret::ctxt.relations },to_ret
 
-let to_cont k = (Some k),None
+let to_cont k = (Some k)
 
 let fresh_bind_relation e_id (relation,tyenv) patt k ctxt =
   let (_,curr_args,_) = relation in
@@ -1589,44 +1590,40 @@ let%lq get_iso_at e_id ctxt =
   else
     `None
 
-let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_),e) =
+let rec process_expr ~output (((relation : relation),tyenv) as st) continuation ((e_id,_),e) =
   let scoped_effect ~b1 ~b2 ctxt =
     let orig_recursive_rel = ctxt.recursive_rel in
     let orig_havoc_set = ctxt.havoc_set in
     let ctxt1,r1 = b1 ctxt in
     let roll_back = { ctxt1 with havoc_set = orig_havoc_set; recursive_rel = orig_recursive_rel } in
     let ctxt2,r2 = b2 roll_back in
-    let () = assert (r1 = r2) in
-    let recursive_rel =
-      P.PathMap.merge (fun path b1 b2 ->
-        match b1,b2 with
-        | Some b1, Some b2 ->
-          if b1 = b2 then Some (`Keep b1)
+    if r1 && r2 then
+      let ctxt,recursive_rel = P.PathMap.fold (fun path bind1 (ctxt,new_map) ->
+          let bind2 = P.PathMap.find_opt path ctxt2.recursive_rel in
+          let () = assert (bind2 <> None) in
+          let bind2 = Option.get bind2 in
+          if bind1 = bind2 then
+            (ctxt, P.PathMap.add path bind1 new_map)
           else
-            Some (`Merge (b1, b2))
-        | None, None -> None
-        | _,_ -> failwith @@ Printf.sprintf !"Unbalanced rec maps %{P}" path
-      ) ctxt1.recursive_rel ctxt2.recursive_rel in
-    let ctxt,recursive_rel = P.PathMap.fold (fun path bind (ctxt,new_map) ->
-        match bind with
-        | `Keep b -> (ctxt, P.PathMap.add path b new_map)
-        | `Merge (b1, b2) ->
-          let (_,args,_) = b1 in
-          let name = Printf.sprintf !"join-%d-%{P}-%s" e_id path "mu" in
-          let rel = (name, args, ExprMu (e_id,path,`Join)) in
-          let ctxt = {
-            ctxt with
-            impl = [
-              ([PRelation (b1, [], None)], PRelation(rel, [], None));
-              ([PRelation (b2, [], None)], PRelation(rel, [], None))
-            ] @ ctxt.impl;
-            relations = rel::ctxt.relations
-          }
-          in
-          ctxt, P.PathMap.add path rel new_map
-      ) recursive_rel (ctxt2, P.PathMap.empty)
-    in
-    { ctxt with recursive_rel; havoc_set = P.PathSet.union ctxt1.havoc_set ctxt2.havoc_set },r1
+            let (_,args,_) = bind1 in
+            let name = Printf.sprintf !"join-%d-%{P}-%s" e_id path "mu" in
+            let rel = (name, args, ExprMu (e_id,path,`Join)) in
+            let ctxt = {
+              ctxt with
+              impl = [
+                ([PRelation (bind1, [], None)], PRelation(rel, [], None));
+                ([PRelation (bind2, [], None)], PRelation(rel, [], None))
+              ] @ ctxt.impl;
+              relations = rel::ctxt.relations
+            }
+            in
+            ctxt, P.PathMap.add path rel new_map
+        ) ctxt1.recursive_rel (ctxt2,P.PathMap.empty)
+      in
+      { ctxt with recursive_rel; havoc_set = P.PathSet.union ctxt1.havoc_set ctxt2.havoc_set }, r1
+    else if r1 then
+      { ctxt2 with havoc_set = ctxt1.havoc_set; recursive_rel = ctxt1.recursive_rel }, r1
+    else ctxt2, r2
   in
   let post_bind (paths,mu_binders) f ctxt =
     let pset = P.PathSet.of_list mu_binders in
@@ -1649,45 +1646,45 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
   let%bind iso = get_iso_at e_id in
   save_snapshot >>
   match e with
-  | EVar v ->
+  | EVar _ ->
     begin
       match continuation with
-      | (Some out_relation),None ->
+      | Some out_relation ->
         (* intra procedural successor *)
-        apply_identity_flow relation out_relation
+        apply_identity_flow relation out_relation >> return true
           
       (* should only happen at the main function *)
-      | None,None ->
-        return ()
-
-      (* tail position *)
-      | (Some out_relation),Some (ret_var,out_rec_rel) ->
-        let copies = compute_copies (P.var v) ret_var @@ path_simple_type tyenv (P.var v) in
-        apply_copies ~out_rec_rel ~havoc:false ~sl:(SRet e_id) copies relation out_relation
-      | None, Some _ -> assert false
+      | None ->
+        return false
     end
-    
+  | Return v ->
+    let () = assert (output <> None) in
+    let (out_relation, ret_var, out_rec_rel) = Option.get output in
+    let copies = compute_copies (P.var v) ret_var @@ path_simple_type tyenv (P.var v) in
+    apply_copies ~out_rec_rel ~havoc:false ~sl:(SRet e_id) copies relation out_relation
+    >> return false
   | Seq (e1, e2) ->
     let%bind e2_rel = fresh_relation_for relation e2 in
-    let%bind () = process_expr st (to_cont e2_rel) e1 in
-    process_expr (e2_rel,tyenv) continuation e2
+    let%bind flg = process_expr ~output st (to_cont e2_rel) e1 in
+    (assert flg);
+    process_expr (e2_rel,tyenv) ~output continuation e2
       
   | Assign (lhs,IInt i,k) ->
     let%bind k_rel = fresh_relation_for relation k in
-    const_assign (P.deref @@ P.var lhs) i relation k_rel >> process_expr (k_rel,tyenv) continuation k
+    const_assign (P.deref @@ P.var lhs) i relation k_rel >> process_expr ~output (k_rel,tyenv) continuation k
 
   | Assign (lhs, IVar rhs,k) when iso = `IsoFold ->
     let%bind k_rel = fresh_relation_for relation k in
     let out_ap = P.var lhs in
     let ty = path_simple_type tyenv out_ap in
     do_fold_copy ~e_id rhs lhs ty relation k_rel >>
-    process_expr (k_rel,tyenv) continuation k
+    process_expr ~output (k_rel,tyenv) continuation k
 
   | Assign (lhs,IVar rhs,k) ->
     let%bind k_rel = fresh_relation_for relation k in
     let copies = compute_copies (P.var rhs) (vderef lhs) @@ List.assoc rhs tyenv in
     apply_copies ~havoc:true ~sl:(SBind e_id) copies relation k_rel >>
-    process_expr (k_rel,tyenv) continuation k
+    process_expr ~output (k_rel,tyenv) continuation k
       
   | Update (arr,ind,rhs,k) ->
     let%bind k_rel = fresh_relation_for relation k in
@@ -1707,7 +1704,7 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
            PRelation (relation,[],None);
            rel ~ty:ZInt @@ mk_relation (Ap sym_ind) "!=" (Ap ind_ap)
          ] @@ PRelation (k_rel,[], None);
-         process_expr (k_rel,tyenv) continuation k
+         process_expr ~output (k_rel,tyenv) continuation k
     end
   | Cond (v,e1,e2) ->
     let%bind e1_rel = fresh_relation_for relation e1 in
@@ -1721,8 +1718,8 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
         apply_identity_flow ~pre:[ mk_pre "=" ] relation e1_rel;
          apply_identity_flow ~pre:[ mk_pre "!=" ] relation e2_rel;
          scoped_effect
-           ~b1:(process_expr (e1_rel,tyenv) continuation e1)
-           ~b2:(process_expr (e2_rel,tyenv) continuation e2)
+           ~b1:(process_expr ~output (e1_rel,tyenv) continuation e1)
+           ~b2:(process_expr ~output (e2_rel,tyenv) continuation e2)
     end
   | NCond (v,e1,e2) ->
     let%bind e1_rel = fresh_relation_for relation e1 in
@@ -1740,15 +1737,15 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
          scoped_effect ~b1:(
            RecRelations.null_for_var ~e_id ~ty:var_type v >>
            H.update_null_havoc ~e_id ~ty:var_type v >>
-           process_expr (e1_rel,tyenv) continuation e1
-         ) ~b2:(process_expr (e2_rel,tyenv) continuation e2)
+           process_expr ~output (e1_rel,tyenv) continuation e1
+         ) ~b2:(process_expr ~output (e2_rel,tyenv) continuation e2)
     end
 
   | Let (PVar lhs, Mkref (RVar rhs), k) when iso = `IsoFold ->
     let%bind k_rel,tyenv',bind_info = fresh_bind_relation e_id st (PVar lhs) k in
     let%bind bound_ty = get_bound_type e_id in
     do_fold_copy ~e_id rhs lhs bound_ty relation k_rel >>
-    post_bind bind_info @@ process_expr (k_rel,tyenv') continuation k
+    post_bind bind_info @@ process_expr ~output (k_rel,tyenv') continuation k
 
   | Let (p, Deref rhs, k) when iso = `IsoUnfold ->
     let ref_ty = path_simple_type tyenv @@ P.var rhs in
@@ -1762,18 +1759,18 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
         PPMap.add uf real_path acc
       ) out_mapping @@ to_mu_copies copies in
     do_unfold_copy ~with_havoc:true ~e_id ~out_mapping rhs "$uf" ref_ty relation k_rel >>
-    post_bind bind_info @@ process_expr (k_rel,tyenv') continuation k
+    post_bind bind_info @@ process_expr ~output (k_rel,tyenv') continuation k
 
   | Let (patt,rhs,k) ->
     let%bind k_rel,tyenv',bind_info = fresh_bind_relation e_id st patt k in
     apply_patt ~e_id tyenv patt rhs relation k_rel >>
-    post_bind bind_info @@ process_expr (k_rel,tyenv') continuation k
+    post_bind bind_info @@ process_expr ~output (k_rel,tyenv') continuation k
 
   | Assert (assrt, k) ->
     let%bind k_rel = fresh_relation_for relation k in
     add_assert_cond assrt relation >>
     apply_identity_flow relation k_rel >>
-    process_expr (k_rel,tyenv) continuation k
+    process_expr ~output (k_rel,tyenv) continuation k
 
   | Alias (lhs, APtrProj (r_var,i), k) when iso = `IsoUnfold->
     let%bind k_rel = fresh_relation_for relation k in
@@ -1861,7 +1858,7 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
           ) ctxt.recursive_rel
       }
     in
-    do_alias_fold >> process_expr (k_rel,tyenv) continuation k
+    do_alias_fold >> process_expr ~output (k_rel,tyenv) continuation k
       
   | Alias (lhs,s_ap,k) ->
     let%bind k_rel = fresh_relation_for relation k in
@@ -1928,7 +1925,7 @@ let rec process_expr (((relation : relation),tyenv) as st) continuation ((e_id,_
     set_havoc_state havoc_set >>
     alias_recursive >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
-    process_expr (k_rel,tyenv) continuation k
+    process_expr ~output (k_rel,tyenv) continuation k
 
 let analyze_function fn ctxt =
   let { in_rel = (in_nm,in_args, isrc);
@@ -1981,12 +1978,12 @@ let analyze_function fn ctxt =
   in
   let mapped_in_args = map_args in_args in
   let mapped_out_args = map_args out_args in
-  let cont = (Some (out_nm, mapped_out_args,osrc)),Some (P.ret,(direct_flow, direct_out)) in
-  let ctxt,() = process_expr ((in_nm,mapped_in_args,isrc),initial_env) cont fn.body {ctxt with curr_fun = Some fn.name; havoc_set; recursive_rel = start_rel } in
+  let cont = Some ((out_nm, mapped_out_args,osrc),P.ret,(direct_flow, direct_out)) in
+  let ctxt,_ = process_expr ((in_nm,mapped_in_args,isrc),initial_env) ~output:cont None fn.body {ctxt with curr_fun = Some fn.name; havoc_set; recursive_rel = start_rel } in
   ctxt
 
 let analyze_main start_rel main ctxt =
-  let ctxt,() = process_expr (start_rel,[]) (None,None) main ctxt in
+  let ctxt,_ = process_expr (start_rel,[]) ~output:None None main ctxt in
   ctxt
 
 let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
