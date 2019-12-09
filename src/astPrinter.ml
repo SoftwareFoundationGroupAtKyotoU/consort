@@ -103,46 +103,6 @@ let rec pp_patt = function
                     ps ")"
                   ]   
 
-let rec pp_typ t =
-  let open RefinementTypes in
-  let t_printer = match t with
-    | Int r -> pf "%a int" (ul pp_ref_ast) r
-    | Ref (t,o,_) -> pf "%a ref %f" (ul pp_typ) t o
-    | Tuple (bl,t) ->
-      let ty_printers =
-        List.mapi (fun i t ->
-          let binder_print = List.filter (fun (_,bind) ->
-              match bind with
-              | SProj i' when i' = i -> true
-              | _ -> false
-            ) bl |> List.fold_left (fun _ (v,_) ->
-                pf "$%d: " v
-              ) null
-          in
-          pl [
-            binder_print;
-            pp_typ t
-          ]
-        ) t in
-      pl [
-        ps "(";
-        psep_gen (pf ",@ ") ty_printers;
-        ps ")"
-      ]
-    (* TODO: make a generic version of type to string for god's sake *)
-    | _ -> failwith @@ "Can't print type"
-  in
-  pb [
-    t_printer
-  ]
-
-
-let pp_ty_env gamma =
-  psep_gen semi @@
-    List.map (fun (k, t) ->
-      pf "%s: %a" k (ul pp_typ) t
-    ) gamma
-
 let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
   let e_printer =
     match e with
@@ -187,7 +147,8 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
           semi;
           pp_expr ~ip ~annot e
         ]
-    | EVar v -> pf "%s:%a" v po_id id
+    | EVar v -> pf "%s%a" v po_id id
+    | Return v -> pf "return%a %s" po_id id v
   in
   match e with
   | Seq _ -> e_printer

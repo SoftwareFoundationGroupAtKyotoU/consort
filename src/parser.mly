@@ -16,6 +16,8 @@
 %token TRUE FALSE
 // conditionals
 %token IF THEN ELSE IFNULL
+// control flow
+%token RETURN
 // bindings
 %token LET IN MKREF EQ
 // arrays
@@ -97,6 +99,9 @@ let expr :=
 	  }
   | lbl = pre_label; ~ = lhs; {
 		Value ((lbl,$startpos),lhs)
+	  }
+  | RETURN; lbl = expr_label; e = lhs; {
+		Return ((lbl,$startpos),e)
 	  }
 
 let ap :=

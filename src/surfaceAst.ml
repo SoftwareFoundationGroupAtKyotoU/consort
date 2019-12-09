@@ -38,6 +38,7 @@ type exp =
   | Alias of pos * string * A.src_ap
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
+  | Return of pos * lhs
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -57,36 +58,40 @@ let tag_fresh pos t =
 let tag_with i t =
   (i, t)  
 
-let rec simplify_expr ?next count e : pos * A.raw_exp =
+let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
   let get_continuation ~ctxt count = match next with
-    | None -> simplify_expr count @@ Value (LabelManager.register_with ctxt, `OInt 0)
-    | Some e' -> simplify_expr count e'
+    | None -> simplify_expr ~is_tail count @@ Value (LabelManager.register_with ctxt, `OInt 0)
+    | Some e' -> simplify_expr ~is_tail count e'
   in
   match e with
-  | Unit i -> simplify_expr count @@ Value (i,`OInt 0)
-  | Value (i,`OVar v) -> (i,A.EVar v)
-  | Value (i,lhs) ->
-    bind_in ~ctxt:i count lhs (fun _ tvar ->
+  | Unit i -> simplify_expr ~is_tail count @@ Value (i,`OInt 0)
+  | Value (i, v) ->
+    if is_tail then
+      lift_to_var ~ctxt:i count v (fun _ tvar ->
+        A.Return tvar |> tag_with i
+      )
+    else
+      lift_to_var ~ctxt:i count v (fun _ tvar ->
         A.EVar tvar |> tag_with i
       )
   | NCond (i,v,e1,e2) ->
-    A.NCond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
+    A.NCond (v,simplify_expr ~is_tail count e1,simplify_expr ~is_tail count e2) |> tag_with i
   | Cond (i,`Var v,e1,e2) ->
-    A.Cond (v,simplify_expr count e1,simplify_expr count e2) |> tag_with i
+    A.Cond (v,simplify_expr ~is_tail count e1,simplify_expr ~is_tail count e2) |> tag_with i
   | Cond (i,`Nondet,e1,e2) ->
     bind_in ~ctxt:i count (`Nondet None) (fun c tvar ->
-        A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
+        A.Cond (tvar,simplify_expr ~is_tail c e1,simplify_expr ~is_tail c e2)
         |> tag_with i
       )
   | Cond (i,(`BinOp _ as b),e1,e2) ->
     bind_in ~ctxt:i count (b :> lhs) (fun c tvar ->
-        A.Cond (tvar,simplify_expr c e1,simplify_expr c e2)
+        A.Cond (tvar,simplify_expr ~is_tail c e1,simplify_expr ~is_tail c e2)
         |> tag_with i
       )
   | Seq (_,((Assign _ | Alias _ | Assert _ | Update _) as ue),e1) ->
-    simplify_expr ~next:e1 count ue
+    simplify_expr ~next:e1 ~is_tail count ue
   | Seq (pos,e1,e2) ->
-    A.Seq (simplify_expr count e1,simplify_expr count e2)
+    A.Seq (simplify_expr ~is_tail:false count e1,simplify_expr ~is_tail count e2)
     |> tag_fresh pos
   | Assign (id,v,l) ->
     lift_to_imm ~ctxt:id count l (fun c i ->
@@ -104,7 +109,7 @@ let rec simplify_expr ?next count e : pos * A.raw_exp =
       )
   | Let (i,v,lhs,body) ->
     lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->
-        let body' = simplify_expr c body in
+        let body' = simplify_expr ~is_tail c body in
         A.Let (v,lhs',body')
         |> tag_with i
       )
@@ -117,6 +122,10 @@ let rec simplify_expr ?next count e : pos * A.raw_exp =
           A.Assert ({ A.rop1 = op1'; A.cond = cond; A.rop2 = op2' }, get_continuation ~ctxt:i c')
           |> tag_with i
         )
+      )
+  | Return (i,rval) ->
+    lift_to_var ~ctxt:i count rval (fun _ tvar ->
+        A.Return tvar |> tag_with i
       )
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
@@ -212,8 +221,8 @@ and bind_in ~ctxt count lhs (k: int -> string -> A.exp) =
 
 let simplify (fns,body) =
   let simpl_fn = List.map (fun (name,args,e) ->
-      { A.name = name; A.args = args; A.body = simplify_expr 0 e }
+      { A.name = name; A.args = args; A.body = simplify_expr ~is_tail:true 0 e }
     ) fns in
-  let program_body = simplify_expr 0 body in
+  let program_body = simplify_expr ~is_tail:false 0 body in
   (simpl_fn, program_body)
   

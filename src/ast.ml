@@ -68,7 +68,8 @@ type raw_exp =
   | Update of string * string * string * exp
   | Let of patt * lhs * exp
   | Alias of string * src_ap * exp
-  | Assert of relation * exp [@@deriving sexp]
+  | Assert of relation * exp
+  | Return of string [@@deriving sexp]
 
 and exp = position * raw_exp [@@deriving sexp]
 

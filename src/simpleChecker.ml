@@ -265,7 +265,7 @@ let dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
       [@@ocaml.warning "-32"]
 
-let rec process_expr ctxt ((id,loc),e) res_acc =
+let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let resolv = function
     | `Var v -> `Var (UnionFind.find ctxt.sub.uf v)
     | t -> t
@@ -305,13 +305,15 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
   let save_let ty acc =
     { acc with let_types = Std.IntMap.add id ty acc.let_types }
   in
-  let (>||>) (a,t1) b =
-    let (a',t2) = b a in
-    unify t1 t2;
-    a',t2
+  let (|&|) (a,r1) b =
+    let (a',r2) = b a in
+    a',(r1 && r2)
   in
-  let (>>) (a,_) b =
-    b a
+  let (>>) (a,f) b =
+    if f then
+      Locations.raise_errorf ~loc "Dead code"
+    else
+      b a
   in
   let unify_imm imm t =
     match imm with
@@ -319,31 +321,31 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
     | IVar v -> unify_var v t
   in
   match e with
-  | EVar v -> res_acc,lkp v
+  | EVar _ -> res_acc,false
   | Cond (v,e1,e2) ->
     unify_var v `Int;
-    process_expr ctxt e1 res_acc
-    >||> process_expr ctxt e2
+    process_expr ret_type ctxt e1 res_acc
+    |&| process_expr ret_type ctxt e2
   | NCond (v,e1,e2) ->
     unify_ref v @@ fresh_var ();
-    process_expr ctxt e1 res_acc
-    >||> process_expr ctxt e2
+    process_expr ret_type ctxt e1 res_acc
+    |&| process_expr ret_type ctxt e2
   | Seq (e1,e2) ->
-    process_expr ctxt e1 res_acc
-    >> process_expr ctxt e2
+    process_expr ret_type ctxt e1 res_acc
+    >> process_expr ret_type ctxt e2
   | Assign (v1,IInt _,e) ->
     unify_ref v1 `Int;
-    process_expr  ctxt e res_acc
+    process_expr ret_type ctxt e res_acc
   | Assign (v1,IVar v2,e) ->
     let acc,c_id = save_assign v2 in
     unify_var v1 @@ `TyCons c_id;
-    process_expr ctxt e acc
+    process_expr ret_type ctxt e acc
   | Update (v1,ind,u,e) ->
     let d = fresh_var () in
     unify_var v1 @@ `Array d;
     unify_var ind `Int;
     unify_var u @@ d;
-    process_expr ctxt e res_acc
+    process_expr ret_type ctxt e res_acc
   | Alias (v, ap,e) ->
     let fresh_node () = UnionFind.new_node ctxt.sub.uf in
     let find ap =
@@ -368,14 +370,14 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
     in
     let (acc,ty) = find ap in
     unify (lkp v) ty;
-    process_expr ctxt e acc
+    process_expr ret_type ctxt e acc
   | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1 `Int;
     unify_imm rop2 `Int;
-    process_expr ctxt e res_acc
+    process_expr ret_type ctxt e res_acc
   | Let (PVar v,Mkref (RVar v'),expr) ->
     let acc,c_id = save_assign v' in
-    process_expr (add_var v (`TyCons c_id) ctxt) expr @@ save_let (`TyCons c_id) acc
+    process_expr ret_type (add_var v (`TyCons c_id) ctxt) expr @@ save_let (`TyCons c_id) acc
   | Let (p,lhs,expr) ->
     let res_acc',v_type =
       let same t = res_acc,t in
@@ -408,7 +410,7 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
             | RNone -> acc
             | RVar v ->
               if StringSet.mem v acc then
-                failwith "Duplicate variables in tuple constructor"
+                Locations.raise_errorf ~loc "Duplicate variables in tuple constructor"
               else
                 StringSet.add v acc
           ) StringSet.empty tl
@@ -440,13 +442,21 @@ let rec process_expr ctxt ((id,loc),e) res_acc =
         acc''
     in
     let ctxt' = unify_patt ctxt p v_type in
-    process_expr ctxt' expr @@ save_let v_type res_acc'
+    process_expr ret_type ctxt' expr @@ save_let v_type res_acc'
+  | Return v -> begin
+      match ret_type with
+      | None -> Locations.raise_errorf ~loc "Returned %s in main expression" v
+      | Some ty ->
+        let t = lkp v in
+        unify t ty;
+        res_acc,true
+    end
+    
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt =  { sub; fenv; tyenv  } in
-  let acc',out_type = process_expr ctxt body acc in
-  unify ~loc:Lexing.dummy_pos ctxt.sub out_type (`Var (StringMap.find name fenv).ret_type_v);
+  let acc',_ = process_expr (Option.some @@ `Var (StringMap.find name fenv).ret_type_v) ctxt body acc in
   acc'
 
 let is_rec_assign sub c t' =
@@ -508,7 +518,7 @@ let typecheck_prog intr_types (fns,body) =
       let_types = Std.IntMap.empty
     } fns
   in
-  let (acc',_) = process_expr {
+  let (acc',_) = process_expr None {
     sub; fenv; tyenv = StringMap.empty; 
     } body acc
   in

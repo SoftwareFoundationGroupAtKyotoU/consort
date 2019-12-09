@@ -50,6 +50,7 @@ rule read =
   | "assert" { ASSERT }
   | "true" { TRUE }
   | "false" { FALSE }
+  | "return" { RETURN }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '{' { LBRACE }
