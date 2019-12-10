@@ -25,7 +25,7 @@ public class Coord implements Comparable<Coord> {
     Comparator<Coord> cmp =
         Comparator
             .comparingInt(t -> t.src.getId());
-    cmp = cmp.thenComparingInt(t -> t.cond ? 1 : 0).thenComparingInt(t -> t.cond ? 1 : 0);
+    cmp = cmp.thenComparingInt(t -> t.cond ? 1 : 0).thenComparingInt(t -> t.branch ? 1 : 0);
     return cmp.compare(this, coord);
   }
 

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -150,8 +151,8 @@ public class CFGReconstructor {
       Continuation trCont = this.toContinuation(Coord.of(true, curr), depGraph, v._1(), lkp);
       Continuation flCont = this.toContinuation(Coord.of(false, curr), depGraph, v._2(), lkp);
       // Now compute the jumps for the hd element
-      mergeParentJumps(curr, hdJumps, exitFlows, lkp, trCont);
-      mergeParentJumps(curr, hdJumps, exitFlows, lkp, flCont);
+      mergeParentJumps(curr, hdJumps, exitFlows, lkp, trCont.getJumps(), depGraph.size() == 0);
+      mergeParentJumps(curr, hdJumps, exitFlows, lkp, flCont.getJumps(), depGraph.size() == 0);
       elems.add(new ConditionalNode(curr, hdJumps, trCont, flCont));
     } else {
       assert succ.size() == 1;
@@ -160,16 +161,14 @@ public class CFGReconstructor {
       this.saveRecurse(c, e);
       Jumps j = Jumps.of(c, e);
       Jumps nodeJump = new Jumps();
-      mergeParentJumps(curr, nodeJump, exitFlows, lkp, j);
+      mergeParentJumps(curr, nodeJump, exitFlows, lkp, j, depGraph.size() == 0);
       elems.add(new JumpNode(curr, nodeJump));
     }
     while(depGraph.size() > 0) {
       List<BasicBlock> next = depGraph.getHeads();
       assert next.size() > 0;
       assert next.stream().allMatch(lkp::containsKey);
-      next.stream().map(lkp::get).map(GraphElem::getJumps).forEach(j -> {
-        mergeSuccessorJumps(curr, exitFlows, lkp, j);
-      });
+      next.stream().map(lkp::get).map(GraphElem::getJumps).forEach(j -> mergeSuccessorJumps(curr, exitFlows, lkp, j));
       if(next.size() == 1) {
         elems.add(lkp.get(next.get(0)));
       } else {
@@ -195,16 +194,24 @@ public class CFGReconstructor {
   }
 
   private void mergeSuccessorJumps(BasicBlock curr, final Jumps exitFlows, Map<BasicBlock, GraphElem> lkp, Jumps j) {
-    mergeJump(curr, exitFlows, j, flow -> !lkp.containsKey(flow._2()));
+    mergeJump(curr, exitFlows, j, flow -> !lkp.containsKey(flow._2()), exitFlows.flow::add);
   }
 
-  private void mergeParentJumps(BasicBlock curr, final Jumps hdJumps, final Jumps exitFlows,
-      final Map<BasicBlock,GraphElem> lkp, final Continuation cont) {
-    Jumps j = cont.getJumps();
-    mergeParentJumps(curr, hdJumps, exitFlows, lkp, j);
+  private void mergeParentJumps(BasicBlock curr,
+      final Jumps hdJumps, final Jumps exitFlows, final Map<BasicBlock, GraphElem> lkp,
+      final Jumps cont, final boolean isSingleton) {
+    if(isSingleton) {
+      mergeJump(curr, hdJumps, cont, tgt -> {
+        assert !lkp.containsKey(tgt._2());
+        return true;
+      }, hdJumps.flow::add);
+    } else {
+      mergeJump(curr, hdJumps, cont, ign -> true, ls -> hdJumps.brk.computeIfAbsent(ls, ls_ -> new ArrayList<>()).add(curr));
+      mergeJump(curr, exitFlows, cont, tgt -> !lkp.containsKey(tgt._2()), exitFlows.flow::add);
+    }
   }
 
-  private void mergeJump(BasicBlock curr, Jumps tgtJumps, Jumps srcJumps, Predicate<P2<Coord, BasicBlock>> isFlow) {
+  private void mergeJump(BasicBlock curr, Jumps tgtJumps, Jumps srcJumps, Predicate<P2<Coord, BasicBlock>> isFlow, Consumer<P2<Coord, BasicBlock>> loopSucc) {
     srcJumps.flow.forEach(f -> {
       if(isFlow.test(f)) {
         tgtJumps.flow.add(f);
@@ -226,8 +233,7 @@ public class CFGReconstructor {
         newHead = headers.stream().filter(p -> !curr.equals(p)).collect(Collectors.toList());
         // this is the outer most break location, transform this break into a flow
         if(newHead.isEmpty()) {
-          // we should not dominate our successors
-          tgtJumps.flow.add(coord);
+          loopSucc.accept(coord);
           return;
         }
       } else {
@@ -235,11 +241,6 @@ public class CFGReconstructor {
       }
       tgtJumps.brk.computeIfAbsent(coord, ign -> new ArrayList<>()).addAll(newHead);
     });
-  }
-
-  private void mergeParentJumps(final BasicBlock curr, final Jumps hdJumps, final Jumps exitFlows, final Map<BasicBlock, GraphElem> lkp, final Jumps j) {
-    mergeJump(curr, hdJumps, j, flow -> true);
-    mergeJump(curr, exitFlows, j, flow -> !lkp.containsKey(flow._2()));
   }
 
   private Continuation toContinuation(final Coord coord, final HashMutableDirectedGraph<BasicBlock> depGraph,
