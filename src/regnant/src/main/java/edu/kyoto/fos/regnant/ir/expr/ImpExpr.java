@@ -44,7 +44,7 @@ public abstract class ImpExpr {
   }
 
   public static ImpExpr unitValue() {
-    return UnitConstant.v();
+    return IntLiteral.v(0);
   }
 
   public static ImpExpr liftCond(final Value condition, final fj.data.TreeMap<Local, Binding> gamma) {
@@ -74,7 +74,7 @@ public abstract class ImpExpr {
           liftValue(binopExpr.getOp2(), env)
       );
     } else {
-      throw new RuntimeException("");
+      throw new RuntimeException("Unhandled :" + op);
     }
   }
 

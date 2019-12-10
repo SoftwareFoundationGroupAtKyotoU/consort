@@ -333,7 +333,11 @@ public class Translate {
     assert !(unit instanceof IfStmt);
     assert !(unit instanceof ReturnStmt);
     if(unit instanceof NopStmt) {
-      return;
+      if(unit.hasTag(UnreachableTag.NAME)) {
+        str.addAssertFalse();
+      } else {
+        return;
+      }
     } else if(unit instanceof ThrowStmt) {
       throw new RuntimeException("not handled yet");
     } else if(unit instanceof IdentityStmt) {

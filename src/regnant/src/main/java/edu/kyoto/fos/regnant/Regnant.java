@@ -2,6 +2,7 @@ package edu.kyoto.fos.regnant;
 
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
+import edu.kyoto.fos.regnant.simpl.AssertionRewriter;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.translation.Translate;
 import soot.Body;
@@ -17,15 +18,16 @@ public class Regnant {
   public static void main(String[] args) {
     PackManager.v().getPack("jtp").add(new Transform("jtp.regnant", new BodyTransformer() {
       @Override protected void internalTransform(final Body b, final String phaseName, final Map<String, String> options) {
-        if(b.getMethod().getName().equals("breakOuter")) {
-        System.out.println("Running regnant transformation on: " + b.getMethod().getSignature());
-        CFGReconstructor cfg = new CFGReconstructor(b);
-        System.out.println(cfg.dump());
+        if(b.getMethod().getName().equals("assertTest")) {
+          System.out.println("Running regnant transformation on: " + b.getMethod().getSignature());
+          Body simpl = AssertionRewriter.rewrite(b);
+          CFGReconstructor cfg = new CFGReconstructor(simpl);
+          System.out.println(cfg.dump());
 
 
           FlagInstrumentation fi = new FlagInstrumentation(cfg);
           LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
-          Translate t = new Translate(b, cfg.getReconstructedGraph(), fi, bindAlloc);
+          Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc);
           t.print();
         }
       }

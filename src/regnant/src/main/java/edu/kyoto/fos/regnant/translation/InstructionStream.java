@@ -2,6 +2,7 @@ package edu.kyoto.fos.regnant.translation;
 
 import edu.kyoto.fos.regnant.Printable;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
+import edu.kyoto.fos.regnant.ir.stmt.AssertFalse;
 import edu.kyoto.fos.regnant.ir.stmt.Assign;
 import edu.kyoto.fos.regnant.ir.stmt.Bind;
 import edu.kyoto.fos.regnant.ir.stmt.Call;
@@ -61,6 +62,10 @@ public class InstructionStream implements Printable  {
   public InstructionStream andClose() {
     this.close();
     return this;
+  }
+
+  public void addAssertFalse() {
+    this.addEffect(new AssertFalse());
   }
 
   private abstract static class StreamState implements Printable {
