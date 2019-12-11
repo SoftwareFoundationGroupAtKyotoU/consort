@@ -77,3 +77,8 @@
  (libraries util sexplib)
  (modules UnsatCore))
 
+(executable
+ (name genFlags)
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
+ (libraries lang)
+ (modules genFlags))

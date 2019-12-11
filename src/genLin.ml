@@ -53,13 +53,16 @@ let binop,relop,alias_op =
     in
     (ty::ty_acc,def::def_acc)
   in
-  let relop' sym (ty_acc,def_acc) : (string * bif_t) list * ((Sexplib0.Sexp.t -> unit) -> unit) list =
+  let relop' ?sat_sym sym (ty_acc,def_acc) : (string * bif_t) list * ((Sexplib0.Sexp.t -> unit) -> unit) list =
     let out_pred = Printf.sprintf "rel-%s-out" sym in
     let ty = gen_ty sym out_pred in
+    let z3_sym = match sat_sym with
+      | Some p -> p
+      | None -> sym in
     let def =
       let open SP in
       let fun_body = pg "ite" [
-          pg sym [ arg1; arg2 ];
+          pg z3_sym [ arg1; arg2 ];
           pg "=" [ out; pl "0" ];
           pg "=" [ out; pl "1" ]
         ]
@@ -89,6 +92,7 @@ let (ty_def,defn) =
   |> relop "<"
   |> relop ">"
   |> relop ">="
+  |> relop ~sat_sym:"uneq" "!="
   |> alias_op "&&" "plus-+-out"
   |> alias_op "||" "times-*-out"
 
@@ -119,21 +123,21 @@ let () =
       output_char smt_out '\n'
     )
   in
-  List.iter dump_sexp defn;
   let open SexpPrinter in
   dump_sexp @@ pg "define-fun" [
-    pl "uneq";
-    ll [
-      ll [ pl "x1"; pl "Int" ];
-      ll [ pl "x2"; pl "Int" ]
-    ];
-    pl "Bool";
-    pg "not" [
-      pg "=" [
-        pl "x1"; pl "x2"
+      pl "uneq";
+      ll [
+        ll [ pl "x1"; pl "Int" ];
+        ll [ pl "x2"; pl "Int" ]
+      ];
+      pl "Bool";
+      pg "not" [
+        pg "=" [
+          pl "x1"; pl "x2"
+        ]
       ]
-    ]
     ];
+  List.iter dump_sexp defn;
   output_string smt_out ind_pred;
   flush smt_out;
   flush intr_f;
