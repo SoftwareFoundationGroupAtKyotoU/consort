@@ -1993,7 +1993,7 @@ and process_conditional ?output ?(fv_seed=[]) ~remove_scope ~tr_path ~fl_path e_
   match flg,wctxt2 with
   | false,`Cont ctxt -> `Cont ctxt
   | true,`Return ctxt -> `Cont ({ ctxt with gamma = ctxt1.gamma })
-  | false,`Return ctxt -> `Cont ctxt
+  | false,`Return ctxt -> `Return ctxt
   | true,`Cont ctxt2 -> 
     let loc = LCond e_id in
     let u_ctxt = { ctxt2 with gamma = SM.empty } in
