@@ -30,7 +30,7 @@ type pos = A.position
 type exp =
   | Unit of pos
   | Value of pos * lhs
-  | Cond of pos * [`Var of string | `BinOp of lhs * string * lhs | `Nondet] * exp * exp
+  | Cond of pos * [`Var of string | `BinOp of lhs * string * lhs | `Nondet | `Call of call] * exp * exp
   | NCond of pos * string * exp * exp
   | Assign of pos * string * lhs
   | Update of pos * lhs * lhs * lhs
@@ -81,6 +81,11 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
   | Cond (i,`Nondet,e1,e2) ->
     bind_in ~ctxt:i count (`Nondet None) (fun c tvar ->
         A.Cond (tvar,simplify_expr ~is_tail c e1,simplify_expr ~is_tail c e2)
+        |> tag_with i
+      )
+  | Cond (i, `Call c, e1, e2) ->
+    bind_in ~ctxt:i count (`Call c) (fun c tvar ->
+        A.Cond (tvar, simplify_expr ~is_tail c e1, simplify_expr ~is_tail c e2)
         |> tag_with i
       )
   | Cond (i,(`BinOp _ as b),e1,e2) ->

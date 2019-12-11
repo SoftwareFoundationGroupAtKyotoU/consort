@@ -144,7 +144,8 @@ let tuple_contents :=
 
 let cond_expr :=
   | ~ = ID; <`Var>
-  | b = bin_op; { (b :> [ `BinOp of (lhs * string * lhs) | `Var of string | `Nondet]) }
+  | b = bin_op; { (b :> [ `BinOp of (lhs * string * lhs) | `Var of string | `Nondet | `Call of call]) }
+  | f = fn_call; { `Call f }
   | UNDERSCORE; { `Nondet }
 
 let bin_op :=
