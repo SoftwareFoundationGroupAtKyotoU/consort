@@ -68,6 +68,10 @@ public class InstructionStream implements Printable  {
     this.addEffect(new AssertFalse());
   }
 
+  public void addInvoke(final String nm, final List<ImpExpr> arguments) {
+    this.addEffect(Call.of(nm, arguments));
+  }
+
   private abstract static class StreamState implements Printable {
     public abstract StreamState addBind(Bind b, LinkedList<StreamState> state);
     public abstract StreamState addEffect(Effect b, LinkedList<StreamState> state);
@@ -261,8 +265,8 @@ public class InstructionStream implements Printable  {
     this.sideFunctions.add(P.p(name, l, s));
   }
 
-  public void addInvoke(String name, List<Local> args) {
-    this.addEffect(new Call(name, args));
+  public void addLoopInvoke(String name, List<Local> args) {
+    this.addEffect(Call.loop(name, args));
   }
 
   public void setControl(final int coordId) {

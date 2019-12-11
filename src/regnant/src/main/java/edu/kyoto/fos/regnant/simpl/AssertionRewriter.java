@@ -27,6 +27,11 @@ public class AssertionRewriter {
   public static Body rewrite(final Body b) {
     Body toReturn = new JimpleBody(b.getMethod());
     toReturn.importBodyContentsFrom(b);
+    toReturn.getLocals().forEach(l -> {
+      if(l.getName().startsWith("$")) {
+        l.setName(l.getName().replaceFirst("\\$", "_tmp_"));
+      }
+    });
 
     SootClass declaringClass = toReturn.getMethod().getDeclaringClass();
     PatchingChain<Unit> u = toReturn.getUnits();
