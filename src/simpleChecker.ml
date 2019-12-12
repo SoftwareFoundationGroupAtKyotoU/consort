@@ -321,7 +321,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     | IVar v -> unify_var v t
   in
   match e with
-  | EVar _ -> res_acc,false
+  | Unit -> res_acc,false
   | Cond (v,e1,e2) ->
     unify_var v `Int;
     process_expr ret_type ctxt e1 res_acc

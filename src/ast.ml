@@ -60,7 +60,7 @@ type src_ap =
   | APtrProj of string * int [@@deriving sexp]
 
 type raw_exp =
-  | EVar of string
+  | Unit
   | Cond of string * exp * exp
   | NCond of string * exp * exp
   | Seq of exp * exp

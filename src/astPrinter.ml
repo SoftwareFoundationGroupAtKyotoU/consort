@@ -147,7 +147,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
           semi;
           pp_expr ~ip ~annot e
         ]
-    | EVar v -> pf "%s%a" v po_id id
+    | Unit -> ps "()"
     | Return v -> pf "return%a %s" po_id id v
   in
   match e with

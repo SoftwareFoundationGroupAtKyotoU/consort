@@ -1672,7 +1672,7 @@ let rec process_expr ~output ?(remove_scope=SS.empty) ((e_id,_),e) ctxt =
         ) out_args
     in
     `Return ctxt
-  | EVar _ -> `Cont (remove_var ~loc:(LLet e_id) remove_scope ctxt)
+  | Unit -> `Cont (remove_var ~loc:(LLet e_id) remove_scope ctxt)
   | Seq (e1, e2) ->
     let wctxt = process_expr ~output e1 ctxt in
     begin

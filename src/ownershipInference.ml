@@ -430,7 +430,7 @@ let rec process_expr ~output ((e_id,_),expr) =
         constrain_eq ~e_id ~src:curr_t ~dst:out_t
       ) output_types
     >> return `Return
-  | EVar _ -> return `Cont
+  | Unit -> return `Cont
   | Seq (e1,e2) ->
     let%bind stat = process_expr ~output e1 in
     assert (stat <> `Return);

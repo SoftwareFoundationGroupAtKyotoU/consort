@@ -64,15 +64,19 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
     | Some e' -> simplify_expr ~is_tail count e'
   in
   match e with
-  | Unit i -> simplify_expr ~is_tail count @@ Value (i,`OInt 0)
+  | Unit i ->
+    if is_tail then
+      simplify_expr ~is_tail count @@ Value (i,`OInt 0)
+    else
+      A.Unit |> tag_with i
   | Value (i, v) ->
     if is_tail then
       lift_to_var ~ctxt:i count v (fun _ tvar ->
         A.Return tvar |> tag_with i
       )
     else
-      lift_to_var ~ctxt:i count v (fun _ tvar ->
-        A.EVar tvar |> tag_with i
+      lift_to_var ~ctxt:i count v (fun _ _tvar ->
+        A.Unit |> tag_with i
       )
   | NCond (i,v,e1,e2) ->
     A.NCond (v,simplify_expr ~is_tail count e1,simplify_expr ~is_tail count e2) |> tag_with i
