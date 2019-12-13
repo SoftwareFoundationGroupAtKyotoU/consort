@@ -9,6 +9,7 @@ import edu.kyoto.fos.regnant.cfg.graph.GraphElem;
 import edu.kyoto.fos.regnant.cfg.graph.InstNode;
 import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
 import edu.kyoto.fos.regnant.cfg.graph.Jumps;
+import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
 import fj.P2;
 
 import java.util.HashSet;
@@ -24,7 +25,6 @@ public class FlagInstrumentation {
   public static final String CHOOSE_BY = "choose-by";
   public static final String RECURSE_ON = "recurse-on";
   public static final String RETURN_ON = "return-on";
-  public static final String VALUE_LOOP = "value-loop";
   public Set<Coord> setFlag = new TreeSet<>();
   public Set<Coord> returnJump = new TreeSet<>();
   public Set<Coord> recurseFlag = new TreeSet<>();
@@ -53,17 +53,14 @@ public class FlagInstrumentation {
       Iterator<GraphElem> iterator = toCheck.chain.iterator();
       GraphElem hd = iterator.next();
       assert !(hd instanceof InstNode);
-      Map<BasicBlock, Set<Coord>> flows = hd.getJumps().flow.stream()
-          .collect(Collectors
-              .groupingBy(P2::_2, Collectors
-                  .mapping(P2::_1, Collectors.toSet())));
+      Map<BasicBlock, Set<Coord>> flows = hd.getJumps().flow.stream().collect(Collectors.groupingBy(P2::_2, Collectors.mapping(P2::_1, Collectors.toSet())));
       while(iterator.hasNext()) {
         hd = iterator.next();
         boolean unconditional = hd.heads().stream().distinct().filter(flows::containsKey).count() == flows.size();
         if(!unconditional) {
           Set<Coord> gate = hd.heads().stream().flatMap(p -> flows.get(p).stream()).collect(Collectors.toSet());
           hd.putAnnotation(GATE_ON, gate);
-          setFlag.addAll(gate);
+          flows.values().forEach(setFlag::addAll);
         }
         if(hd instanceof InstNode) {
           InstNode inst = (InstNode) hd;
@@ -76,6 +73,8 @@ public class FlagInstrumentation {
           flows.computeIfAbsent(pp._2(), ign -> new TreeSet<>()).add(pp._1());
         });
       }
+    } else if(graph instanceof LoopNode) {
+      curry.accept(((LoopNode) graph).loopBody);
     } else {
       assert graph instanceof InstNode;
       ((InstNode)graph).hds.forEach(curry);
@@ -85,19 +84,6 @@ public class FlagInstrumentation {
     if(parentLoop == null) {
       assert jumps.brk.isEmpty();
       assert jumps.cont.isEmpty();
-    }
-    if(parentLoop != null) {
-      setFlag.addAll(jumps.ret);
-      // if this is a loop header within a loop, AND we have continue coming out of this, then,
-      // a) that continue must flag
-      // b) that continue must return for its jump
-      if(graph.isLoop()) {
-        jumps.cont.stream().map(P2::_1).forEach(b -> {
-          setFlag.add(b);
-          returnJump.add(b);
-          assert !recurseFlag.contains(b);
-        });
-      }
     }
     jumps.brk.keySet().stream().map(P2::_1).forEach(b -> {
       setFlag.add(b); returnJump.add(b);
@@ -110,18 +96,21 @@ public class FlagInstrumentation {
       // now instrument on "return on" or "recurse on" and "value loop"
       graph.getJumps().cont.forEach(bb -> {
         assert parentLoop != null;
-        if(bb._2().equals(parentLoop)) {
-          recurseOn.add(bb._1());
-        } else {
-          returnOn.add(bb._1());
-        }
+        assert bb._2().equals(parentLoop);
+
+        recurseOn.add(bb._1());
+        setFlag.add(bb._1());
+        returnJump.add(bb._1());
       });
       graph.getJumps().brk.keySet().stream().map(P2::_1).forEach(returnOn::add);
-      returnOn.addAll(graph.getJumps().ret);
-      boolean valueLoop = graph.getJumps().ret.size() > 0;
-      graph.putAnnotation(VALUE_LOOP, valueLoop);
       graph.putAnnotation(RETURN_ON, returnOn);
       graph.putAnnotation(RECURSE_ON, recurseOn);
+    } else {
+      graph.getJumps().cont.forEach(p -> {
+        assert parentLoop != null;
+        assert p._2().equals(parentLoop);
+        this.recurseFlag.add(p._1());
+      });
     }
   }
 }

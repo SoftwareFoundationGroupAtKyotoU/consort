@@ -107,28 +107,26 @@ public class Translate {
   protected static class Env {
     final fj.data.TreeMap<Local, Binding> boundVars;
     final boolean inLoop;
-    final boolean valueLoop;
     final P2<String, List<Local>> currentLoop;
 
-    Env(final boolean inLoop, final boolean valueLoop, final TreeMap<Local, Binding> boundVars, final P2<String, List<Local>> currentLoop) {
+    Env(final boolean inLoop, final TreeMap<Local, Binding> boundVars, final P2<String, List<Local>> currentLoop) {
       this.boundVars = boundVars;
       this.inLoop = inLoop;
-      this.valueLoop = valueLoop;
       this.currentLoop = currentLoop;
     }
 
-    public Env enterLoop(String nm, List<Local> locs, boolean valueLoop) {
-      return new Env(true, valueLoop, boundVars, P.p(nm, locs));
+    public Env enterLoop(String nm, List<Local> locs) {
+      return new Env(true, boundVars, P.p(nm, locs));
     }
 
     public Env updateBound(Map<Local, Binding> b) {
       TreeMap<Local, Binding> newBind = fj.data.Stream.iterableStream(b.entrySet()).foldLeft((curr, elem) ->
           curr.set(elem.getKey(), elem.getValue()), boundVars);
-      return new Env(inLoop, valueLoop, newBind, currentLoop);
+      return new Env(inLoop, newBind, currentLoop);
     }
 
     public static Env empty() {
-      return new Env(false, false, fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
+      return new Env(false, fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
           Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))), null);
     }
   }
@@ -190,24 +188,18 @@ public class Translate {
   private Env translateElemLoop(final InstructionStream i, final GraphElem elem, Env e) {
     if(elem.isLoop()) {
       Map<String, Object> annot = elem.getAnnot();
-      boolean valueLoop = elem.getAnnotation(VALUE_LOOP, Boolean.class);
       String loopName = this.getLoopName(elem);
       List<Local> args = new ArrayList<>();
       e.boundVars.keys().forEach(args::add);
 
       InstructionStream lBody = InstructionStream.fresh("loop-body");
-      translateElemBase(lBody, elem, e.enterLoop(loopName, args, valueLoop));
+      translateElemBase(lBody, elem, e.enterLoop(loopName, args));
       lBody.close();
       assert lBody.isTerminal();
       i.addSideFunction(loopName, args, lBody);
 
       String tmpName = loopName + "_ret";
-      if(valueLoop) {
-        ImpExpr loopEnter = ImpExpr.callLoop(loopName, args);
-        i.addBinding(tmpName, loopEnter, false);
-      } else {
-        i.addLoopInvoke(loopName, args);
-      }
+      i.addLoopInvoke(loopName, args);
       List<P2<List<Integer>, InstructionStream>> doIf = new ArrayList<>();
       if(annot.containsKey(RECURSE_ON) && !elem.getAnnotation(RECURSE_ON,Set.class).isEmpty()) {
         assert e.currentLoop != null;
@@ -218,16 +210,7 @@ public class Translate {
         doIf.add(P.p(gateOn, l));
       }
       if(annot.containsKey(RETURN_ON) && !elem.getAnnotation(RETURN_ON,Set.class).isEmpty()) {
-        ImpExpr toReturn;
-        if(!valueLoop) {
-          if(e.inLoop && !e.valueLoop) {
-            toReturn = ImpExpr.unitValue();
-          } else {
-            toReturn = ImpExpr.dummyValue(b.getMethod().getReturnType());
-          }
-        } else {
-          toReturn = ImpExpr.var(tmpName);
-        }
+        ImpExpr toReturn = ImpExpr.unitValue();
         InstructionStream l = InstructionStream.fresh("return-gate");
         l.ret(toReturn);
         List<Integer> gateOn = toChoiceFlags(elem.getAnnotation(RETURN_ON, Set.class));
@@ -300,11 +283,7 @@ public class Translate {
     }
     if(flg.returnJump.contains(c)) {
       assert !i.isTerminal();
-      if(e.valueLoop) {
-        i.ret(ImpExpr.dummyValue(b.getMethod().getReturnType()));
-      } else {
-        i.returnUnit();
-      }
+      i.returnUnit();
     }
   }
 

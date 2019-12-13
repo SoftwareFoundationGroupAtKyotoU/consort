@@ -9,14 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 public abstract class GraphElem implements Targeted, Printable {
-  protected boolean isLoop;
-
-  protected GraphElem(boolean isLoop) {
-    this.isLoop = isLoop;
-  }
-
   protected GraphElem() {
-    this.isLoop = false;
   }
 
   public abstract BasicBlock getHead();
@@ -30,9 +23,13 @@ public abstract class GraphElem implements Targeted, Printable {
     return sb.toString();
   }
 
+  public boolean isLoop() {
+    return false;
+  }
+
   protected StringBuilder indentAndLoop(final int i, final StringBuilder sb) {
     indent(i, sb);
-    if(isLoop) {
+    if(isLoop()) {
       sb.append("loop: ");
     }
     return sb;
@@ -53,13 +50,5 @@ public abstract class GraphElem implements Targeted, Printable {
 
   public void putAnnotation(String s, Object o) {
     this.annot.put(s, o);
-  }
-
-  public boolean isLoop() {
-    return isLoop;
-  }
-
-  public void setLoopHeader(final boolean isLoopHeader) {
-    this.isLoop = isLoopHeader;
   }
 }

@@ -7,31 +7,29 @@ import fj.P;
 import fj.P2;
 
 import java.util.Comparator;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Jumps {
   Comparator<P2<Coord, BasicBlock>> cmp = Comparator
-      .comparing((P2<Coord, BasicBlock> t) -> t._1())
-      .thenComparing((P2<Coord, BasicBlock> t) -> t._2());
+      .comparing((Function<P2<Coord, BasicBlock>, Coord>) P2::_1)
+      .thenComparing(P2::_2);
 
   // A map of coordinates and target location to the loop headers which must be broken
-  public Map<P2<Coord, BasicBlock>, List<BasicBlock>> brk = new TreeMap<>(cmp);
+  public Map<P2<Coord, BasicBlock>, Set<BasicBlock>> brk = new TreeMap<>(cmp);
   // A set of coordinates (a jump source) and it's target loop header
   public Set<P2<Coord, BasicBlock>> cont = new TreeSet<>(cmp);
   // A set of coordinates (jump source) and it's target basic block
   public Set<P2<Coord, BasicBlock>> flow = new TreeSet<>(cmp);
-  public Set<Coord> ret = new TreeSet<>();
 
   public static Jumps ret(BasicBlock b) {
-    Jumps j = new Jumps();
-    j.ret.add(new Coord(b));
-    return j;
+    return new Jumps();
   }
 
   public static Jumps of(Coord c, final AnnotatedEdge succ) {
@@ -41,10 +39,10 @@ public class Jumps {
   }
 
   public void update(final Coord c, final AnnotatedEdge succ) {
-    if(succ.cont.isPresent()) {
+    if(succ.cont.isPresent() && succ.brk.isEmpty()) {
       cont.add(P.p(c, succ.cont.get().getHeader()));
     } else if(!succ.brk.isEmpty()) {
-      brk.put(P.p(c, succ.block), succ.brk.stream().map(Loop::getHeader).collect(Collectors.toList()));
+      brk.put(P.p(c, succ.block), succ.brk.stream().map(Loop::getHeader).collect(Collectors.toSet()));
     } else {
       assert succ.brk.isEmpty();
       assert !succ.cont.isPresent();
@@ -69,10 +67,10 @@ public class Jumps {
     this.flow.addAll(j_.flow);
     this.cont.addAll(j_.cont);
     j_.brk.forEach((k,v) -> this.brk.merge(k, v, (old, up) -> {
-      old.addAll(up);
-      return old;
+      Set<BasicBlock> hds = new HashSet<>(old);
+      hds.addAll(up);
+      return hds;
     }));
-    this.ret.addAll(j_.ret);
   }
 
   @Override public String toString() {
@@ -80,6 +78,6 @@ public class Jumps {
         Stream.concat(this.flow.stream(), this.cont.stream())
     ).map(P2::_2).map(b -> String.valueOf(b.getId()))
       .reduce((a, b) -> a + ", " + b).orElse("");
-    return "[goto: {" + s + "}; ret: " + !ret.isEmpty() + "]";
+    return "[goto: {" + s + "}; brk: " + brk + "]";
   }
 }
