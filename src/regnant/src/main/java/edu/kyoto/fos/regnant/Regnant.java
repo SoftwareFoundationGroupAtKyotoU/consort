@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.simpl.AssertionRewriter;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
+import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import edu.kyoto.fos.regnant.translation.FlagTranslation;
 import edu.kyoto.fos.regnant.translation.Translate;
 import soot.Body;
@@ -79,6 +80,7 @@ public class Regnant extends Transform {
   }
 
   private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited) {
+    StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
     List<Translate> toReturn = new ArrayList<>();
     while(reader.hasNext()) {
       SootMethod m = reader.next();
@@ -93,7 +95,7 @@ public class Regnant extends Transform {
 
       FlagInstrumentation fi = new FlagInstrumentation(cfg);
       LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
-      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist);
+      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l);
       toReturn.add(t);
     }
     return toReturn;

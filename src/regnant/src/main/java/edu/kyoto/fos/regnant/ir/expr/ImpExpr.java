@@ -21,7 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public abstract class ImpExpr {
+public abstract class ImpExpr implements ProgFragment {
   public static ImpExpr controlFlag(final List<Integer> collect) {
     String genName = FlagTranslation.allocate(collect);
     return Call.v(
@@ -31,11 +31,6 @@ public abstract class ImpExpr {
 
   public static ImpExpr callLoop(final String loopName, final List<Local> args) {
     List<ImpExpr> a = args.stream().map(Local::getName).map(Variable::immut).collect(Collectors.toList());
-    return Call.v(loopName, a);
-  }
-
-  public static ImpExpr liftCall(final String loopName, final List<Value> args, TreeMap<Local, Binding> gamma, final ChunkedQueue<SootMethod> q) {
-    List<ImpExpr> a = args.stream().map(v -> liftValue(v, gamma, q)).collect(Collectors.toList());
     return Call.v(loopName, a);
   }
 
@@ -55,39 +50,8 @@ public abstract class ImpExpr {
     return IntLiteral.v(0);
   }
 
-  public static ImpExpr liftCond(final Value condition, final TreeMap<Local, Binding> gamma, final ChunkedQueue<SootMethod> q) {
-    return liftValue(condition, gamma, q);
-  }
-
-  public static ImpExpr liftValue(final Value op, final TreeMap<Local, Binding> env, final ChunkedQueue<SootMethod> q) {
-    if(op instanceof Immediate) {
-      if(op instanceof Local) {
-        Local l = (Local) op;
-        boolean isMutable = env.get(l).exists(Binding.MUTABLE::equals);
-        if(isMutable) {
-          return Variable.deref(l.getName());
-        } else {
-          return Variable.immut(l.getName());
-        }
-      } else {
-        assert op instanceof Constant;
-        assert op instanceof IntConstant;
-        return literalInt(((IntConstant) op).value);
-      }
-    } else if(op instanceof BinopExpr) {
-      BinopExpr binopExpr = (BinopExpr) op;
-      String symb = normalizeSymbol(binopExpr.getSymbol());
-      return new Binop(liftValue(binopExpr.getOp1(), env, q), symb, liftValue(binopExpr.getOp2(), env, q));
-    } else if(op instanceof StaticInvokeExpr) {
-      StaticInvokeExpr invokeExpr = (StaticInvokeExpr) op;
-      SootMethod m = invokeExpr.getMethod();
-      String callee = Translate.getMangledName(m);
-      q.add(m);
-      List<ImpExpr> args = invokeExpr.getArgs().stream().map(v -> liftValue(v, env, q)).collect(Collectors.toList());
-      return call(callee, args);
-    } else {
-      throw new RuntimeException("Unhandled :" + op);
-    }
+  public static ImpExpr tuple(List<ImpExpr> tupCont) {
+    return Tuple.v(tupCont);
   }
 
   public static String normalizeSymbol(String symbol) {
@@ -108,7 +72,6 @@ public abstract class ImpExpr {
   }
 
   public abstract boolean isCompound();
-  public abstract void printOn(StringBuilder sb);
 
   @Override public String toString() {
     StringBuilder sb = new StringBuilder();

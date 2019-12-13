@@ -1,9 +1,8 @@
 package edu.kyoto.fos.regnant.ir.expr;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
-public class Call extends ImpExpr implements CompoundExpr {
+public class Call extends ImpExpr implements CompoundExpr, InterleavedDo {
   private final String callee;
   private final List<ImpExpr> arguments;
 
@@ -17,8 +16,9 @@ public class Call extends ImpExpr implements CompoundExpr {
   }
 
   @Override public void printOn(final StringBuilder sb) {
-    sb.append(this.callee);
-    sb.append(this.arguments.stream().map(this::toRepr).collect(Collectors.joining(", ", "(", ")")));
+    sb.append(this.callee).append("(");
+    this.doInterleaved(arguments.stream(), sb, ImpExpr::printOn, b -> b.append(", "));
+    sb.append(")");
   }
 
   public static ImpExpr v(String nm, List<ImpExpr> e) {

@@ -10,18 +10,26 @@ import edu.kyoto.fos.regnant.cfg.graph.GraphElem;
 import edu.kyoto.fos.regnant.cfg.graph.InstNode;
 import edu.kyoto.fos.regnant.cfg.graph.JumpCont;
 import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
+import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
+import edu.kyoto.fos.regnant.ir.expr.Variable;
+import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
+import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import fj.Ord;
 import fj.P;
 import fj.P2;
+import fj.data.Option;
 import fj.data.TreeMap;
 import soot.Body;
 import soot.IntType;
 import soot.Local;
+import soot.RefLikeType;
+import soot.Scene;
 import soot.SootMethod;
+import soot.Type;
 import soot.Unit;
 import soot.Value;
 import soot.ValueBox;
@@ -30,15 +38,18 @@ import soot.jimple.GotoStmt;
 import soot.jimple.IdentityRef;
 import soot.jimple.IdentityStmt;
 import soot.jimple.IfStmt;
+import soot.jimple.InstanceFieldRef;
 import soot.jimple.InvokeStmt;
 import soot.jimple.NopStmt;
 import soot.jimple.ParameterRef;
 import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
+import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.StaticInvokeExpr;
 import soot.jimple.ThisRef;
 import soot.jimple.ThrowStmt;
 import soot.jimple.internal.JimpleLocal;
+import soot.util.Numberer;
 import soot.util.queue.ChunkedQueue;
 
 import java.io.IOException;
@@ -64,15 +75,19 @@ public class Translate {
   private final LetBindAllocator alloc;
   private final InstructionStream stream;
   private final ChunkedQueue<SootMethod> worklist;
+  private final StorageLayout layout;
+  private final ValueLifter lifter;
   private int coordCounter = 1;
   private Map<Coord, Integer> coordAssignment = new HashMap<>();
   public static final String CONTROL_FLAG = "_reg_control";
 
-  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist) {
+  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl) {
     this.flg = flg;
     this.b = b;
     this.alloc = alloc;
     this.worklist = worklist;
+    this.layout = sl;
+    this.lifter = new ValueLifter(worklist, layout);
     this.stream = InstructionStream.fresh("main", l -> {
       Env e = Env.empty();
       if(flg.setFlag.size() > 0) {
@@ -295,7 +310,7 @@ public class Translate {
       return encodeBasicBlock(cond.head, lBody, u -> {
         assert u instanceof IfStmt; return ((IfStmt)u);
       }, (env_, el) -> {
-        ImpExpr path = ImpExpr.liftCond(el.getCondition(), env_.boundVars, this.worklist);
+        ImpExpr path = lifter.lift(el.getCondition(), env_.boundVars);
         lBody.addCond(path,
             compileJump(cond.tBranch, env_).andClose(), compileJump(cond.fBranch, env_).andClose());
       }, env);
@@ -308,12 +323,14 @@ public class Translate {
           if(flg.setFlag.contains(c)) {
             lBody.setControl(this.getCoordId(c));
           }
-          lBody.ret(ImpExpr.liftValue(rs.getOp(), env_.boundVars, this.worklist));
+          addParameterAliasing(env_, lBody);
+          lBody.ret(lifter.lift(rs.getOp(), env_.boundVars));
           return;
         } else if(rs_ instanceof ReturnVoidStmt) {
           if(flg.setFlag.contains(c)) {
             lBody.setControl(this.getCoordId(c));
           }
+          addParameterAliasing(env_, lBody);
           lBody.returnUnit();
           return;
         }
@@ -327,8 +344,27 @@ public class Translate {
         GraphElem hd = list.pop();
         it = translateElem(lBody, hd, it);
       }
+    } else if(elem instanceof LoopNode) {
+      return this.translateElemBase(lBody, ((LoopNode) elem).loopBody, env);
     }
     return env;
+  }
+
+  private void addParameterAliasing(final Env env_, final InstructionStream lBody) {
+    List<Type> paramTypes = this.b.getMethod().getParameterTypes();
+    for(int i = 0; i < paramTypes.size(); i++) {
+      Type t = paramTypes.get(i);
+      if(!(t instanceof RefLikeType)) {
+        continue;
+      }
+      Local l = this.b.getParameterLocal(i);
+      Option<Binding> storage = env_.boundVars.get(l);
+      assert storage.isSome();
+      if(storage.some() == Binding.CONST) {
+        // alias it back
+        lBody.addAlias(l.getName(), this.getParamName(i));
+      }
+    }
   }
 
   private void encodeInstruction(final InstructionStream str, final Unit unit,
@@ -359,18 +395,34 @@ public class Translate {
 
       needDefine.remove(defn);
       str.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), env.get(defn).some() == Binding.MUTABLE);
-    } else if(unit instanceof AssignStmt) {
+    } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof Local) {
       AssignStmt as = (AssignStmt) unit;
       Value lhs = as.getLeftOp();
-      // fields and arrays lataaaa
-      assert lhs instanceof Local;
       Local target = (Local) lhs;
-      if(needDefine.contains(target)) {
-        str.addBinding(target.getName(), ImpExpr.liftValue(as.getRightOp(), env, this.worklist), env.get(target).some() == Binding.MUTABLE);
+      if(as.getRightOp() instanceof InstanceFieldRef) {
+        InstanceFieldRef fieldRef = (InstanceFieldRef) as.getRightOp();
+        Local base = ((Local)fieldRef.getBase());
+        boolean isMutableBase = env.get(base).some() == Binding.MUTABLE;
+        if(needDefine.contains(target)) {
+          str.addBinding(target.getName(), fieldRef, env.get(target).some() == Binding.MUTABLE, isMutableBase, layout);
+        } else {
+          str.addWrite(target.getName(), fieldRef, isMutableBase, layout);
+        }
       } else {
-        assert env.get(target).some() == Binding.MUTABLE;
-        str.addWrite(target.getName(), ImpExpr.liftValue(as.getRightOp(), env, this.worklist));
+        if(needDefine.contains(target)) {
+          // then we have to do some massaging depending on the RHS (namely if it is a heap read)
+          str.addBinding(target.getName(), lifter.lift(as.getRightOp(), env), env.get(target).some() == Binding.MUTABLE);
+        } else {
+          assert env.get(target).some() == Binding.MUTABLE;
+          str.addWrite(target.getName(), lifter.lift(as.getRightOp(), env));
+        }
       }
+    } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof InstanceFieldRef) {
+      AssignStmt assign = (AssignStmt) unit;
+      ImpExpr right = lifter.lift(assign.getRightOp(), env);
+      InstanceFieldRef fieldRef = (InstanceFieldRef) assign.getLeftOp();
+      Local base = (Local) fieldRef.getBase();
+      str.addFieldWrite(base, fieldRef.getField(), right, env.get(base).some() == Binding.MUTABLE, layout);
     } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof StaticInvokeExpr) {
       StaticInvokeExpr staticInv = (StaticInvokeExpr) ((InvokeStmt) unit).getInvokeExpr();
       // I think soot resolves this for us
@@ -378,13 +430,55 @@ public class Translate {
       this.worklist.add(callee);
       List<Value> args = staticInv.getArgs();
       String nm = getMangledName(callee);
-      List<ImpExpr> arguments = args.stream().map(v -> ImpExpr.liftValue(v, env, this.worklist)).collect(Collectors.toList());
-      str.addInvoke(nm, arguments);
+      ArgumentLift lift = this.liftArguments(args, unit, env, str);
+      str.addInvoke(nm, lift.args);
+      for(P2<String, String> aliasBack : lift.aliasPairs) {
+        str.addPtrAlias(aliasBack._1(), aliasBack._2());
+      }
+    } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof SpecialInvokeExpr && ((InvokeStmt) unit).getInvokeExpr().getMethodRef().getName().equals("<init>")) {
+      // we don't do constructors here
+      // do nothing!
     } else if(!(unit instanceof GotoStmt)) {
       // this is really hard, do it later
       throw new RuntimeException("Unhandled statement " + unit + " " + unit.getClass());
     }
   }
+
+  private static class ArgumentLift {
+    final List<ImpExpr> args;
+    final List<P2<String, String>> aliasPairs;
+
+    private ArgumentLift(final List<ImpExpr> args, final List<P2<String, String>> aliasPairs) {
+      this.args = args;
+      this.aliasPairs = aliasPairs;
+    }
+  }
+
+  private ArgumentLift liftArguments(List<Value> vals, Unit ctxt, TreeMap<Local, Binding> env, InstructionStream str) {
+    List<ImpExpr> lifted = new ArrayList<>();
+    List<P2<String, String>> aliasPair = new ArrayList<>();
+    int ctr = 0;
+    for(Value v : vals) {
+      // need to alias back
+      if(v instanceof Local && env.get((Local) v).some() == Binding.MUTABLE && v.getType() instanceof RefLikeType) {
+        String tempName = mkPreCall(ctxt, ctr++);
+        Local local = (Local) v;
+        str.addBinding(tempName, Variable.deref(local.getName()), false);
+        aliasPair.add(P.p(tempName, local.getName()));
+        lifted.add(Variable.immut(tempName));
+      } else {
+        lifted.add(this.lifter.lift(v, env));
+      }
+    }
+    return new ArgumentLift(lifted, aliasPair);
+  }
+
+  private static String mkPreCall(Unit ctxt, int ct) {
+    Numberer<Unit> num = Scene.v().getUnitNumberer();
+    num.add(ctxt);
+    return String.format("_reg_call_%d_%d", num.get(ctxt), ct);
+  }
+
 
   private String getParamName(final int paramNumber) {
     return String.format("_regnantIn_%s", b.getParameterLocal(paramNumber).getName());

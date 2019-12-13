@@ -1,5 +1,7 @@
 package edu.kyoto.fos.regnant.ir.expr;
 
+import soot.Local;
+
 public class Variable extends ImpExpr {
   private final boolean isDeref;
   private final String name;
@@ -7,6 +9,14 @@ public class Variable extends ImpExpr {
   public Variable(String nm, boolean isDeref) {
     this.name = nm;
     this.isDeref = isDeref;
+  }
+
+  public static ImpExpr deref(final Local basePtr) {
+    return deref(basePtr.getName());
+  }
+
+  public static ImpExpr immut(Local basePtr) {
+    return immut(basePtr.getName());
   }
 
   @Override public boolean isCompound() {
