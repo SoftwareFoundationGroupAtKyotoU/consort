@@ -15,6 +15,7 @@ def main(this_dir, args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--work-dir")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("jdk8")
     parser.add_argument("src_dir")
     parser.add_argument("entry_point")
     parser.add_argument("consort_args", nargs="*")
@@ -38,7 +39,7 @@ def main(this_dir, args):
 
     source_file = cls.replace(".", "/") + ".java"
 
-    compile_command = ["javac", "-g:lines,vars", "-d", cls_dir, args.src_dir + "/" + source_file]
+    compile_command = [os.path.join(args.jdk8, "bin/javac"), "-g:lines,vars", "-d", cls_dir, args.src_dir + "/" + source_file]
     log_command(args, compile_command)
     print "compiling source java...",
     sys.stdout.flush()
@@ -52,15 +53,16 @@ def main(this_dir, args):
 
     cp = os.path.join(this_dir, "build/libs/regnant-with-deps.jar")
 
+    rt_path = os.path.join(args.jdk8, "jre/lib/rt.jar")
+
     regnant_command = [
         "java", "-ea", "-classpath", cp, "edu.kyoto.fos.regnant.Regnant",
         "-f", "n", # no output
         "-no-bodies-for-excluded", # don't load the JCL (for now)
         "-w", # whole program mode
         "-p", "cg.spark", "on", # run points to analysis
-        "-p", "jb", "use-original-names:true", # try to make our names easier
-        "-pp", # use our classpath for system classes
-        "-soot-class-path", cls_dir, # where to find the test file
+#        "-p", "jb", "use-original-names:true", # try to make our names easier
+        "-soot-class-path", cls_dir + ":" + rt_path, # where to find the test file
         "-p", "wjtp.regnant", regnant_options,
         cls # the class to run on
     ]
