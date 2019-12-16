@@ -43,6 +43,8 @@ public class ValueLifter {
         } else {
           return Variable.immut(l.getName());
         }
+      } else if(op instanceof soot.jimple.NullConstant) {
+        return NullConstant.v();
       } else {
         assert op instanceof Constant;
         assert op instanceof IntConstant;
