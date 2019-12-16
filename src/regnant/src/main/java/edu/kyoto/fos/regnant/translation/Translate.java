@@ -594,7 +594,7 @@ public class Translate {
       String passedVar;
       if(env.get(refVar).some() == Binding.MUTABLE) {
 
-        String tmpVar = vm.getField(slot);
+        String tmpVar = vm.getBase(slot);
         s.addBinding(tmpVar, Variable.deref(refVar.getName()), false);
         reAlias.add(P.p(tmpVar, refVar.getName()));
         passedVar = tmpVar;
