@@ -533,8 +533,6 @@ public class Translate {
       Local l = (Local) inv.getBase();
       PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
       NumberedString subSig = expr.getMethodRef().getSubSignature();
-      System.out.println(pta.reachingObjects(l).getClass());
-      System.out.println(pta.getClass());
       Map<SootMethod, Set<SootClass>> callees =
           pta.reachingObjects(l).possibleTypes().stream()
               .filter(RefType.class::isInstance)
