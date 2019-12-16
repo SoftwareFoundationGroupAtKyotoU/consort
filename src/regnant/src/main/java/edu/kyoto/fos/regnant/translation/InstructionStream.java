@@ -7,7 +7,7 @@ import edu.kyoto.fos.regnant.ir.stmt.AssertFalse;
 import edu.kyoto.fos.regnant.ir.stmt.Assign;
 import edu.kyoto.fos.regnant.ir.stmt.Bind;
 import edu.kyoto.fos.regnant.ir.stmt.Block;
-import edu.kyoto.fos.regnant.ir.stmt.Call;
+import edu.kyoto.fos.regnant.ir.stmt.SideEffect;
 import edu.kyoto.fos.regnant.ir.stmt.Condition;
 import edu.kyoto.fos.regnant.ir.stmt.Effect;
 import edu.kyoto.fos.regnant.ir.stmt.LetBind;
@@ -19,6 +19,7 @@ import fj.P3;
 import soot.Local;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,9 +30,7 @@ import java.util.stream.Stream;
 public class InstructionStream implements Printable  {
 
   private final String tag;
-  public List<P3<String, List<Local>, InstructionStream>> sideFunctions = new ArrayList<>();
-  private static final String basePtrName = "_reg_base";
-  private static final String fieldTemp = "_reg_field";
+  public List<P3<String, List<String>, InstructionStream>> sideFunctions = new ArrayList<>();
 
   public InstructionStream(final String tag) {
     this.tag = tag;
@@ -78,11 +77,15 @@ public class InstructionStream implements Printable  {
   }
 
   public void addInvoke(final String nm, final List<ImpExpr> arguments) {
-    this.addEffect(Call.of(nm, arguments));
+    this.addEffect(SideEffect.of(nm, arguments));
   }
 
   public void addAlias(final String name, final String paramName) {
     this.addEffect(new Alias(name, new AliasVar(paramName)));
+  }
+
+  public void addExpr(final ImpExpr expr) {
+    this.addEffect(new SideEffect(expr));
   }
 
   private abstract static class StreamState implements Printable {
@@ -304,13 +307,18 @@ public class InstructionStream implements Printable  {
     this.ret(ImpExpr.unitValue());
   }
 
-  public void addSideFunction(String name, List<Local> l, InstructionStream s) {
+  public void addSideFunction(String name, List<String> l, InstructionStream s) {
     this.inheritFunctions(s);
     this.sideFunctions.add(P.p(name, l, s));
   }
 
+  public void addSideFunction(String name, Collection<Local> l, InstructionStream s) {
+    this.addSideFunction(name, l.stream().map(Local::getName).collect(Collectors.toList()), s);
+
+  }
+
   public void addLoopInvoke(String name, List<Local> args) {
-    this.addEffect(Call.loop(name, args));
+    this.addEffect(SideEffect.loop(name, args));
   }
 
   public void setControl(final int coordId) {

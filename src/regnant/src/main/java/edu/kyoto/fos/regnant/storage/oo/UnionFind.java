@@ -8,27 +8,27 @@ public class UnionFind<N> {
     return universe.keySet().stream();
   }
 
-  public class Node {
-    Node parent = this;
+  public static class Node<U> {
+    Node<U> parent = this;
     int rank = 0;
-    N data;
-    Node(N data) {
+    U data;
+    Node(U data) {
       this.data = data;
     }
 
-    public N getData() {
+    public U getData() {
       return this.data;
     }
   }
 
-  private HashMap<N, Node> universe = new HashMap<>();
+  private HashMap<N, Node<N>> universe = new HashMap<>();
 
-  private Node get(N x) {
+  private Node<N> get(N x) {
     return universe.computeIfAbsent(x, Node::new);
   }
 
-  private Node find(final Node node) {
-    Node it = node;
+  private Node<N> find(final Node<N> node) {
+    var it = node;
     while(it.parent != it) {
       it.parent = it.parent.parent;
       it = it.parent;
@@ -36,18 +36,18 @@ public class UnionFind<N> {
     return it;
   }
 
-  public Node find(N n) {
+  public Node<N> find(N n) {
     return find(get(n));
   }
 
-  public Node union(final Node n1, final Node n2) {
-    Node xRoot = find(n1);
-    Node yRoot = find(n2);
+  public Node<N> union(final Node<N> n1, final Node<N> n2) {
+    var xRoot = find(n1);
+    var yRoot = find(n2);
     if(xRoot == yRoot) {
       return xRoot;
     }
     if(xRoot.rank < yRoot.rank) {
-      Node t = xRoot;
+      var t = xRoot;
       xRoot = yRoot;
       yRoot = t;
     }

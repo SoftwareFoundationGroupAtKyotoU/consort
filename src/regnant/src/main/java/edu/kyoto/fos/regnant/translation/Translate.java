@@ -13,8 +13,8 @@ import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
 import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
-import edu.kyoto.fos.regnant.ir.expr.Variable;
 import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
+import edu.kyoto.fos.regnant.ir.expr.Variable;
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
@@ -26,8 +26,11 @@ import fj.data.TreeMap;
 import soot.Body;
 import soot.IntType;
 import soot.Local;
+import soot.PointsToAnalysis;
 import soot.RefLikeType;
+import soot.RefType;
 import soot.Scene;
+import soot.SootClass;
 import soot.SootField;
 import soot.SootMethod;
 import soot.Type;
@@ -40,6 +43,7 @@ import soot.jimple.IdentityRef;
 import soot.jimple.IdentityStmt;
 import soot.jimple.IfStmt;
 import soot.jimple.InstanceFieldRef;
+import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
 import soot.jimple.NopStmt;
@@ -50,12 +54,16 @@ import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.StaticInvokeExpr;
 import soot.jimple.ThisRef;
 import soot.jimple.ThrowStmt;
+import soot.jimple.VirtualInvokeExpr;
 import soot.jimple.internal.JimpleLocal;
+import soot.jimple.toolkits.callgraph.VirtualCalls;
+import soot.util.NumberedString;
 import soot.util.Numberer;
 import soot.util.queue.ChunkedQueue;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -72,6 +81,7 @@ import java.util.stream.Stream;
 import static edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation.*;
 
 public class Translate {
+  private static final String THIS_PARAM = "reg$this_in";
   private final FlagInstrumentation flg;
   private final Body b;
   private final LetBindAllocator alloc;
@@ -104,10 +114,13 @@ public class Translate {
   public StringBuilder print() {
     StringBuilder sb = new StringBuilder();
     this.stream.sideFunctions.forEach(p -> {
-      List<String> argNames = p._2().stream().map(Local::getName).collect(Collectors.toList());
+      List<String> argNames = p._2();
       sb.append(p._3().dumpAs(p._1(), argNames));
     });
     List<String> params = new ArrayList<>();
+    if(!this.b.getMethod().isStatic()) {
+      params.add(THIS_PARAM);
+    }
     for(int i = 0; i < this.b.getMethod().getParameterCount(); i++) {
       params.add(this.getParamName(i));
     }
@@ -243,14 +256,23 @@ public class Translate {
 
   private void gateLoop(InstructionStream tgt,
       Iterator<P2<List<Integer>, InstructionStream>> instStream) {
+    gateLoop(tgt, instStream, ImpExpr::controlFlag, InstructionStream::close);
+  }
+
+  private void gateLoop(final InstructionStream tgt,
+      final Iterator<P2<List<Integer>,InstructionStream>> instStream,
+      final Function<List<Integer>,ImpExpr> cond,
+      final Consumer<InstructionStream> fallThrough) {
     P2<List<Integer>, InstructionStream> g = instStream.next();
     final InstructionStream elseBranch;
     if(instStream.hasNext()) {
-      elseBranch = InstructionStream.fresh("gate-choice", l -> gateLoop(l, instStream));
+      elseBranch = InstructionStream.fresh("gate-choice", l -> gateLoop(l, instStream, cond, fallThrough));
+      elseBranch.close();
     } else {
-      elseBranch = InstructionStream.unit("fallthrough");
+      elseBranch = InstructionStream.fresh("fallthrough", fallThrough);
     }
-    tgt.addCond(ImpExpr.controlFlag(g._1()), g._2(), elseBranch);
+    tgt.addCond(cond.apply(g._1()), g._2(), elseBranch);
+
   }
 
   private String getMangledName() {
@@ -366,6 +388,13 @@ public class Translate {
         lBody.addAlias(l.getName(), this.getParamName(i));
       }
     }
+    if(!this.b.getMethod().isStatic()) {
+      Local l = this.b.getThisLocal();
+      Binding bind = env_.boundVars.get(l).some();
+      if(bind == Binding.CONST) {
+        lBody.addAlias(l.getName(), THIS_PARAM);
+      }
+    }
   }
 
   private void encodeInstruction(final InstructionStream str, final Unit unit,
@@ -383,41 +412,49 @@ public class Translate {
       IdentityStmt identityStmt = (IdentityStmt) unit;
       Value rhs = identityStmt.getRightOp();
       assert rhs instanceof IdentityRef;
-      // hahaha oo later
-      if(rhs instanceof ThisRef) {
-        return;
-      }
-      assert rhs instanceof ParameterRef;
-      int paramNumber = ((ParameterRef) rhs).getIndex();
+
       assert identityStmt.getLeftOp() instanceof Local;
       Local defn = (Local) identityStmt.getLeftOp();
       assert needDefine.contains(defn);
       assert env.contains(defn);
-
       needDefine.remove(defn);
-      str.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), env.get(defn).some() == Binding.MUTABLE);
+      // hahaha oo later
+      boolean mutableParam = env.get(defn).some() == Binding.MUTABLE;
+      if(rhs instanceof ThisRef) {
+        str.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+      } else {
+        assert rhs instanceof ParameterRef;
+        int paramNumber = ((ParameterRef) rhs).getIndex();
+        str.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+      }
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof Local) {
       AssignStmt as = (AssignStmt) unit;
       Value lhs = as.getLeftOp();
       Local target = (Local) lhs;
       boolean needsDefinition = needDefine.contains(target);
+      needDefine.remove(target);
+      boolean mutableBinding = env.get(target).some() == Binding.MUTABLE;
       if(as.getRightOp() instanceof InstanceFieldRef) {
         InstanceFieldRef fieldRef = (InstanceFieldRef) as.getRightOp();
         BiConsumer<InstructionStream, ImpExpr> writer;
         if(needsDefinition) {
-          writer = (i, v) -> i.addBinding(target.getName(), v, env.get(target).some() == Binding.MUTABLE);
+          writer = (i, v) -> i.addBinding(target.getName(), v, mutableBinding);
         } else {
           writer = (i, v) -> i.addWrite(target.getName(), v);
         }
         this.readField(unit, str, fieldRef, env, needsDefinition, writer);
       } else if(as.getRightOp() instanceof InvokeExpr) {
-        
+        if(needsDefinition) {
+          this.translateCall(unit, str, (InvokeExpr)as.getRightOp(),env, false, (InstructionStream i, ImpExpr expr) -> i.addBinding(target.getName(), expr, mutableBinding));
+        } else {
+          this.translateCall(unit, str, (InvokeExpr) as.getRightOp(), env, true, (i, expr) -> i.addWrite(target.getName(), expr));
+        }
       } else {
         if(needsDefinition) {
           // then we have to do some massaging depending on the RHS (namely if it is a heap read)
-          str.addBinding(target.getName(), lifter.lift(as.getRightOp(), env), env.get(target).some() == Binding.MUTABLE);
+          str.addBinding(target.getName(), lifter.lift(as.getRightOp(), env), mutableBinding);
         } else {
-          assert env.get(target).some() == Binding.MUTABLE;
+          assert mutableBinding;
           str.addWrite(target.getName(), lifter.lift(as.getRightOp(), env));
         }
       }
@@ -426,21 +463,11 @@ public class Translate {
       ImpExpr right = lifter.lift(assign.getRightOp(), env);
       InstanceFieldRef fieldRef = (InstanceFieldRef) assign.getLeftOp();
       this.writeField(str, fieldRef, env, right);
-    } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof StaticInvokeExpr) {
-      StaticInvokeExpr staticInv = (StaticInvokeExpr) ((InvokeStmt) unit).getInvokeExpr();
-      // I think soot resolves this for us
-      SootMethod callee = staticInv.getMethod();
-      this.worklist.add(callee);
-      List<Value> args = staticInv.getArgs();
-      String nm = getMangledName(callee);
-      ArgumentLift lift = this.liftArguments(args, unit, env, str);
-      str.addInvoke(nm, lift.args);
-      for(P2<String, String> aliasBack : lift.aliasPairs) {
-        str.addPtrAlias(aliasBack._1(), aliasBack._2());
-      }
     } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof SpecialInvokeExpr && ((InvokeStmt) unit).getInvokeExpr().getMethodRef().getName().equals("<init>")) {
       // we don't do constructors here
       // do nothing!
+    } else if(unit instanceof InvokeStmt) {
+      this.translateCall(unit, str, ((InvokeStmt) unit).getInvokeExpr(), env, true, InstructionStream::addExpr);
     } else if(!(unit instanceof GotoStmt)) {
       // this is really hard, do it later
       throw new RuntimeException("Unhandled statement " + unit + " " + unit.getClass());
@@ -461,7 +488,7 @@ public class Translate {
     FieldPointer ptr = this.unwrapField(toWrite, fieldRef, env, vm);
     writer.accept(toWrite, Variable.deref(ptr.fieldName));
     ptr.cleanup(toWrite);
-    if(needDefine) {
+    if(!needDefine) {
       toWrite.close();
       str.addBlock(toWrite);
     }
@@ -475,6 +502,147 @@ public class Translate {
     });
     i.close();
     str.addBlock(i);
+  }
+
+  private void translateCall(Unit u, InstructionStream str, InvokeExpr expr, final TreeMap<Local, Binding> env, boolean blockCall, BiConsumer<InstructionStream, ImpExpr> consumeCall) {
+    VarManager vm;
+    InstructionStream s;
+    List<P2<String, String>> reAlias = new ArrayList<>();
+    if(blockCall) {
+      s = InstructionStream.fresh("call");
+      vm = new BlockCall();
+    } else {
+      s = str;
+      vm = new BindCall(u);
+    }
+    List<ImpExpr> args = new ArrayList<>();
+    String callee;
+    List<Value> v = expr.getArgs();
+    if(expr instanceof StaticInvokeExpr) {
+      callee = getMangledName(expr.getMethod());
+      worklist.add(expr.getMethod());
+    } else if(expr instanceof SpecialInvokeExpr) {
+      SootMethod m = expr.getMethod();
+      worklist.add(m);
+      callee = getMangledName(m);
+    } else {
+      assert expr instanceof VirtualInvokeExpr;
+      // Points to analysis time!
+      VirtualInvokeExpr inv = (VirtualInvokeExpr) expr;
+      Local l = (Local) inv.getBase();
+      PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
+      NumberedString subSig = expr.getMethodRef().getSubSignature();
+      System.out.println(pta.reachingObjects(l).getClass());
+      System.out.println(pta.getClass());
+      Map<SootMethod, Set<SootClass>> callees =
+          pta.reachingObjects(l).possibleTypes().stream()
+              .filter(RefType.class::isInstance)
+              .map(RefType.class::cast)
+              .collect(Collectors
+                  .groupingBy(refTy -> VirtualCalls.v().resolveNonSpecial(refTy, subSig, false),
+                      Collectors.mapping(RefType::getSootClass, Collectors.toSet())));
+      if(callees.size() == 1) {
+        SootMethod m = callees.keySet().iterator().next();
+        callee = getMangledName(m);
+        worklist.add(m);
+      } else {
+        // de-virtualize
+        callee = devirtualize(u, s, callees);
+      }
+    }
+    if(expr instanceof InstanceInvokeExpr) {
+      InstanceInvokeExpr iie = (InstanceInvokeExpr) expr;
+      args.add(liftArgument(env, vm, s, reAlias, iie.getBase(), 0));
+    }
+    for(int i = 0; i < v.size(); i++) {
+      Value a = v.get(i);
+      int slot = i + 1;
+      ImpExpr lifted;
+      lifted = liftArgument(env, vm, s, reAlias, a, slot);
+      args.add(lifted);
+    }
+    ImpExpr call = ImpExpr.call(callee, args);
+    consumeCall.accept(s, call);
+    for(P2<String, String> al : reAlias) {
+      s.addPtrAlias(al._1(), al._2());
+    }
+    if(blockCall) {
+      str.addBlock(s);
+    }
+  }
+
+  private ImpExpr liftArgument(final TreeMap<Local, Binding> env, final VarManager vm, final InstructionStream s, final List<P2<String, String>> reAlias, final Value a,
+      final int slot) {
+    final ImpExpr lifted;
+    if(a instanceof Local && a.getType() instanceof RefType) {
+      Local refVar = (Local) a;
+      String passedVar;
+      if(env.get(refVar).some() == Binding.MUTABLE) {
+
+        String tmpVar = vm.getField(slot);
+        s.addBinding(tmpVar, Variable.deref(refVar.getName()), false);
+        reAlias.add(P.p(tmpVar, refVar.getName()));
+        passedVar = tmpVar;
+      } else {
+        passedVar = refVar.getName();
+      }
+      lifted = Variable.immut(passedVar);
+    } else {
+      lifted = lifter.lift(a, env);
+    }
+    return lifted;
+  }
+
+  private String devirtualize(final Unit u, final InstructionStream s, final Map<SootMethod,Set<SootClass>> callees) {
+    assert callees.size() > 1;
+    Numberer<Unit> numberer = Scene.v().getUnitNumberer();
+    numberer.add(u);
+    long l = numberer.get(u);
+
+    assert layout.haveSameRepr(callees.values().stream().flatMap(Set::stream));
+    SootMethod repr = callees.keySet().iterator().next();
+    assert callees.keySet().stream().allMatch(m -> m.getParameterCount() == repr.getParameterCount());
+    assert callees.keySet().stream().noneMatch(SootMethod::isStatic);
+
+
+    String virtName = String.format("reg$vtable_%d", l);
+    List<String> args = new ArrayList<>();
+    for(int i = 0; i < repr.getParameterCount(); i++) {
+      args.add("p" + i);
+    }
+    args.add(0, "this");
+    List<ImpExpr> fwdCalls = args.stream().map(Variable::immut).collect(Collectors.toList());
+
+    SootClass klassSz = callees.entrySet().iterator().next().getValue().iterator().next();
+    int projSize = layout.metaStorageSize(klassSz);
+    InstructionStream virtBody = InstructionStream.fresh("devirt", body -> {
+      List<P2<List<Integer>, InstructionStream>> actions = new ArrayList<>();
+
+      callees.forEach((meth, kls) -> {
+        List<Integer> flgs = kls.stream().map(SootClass::getNumber).collect(Collectors.toList());
+        worklist.add(meth);
+        String actual = getMangledName(meth);
+        InstructionStream br = InstructionStream.fresh("branch", brnch -> {
+          brnch.ret(ImpExpr.call(actual, fwdCalls));
+        });
+        actions.add(P.p(flgs, br));
+      });
+
+      String runtimeTag = "ty";
+      body.bindProjection(runtimeTag, 0, projSize, "this");
+      List<ImpExpr> flagArg = List.of(Variable.immut(runtimeTag));
+
+      gateLoop(body, actions.iterator(), flgs -> {
+        String control = FlagTranslation.allocate(flgs);
+        return ImpExpr.call(control, flagArg);
+      }, i -> {
+        i.addAssertFalse();
+        i.ret(ImpExpr.dummyValue(repr.getReturnType()));
+      });
+    });
+    virtBody.close();
+    s.addSideFunction(virtName, args, virtBody);
+    return virtName;
   }
 
   private static class FieldPointer {
@@ -563,6 +731,47 @@ public class Translate {
     }
   }
 
+  public abstract class CallManager implements VarManager {
+    private BitSet bs = new BitSet();
+
+    @Override public String getBase(final int i) {
+      if(i < 0) {
+        throw new IllegalArgumentException();
+      }
+      if(bs.get(i)) {
+        throw new IllegalStateException();
+      }
+      bs.set(i);
+      return this.getBaseName(i);
+    }
+
+    protected abstract String getBaseName(final int i);
+
+    @Override public String getField(final int i) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+
+  private class BlockCall extends CallManager {
+    @Override protected String getBaseName(final int i) {
+      return String.format("reg$call_%d", i);
+    }
+  }
+
+  private class BindCall extends CallManager {
+    private final long ctxt;
+    BindCall(Unit u) {
+      Numberer<Unit> numberer = Scene.v().getUnitNumberer();
+      numberer.add(u);
+      this.ctxt = numberer.get(u);
+    }
+
+    @Override protected String getBaseName(final int i) {
+      return String.format("reg$call%d_%d", ctxt, i);
+    }
+  }
+
 
   private FieldPointer unwrapField(InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local,Binding> env, VarManager vm) {
     Local l = (Local) fieldRef.getBase();
@@ -628,6 +837,7 @@ public class Translate {
       Function<Unit, R> extractFinal,
       final BiConsumer<Env, R> o,
       Env inEnv) {
+    System.out.println("Encoding " + head);
     List<Unit> units = head.units;
     Map<Local, Binding> localStorage = alloc.letBind.getOrDefault(head, Collections.emptyMap());
     Env outEnv = inEnv.updateBound(localStorage);
@@ -662,8 +872,5 @@ public class Translate {
   private int getCoordId(Coord c) {
     return coordAssignment.computeIfAbsent(c, _c -> coordCounter++);
   }
-
-  // Field manipulation
-
 
 }

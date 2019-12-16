@@ -32,7 +32,7 @@ public class StorageLayout {
     assert pta instanceof PAG;
     PAG pag = (PAG) pta;
     unifyRepr(pag.allocSources().stream().flatMap(n -> n.getAllFieldRefs().stream()));
-    unifyRepr(pag.simpleSources().stream());
+    unifyRepr(pag.simpleInvSources().stream());
 
     uf.universe().forEach(sc -> sc.getFields().forEach(sf -> {
       addMetaField(uf.find(sc).getData(), sf);
@@ -57,6 +57,17 @@ public class StorageLayout {
         invMeta.put(f.get(i), meta);
       }
     });
+  }
+
+  public boolean haveSameRepr(Stream<SootClass> str) {
+    var d = str.map(uf::find).map(Optional::<UnionFind.Node<SootClass>>of).reduce((o1, o2) -> o1.flatMap(n1 -> o2.flatMap(n2 -> {
+      if(n1.getData().equals(n2.getData())) {
+        return Optional.of(n1);
+      } else {
+        return Optional.<UnionFind.Node<SootClass>>empty();
+      }
+    })));
+    return d.flatMap(i -> i).isPresent();
   }
 
   private Map<SootClass, Set<SootField>> metaClasses = new HashMap<>();
@@ -94,5 +105,10 @@ public class StorageLayout {
     SootClass kls = invMeta.get(f);
     // plus the runtime tag
     return metaLayout.get(kls).size() + 1;
+  }
+
+  public int metaStorageSize(final SootClass klassSz) {
+    SootClass meta = uf.find(klassSz).getData();
+    return metaLayout.get(meta).size() + 1;
   }
 }

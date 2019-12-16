@@ -10,7 +10,6 @@ import soot.Value;
 import soot.jimple.AssignStmt;
 import soot.jimple.IfStmt;
 import soot.jimple.IntConstant;
-import soot.jimple.JimpleBody;
 import soot.jimple.NeExpr;
 import soot.jimple.NewExpr;
 import soot.jimple.StaticFieldRef;
@@ -25,16 +24,14 @@ import java.util.function.Consumer;
 
 public class AssertionRewriter {
   public static Body rewrite(final Body b) {
-    Body toReturn = new JimpleBody(b.getMethod());
-    toReturn.importBodyContentsFrom(b);
-    toReturn.getLocals().forEach(l -> {
+    b.getLocals().forEach(l -> {
       if(l.getName().startsWith("$")) {
         l.setName(l.getName().replaceFirst("\\$", "_tmp_"));
       }
     });
 
-    SootClass declaringClass = toReturn.getMethod().getDeclaringClass();
-    PatchingChain<Unit> u = toReturn.getUnits();
+    SootClass declaringClass = b.getMethod().getDeclaringClass();
+    PatchingChain<Unit> u = b.getUnits();
     LinkedList<Unit> worklist = new LinkedList<>();
     worklist.add(u.getFirst());
     Set<Unit> visited = new HashSet<>();
@@ -61,9 +58,9 @@ public class AssertionRewriter {
       worklist.add(u.getSuccOf(it));
     }
 
-    System.out.println("Here's how it went " + toReturn);
+    System.out.println("Here's how it went " + b);
 
-    return toReturn;
+    return b;
   }
 
   private static void rewriteAssertionBlock(final AssignStmt it, final PatchingChain<Unit> u, final LinkedList<Unit> worklist, final Set<Unit> visited) {

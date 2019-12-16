@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 public final class FlagTranslation {
   private static int counter = 1;
   private static Map<String, List<Integer>> flags = new HashMap<>();
-  private static final String FMT = "_regnant_flag_%d";
+  private static final String FMT = "regnant$flag_%d";
   public static String allocate(List<Integer> l) {
     String nm = String.format(FMT, counter++);
     flags.put(nm, new ArrayList<>(l));
