@@ -5,15 +5,19 @@ import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import edu.kyoto.fos.regnant.translation.Translate;
 import fj.data.TreeMap;
 import soot.Immediate;
+import soot.IntType;
 import soot.Local;
 import soot.RefLikeType;
 import soot.SootClass;
 import soot.SootField;
 import soot.SootMethod;
 import soot.Value;
+import soot.jimple.ArrayRef;
 import soot.jimple.BinopExpr;
 import soot.jimple.Constant;
 import soot.jimple.IntConstant;
+import soot.jimple.LengthExpr;
+import soot.jimple.NewArrayExpr;
 import soot.jimple.NewExpr;
 import soot.jimple.StaticInvokeExpr;
 import soot.util.queue.ChunkedQueue;
@@ -68,29 +72,33 @@ public class ValueLifter {
       // we can use Soot's numbering scheme
       int tag = alloced.getNumber();
       List<SootField> f = layout.getMetaLayout(alloced);
-      List<ImpExpr> flds =
-          Stream.concat(
-              // runtime tag
-            Stream.of(IntLiteral.v(tag)),
-              // the initial, default values
-              f.stream().map(sf -> {
-                if(sf.getType() instanceof RefLikeType) {
-                  return new Mkref(NullConstant.v());
-                } else {
-                  return new Mkref(IntLiteral.v(0));
-                }
-              })
-          ).collect(Collectors.toList());
+      List<ImpExpr> flds = Stream.concat(
+          // runtime tag
+          Stream.of(IntLiteral.v(tag)),
+          // the initial, default values
+          f.stream().map(sf -> {
+            if(sf.getType() instanceof RefLikeType) {
+              return new Mkref(NullConstant.v());
+            } else {
+              return new Mkref(IntLiteral.v(0));
+            }
+          })).collect(Collectors.toList());
       return new Mkref(Tuple.v(flds));
+    } else if(op instanceof NewArrayExpr) {
+      NewArrayExpr arrayExpr = (NewArrayExpr) op;
+      if(!arrayExpr.getBaseType().equals(IntType.v())) {
+        throw new UnsupportedOperationException("Only supports int arrays");
+      }
+      return new NewArray(this.lift(arrayExpr, env));
+    } else if(op instanceof LengthExpr) {
+      LengthExpr lengthExpr = (LengthExpr) op;
+      return new ArrayLength(this.lift(lengthExpr.getOp(), env));
+    } else if(op instanceof ArrayRef) {
+      ArrayRef ref = (ArrayRef) op;
+      return new ArrayRead(this.lift(ref.getBase(), env), this.lift(ref.getIndex(), env));
     } else {
       throw new RuntimeException("Unhandled :" + op);
     }
   }
-
-  public ImpExpr liftCall(final String loopName, final List<Value> args, TreeMap<Local, Binding> gamma) {
-    List<ImpExpr> a = args.stream().map(v -> lift(v, gamma)).collect(Collectors.toList());
-    return Call.v(loopName, a);
-  }
-
 
 }
