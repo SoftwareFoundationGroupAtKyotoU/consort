@@ -10,7 +10,7 @@ let float = '-'?['0'-'9']+ '.' ['0' - '9']*
 
 let white = [' ' '\t']+
 let newline = '\n'
-let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_']
+let id_rest = ['a'-'z' 'A'-'Z' '0'-'9' '_' '$']
 let id = ('_' id_rest+ | ['a' - 'z' 'A'-'Z'] id_rest*)
 let non_comment = [^ '/' '*' '\n']+
 let comment_delim = [ '/' '*' ]
