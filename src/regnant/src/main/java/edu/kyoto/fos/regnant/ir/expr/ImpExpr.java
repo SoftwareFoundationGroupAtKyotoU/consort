@@ -1,21 +1,11 @@
 package edu.kyoto.fos.regnant.ir.expr;
 
-import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.translation.FlagTranslation;
 import edu.kyoto.fos.regnant.translation.Translate;
-import fj.data.TreeMap;
-import soot.Immediate;
 import soot.IntType;
 import soot.Local;
-import soot.SootMethod;
 import soot.Type;
-import soot.Value;
 import soot.VoidType;
-import soot.jimple.BinopExpr;
-import soot.jimple.Constant;
-import soot.jimple.IntConstant;
-import soot.jimple.StaticInvokeExpr;
-import soot.util.queue.ChunkedQueue;
 
 import java.util.Collections;
 import java.util.List;
@@ -69,6 +59,10 @@ public abstract class ImpExpr implements ProgFragment {
 
   public static ImpExpr call(final String name, final List<ImpExpr> args) {
     return Call.v(name, args);
+  }
+
+  public static ImpExpr nondet() {
+    return new Nondet();
   }
 
   public abstract boolean isCompound();

@@ -3,6 +3,7 @@ package edu.kyoto.fos.regnant;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.simpl.AssertionRewriter;
+import edu.kyoto.fos.regnant.simpl.RandomRewriter;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import edu.kyoto.fos.regnant.translation.FlagTranslation;
@@ -89,7 +90,9 @@ public class Regnant extends Transform {
       }
       System.out.println("Running regnant transformation on: " + m.getSignature());
       m.retrieveActiveBody();
-      Body simpl = AssertionRewriter.rewrite(m.getActiveBody());
+      Body simpl = RandomRewriter.rewriteRandom(AssertionRewriter.rewrite(m.getActiveBody()));
+      System.out.println("Simplified: ");
+      System.out.println(simpl);
       CFGReconstructor cfg = new CFGReconstructor(simpl);
       System.out.println(cfg.dump());
 

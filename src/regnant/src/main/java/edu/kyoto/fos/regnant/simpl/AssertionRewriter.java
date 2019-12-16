@@ -58,8 +58,6 @@ public class AssertionRewriter {
       worklist.add(u.getSuccOf(it));
     }
 
-    System.out.println("Here's how it went " + b);
-
     return b;
   }
 

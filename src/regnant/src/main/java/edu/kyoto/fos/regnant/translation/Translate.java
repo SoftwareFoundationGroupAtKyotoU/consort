@@ -15,6 +15,7 @@ import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
 import edu.kyoto.fos.regnant.ir.expr.Variable;
+import edu.kyoto.fos.regnant.simpl.RandomRewriter;
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
@@ -505,6 +506,10 @@ public class Translate {
   }
 
   private void translateCall(Unit u, InstructionStream str, InvokeExpr expr, final TreeMap<Local, Binding> env, boolean blockCall, BiConsumer<InstructionStream, ImpExpr> consumeCall) {
+    if(isRegnantIntrinsic(expr)) {
+      this.handleIntrinsic(str, expr, consumeCall);
+      return;
+    }
     VarManager vm;
     InstructionStream s;
     List<P2<String, String>> reAlias = new ArrayList<>();
@@ -569,6 +574,16 @@ public class Translate {
     if(blockCall) {
       str.addBlock(s);
     }
+  }
+
+  private void handleIntrinsic(final InstructionStream str, final InvokeExpr expr, final BiConsumer<InstructionStream,ImpExpr> consumeCall) {
+    assert expr.getMethodRef().getName().equals("rand");
+    consumeCall.accept(str, ImpExpr.nondet());
+  }
+
+  private boolean isRegnantIntrinsic(final InvokeExpr expr) {
+    return expr instanceof StaticInvokeExpr &&
+        (expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS) && expr.getMethodRef().getName().equals("rand"));
   }
 
   private ImpExpr liftArgument(final TreeMap<Local, Binding> env, final VarManager vm, final InstructionStream s, final List<P2<String, String>> reAlias, final Value a,
