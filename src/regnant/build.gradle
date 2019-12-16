@@ -16,11 +16,11 @@ idea {
 
 
 dependencies {
-	compile group: "ca.mcgill.sable", name: "soot", version: "3.3.0"
+	implementation group: "ca.mcgill.sable", name: "soot", version: "3.3.0"
 }
 
 task allDeps(type: Jar) {
-    baseName = 'regnant-with-deps'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    archiveBaseName = 'regnant-with-deps'
+    from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
