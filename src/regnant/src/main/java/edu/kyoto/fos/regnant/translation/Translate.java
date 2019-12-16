@@ -28,6 +28,7 @@ import soot.IntType;
 import soot.Local;
 import soot.RefLikeType;
 import soot.Scene;
+import soot.SootField;
 import soot.SootMethod;
 import soot.Type;
 import soot.Unit;
@@ -39,6 +40,7 @@ import soot.jimple.IdentityRef;
 import soot.jimple.IdentityStmt;
 import soot.jimple.IfStmt;
 import soot.jimple.InstanceFieldRef;
+import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
 import soot.jimple.NopStmt;
 import soot.jimple.ParameterRef;
@@ -79,7 +81,7 @@ public class Translate {
   private final ValueLifter lifter;
   private int coordCounter = 1;
   private Map<Coord, Integer> coordAssignment = new HashMap<>();
-  public static final String CONTROL_FLAG = "_reg_control";
+  public static final String CONTROL_FLAG = "reg$control";
 
   public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl) {
     this.flg = flg;
@@ -213,7 +215,6 @@ public class Translate {
       assert lBody.isTerminal();
       i.addSideFunction(loopName, args, lBody);
 
-      String tmpName = loopName + "_ret";
       i.addLoopInvoke(loopName, args);
       List<P2<List<Integer>, InstructionStream>> doIf = new ArrayList<>();
       if(annot.containsKey(RECURSE_ON) && !elem.getAnnotation(RECURSE_ON,Set.class).isEmpty()) {
@@ -399,17 +400,20 @@ public class Translate {
       AssignStmt as = (AssignStmt) unit;
       Value lhs = as.getLeftOp();
       Local target = (Local) lhs;
+      boolean needsDefinition = needDefine.contains(target);
       if(as.getRightOp() instanceof InstanceFieldRef) {
         InstanceFieldRef fieldRef = (InstanceFieldRef) as.getRightOp();
-        Local base = ((Local)fieldRef.getBase());
-        boolean isMutableBase = env.get(base).some() == Binding.MUTABLE;
-        if(needDefine.contains(target)) {
-          str.addBinding(target.getName(), fieldRef, env.get(target).some() == Binding.MUTABLE, isMutableBase, layout);
+        BiConsumer<InstructionStream, ImpExpr> writer;
+        if(needsDefinition) {
+          writer = (i, v) -> i.addBinding(target.getName(), v, env.get(target).some() == Binding.MUTABLE);
         } else {
-          str.addWrite(target.getName(), fieldRef, isMutableBase, layout);
+          writer = (i, v) -> i.addWrite(target.getName(), v);
         }
+        this.readField(unit, str, fieldRef, env, needsDefinition, writer);
+      } else if(as.getRightOp() instanceof InvokeExpr) {
+        
       } else {
-        if(needDefine.contains(target)) {
+        if(needsDefinition) {
           // then we have to do some massaging depending on the RHS (namely if it is a heap read)
           str.addBinding(target.getName(), lifter.lift(as.getRightOp(), env), env.get(target).some() == Binding.MUTABLE);
         } else {
@@ -421,8 +425,7 @@ public class Translate {
       AssignStmt assign = (AssignStmt) unit;
       ImpExpr right = lifter.lift(assign.getRightOp(), env);
       InstanceFieldRef fieldRef = (InstanceFieldRef) assign.getLeftOp();
-      Local base = (Local) fieldRef.getBase();
-      str.addFieldWrite(base, fieldRef.getField(), right, env.get(base).some() == Binding.MUTABLE, layout);
+      this.writeField(str, fieldRef, env, right);
     } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof StaticInvokeExpr) {
       StaticInvokeExpr staticInv = (StaticInvokeExpr) ((InvokeStmt) unit).getInvokeExpr();
       // I think soot resolves this for us
@@ -442,6 +445,142 @@ public class Translate {
       // this is really hard, do it later
       throw new RuntimeException("Unhandled statement " + unit + " " + unit.getClass());
     }
+  }
+
+  private void readField(Unit ctxt, final InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local, Binding> env, final boolean needDefine,
+      final BiConsumer<InstructionStream, ImpExpr> writer) {
+    VarManager vm;
+    InstructionStream toWrite;
+    if(needDefine) {
+      toWrite = str;
+      vm = new FieldOpBind(ctxt);
+    } else {
+      toWrite = InstructionStream.fresh("read-field");
+      vm = new FieldOpWrite();
+    }
+    FieldPointer ptr = this.unwrapField(toWrite, fieldRef, env, vm);
+    writer.accept(toWrite, Variable.deref(ptr.fieldName));
+    ptr.cleanup(toWrite);
+    if(needDefine) {
+      toWrite.close();
+      str.addBlock(toWrite);
+    }
+  }
+
+  private void writeField(InstructionStream str, InstanceFieldRef fieldRef, TreeMap<Local, Binding> env, ImpExpr lhs) {
+    InstructionStream i = InstructionStream.fresh("write", l -> {
+      FieldPointer p = unwrapField(l, fieldRef, env, new FieldOpWrite());
+      l.addWrite(p.fieldName, lhs);
+      p.cleanup(l);
+    });
+    i.close();
+    str.addBlock(i);
+  }
+
+  private static class FieldPointer {
+    public final String fieldName;
+
+    private final int slot;
+    private final String objectName;
+    private final String storageName;
+
+    private FieldPointer(final String fieldName, final int slot, final String objectName, final String storageName) {
+      this.fieldName = fieldName;
+      this.slot = slot;
+      this.objectName = objectName;
+      this.storageName = storageName;
+    }
+
+    public void cleanup(InstructionStream str) {
+      str.addPtrProjAlias(fieldName, objectName, slot);
+      if(storageName != null) {
+        assert !storageName.equals(objectName);
+        str.addPtrAlias(objectName, storageName);
+      }
+    }
+  }
+
+  private interface VarManager {
+    String getBase(int i);
+    String getField(int i);
+  }
+
+  private static abstract class LinearVarManager implements VarManager  {
+    private boolean readBase = false;
+    private boolean readField = false;
+
+    @Override public String getField(final int i) {
+      if(i != 0) {
+        throw new IllegalArgumentException();
+      }
+      if(readField) {
+        throw new IllegalStateException();
+      }
+      readField = true;
+      return getField();
+    }
+
+    @Override public String getBase(final int i) {
+      if(i != 0) {
+        throw new IllegalArgumentException();
+      }
+      if(readBase) {
+        throw new IllegalStateException();
+      }
+      readBase = true;
+      return getBase();
+    }
+
+    protected abstract String getBase();
+    protected abstract String getField();
+  }
+
+
+  private static class FieldOpWrite extends LinearVarManager {
+    @Override protected String getBase() {
+      return "reg$base_pointer";
+    }
+
+    @Override protected String getField() {
+      return "reg$field_ref";
+    }
+  }
+
+  private static class FieldOpBind extends LinearVarManager {
+    private final long ctxt;
+    public FieldOpBind(Unit ctxt) {
+      Numberer<Unit> numberer = Scene.v().getUnitNumberer();
+      numberer.add(ctxt);
+      this.ctxt = numberer.get(ctxt);
+    }
+
+    @Override protected String getBase() {
+      return String.format("reg$base_pointer_%d", ctxt);
+    }
+
+    @Override protected String getField() {
+      return String.format("reg$field_ref_%d", ctxt);
+    }
+  }
+
+
+  private FieldPointer unwrapField(InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local,Binding> env, VarManager vm) {
+    Local l = (Local) fieldRef.getBase();
+    String fieldBase;
+    String localStorage;
+    if(env.get(l).some() == Binding.MUTABLE) {
+      localStorage = l.getName();
+      fieldBase = vm.getBase(0);
+      str.addBinding(fieldBase, Variable.deref(l.getName()), false);
+    } else {
+      localStorage = null;
+      fieldBase = l.getName();
+    }
+    String fieldPtr = vm.getField(0);
+    SootField field = fieldRef.getField();
+    int i = this.layout.getStorageSlot(field);
+    str.bindProjection(fieldPtr, i, layout.metaStorageSize(field), fieldBase);
+    return new FieldPointer(fieldPtr, i, fieldBase, localStorage);
   }
 
   private static class ArgumentLift {
@@ -476,12 +615,12 @@ public class Translate {
   private static String mkPreCall(Unit ctxt, int ct) {
     Numberer<Unit> num = Scene.v().getUnitNumberer();
     num.add(ctxt);
-    return String.format("_reg_call_%d_%d", num.get(ctxt), ct);
+    return String.format("reg$call_%d_%d", num.get(ctxt), ct);
   }
 
 
   private String getParamName(final int paramNumber) {
-    return String.format("_regnantIn_%s", b.getParameterLocal(paramNumber).getName());
+    return String.format("regnant$in_%s", b.getParameterLocal(paramNumber).getName());
   }
 
   private <R> Env encodeBasicBlock(final BasicBlock head,
@@ -523,4 +662,8 @@ public class Translate {
   private int getCoordId(Coord c) {
     return coordAssignment.computeIfAbsent(c, _c -> coordCounter++);
   }
+
+  // Field manipulation
+
+
 }
