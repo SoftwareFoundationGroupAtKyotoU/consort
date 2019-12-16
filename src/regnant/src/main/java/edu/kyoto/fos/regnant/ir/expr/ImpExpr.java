@@ -40,10 +40,6 @@ public abstract class ImpExpr implements ProgFragment {
     return IntLiteral.v(0);
   }
 
-  public static ImpExpr tuple(List<ImpExpr> tupCont) {
-    return Tuple.v(tupCont);
-  }
-
   public static String normalizeSymbol(String symbol) {
     symbol = symbol.trim();
     if(symbol.equals("==")) {

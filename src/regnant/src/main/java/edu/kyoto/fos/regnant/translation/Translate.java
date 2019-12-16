@@ -297,17 +297,13 @@ public class Translate {
       JumpCont jumpCont = (JumpCont) c;
       Coord srcCoord = jumpCont.c;
       if(flg.setFlag.contains(srcCoord) || flg.returnJump.contains(srcCoord) || jumpCont.j.cont.size() > 0) {
-        return InstructionStream.fresh("jump", i -> {
-          jumpFrom(jumpCont.c, i, env);
-        });
+        return InstructionStream.fresh("jump", i -> jumpFrom(jumpCont.c, i, env));
       } else {
         return InstructionStream.unit("fallthrough");
       }
     } else {
       assert c instanceof ElemCont;
-      return InstructionStream.fresh("branch", l -> {
-        translateElem(l, ((ElemCont) c).elem, env);
-      });
+      return InstructionStream.fresh("branch", l -> translateElem(l, ((ElemCont) c).elem, env));
     }
   }
 
@@ -637,9 +633,7 @@ public class Translate {
         List<Integer> flgs = kls.stream().map(SootClass::getNumber).collect(Collectors.toList());
         worklist.add(meth);
         String actual = getMangledName(meth);
-        InstructionStream br = InstructionStream.fresh("branch", brnch -> {
-          brnch.ret(ImpExpr.call(actual, fwdCalls));
-        });
+        InstructionStream br = InstructionStream.fresh("branch", brnch -> brnch.ret(ImpExpr.call(actual, fwdCalls)));
         actions.add(P.p(flgs, br));
       });
 
@@ -806,42 +800,6 @@ public class Translate {
     str.bindProjection(fieldPtr, i, layout.metaStorageSize(field), fieldBase);
     return new FieldPointer(fieldPtr, i, fieldBase, localStorage);
   }
-
-  private static class ArgumentLift {
-    final List<ImpExpr> args;
-    final List<P2<String, String>> aliasPairs;
-
-    private ArgumentLift(final List<ImpExpr> args, final List<P2<String, String>> aliasPairs) {
-      this.args = args;
-      this.aliasPairs = aliasPairs;
-    }
-  }
-
-  private ArgumentLift liftArguments(List<Value> vals, Unit ctxt, TreeMap<Local, Binding> env, InstructionStream str) {
-    List<ImpExpr> lifted = new ArrayList<>();
-    List<P2<String, String>> aliasPair = new ArrayList<>();
-    int ctr = 0;
-    for(Value v : vals) {
-      // need to alias back
-      if(v instanceof Local && env.get((Local) v).some() == Binding.MUTABLE && v.getType() instanceof RefLikeType) {
-        String tempName = mkPreCall(ctxt, ctr++);
-        Local local = (Local) v;
-        str.addBinding(tempName, Variable.deref(local.getName()), false);
-        aliasPair.add(P.p(tempName, local.getName()));
-        lifted.add(Variable.immut(tempName));
-      } else {
-        lifted.add(this.lifter.lift(v, env));
-      }
-    }
-    return new ArgumentLift(lifted, aliasPair);
-  }
-
-  private static String mkPreCall(Unit ctxt, int ct) {
-    Numberer<Unit> num = Scene.v().getUnitNumberer();
-    num.add(ctxt);
-    return String.format("reg$call_%d_%d", num.get(ctxt), ct);
-  }
-
 
   private String getParamName(final int paramNumber) {
     return String.format("regnant$in_%s", b.getParameterLocal(paramNumber).getName());
