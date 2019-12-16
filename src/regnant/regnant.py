@@ -20,12 +20,7 @@ def main(this_dir, args):
     parser.add_argument("entry_point")
     parser.add_argument("consort_args", nargs="*")
     args = parser.parse_args(args)
-    entry = args.entry_point
-
-    final_split = entry.rfind(".")
-
-    cls = entry[:final_split]
-    entry_method = entry[final_split + 1:]
+    cls = args.entry_point
 
     if args.work_dir is None:
         work_dir = tempfile.mkdtemp()
@@ -49,7 +44,7 @@ def main(this_dir, args):
     flags = os.path.join(work_dir, "control.sexp")
     data = os.path.join(work_dir, "mono.imp")
 
-    regnant_options = "enabled:true,entry:%s,output:%s,flags:%s" % (entry_method, data, flags)
+    regnant_options = "enabled:true,output:%s,flags:%s" % (data, flags)
 
     cp = os.path.join(this_dir, "build/libs/regnant-with-deps.jar")
 

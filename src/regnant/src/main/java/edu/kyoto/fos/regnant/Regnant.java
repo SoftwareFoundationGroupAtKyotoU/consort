@@ -2,20 +2,21 @@ package edu.kyoto.fos.regnant;
 
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
-import edu.kyoto.fos.regnant.simpl.AssertionRewriter;
-import edu.kyoto.fos.regnant.simpl.RandomRewriter;
+import edu.kyoto.fos.regnant.simpl.RewriteChain;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import edu.kyoto.fos.regnant.translation.FlagTranslation;
 import edu.kyoto.fos.regnant.translation.Translate;
 import soot.Body;
+import soot.Local;
 import soot.Main;
 import soot.PackManager;
 import soot.Scene;
 import soot.SceneTransformer;
-import soot.SootClass;
 import soot.SootMethod;
 import soot.Transform;
+import soot.UnitPatchingChain;
+import soot.ValueBox;
 import soot.options.Options;
 import soot.util.queue.ChunkedQueue;
 import soot.util.queue.QueueReader;
@@ -47,29 +48,41 @@ public class Regnant extends Transform {
 
   private Regnant() {
     this(new Regnant[1]);
-    setDeclaredOptions("entry enabled output flags");
+    setDeclaredOptions("enabled output flags");
   }
 
   private void internalTransform(final String phaseName, Map<String, String> options) {
-    if(!options.containsKey("entry")) {
-      System.out.println("Regnant: entry point required");
-      return;
-    }
-    String entryPoint = options.get("entry");
-    SootClass main = Scene.v().getMainClass();
-    assert main.declaresMethodByName(entryPoint);
-
-    SootMethod m = main.getMethodByName(entryPoint);
-    List<Translate> output = this.transform(m);
+    SootMethod mainMethod = Scene.v().getMainMethod();
+    removeArgVector(mainMethod);
+    List<Translate> output = this.transform(mainMethod);
     try(PrintStream pw = new PrintStream(new FileOutputStream(new File(options.get("output"))))) {
       for(Translate t : output) {
         t.printOn(pw);
       }
       pw.println();
-      pw.printf("{ %s() }\n", Translate.getMangledName(m));
+      pw.printf("{ %s() }\n", Translate.getMangledName(mainMethod));
     } catch (IOException ignored) {
     }
     FlagTranslation.outputTo(options.get("flags"));
+  }
+
+  private void removeArgVector(final SootMethod main) {
+    assert main.getParameterCount() == 1;
+    assert main.getParameterType(0).equals(Scene.v().getSootClass("java.lang.String").getType().makeArrayType());
+    assert main.isStatic();
+    Local l = main.retrieveActiveBody().getParameterLocal(0);
+    Body body = main.getActiveBody();
+    UnitPatchingChain units = body.getUnits();
+    units.snapshotIterator().forEachRemaining(u -> {
+      if(u.getUseBoxes().stream().map(ValueBox::getValue).anyMatch(l::equals)) {
+        throw new IllegalArgumentException("Main method uses argument vector");
+      }
+      if(u.getDefBoxes().stream().map(ValueBox::getValue).anyMatch(l::equals)) {
+        units.remove(u);
+      }
+    });
+    body.getLocals().remove(l);
+    main.setParameterTypes(List.of());
   }
 
   private List<Translate> transform(final SootMethod m) {
@@ -90,7 +103,7 @@ public class Regnant extends Transform {
       }
       System.out.println("Running regnant transformation on: " + m.getSignature());
       m.retrieveActiveBody();
-      Body simpl = RandomRewriter.rewriteRandom(AssertionRewriter.rewrite(m.getActiveBody()));
+      Body simpl = RewriteChain.rewrite(m.getActiveBody());
       System.out.println("Simplified: ");
       System.out.println(simpl);
       CFGReconstructor cfg = new CFGReconstructor(simpl);
