@@ -441,9 +441,9 @@ public class Translate {
       }
       LocalContents c = this.liftValue(unit, as.getRightOp(), new LocalWrite(unit), writeStream, -1, BindMode.INTRAPROC, env);
       if(needsDefinition) {
-        writeStream.addBinding(target.getName(), c.getLHS(), mutableBinding);
+        writeStream.addBinding(target.getName(), c.getValue(), mutableBinding);
       } else {
-        writeStream.addWrite(target.getName(), c.getLHS());
+        writeStream.addWrite(target.getName(), c.getValue());
       }
       c.cleanup(writeStream);
       if(!needsDefinition) {
@@ -460,7 +460,7 @@ public class Translate {
       LocalContents basePtr = this.unwrapArray(arrayRef, s, env, new FieldOpWrite("array"), -1);
       ImpExpr ind = this.lifter.lift(arrayRef.getIndex(), env);
       ImpExpr val = this.lifter.lift(((AssignStmt) unit).getRightOp(), env);
-      s.addArrayWrite(basePtr.getLHS(), ind, val);
+      s.addArrayWrite(basePtr.getValue(), ind, val);
       basePtr.cleanup(s);
       str.addBlock(s);
     } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof SpecialInvokeExpr && ((InvokeStmt) unit).getInvokeExpr().getMethodRef().getName().equals("<init>")) {
@@ -470,7 +470,7 @@ public class Translate {
     } else if(unit instanceof InvokeStmt) {
       InstructionStream call = InstructionStream.fresh("call");
       LocalContents c = this.translateCall(unit, call, ((InvokeStmt) unit).getInvokeExpr(), env);
-      call.addExpr(c.getLHS());
+      call.addExpr(c.getValue());
       c.cleanup(call);
       str.addBlock(call);
     } else if(!(unit instanceof GotoStmt)) {
@@ -537,7 +537,7 @@ public class Translate {
       var lifted = liftValue(ctxt, a, vm, str, slot, BindMode.INTERPROC, env);
       args.add(lifted);
     }
-    ImpExpr call = ImpExpr.call(callee, args.stream().map(LocalContents::getLHS).collect(Collectors.toList()));
+    ImpExpr call = ImpExpr.call(callee, args.stream().map(LocalContents::getValue).collect(Collectors.toList()));
     return new CompoundCleanup(call, args.stream());
   }
 
@@ -606,7 +606,7 @@ public class Translate {
   }
 
   private static abstract class LocalContents implements Cleanup {
-    public abstract ImpExpr getLHS();
+    public abstract ImpExpr getValue();
   }
 
   private enum BindMode {
@@ -622,7 +622,7 @@ public class Translate {
       this.alias = local;
     }
 
-    @Override public ImpExpr getLHS() {
+    @Override public ImpExpr getValue() {
       return Variable.immut(this.tmp);
     }
 
@@ -638,7 +638,7 @@ public class Translate {
       this.lifted = lift;
     }
 
-    @Override public ImpExpr getLHS() {
+    @Override public ImpExpr getValue() {
       return lifted;
     }
 
@@ -663,7 +663,7 @@ public class Translate {
       ArrayRef ar = (ArrayRef) v;
       LocalContents c = this.unwrapArray(ar, s, env, m, slot);
       ImpExpr ind = this.lifter.lift(ar.getIndex(), env);
-      return new CompoundCleanup(new ArrayRead(c.getLHS(), ind), c);
+      return new CompoundCleanup(new ArrayRead(c.getValue(), ind), c);
     } else if(v instanceof InvokeExpr) {
       assert slot == -1;
       return this.translateCall(ctxt, s, (InvokeExpr) v, env);
@@ -701,7 +701,7 @@ public class Translate {
       this.wrapped.forEach(c -> c.cleanup(stream));
     }
 
-    @Override public ImpExpr getLHS() {
+    @Override public ImpExpr getValue() {
       return lhs;
     }
   }
