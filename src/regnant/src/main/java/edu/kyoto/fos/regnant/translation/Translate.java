@@ -12,6 +12,7 @@ import edu.kyoto.fos.regnant.cfg.graph.JumpCont;
 import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
 import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
+import edu.kyoto.fos.regnant.ir.expr.ArrayLength;
 import edu.kyoto.fos.regnant.ir.expr.ArrayRead;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
@@ -49,6 +50,7 @@ import soot.jimple.InstanceFieldRef;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
+import soot.jimple.LengthExpr;
 import soot.jimple.NopStmt;
 import soot.jimple.ParameterRef;
 import soot.jimple.ReturnStmt;
@@ -667,6 +669,10 @@ public class Translate {
     } else if(v instanceof InvokeExpr) {
       assert slot == -1;
       return this.translateCall(ctxt, s, (InvokeExpr) v, env);
+    } else if(v instanceof LengthExpr) {
+      LengthExpr le = (LengthExpr) v;
+      LocalContents c = this.liftValue(ctxt, le.getOp(), m, s, slot, mode, env);
+      return new CompoundCleanup(new ArrayLength(c.getValue()), c);
     } else {
       return new SimpleContents(lifter.lift(v, env));
     }
