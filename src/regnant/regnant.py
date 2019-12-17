@@ -34,7 +34,7 @@ def main(this_dir, args):
 
     source_file = cls.replace(".", "/") + ".java"
 
-    compile_command = [os.path.join(args.jdk8, "bin/javac"), "-g:lines,vars", "-d", cls_dir, args.src_dir + "/" + source_file]
+    compile_command = ["javac", "-g:lines,vars", "-source", "8", "-target", "8", "-d", cls_dir, args.src_dir + "/" + source_file]
     log_command(args, compile_command)
     print "compiling source java...",
     sys.stdout.flush()
@@ -92,6 +92,7 @@ def main(this_dir, args):
     ]
     log_command(args, consort_cmd)
     subprocess.call(consort_cmd)
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main(os.path.realpath(os.path.dirname(sys.argv[0])), sys.argv[1:]))
