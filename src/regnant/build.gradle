@@ -1,9 +1,13 @@
 apply plugin: 'java'
 apply plugin: 'idea'
-
+apply plugin: 'application'
 
 repositories {
   mavenCentral()
+}
+
+application {
+	mainClassName = "edu.kyoto.fos.regnant.Regnant"
 }
 
 idea {
@@ -16,7 +20,14 @@ idea {
 
 
 dependencies {
-	implementation group: "ca.mcgill.sable", name: "soot", version: "3.3.0"
+	implementation ("ca.mcgill.sable:soot:3.3.0") {
+		exclude group: "org.ow2.asm", module: "asm-debug-all"
+	}
+	implementation group: 'org.ow2.asm', name: 'asm', version: '7.2'
+	implementation group: 'org.ow2.asm', name: 'asm-util', version: '7.2'
+	implementation group: 'org.ow2.asm', name: 'asm-commons', version: '7.2'
+	implementation group: 'org.yaml', name: 'snakeyaml', version: '1.17'
+	implementation "org.functionaljava:functionaljava:4.8"
 }
 
 task allDeps(type: Jar) {
