@@ -89,7 +89,7 @@ public class ValueLifter {
       if(!arrayExpr.getBaseType().equals(IntType.v())) {
         throw new UnsupportedOperationException("Only supports int arrays");
       }
-      return new NewArray(this.lift(arrayExpr, env));
+      return new NewArray(this.lift(arrayExpr.getSize(), env));
     } else if(op instanceof LengthExpr) {
       LengthExpr lengthExpr = (LengthExpr) op;
       return new ArrayLength(this.lift(lengthExpr.getOp(), env));
