@@ -11,6 +11,7 @@ import edu.kyoto.fos.regnant.ir.stmt.Block;
 import edu.kyoto.fos.regnant.ir.stmt.Condition;
 import edu.kyoto.fos.regnant.ir.stmt.Effect;
 import edu.kyoto.fos.regnant.ir.stmt.LetBind;
+import edu.kyoto.fos.regnant.ir.stmt.NullCheck;
 import edu.kyoto.fos.regnant.ir.stmt.SideEffect;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasVar;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.Ptr;
@@ -256,6 +257,14 @@ public class InstructionStream implements Printable  {
     this.inheritFunctions(tr);
     this.inheritFunctions(fls);
     this.addEffect(new Condition(cond, tr, fls));
+  }
+
+  public void addNullCond(final ImpExpr value, final InstructionStream tBranch, final InstructionStream falseBranch) {
+    tBranch.close();
+    falseBranch.close();
+    this.inheritFunctions(tBranch);
+    this.inheritFunctions(falseBranch);
+    this.addEffect(new NullCheck(value, tBranch, falseBranch));
   }
 
   public void addBlock(final InstructionStream is) {

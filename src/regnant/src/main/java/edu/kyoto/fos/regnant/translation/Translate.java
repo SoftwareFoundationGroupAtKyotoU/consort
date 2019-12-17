@@ -42,6 +42,7 @@ import soot.Value;
 import soot.ValueBox;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
+import soot.jimple.ConditionExpr;
 import soot.jimple.GotoStmt;
 import soot.jimple.IdentityRef;
 import soot.jimple.IdentityStmt;
@@ -52,6 +53,7 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
 import soot.jimple.LengthExpr;
 import soot.jimple.NopStmt;
+import soot.jimple.NullConstant;
 import soot.jimple.ParameterRef;
 import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
@@ -296,19 +298,32 @@ public class Translate {
         elem.getHead().id);
   }
 
-  private InstructionStream compileJump(Continuation c, final Env env) {
+  private InstructionStream compileJump(Continuation c, final Env env, Consumer<InstructionStream> pre) {
     if(c instanceof JumpCont) {
       JumpCont jumpCont = (JumpCont) c;
       Coord srcCoord = jumpCont.c;
       if(flg.setFlag.contains(srcCoord) || flg.returnJump.contains(srcCoord) || jumpCont.j.cont.size() > 0) {
-        return InstructionStream.fresh("jump", i -> jumpFrom(jumpCont.c, i, env));
+        return InstructionStream.fresh("jump", i -> {
+          pre.accept(i);
+          jumpFrom(jumpCont.c, i, env);
+        });
       } else {
-        return InstructionStream.unit("fallthrough");
+        return InstructionStream.fresh("fallthrough", l -> {
+          pre.accept(l);
+          l.close();
+        });
       }
     } else {
       assert c instanceof ElemCont;
-      return InstructionStream.fresh("branch", l -> translateElem(l, ((ElemCont) c).elem, env));
+      return InstructionStream.fresh("branch", l -> {
+        pre.accept(l);
+        translateElem(l, ((ElemCont) c).elem, env);
+      });
     }
+  }
+
+  private InstructionStream compileJump(Continuation c, final Env env) {
+    return compileJump(c, env, i -> {});
   }
 
   private void jumpFrom(final Coord c, final InstructionStream i, Env e) {
@@ -334,9 +349,29 @@ public class Translate {
       return encodeBasicBlock(cond.head, lBody, u -> {
         assert u instanceof IfStmt; return ((IfStmt)u);
       }, (env_, el) -> {
-        ImpExpr path = lifter.lift(el.getCondition(), env_.boundVars);
-        lBody.addCond(path,
-            compileJump(cond.tBranch, env_).andClose(), compileJump(cond.fBranch, env_).andClose());
+        Value condValue = el.getCondition();
+        // based on asm source, the right (aka 2nd) op will always be null when representing ifnull/ifnonull
+        // this is not terribly *robust* mind you, but serves for the moment.
+        if(condValue instanceof ConditionExpr && ((ConditionExpr) condValue).getOp2().equals(NullConstant.v())) {
+          ConditionExpr condE = (ConditionExpr) condValue;
+          Continuation tCont, fCont;
+          if(condE.getSymbol().trim().equals("==")) {
+            // the TRUE branch is what we take if the pointer is null, i.e., it becomes the true branch of ifnull
+            tCont = cond.tBranch;
+            fCont = cond.fBranch;
+          } else {
+            assert condE.getSymbol().trim().equals("!=");
+            // then the true branch is if we are non-null, in which case it must be swapped to be the ELSE branch
+            // of our ifnull
+            tCont = cond.fBranch;
+            fCont = cond.tBranch;
+          }
+          LocalContents l = this.liftValue(el, condE.getOp1(), new FieldOpWrite("null"), lBody, -1, BindMode.INTRAPROC, env_.boundVars);
+          lBody.addNullCond(l.getValue(), compileJump(tCont, env_, l::cleanup), compileJump(fCont, env_, l::cleanup));
+        } else {
+          ImpExpr path = lifter.lift(condValue, env_.boundVars);
+          lBody.addCond(path, compileJump(cond.tBranch, env_).andClose(), compileJump(cond.fBranch, env_).andClose());
+        }
       }, env);
     } else if(elem instanceof JumpNode) {
       JumpNode j = (JumpNode) elem;
