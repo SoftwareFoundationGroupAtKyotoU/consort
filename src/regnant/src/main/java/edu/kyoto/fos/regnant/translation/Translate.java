@@ -12,6 +12,7 @@ import edu.kyoto.fos.regnant.cfg.graph.JumpCont;
 import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
 import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
+import edu.kyoto.fos.regnant.ir.expr.ArrayRead;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
 import edu.kyoto.fos.regnant.ir.expr.Variable;
@@ -38,6 +39,7 @@ import soot.Type;
 import soot.Unit;
 import soot.Value;
 import soot.ValueBox;
+import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.GotoStmt;
 import soot.jimple.IdentityRef;
@@ -431,69 +433,55 @@ public class Translate {
       boolean needsDefinition = needDefine.contains(target);
       needDefine.remove(target);
       boolean mutableBinding = env.get(target).some() == Binding.MUTABLE;
-      if(as.getRightOp() instanceof InstanceFieldRef) {
-        InstanceFieldRef fieldRef = (InstanceFieldRef) as.getRightOp();
-        BiConsumer<InstructionStream, ImpExpr> writer;
-        if(needsDefinition) {
-          writer = (i, v) -> i.addBinding(target.getName(), v, mutableBinding);
-        } else {
-          writer = (i, v) -> i.addWrite(target.getName(), v);
-        }
-        this.readField(unit, str, fieldRef, env, needsDefinition, writer);
-      } else if(as.getRightOp() instanceof InvokeExpr) {
-        if(needsDefinition) {
-          this.translateCall(unit, str, (InvokeExpr)as.getRightOp(),env, false, (InstructionStream i, ImpExpr expr) -> i.addBinding(target.getName(), expr, mutableBinding));
-        } else {
-          this.translateCall(unit, str, (InvokeExpr) as.getRightOp(), env, true, (i, expr) -> i.addWrite(target.getName(), expr));
-        }
+      InstructionStream writeStream;
+      if(!needsDefinition) {
+        writeStream = InstructionStream.fresh("write");
       } else {
-        if(needsDefinition) {
-          // then we have to do some massaging depending on the RHS (namely if it is a heap read)
-          str.addBinding(target.getName(), lifter.lift(as.getRightOp(), env), mutableBinding);
-        } else {
-          assert mutableBinding;
-          str.addWrite(target.getName(), lifter.lift(as.getRightOp(), env));
-        }
+        writeStream = str;
+      }
+      LocalContents c = this.liftValue(unit, as.getRightOp(), new LocalWrite(unit), writeStream, -1, BindMode.INTRAPROC, env);
+      if(needsDefinition) {
+        writeStream.addBinding(target.getName(), c.getLHS(), mutableBinding);
+      } else {
+        writeStream.addWrite(target.getName(), c.getLHS());
+      }
+      c.cleanup(writeStream);
+      if(!needsDefinition) {
+        str.addBlock(writeStream);
       }
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof InstanceFieldRef) {
       AssignStmt assign = (AssignStmt) unit;
       ImpExpr right = lifter.lift(assign.getRightOp(), env);
       InstanceFieldRef fieldRef = (InstanceFieldRef) assign.getLeftOp();
       this.writeField(str, fieldRef, env, right);
+    } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof ArrayRef) {
+      ArrayRef arrayRef = (ArrayRef) ((AssignStmt) unit).getLeftOp();
+      InstructionStream s = InstructionStream.fresh("array");
+      LocalContents basePtr = this.unwrapArray(arrayRef, s, env, new FieldOpWrite("array"), -1);
+      ImpExpr ind = this.lifter.lift(arrayRef.getIndex(), env);
+      ImpExpr val = this.lifter.lift(((AssignStmt) unit).getRightOp(), env);
+      s.addArrayWrite(basePtr.getLHS(), ind, val);
+      basePtr.cleanup(s);
+      str.addBlock(s);
     } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof SpecialInvokeExpr && ((InvokeStmt) unit).getInvokeExpr().getMethodRef().getName().equals("<init>")) {
       // we don't do constructors here
+      // TODO: this should skip the *object* constructor, not all super class constructors...
       // do nothing!
     } else if(unit instanceof InvokeStmt) {
-      this.translateCall(unit, str, ((InvokeStmt) unit).getInvokeExpr(), env, true, InstructionStream::addExpr);
+      InstructionStream call = InstructionStream.fresh("call");
+      LocalContents c = this.translateCall(unit, call, ((InvokeStmt) unit).getInvokeExpr(), env);
+      call.addExpr(c.getLHS());
+      c.cleanup(call);
+      str.addBlock(call);
     } else if(!(unit instanceof GotoStmt)) {
       // this is really hard, do it later
       throw new RuntimeException("Unhandled statement " + unit + " " + unit.getClass());
     }
   }
 
-  private void readField(Unit ctxt, final InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local, Binding> env, final boolean needDefine,
-      final BiConsumer<InstructionStream, ImpExpr> writer) {
-    VarManager vm;
-    InstructionStream toWrite;
-    if(needDefine) {
-      toWrite = str;
-      vm = new FieldOpBind(ctxt);
-    } else {
-      toWrite = InstructionStream.fresh("read-field");
-      vm = new FieldOpWrite();
-    }
-    FieldPointer ptr = this.unwrapField(toWrite, fieldRef, env, vm);
-    writer.accept(toWrite, Variable.deref(ptr.fieldName));
-    ptr.cleanup(toWrite);
-    if(!needDefine) {
-      toWrite.close();
-      str.addBlock(toWrite);
-    }
-  }
-
   private void writeField(InstructionStream str, InstanceFieldRef fieldRef, TreeMap<Local, Binding> env, ImpExpr lhs) {
     InstructionStream i = InstructionStream.fresh("write", l -> {
-      FieldPointer p = unwrapField(l, fieldRef, env, new FieldOpWrite());
+      FieldPointer p = unwrapField(l, fieldRef, env, new FieldOpWrite("field"));
       l.addWrite(p.fieldName, lhs);
       p.cleanup(l);
     });
@@ -501,22 +489,12 @@ public class Translate {
     str.addBlock(i);
   }
 
-  private void translateCall(Unit u, InstructionStream str, InvokeExpr expr, final TreeMap<Local, Binding> env, boolean blockCall, BiConsumer<InstructionStream, ImpExpr> consumeCall) {
+  private LocalContents translateCall(Unit ctxt, InstructionStream str, InvokeExpr expr, final TreeMap<Local, Binding> env) {
     if(isRegnantIntrinsic(expr)) {
-      this.handleIntrinsic(str, expr, consumeCall);
-      return;
+      return this.handleIntrinsic(str, expr);
     }
-    VarManager vm;
-    InstructionStream s;
-    List<P2<String, String>> reAlias = new ArrayList<>();
-    if(blockCall) {
-      s = InstructionStream.fresh("call");
-      vm = new BlockCall();
-    } else {
-      s = str;
-      vm = new BindCall(u);
-    }
-    List<ImpExpr> args = new ArrayList<>();
+    final VarManager vm = new BindCall(ctxt);
+    List<LocalContents> args = new ArrayList<>();
     String callee;
     List<Value> v = expr.getArgs();
     if(expr instanceof StaticInvokeExpr) {
@@ -546,60 +524,31 @@ public class Translate {
         worklist.add(m);
       } else {
         // de-virtualize
-        callee = devirtualize(u, s, callees);
+        callee = devirtualize(ctxt, str, callees);
       }
     }
     if(expr instanceof InstanceInvokeExpr) {
       InstanceInvokeExpr iie = (InstanceInvokeExpr) expr;
-      args.add(liftArgument(env, vm, s, reAlias, iie.getBase(), 0));
+      args.add(liftValue(ctxt, iie.getBase(), vm, str, 0, BindMode.INTERPROC, env));
     }
     for(int i = 0; i < v.size(); i++) {
       Value a = v.get(i);
       int slot = i + 1;
-      ImpExpr lifted;
-      lifted = liftArgument(env, vm, s, reAlias, a, slot);
+      var lifted = liftValue(ctxt, a, vm, str, slot, BindMode.INTERPROC, env);
       args.add(lifted);
     }
-    ImpExpr call = ImpExpr.call(callee, args);
-    consumeCall.accept(s, call);
-    for(P2<String, String> al : reAlias) {
-      s.addPtrAlias(al._1(), al._2());
-    }
-    if(blockCall) {
-      str.addBlock(s);
-    }
+    ImpExpr call = ImpExpr.call(callee, args.stream().map(LocalContents::getLHS).collect(Collectors.toList()));
+    return new CompoundCleanup(call, args.stream());
   }
 
-  private void handleIntrinsic(final InstructionStream str, final InvokeExpr expr, final BiConsumer<InstructionStream,ImpExpr> consumeCall) {
+  private LocalContents handleIntrinsic(final InstructionStream str, final InvokeExpr expr) {
     assert expr.getMethodRef().getName().equals("rand");
-    consumeCall.accept(str, ImpExpr.nondet());
+    return new SimpleContents(ImpExpr.nondet());
   }
 
   private boolean isRegnantIntrinsic(final InvokeExpr expr) {
     return expr instanceof StaticInvokeExpr &&
         (expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS) && expr.getMethodRef().getName().equals("rand"));
-  }
-
-  private ImpExpr liftArgument(final TreeMap<Local, Binding> env, final VarManager vm, final InstructionStream s, final List<P2<String, String>> reAlias, final Value a,
-      final int slot) {
-    final ImpExpr lifted;
-    if(a instanceof Local && a.getType() instanceof RefType) {
-      Local refVar = (Local) a;
-      String passedVar;
-      if(env.get(refVar).some() == Binding.MUTABLE) {
-
-        String tmpVar = vm.getBase(slot);
-        s.addBinding(tmpVar, Variable.deref(refVar.getName()), false);
-        reAlias.add(P.p(tmpVar, refVar.getName()));
-        passedVar = tmpVar;
-      } else {
-        passedVar = refVar.getName();
-      }
-      lifted = Variable.immut(passedVar);
-    } else {
-      lifted = lifter.lift(a, env);
-    }
-    return lifted;
   }
 
   private String devirtualize(final Unit u, final InstructionStream s, final Map<SootMethod,Set<SootClass>> callees) {
@@ -652,7 +601,112 @@ public class Translate {
     return virtName;
   }
 
-  private static class FieldPointer {
+  private interface Cleanup {
+    void cleanup(InstructionStream stream);
+  }
+
+  private static abstract class LocalContents implements Cleanup {
+    public abstract ImpExpr getLHS();
+  }
+
+  private enum BindMode {
+    INTERPROC,
+    INTRAPROC
+  }
+
+  private class TempLocal extends LocalContents {
+    private final String tmp;
+    private final Local alias;
+    public TempLocal(final String tmp, final Local local) {
+      this.tmp = tmp;
+      this.alias = local;
+    }
+
+    @Override public ImpExpr getLHS() {
+      return Variable.immut(this.tmp);
+    }
+
+    @Override public void cleanup(final InstructionStream s) {
+      s.addPtrAlias(tmp, alias.getName());
+    }
+  }
+
+  private class SimpleContents extends LocalContents {
+    private final ImpExpr lifted;
+
+    public SimpleContents(final ImpExpr lift) {
+      this.lifted = lift;
+    }
+
+    @Override public ImpExpr getLHS() {
+      return lifted;
+    }
+
+    @Override public void cleanup(final InstructionStream s) {
+    }
+  }
+
+  private LocalContents liftValue(Unit ctxt, Value v, VarManager m, InstructionStream s, int slot, BindMode mode, TreeMap<Local, Binding> env) {
+    if(v instanceof Local) {
+      Local local = (Local) v;
+      if(local.getType() instanceof RefLikeType && env.get(local).some() == Binding.MUTABLE && mode == BindMode.INTERPROC) {
+        String tmp = m.getBase(slot);
+        s.addBinding(tmp, Variable.deref(local.getName()), false);
+        return new TempLocal(tmp, local);
+      }
+      return new SimpleContents(lifter.lift(v, env));
+    } else if(v instanceof InstanceFieldRef) {
+      InstanceFieldRef fieldRef = (InstanceFieldRef) v;
+      FieldPointer fp = this.unwrapField(s, fieldRef, env, m);
+      return new CompoundCleanup(Variable.deref(fp.fieldName), fp);
+    } else if(v instanceof ArrayRef) {
+      ArrayRef ar = (ArrayRef) v;
+      LocalContents c = this.unwrapArray(ar, s, env, m, slot);
+      ImpExpr ind = this.lifter.lift(ar.getIndex(), env);
+      return new CompoundCleanup(new ArrayRead(c.getLHS(), ind), c);
+    } else if(v instanceof InvokeExpr) {
+      assert slot == -1;
+      return this.translateCall(ctxt, s, (InvokeExpr) v, env);
+    } else {
+      return new SimpleContents(lifter.lift(v, env));
+    }
+  }
+
+  private LocalContents unwrapArray(final ArrayRef v, final InstructionStream s, final TreeMap<Local,Binding> env, final VarManager m, int slot) {
+    Local l = (Local) v.getBase();
+    if(env.get(l).some() == Binding.MUTABLE) {
+      String tmp = m.getBase(slot);
+      s.addBinding(tmp, Variable.deref(l.getName()), false);
+      return new TempLocal(tmp, l);
+    } else {
+      return new SimpleContents(Variable.immut(l));
+    }
+  }
+
+  private static class CompoundCleanup extends LocalContents {
+    private final ImpExpr lhs;
+    private final List<Cleanup> wrapped;
+
+    public CompoundCleanup(ImpExpr lhs, Cleanup wrapped) {
+      this.lhs = lhs;
+      this.wrapped = List.of(wrapped);
+    }
+
+    public CompoundCleanup(ImpExpr lhs, Stream<? extends Cleanup> s) {
+      this.lhs = lhs;
+      this.wrapped = s.collect(Collectors.toList());
+    }
+
+    @Override public void cleanup(final InstructionStream stream) {
+      this.wrapped.forEach(c -> c.cleanup(stream));
+    }
+
+    @Override public ImpExpr getLHS() {
+      return lhs;
+    }
+  }
+
+  private static class FieldPointer implements Cleanup {
     public final String fieldName;
 
     private final int slot;
@@ -680,105 +734,70 @@ public class Translate {
     String getField(int i);
   }
 
-  private static abstract class LinearVarManager implements VarManager  {
+  private abstract class AbstractVarManager implements VarManager {
+    private final String base;
+    private final String field;
     private boolean readBase = false;
     private boolean readField = false;
 
-    @Override public String getField(final int i) {
-      if(i != 0) {
-        throw new IllegalArgumentException();
-      }
-      if(readField) {
-        throw new IllegalStateException();
-      }
-      readField = true;
-      return getField();
-    }
-
-    @Override public String getBase(final int i) {
-      if(i != 0) {
-        throw new IllegalArgumentException();
-      }
-      if(readBase) {
-        throw new IllegalStateException();
-      }
-      readBase = true;
-      return getBase();
-    }
-
-    protected abstract String getBase();
-    protected abstract String getField();
-  }
-
-
-  private static class FieldOpWrite extends LinearVarManager {
-    @Override protected String getBase() {
-      return "reg$base_pointer";
-    }
-
-    @Override protected String getField() {
-      return "reg$field_ref";
-    }
-  }
-
-  private static class FieldOpBind extends LinearVarManager {
-    private final long ctxt;
-    public FieldOpBind(Unit ctxt) {
-      Numberer<Unit> numberer = Scene.v().getUnitNumberer();
-      numberer.add(ctxt);
-      this.ctxt = numberer.get(ctxt);
-    }
-
-    @Override protected String getBase() {
-      return String.format("reg$base_pointer_%d", ctxt);
-    }
-
-    @Override protected String getField() {
-      return String.format("reg$field_ref_%d", ctxt);
-    }
-  }
-
-  public abstract class CallManager implements VarManager {
     private BitSet bs = new BitSet();
+    private BitSet fs = new BitSet();
 
-    @Override public String getBase(final int i) {
-      if(i < 0) {
-        throw new IllegalArgumentException();
-      }
-      if(bs.get(i)) {
-        throw new IllegalStateException();
-      }
-      bs.set(i);
-      return this.getBaseName(i);
-    }
-
-    protected abstract String getBaseName(final int i);
-
-    @Override public String getField(final int i) {
-      throw new UnsupportedOperationException();
-    }
-  }
-
-
-  private class BlockCall extends CallManager {
-    @Override protected String getBaseName(final int i) {
-      return String.format("reg$call_%d", i);
-    }
-  }
-
-  private class BindCall extends CallManager {
     private final long ctxt;
-    BindCall(Unit u) {
+
+    protected AbstractVarManager(Unit u, String base, String field) {
       Numberer<Unit> numberer = Scene.v().getUnitNumberer();
       numberer.add(u);
-      this.ctxt = numberer.get(u);
+      ctxt = numberer.get(u);
+      this.base = base;
+      this.field = field;
     }
 
-    @Override protected String getBaseName(final int i) {
-      return String.format("reg$call%d_%d", ctxt, i);
+    @Override public String getBase(final int i) {
+      validate(i, this.readBase, this.bs);
+      String fmt = String.format("reg$%s_%d",base, ctxt);
+      if(i == -1) {
+        this.readBase = true;
+        return fmt;
+      } else {
+        this.bs.set(i);
+        return fmt + "_" + i;
+      }
+    }
+
+    private void validate(final int i, final boolean flg, final BitSet set) {
+      if(i < -1) {
+        throw new IllegalArgumentException();
+      }
+      if((i == -1 && flg) || (i >= 0 && set.get(i))) {
+        throw new IllegalStateException();
+      }
+    }
+
+    @Override public String getField(final int i) {
+      validate(i, readField, fs);
+      String fmt = String.format("reg$%s_%d", this.field, ctxt);
+      if(i == -1) {
+        this.readField = true;
+        return fmt;
+      } else {
+        fs.set(i);
+        return fmt + "_" + i;
+      }
     }
   }
 
+  private class BindCall extends AbstractVarManager {
+    public BindCall(final Unit ctxt) {
+      super(ctxt, "call", null);
+    }
+  }
+
+  private class LocalWrite extends AbstractVarManager {
+    public LocalWrite(final Unit unit) {
+      super(unit, "base", "field");
+    }
+  }
 
   private FieldPointer unwrapField(InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local,Binding> env, VarManager vm) {
     Local l = (Local) fieldRef.getBase();
@@ -786,13 +805,13 @@ public class Translate {
     String localStorage;
     if(env.get(l).some() == Binding.MUTABLE) {
       localStorage = l.getName();
-      fieldBase = vm.getBase(0);
+      fieldBase = vm.getBase(-1);
       str.addBinding(fieldBase, Variable.deref(l.getName()), false);
     } else {
       localStorage = null;
       fieldBase = l.getName();
     }
-    String fieldPtr = vm.getField(0);
+    String fieldPtr = vm.getField(-1);
     SootField field = fieldRef.getField();
     int i = this.layout.getStorageSlot(field);
     str.bindProjection(fieldPtr, i, layout.metaStorageSize(field), fieldBase);
@@ -844,4 +863,35 @@ public class Translate {
     return coordAssignment.computeIfAbsent(c, _c -> coordCounter++);
   }
 
+  private class FieldOpWrite implements VarManager {
+    private final String tag;
+    private boolean readBase = false;
+    private boolean readField = false;
+
+    public FieldOpWrite(String tag) {
+      this.tag = tag;
+    }
+
+    @Override public String getBase(final int i) {
+      if(i != -1) {
+        throw new IllegalArgumentException();
+      }
+      if(readBase) {
+        throw new IllegalStateException();
+      }
+      readBase = true;
+      return String.format("reg$%s_base", tag);
+    }
+
+    @Override public String getField(final int i) {
+      if(i != -1) {
+        throw new IllegalArgumentException();
+      }
+      if(readField) {
+        throw new IllegalStateException();
+      }
+      readField = true;
+      return String.format("reg$%s_field", tag);
+    }
+  }
 }

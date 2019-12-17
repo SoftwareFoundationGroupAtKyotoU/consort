@@ -3,14 +3,15 @@ package edu.kyoto.fos.regnant.translation;
 import edu.kyoto.fos.regnant.Printable;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.ir.stmt.Alias;
+import edu.kyoto.fos.regnant.ir.stmt.ArrayWrite;
 import edu.kyoto.fos.regnant.ir.stmt.AssertFalse;
 import edu.kyoto.fos.regnant.ir.stmt.Assign;
 import edu.kyoto.fos.regnant.ir.stmt.Bind;
 import edu.kyoto.fos.regnant.ir.stmt.Block;
-import edu.kyoto.fos.regnant.ir.stmt.SideEffect;
 import edu.kyoto.fos.regnant.ir.stmt.Condition;
 import edu.kyoto.fos.regnant.ir.stmt.Effect;
 import edu.kyoto.fos.regnant.ir.stmt.LetBind;
+import edu.kyoto.fos.regnant.ir.stmt.SideEffect;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasVar;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.Ptr;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.PtrProj;
@@ -76,16 +77,16 @@ public class InstructionStream implements Printable  {
     this.addEffect(new AssertFalse());
   }
 
-  public void addInvoke(final String nm, final List<ImpExpr> arguments) {
-    this.addEffect(SideEffect.of(nm, arguments));
-  }
-
   public void addAlias(final String name, final String paramName) {
     this.addEffect(new Alias(name, new AliasVar(paramName)));
   }
 
   public void addExpr(final ImpExpr expr) {
     this.addEffect(new SideEffect(expr));
+  }
+
+  public void addArrayWrite(final ImpExpr basePtr, final ImpExpr ind, final ImpExpr val) {
+    this.addEffect(new ArrayWrite(basePtr, ind, val));
   }
 
   private abstract static class StreamState implements Printable {
@@ -250,8 +251,8 @@ public class InstructionStream implements Printable  {
   }
 
   public void addCond(ImpExpr cond, InstructionStream tr, InstructionStream fls) {
-    assert tr.isTerminal() : tr.tag;
-    assert fls.isTerminal() : fls.tag;
+    tr.close();
+    fls.close();
     this.inheritFunctions(tr);
     this.inheritFunctions(fls);
     this.addEffect(new Condition(cond, tr, fls));
@@ -260,7 +261,12 @@ public class InstructionStream implements Printable  {
   public void addBlock(final InstructionStream is) {
     this.inheritFunctions(is);
     is.close();
-    this.addEffect(new Block(is));
+    if(is.termNode instanceof Skip && is.stateStack.size() == 1 && is.stateStack.peekFirst() instanceof SideEffectState) {
+      SideEffectState effects = (SideEffectState) is.stateStack.peekFirst();
+      effects.currEffects.forEach(this::addEffect);
+    } else {
+      this.addEffect(new Block(is));
+    }
   }
 
   public void addPtrAlias(final String base, final String ptrVar) {

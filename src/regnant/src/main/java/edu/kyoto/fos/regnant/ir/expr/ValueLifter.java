@@ -95,6 +95,7 @@ public class ValueLifter {
       return new ArrayLength(this.lift(lengthExpr.getOp(), env));
     } else if(op instanceof ArrayRef) {
       ArrayRef ref = (ArrayRef) op;
+      assert ref.getType().equals(IntType.v());
       return new ArrayRead(this.lift(ref.getBase(), env), this.lift(ref.getIndex(), env));
     } else {
       throw new RuntimeException("Unhandled :" + op);
