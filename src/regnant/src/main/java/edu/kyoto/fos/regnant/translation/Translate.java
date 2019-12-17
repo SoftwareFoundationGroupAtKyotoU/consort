@@ -288,7 +288,7 @@ public class Translate {
   }
 
   public static String getMangledName(final SootMethod m) {
-    return m.getDeclaringClass() + "_" + m.getName();
+    return m.getDeclaringClass().getName().replace(".", "__") + "_" + m.getName();
   }
 
   private String getLoopName(final GraphElem elem) {
