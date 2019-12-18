@@ -17,9 +17,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class StorageLayout {
   private UnionFind<SootClass> uf = new UnionFind<>();
@@ -34,12 +38,36 @@ public class StorageLayout {
     unifyRepr(pag.allocSources().stream().flatMap(n -> n.getAllFieldRefs().stream()));
     unifyRepr(pag.simpleInvSources().stream());
 
-    uf.universe().forEach(sc -> sc.getFields().forEach(sf -> {
+    uf.universe().forEach(sc -> getTransitiveFields(sc).forEach(sf -> {
       addMetaField(uf.find(sc).getData(), sf);
     }));
     
     this.assignSlots();
   }
+
+  public static Stream<SootClass> getClassHierarhcy(SootClass kls) {
+     return StreamSupport.stream(new Spliterators.AbstractSpliterator<SootClass>(Long.MAX_VALUE, Spliterator.IMMUTABLE | Spliterator.NONNULL) {
+      SootClass curr = kls;
+
+      @Override public boolean tryAdvance(final Consumer<? super SootClass> action) {
+        if(curr == null) {
+          return false;
+        }
+        action.accept(curr);
+        if(curr.hasSuperclass()) {
+          curr = curr.getSuperclass();
+        } else {
+          curr = null;
+        }
+        return true;
+      }
+    }, false);
+  }
+
+  public static Stream<SootField> getTransitiveFields(SootClass kls) {
+    return getClassHierarhcy(kls).flatMap(k -> k.getFields().stream());
+  }
+
 
   private Map<SootField, Integer> fieldSlots = new HashMap<>();
   private Map<SootClass, List<SootField>> metaLayout = new HashMap<>();
