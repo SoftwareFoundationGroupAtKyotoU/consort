@@ -9,6 +9,7 @@ import soot.RefLikeType;
 import soot.Scene;
 import soot.SootClass;
 import soot.SootField;
+import soot.SootMethod;
 import soot.SootMethodRef;
 import soot.Unit;
 import soot.Value;
@@ -24,15 +25,20 @@ import soot.jimple.ParameterRef;
 import soot.jimple.Stmt;
 import soot.jimple.StringConstant;
 import soot.jimple.ThisRef;
+import soot.jimple.toolkits.callgraph.CallGraph;
+import soot.jimple.toolkits.callgraph.ReachableMethods;
 import soot.toolkits.graph.BriefUnitGraph;
 import soot.toolkits.graph.DirectedGraph;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class AliasInsertion {
   private static abstract class Val {
@@ -91,6 +97,34 @@ public class AliasInsertion {
       this.doAnalysis();
     }
 
+    // XXX: based on experience, this gets stupid big for non-trivial applications. see legato for how to do this "efficiently"
+    private Map<Unit, Set<SootField>> writeSets = new HashMap<>();
+
+    private Set<SootField> getWriteSet(Unit u) {
+      return writeSets.computeIfAbsent(u, un -> {
+        CallGraph cg = Scene.v().getCallGraph();
+        List<SootMethod>  l = new ArrayList<>();
+        cg.edgesOutOf(u).forEachRemaining(i -> l.add(i.getTgt().method()));
+        ReachableMethods rm = new ReachableMethods(cg, l);
+        rm.update();
+        Set<SootField> writeFields = new HashSet<>();
+        rm.listener().forEachRemaining(mm -> {
+          if(Scene.v().isExcluded(mm.method().getDeclaringClass())) {
+            return;
+          }
+          mm.method().retrieveActiveBody().getUnits().stream()
+              .map(Unit::getDefBoxes)
+              .flatMap(List::stream)
+              .map(ValueBox::getValue)
+              .filter(InstanceFieldRef.class::isInstance)
+              .map(InstanceFieldRef.class::cast)
+              .map(InstanceFieldRef::getField)
+              .forEach(writeFields::add);
+        });
+        return writeFields;
+      });
+    }
+
     @Override protected void flowThrough(final Map<Val, Integer> in, final Unit d, final Map<Val, Integer> out) {
       out.clear();
       out.putAll(in);
@@ -133,8 +167,13 @@ public class AliasInsertion {
     }
 
     private void havocHeap(final Stmt in, final Map<Val, Integer> out) {
+      Set<SootField> sf = this.getWriteSet(in);
       out.replaceAll((k,v) -> {
         if(k instanceof Loc) {
+          return v;
+        }
+        assert k instanceof FieldRef;
+        if(!sf.contains(((FieldRef) k).f)) {
           return v;
         }
         return getCtxtValue(in, k, method);
