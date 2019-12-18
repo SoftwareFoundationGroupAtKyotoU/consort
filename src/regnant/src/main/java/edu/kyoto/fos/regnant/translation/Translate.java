@@ -59,6 +59,7 @@ import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
 import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.StaticInvokeExpr;
+import soot.jimple.StringConstant;
 import soot.jimple.ThisRef;
 import soot.jimple.ThrowStmt;
 import soot.jimple.VirtualInvokeExpr;
@@ -89,6 +90,7 @@ import static edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation.*;
 
 public class Translate {
   private static final String THIS_PARAM = "reg$this_in";
+  public static final String ALIASING_CLASS = "edu.kyoto.fos.regnant.runtime.Aliasing";
   private final FlagInstrumentation flg;
   private final Body b;
   private final LetBindAllocator alloc;
@@ -528,7 +530,7 @@ public class Translate {
 
   private LocalContents translateCall(Unit ctxt, InstructionStream str, InvokeExpr expr, final TreeMap<Local, Binding> env) {
     if(isRegnantIntrinsic(expr)) {
-      return this.handleIntrinsic(str, expr);
+      return this.handleIntrinsic(ctxt, str, env, expr);
     }
     final VarManager vm = new BindCall(ctxt);
     List<LocalContents> args = new ArrayList<>();
@@ -578,14 +580,72 @@ public class Translate {
     return new CompoundCleanup(call, args.stream());
   }
 
-  private LocalContents handleIntrinsic(final InstructionStream str, final InvokeExpr expr) {
-    assert expr.getMethodRef().getName().equals("rand");
-    return new SimpleContents(ImpExpr.nondet());
+  private LocalContents handleIntrinsic(Unit ctxt, final InstructionStream str, TreeMap<Local, Binding> env, final InvokeExpr expr) {
+    if(expr.getMethodRef().getName().equals("rand")) {
+      assert expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS);
+      return new SimpleContents(ImpExpr.nondet());
+    } else {
+      assert expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS);
+      assert expr.getMethodRef().getName().equals("alias");
+      VarManager vm = new AbstractVarManager(ctxt, "alias", "fld") { };
+      if(expr.getArgCount() == 3) {
+        assert expr.getMethodRef().getSubSignature().getString().equals("(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String)V");
+        Value fldName = expr.getArg(2);
+        if(!(fldName instanceof StringConstant)) {
+          throw new RuntimeException("Non-constant field name in alias expression");
+        }
+        String name = ((StringConstant) fldName).value;
+        Value op1 = expr.getArg(0);
+        Value op2 = expr.getArg(1);
+        if(!(op1 instanceof Local) || !(op2 instanceof Local)) {
+          throw new RuntimeException("Alias arguments must be plain local variables");
+        }
+        Type r = op2.getType();
+        assert r instanceof RefType;
+        var kls = ((RefType) r).getSootClass();
+        SootField sf = getDeclaredField(kls, name);
+        if(sf == null) {
+          throw new RuntimeException("No field " + name + " declared in the type hierarchy of " + kls);
+        }
+        if(!(sf.getType() instanceof RefLikeType)) {
+          throw new RuntimeException("Field " + name + " must be a reference field");
+        }
+        VariableContents c1 = this.unwrapPointer(str, env, vm , 0, (Local) op1);
+        FieldPointer fp = this.unwrapField(str, env, vm, (Local) op2, sf, 1);
+        str.addPtrAlias(c1.getWrappedVariable(), fp.fieldName);
+        return new CompoundCleanup(ImpExpr.unitValue(), Stream.of(c1, fp));
+      } else {
+        assert expr.getArgCount() == 2;
+        Value op1 = expr.getArg(0);
+        Value op2 = expr.getArg(1);
+        if(!(op1 instanceof Local) || !(op2 instanceof Local)) {
+          throw new RuntimeException("Alias argument must be plain local variables");
+        }
+        VariableContents c1 = this.unwrapPointer(str, env, vm, 0, (Local) op1);
+        VariableContents c2 = this.unwrapPointer(str, env, vm, 1, (Local) op2);
+        str.addAlias(c1.getWrappedVariable(), c2.getWrappedVariable());
+        return new CompoundCleanup(ImpExpr.unitValue(), Stream.of(c1, c2));
+      }
+    }
+  }
+
+  private static SootField getDeclaredField(SootClass klass, String fldName) {
+    while(true) {
+      if(klass.declaresFieldByName(fldName)) {
+        return klass.getFieldByName(fldName);
+      }
+      if(klass.hasSuperclass()) {
+        klass = klass.getSuperclass();
+      } else {
+        return null;
+      }
+    }
   }
 
   private boolean isRegnantIntrinsic(final InvokeExpr expr) {
     return expr instanceof StaticInvokeExpr &&
-        (expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS) && expr.getMethodRef().getName().equals("rand"));
+        ((expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS) && expr.getMethodRef().getName().equals("rand")) ||
+            expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS));
   }
 
   private String devirtualize(final Unit u, final InstructionStream s, final Map<SootMethod,Set<SootClass>> callees) {
@@ -646,12 +706,16 @@ public class Translate {
     public abstract ImpExpr getValue();
   }
 
+  private static abstract class VariableContents extends LocalContents {
+    public abstract String getWrappedVariable();
+  }
+
   private enum BindMode {
     INTERPROC,
     INTRAPROC
   }
 
-  private class TempLocal extends LocalContents {
+  private static class TempLocal extends VariableContents {
     private final String tmp;
     private final Local alias;
     public TempLocal(final String tmp, final Local local) {
@@ -666,9 +730,13 @@ public class Translate {
     @Override public void cleanup(final InstructionStream s) {
       s.addPtrAlias(tmp, alias.getName());
     }
+
+    @Override public String getWrappedVariable() {
+      return tmp;
+    }
   }
 
-  private class SimpleContents extends LocalContents {
+  private static class SimpleContents extends LocalContents {
     private final ImpExpr lifted;
 
     public SimpleContents(final ImpExpr lift) {
@@ -715,12 +783,28 @@ public class Translate {
 
   private LocalContents unwrapArray(final ArrayRef v, final InstructionStream s, final TreeMap<Local,Binding> env, final VarManager m, int slot) {
     Local l = (Local) v.getBase();
+    return unwrapPointer(s, env, m, slot, l);
+  }
+
+  private VariableContents unwrapPointer(final InstructionStream s, final TreeMap<Local, Binding> env, final VarManager m, final int slot, final Local l) {
     if(env.get(l).some() == Binding.MUTABLE) {
       String tmp = m.getBase(slot);
       s.addBinding(tmp, Variable.deref(l.getName()), false);
       return new TempLocal(tmp, l);
     } else {
-      return new SimpleContents(Variable.immut(l));
+      return new VariableContents() {
+        @Override public String getWrappedVariable() {
+          return l.getName();
+        }
+
+        @Override public ImpExpr getValue() {
+          return Variable.immut(l);
+        }
+
+        @Override public void cleanup(final InstructionStream stream) {
+
+        }
+      };
     }
   }
 
@@ -775,7 +859,7 @@ public class Translate {
     String getField(int i);
   }
 
-  private abstract class AbstractVarManager implements VarManager {
+  private abstract static class AbstractVarManager implements VarManager {
     private final String base;
     private final String field;
     private boolean readBase = false;
@@ -828,13 +912,13 @@ public class Translate {
     }
   }
 
-  private class BindCall extends AbstractVarManager {
+  private static class BindCall extends AbstractVarManager {
     public BindCall(final Unit ctxt) {
       super(ctxt, "call", null);
     }
   }
 
-  private class LocalWrite extends AbstractVarManager {
+  private static class LocalWrite extends AbstractVarManager {
     public LocalWrite(final Unit unit) {
       super(unit, "base", "field");
     }
@@ -842,18 +926,23 @@ public class Translate {
 
   private FieldPointer unwrapField(InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local,Binding> env, VarManager vm) {
     Local l = (Local) fieldRef.getBase();
+    SootField field = fieldRef.getField();
+    return unwrapField(str, env, vm, l, field, -1);
+  }
+
+  private FieldPointer unwrapField(final InstructionStream str, final TreeMap<Local, Binding> env, final VarManager vm, final Local l, final SootField field, int slot) {
     String fieldBase;
     String localStorage;
     if(env.get(l).some() == Binding.MUTABLE) {
       localStorage = l.getName();
-      fieldBase = vm.getBase(-1);
+      fieldBase = vm.getBase(slot);
       str.addBinding(fieldBase, Variable.deref(l.getName()), false);
     } else {
       localStorage = null;
       fieldBase = l.getName();
     }
-    String fieldPtr = vm.getField(-1);
-    SootField field = fieldRef.getField();
+    String fieldPtr = vm.getField(slot);
+
     int i = this.layout.getStorageSlot(field);
     str.bindProjection(fieldPtr, i, layout.metaStorageSize(field), fieldBase);
     return new FieldPointer(fieldPtr, i, fieldBase, localStorage);
@@ -904,7 +993,7 @@ public class Translate {
     return coordAssignment.computeIfAbsent(c, _c -> coordCounter++);
   }
 
-  private class FieldOpWrite implements VarManager {
+  private static class FieldOpWrite implements VarManager {
     private final String tag;
     private boolean readBase = false;
     private boolean readField = false;
