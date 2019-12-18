@@ -589,7 +589,7 @@ public class Translate {
       assert expr.getMethodRef().getName().equals("alias");
       VarManager vm = new AbstractVarManager(ctxt, "alias", "fld") { };
       if(expr.getArgCount() == 3) {
-        assert expr.getMethodRef().getSubSignature().getString().equals("(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String)V");
+        assert expr.getMethodRef().getSubSignature().getString().equals("void alias(java.lang.Object,java.lang.Object,java.lang.String)") : expr.getMethodRef().getSubSignature();
         Value fldName = expr.getArg(2);
         if(!(fldName instanceof StringConstant)) {
           throw new RuntimeException("Non-constant field name in alias expression");
