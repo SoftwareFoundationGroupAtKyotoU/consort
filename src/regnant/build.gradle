@@ -71,6 +71,8 @@ distributions {
 	}
 }
 
+startScripts.defaultJvmOpts += ["-ea"]
+
 assemble.dependsOn += integrationJar
 
 compileIntegrationJava.targetCompatibility = JavaVersion.VERSION_1_8
