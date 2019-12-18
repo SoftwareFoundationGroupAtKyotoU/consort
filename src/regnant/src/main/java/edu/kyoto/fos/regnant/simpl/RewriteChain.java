@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 public class RewriteChain {
   private static final List<Function<Body, Body>> rewriters = List.of(
+      AliasInsertion::rewrite,
       AssertionRewriter::rewrite,
       RandomRewriter::rewriteRandom
   );
