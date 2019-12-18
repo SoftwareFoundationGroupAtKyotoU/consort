@@ -18,10 +18,17 @@ idea {
 }
 
 sourceSets {
+	runtime {
+		java {
+			srcDirs = ["src/runtime/java"]
+		}
+	}
 	integration {
 		java {
 			srcDirs = [ "src/integration/java" ]
 		}
+		compileClasspath += sourceSets.runtime.output
+		runtimeClasspath += sourceSets.runtime.output
 	}
 }
 
