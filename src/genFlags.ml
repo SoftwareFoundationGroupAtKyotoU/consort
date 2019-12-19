@@ -8,8 +8,8 @@ let () =
   let (bif,rel,defn_f) = [%of_sexp : (bif_env_t * rel_interp_t * string)] serialized in
   let defn_f = Filename.concat (Filename.dirname (Sys.argv.(1))) defn_f in
   let defns = Sexp.load_sexps defn_f in
-  let flags = Sexp.load_sexp Sys.argv.(2) |> [%of_sexp: (string * int list) list] in
-  let (bif, defns) = List.fold_left (fun (bif, defns) (nm, flags) ->
+  let flags = Sexp.load_sexp Sys.argv.(2) |> [%of_sexp: (string * int list * bool) list] in
+  let (bif, defns) = List.fold_left (fun (bif, defns) (nm, flags, inv) ->
       let ty = {
         arg_types = [ RefinementTypes.Int `Unconstrained ];
         output_types = [ RefinementTypes.Int `Unconstrained ];
@@ -24,14 +24,20 @@ let () =
           ]
         ) flags in
       let cond = pg "or" eqn in
+      let (tr_branch,fl_branch) =
+        if inv then
+          (pl "1", pl "0")
+        else
+          (pl "0", pl "1")
+      in
       let defn = pg "define-fun" [
           pl nm;
           ll [ ll [ pl "result"; pl "Int" ]; ll [ pl "flag"; pl "Int" ] ];
           pl "Bool";
           pg "ite" [
             cond;
-            pg "=" [ pl "result"; pl "0" ];
-            pg "=" [ pl "result"; pl "1" ]
+            pg "=" [ pl "result"; tr_branch ];
+            pg "=" [ pl "result"; fl_branch ]
           ]
         ]
       in

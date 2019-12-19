@@ -7,6 +7,7 @@ import soot.Local;
 import soot.Type;
 import soot.VoidType;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -55,6 +56,10 @@ public abstract class ImpExpr implements ProgFragment {
 
   public static ImpExpr call(final String name, final List<ImpExpr> args) {
     return Call.v(name, args);
+  }
+
+  public static ImpExpr call(final String name, ImpExpr... args) {
+    return call(name, Arrays.asList(args));
   }
 
   public static ImpExpr nondet() {

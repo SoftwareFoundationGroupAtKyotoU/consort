@@ -15,6 +15,7 @@ import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.ir.expr.ArrayLength;
 import edu.kyoto.fos.regnant.ir.expr.ArrayRead;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
+import edu.kyoto.fos.regnant.ir.expr.IntLiteral;
 import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
 import edu.kyoto.fos.regnant.ir.expr.Variable;
 import edu.kyoto.fos.regnant.simpl.RandomRewriter;
@@ -51,6 +52,7 @@ import soot.jimple.IdentityStmt;
 import soot.jimple.IfStmt;
 import soot.jimple.InstanceFieldRef;
 import soot.jimple.InstanceInvokeExpr;
+import soot.jimple.InstanceOfExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
 import soot.jimple.LengthExpr;
@@ -770,16 +772,16 @@ public class Translate {
       ImpExpr ind = this.lifter.lift(ar.getIndex(), env);
       return new CompoundCleanup(new ArrayRead(c.getValue(), ind), c);
     } else if(v instanceof InvokeExpr) {
-      assert slot == -1;
       return this.translateCall(ctxt, s, (InvokeExpr) v, env);
     } else if(v instanceof LengthExpr) {
       LengthExpr le = (LengthExpr) v;
-      LocalContents c = this.liftValue(ctxt, le.getOp(), m, s, slot, mode, env);
+      LocalContents c = this.liftValue(ctxt, le.getOp(), m, s, mode, env);
       return new CompoundCleanup(new ArrayLength(c.getValue()), c);
     } else if(v instanceof CastExpr) {
       CastExpr ce = (CastExpr) v;
       Value op = ce.getOp();
-      VariableContents l = this.unwrapPointer(s, env, m, (Local) op);
+      Local castOp = (Local) op;
+      VariableContents l = this.unwrapPointer(s, env, m, castOp);
       String runtimeTag = m.getField();
       // XXX(jtoman): this will need to be adjusted to handle casting out of interfaces
       assert op.getType() instanceof RefType;
@@ -787,11 +789,8 @@ public class Translate {
         throw new UnsupportedOperationException("can't support casting out of intf");
       }
       PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
-      Set<Type> opTypes = pta.reachingObjects((Local) op).possibleTypes();
-      assert layout.haveSameRepr(
-        opTypes.stream().map(t -> ((RefType)t).getSootClass())
-      );
-      SootClass repr = ((RefType)opTypes.iterator().next()).getSootClass();
+      Set<Type> opTypes = pta.reachingObjects(castOp).possibleTypes();
+      SootClass repr = getRepresentativeClass(opTypes);
       int sz = layout.metaStorageSize(repr);
       s.bindProjection(runtimeTag, 0, sz, l.getWrappedVariable());
       Type ty = ce.getCastType();
@@ -802,11 +801,8 @@ public class Translate {
         throw new UnsupportedOperationException("can't support these yet");
       }
       // XXX(jtoman): this could be better computed with points-to info
-      List<Integer> validDownCasts = opTypes.stream()
-          .filter(reachTy -> fh.canStoreType(reachTy, ty) && reachTy instanceof RefType)
-          .map(RefType.class::cast)
-          .map(RefType::getSootClass)
-          .map(SootClass::getNumber).collect(Collectors.toList());
+      List<Integer> validDownCasts = opTypes.stream().filter(reachTy -> fh.canStoreType(reachTy, ty) && reachTy instanceof RefType).map(RefType.class::cast)
+          .map(RefType::getSootClass).map(SootClass::getNumber).collect(Collectors.toList());
       if(validDownCasts.size() == 0) {
         System.out.println("Apparently impossible cast???");
         s.addAssertFalse();
@@ -816,9 +812,44 @@ public class Translate {
       ImpExpr checkCall = ImpExpr.call(test, List.of(Variable.immut(runtimeTag)));
       s.addCond(checkCall, InstructionStream.fresh("valid-cast", InstructionStream::close), InstructionStream.fresh("invalid-cast", InstructionStream::addAssertFalse));
       return l;
+    } else if(v instanceof InstanceOfExpr) {
+      // TODO(jtoman): handle impossible casts
+      InstanceOfExpr instExpr = (InstanceOfExpr) v;
+      assert instExpr.getOp() instanceof Local;
+      Local check = (Local) instExpr.getOp();
+      PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
+      Type checkType = instExpr.getCheckType();
+      FastHierarchy fh = Scene.v().getOrMakeFastHierarchy();
+      Set<Type> opTypes = pta.reachingObjects(check).possibleTypes();
+      List<Integer> collect = opTypes.stream()
+          .filter(ty -> fh.canStoreType(ty, checkType))
+          .filter(RefType.class::isInstance)
+          .map(r -> ((RefType) r).getSootClass())
+          .map(SootClass::getNumber)
+          .distinct()
+          .collect(Collectors.toList());
+      VariableContents c = this.unwrapPointer(s, env, m, check);
+      String tmp = m.getBase();
+      s.addBinding(tmp, ImpExpr.literalInt(0), true);
+      InstructionStream isNull = InstructionStream.fresh("is-null-branch", l -> l.addWrite(tmp, IntLiteral.v(0)));
+      InstructionStream isInhabited = InstructionStream.fresh("non-null-branch", l -> {
+        int sz = layout.metaStorageSize(getRepresentativeClass(opTypes));
+        String runtimeField = m.getField();
+        l.bindProjection(runtimeField, 0, sz, c.getWrappedVariable());
+        String isSubPred = FlagTranslation.allocate(collect, true);
+        ImpExpr checkCall = ImpExpr.call(isSubPred, Variable.immut(runtimeField));
+        l.addWrite(tmp, checkCall);
+      });
+      s.addNullCond(c.getValue(), isNull, isInhabited);
+      return new CompoundCleanup(Variable.deref(tmp), c);
     } else {
       return new SimpleContents(lifter.lift(v, env));
     }
+  }
+
+  private SootClass getRepresentativeClass(final Set<Type> opTypes) {
+    assert layout.haveSameRepr(opTypes.stream().map(t -> ((RefType) t).getSootClass()));
+    return ((RefType) opTypes.iterator().next()).getSootClass();
   }
 
   private LocalContents unwrapArray(final ArrayRef v, final InstructionStream s, final TreeMap<Local, Binding> env, final VarManager m) {
