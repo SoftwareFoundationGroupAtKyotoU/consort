@@ -292,7 +292,7 @@ public class Translate {
   }
 
   public static String getMangledName(final SootMethod m) {
-    return m.getDeclaringClass().getName().replace(".", "__") + "_" + m.getName();
+    return m.getDeclaringClass().getName().replace(".", "__") + "_" + m.getName().replace("<init>", "$init$");
   }
 
   private String getLoopName(final GraphElem elem) {
@@ -504,13 +504,13 @@ public class Translate {
       s.addArrayWrite(basePtr.getValue(), ind, val);
       basePtr.cleanup(s);
       str.addBlock(s);
-    } else if(unit instanceof InvokeStmt && ((InvokeStmt) unit).getInvokeExpr() instanceof SpecialInvokeExpr && ((InvokeStmt) unit).getInvokeExpr().getMethodRef().getName().equals("<init>")) {
-      // we don't do constructors here
-      // TODO: this should skip the *object* constructor, not all super class constructors...
-      // do nothing!
     } else if(unit instanceof InvokeStmt) {
       InstructionStream call = InstructionStream.fresh("call");
-      LocalContents c = this.translateCall(unit, call, ((InvokeStmt) unit).getInvokeExpr(), env);
+      InvokeStmt is = (InvokeStmt) unit;
+      if(is instanceof SpecialInvokeExpr && is.getInvokeExpr().getMethodRef().getDeclaringClass().getName().equals("java.lang.Object") && is.getInvokeExpr().getMethodRef().getName().equals("<init>")) {
+        return;
+      }
+      LocalContents c = this.translateCall(unit, call, is.getInvokeExpr(), env);
       call.addExpr(c.getValue());
       c.cleanup(call);
       str.addBlock(call);
