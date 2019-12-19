@@ -8,7 +8,7 @@ import yaml
 
 this_dir = os.path.realpath(os.path.dirname(sys.argv[0]))
 
-subprocess.check_call([os.path.join(this_dir, "gradlew"), "installDist", "integrationJar"], cwd = this_dir)
+subprocess.check_call([os.path.join(this_dir, "gradlew"), "--console", "plain", "installDist", "integrationJar"], cwd = this_dir)
 
 integration = os.path.join(this_dir, "build/libs/integration.jar")
 reg_script = os.path.join(this_dir, "regnant.py")
