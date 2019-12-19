@@ -76,8 +76,7 @@ public class Jumps {
   @Override public String toString() {
     String s = Stream.concat(this.brk.keySet().stream(),
         Stream.concat(this.flow.stream(), this.cont.stream())
-    ).map(P2::_2).map(b -> String.valueOf(b.getId()))
-      .reduce((a, b) -> a + ", " + b).orElse("");
-    return "[goto: {" + s + "}; brk: " + brk + "]";
+    ).map(P2::_2).map(b -> String.valueOf(b.getId())).collect(Collectors.joining(", ", "{", "}"));
+    return "[goto: " + s + "; brk: " + brk + "]";
   }
 }

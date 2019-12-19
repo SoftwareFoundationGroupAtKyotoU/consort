@@ -86,7 +86,7 @@ public class FlagInstrumentation {
       assert jumps.cont.isEmpty();
     }
     jumps.brk.keySet().stream().map(P2::_1).forEach(b -> {
-      setFlag.add(b); returnJump.add(b);
+      returnJump.add(b);
     });
 
     if(graph.isLoop()) {
@@ -102,15 +102,14 @@ public class FlagInstrumentation {
         setFlag.add(bb._1());
         returnJump.add(bb._1());
       });
-      graph.getJumps().brk.keySet().stream().map(P2::_1).forEach(returnOn::add);
+      graph.getJumps().brk.keySet().forEach(p -> {
+        returnOn.add(p._1());
+        setFlag.add(p._1());
+      });
       graph.putAnnotation(RETURN_ON, returnOn);
       graph.putAnnotation(RECURSE_ON, recurseOn);
     } else {
-      graph.getJumps().cont.forEach(p -> {
-        assert parentLoop != null;
-        assert p._2().equals(parentLoop);
-        this.recurseFlag.add(p._1());
-      });
+      assert graph.getJumps().cont.isEmpty();
     }
   }
 }
