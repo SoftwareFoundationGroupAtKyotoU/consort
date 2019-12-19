@@ -5,6 +5,7 @@ import fj.P;
 import fj.P2;
 import soot.Body;
 import soot.Local;
+import soot.PointsToSet;
 import soot.RefLikeType;
 import soot.Scene;
 import soot.SootClass;
@@ -46,9 +47,11 @@ public class AliasInsertion {
   private static class FieldRef extends Val {
     public final int baseVal;
     public final SootField f;
-    public FieldRef(int i, SootField f) {
+    public final PointsToSet pts;
+    public FieldRef(int i, SootField f, PointsToSet pts) {
       this.baseVal = i;
       this.f = f;
+      this.pts = pts;
     }
 
     @Override public boolean equals(final Object o) {
@@ -112,6 +115,9 @@ public class AliasInsertion {
           if(Scene.v().isExcluded(mm.method().getDeclaringClass())) {
             return;
           }
+          if(!mm.method().hasActiveBody()) {
+            return;
+          }
           mm.method().retrieveActiveBody().getUnits().stream()
               .map(Unit::getDefBoxes)
               .flatMap(List::stream)
@@ -140,7 +146,7 @@ public class AliasInsertion {
           rhs = ((CastExpr) rhs).getOp();
         }
         if(lhs.getType() instanceof RefLikeType) {
-          System.out.println("Modelling d " + lhs + " <- " + rhs);
+          System.out.println("Modelling " + lhs + " <- " + rhs);
           if(rhs instanceof IdentityRef) {
             assert lhs instanceof Local;
             if(rhs instanceof ThisRef) {
@@ -155,9 +161,28 @@ public class AliasInsertion {
               out.put(new Loc((Local) lhs), newVal);
             } else if(lhs instanceof InstanceFieldRef) {
               InstanceFieldRef ifr = (InstanceFieldRef) lhs;
-              Loc baseKey = new Loc((Local) ifr.getBase());
+              Local base = (Local) ifr.getBase();
+              Loc baseKey = new Loc(base);
+              PointsToSet basePts = Scene.v().getPointsToAnalysis().reachingObjects(base);
               assert out.containsKey(baseKey);
-              out.put(new FieldRef(out.get(baseKey), ifr.getField()), newVal);
+              FieldRef write = new FieldRef(out.get(baseKey), ifr.getField(), basePts);
+              out.put(write, newVal);
+              out.replaceAll((key, val) -> {
+                if(key instanceof Loc) {
+                  return val;
+                }
+                FieldRef fr = (FieldRef) key;
+                if(!fr.f.equals(ifr.getField())) {
+                  return val;
+                }
+                if(fr.equals(write)) {
+                  return val;
+                }
+                if(!write.pts.hasNonEmptyIntersection(fr.pts)) {
+                  return val;
+                }
+                return this.getCtxtValue(d, fr, method);
+              });
             } else {
               throw new RuntimeException("unsupported rhs");
             }
@@ -186,7 +211,7 @@ public class AliasInsertion {
       } else if(rhs instanceof InstanceFieldRef) {
         InstanceFieldRef ifr = (InstanceFieldRef) rhs;
         int i = getValueNumber(env, ifr.getBase());
-        return env.computeIfAbsent(new FieldRef(i, ifr.getField()), ign -> valueNumber++);
+        return env.computeIfAbsent(new FieldRef(i, ifr.getField(), Scene.v().getPointsToAnalysis().reachingObjects((Local) ifr.getBase())), ign -> valueNumber++);
       } else {
         return rhsNumber.computeIfAbsent(rhs, ign -> valueNumber++);
       }
@@ -283,7 +308,7 @@ public class AliasInsertion {
       Loc baseKey = new Loc((Local) sourceField.getBase());
       assert alias.containsKey(baseKey);
       int base = alias.get(baseKey);
-      FieldRef fieldKey = new FieldRef(base, sourceField.getField());
+      FieldRef fieldKey = new FieldRef(base, sourceField.getField(), null);
       assert alias.containsKey(fieldKey);
       int value = alias.get(fieldKey);
 
