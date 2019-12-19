@@ -66,7 +66,6 @@ import soot.jimple.StaticInvokeExpr;
 import soot.jimple.StringConstant;
 import soot.jimple.ThisRef;
 import soot.jimple.ThrowStmt;
-import soot.jimple.VirtualInvokeExpr;
 import soot.jimple.internal.JimpleLocal;
 import soot.jimple.toolkits.callgraph.VirtualCalls;
 import soot.util.NumberedString;
@@ -547,9 +546,9 @@ public class Translate {
       worklist.add(m);
       callee = getMangledName(m);
     } else {
-      assert expr instanceof VirtualInvokeExpr;
+      assert expr instanceof InstanceInvokeExpr;
       // Points to analysis time!
-      VirtualInvokeExpr inv = (VirtualInvokeExpr) expr;
+      var inv = (InstanceInvokeExpr) expr;
       Local l = (Local) inv.getBase();
       PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
       NumberedString subSig = expr.getMethodRef().getSubSignature();
@@ -573,8 +572,7 @@ public class Translate {
       InstanceInvokeExpr iie = (InstanceInvokeExpr) expr;
       args.add(liftValue(ctxt, iie.getBase(), vm, str, BindMode.INTERPROC, env));
     }
-    for(int i = 0; i < v.size(); i++) {
-      Value a = v.get(i);
+    for(Value a : v) {
       var lifted = liftValue(ctxt, a, vm, str, BindMode.INTERPROC, env);
       args.add(lifted);
     }
@@ -783,11 +781,7 @@ public class Translate {
       Local castOp = (Local) op;
       VariableContents l = this.unwrapPointer(s, env, m, castOp);
       String runtimeTag = m.getField();
-      // XXX(jtoman): this will need to be adjusted to handle casting out of interfaces
       assert op.getType() instanceof RefType;
-      if(((RefType) op.getType()).getSootClass().isInterface()) {
-        throw new UnsupportedOperationException("can't support casting out of intf");
-      }
       PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
       Set<Type> opTypes = pta.reachingObjects(castOp).possibleTypes();
       SootClass repr = getRepresentativeClass(opTypes);
@@ -795,11 +789,7 @@ public class Translate {
       s.bindProjection(runtimeTag, 0, sz, l.getWrappedVariable());
       Type ty = ce.getCastType();
       assert ty instanceof RefType;
-      SootClass castType = ((RefType) ty).getSootClass();
       FastHierarchy fh = Scene.v().getOrMakeFastHierarchy();
-      if(castType.isInterface()) {
-        throw new UnsupportedOperationException("can't support these yet");
-      }
       // XXX(jtoman): this could be better computed with points-to info
       List<Integer> validDownCasts = opTypes.stream().filter(reachTy -> fh.canStoreType(reachTy, ty) && reachTy instanceof RefType).map(RefType.class::cast)
           .map(RefType::getSootClass).map(SootClass::getNumber).collect(Collectors.toList());
