@@ -36,7 +36,7 @@ type exp =
   | Assign of pos * string * lhs
   | Update of pos * lhs * lhs * lhs
   | Let of pos * patt * lhs * exp
-  | Alias of pos * string * A.src_ap
+  | Alias of pos * Paths.concr_ap * Paths.concr_ap
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
   | Return of pos * lhs

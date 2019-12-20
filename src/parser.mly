@@ -89,7 +89,7 @@ let expr :=
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; {
 		Assign((lbl,$startpos),x,y)
 	  }
-  | ALIAS; lbl = expr_label; LPAREN; x = ID; EQ; y = ap; RPAREN; {
+  | ALIAS; lbl = expr_label; LPAREN; x = ap; EQ; y = ap; RPAREN; {
 		Alias ((lbl,$startpos),x,y)
 	  }
   | ASSERT; lbl = expr_label; LPAREN; op1 = op; cond = rel_op; op2 = op; RPAREN; {
@@ -106,10 +106,13 @@ let expr :=
 	  }
 
 let ap :=
-  | ~ = ID; <Ast.AVar>
-  | STAR; ~ = ID; <Ast.ADeref>
-  | LPAREN; STAR; id = ID; RPAREN; DOT; ind = INT; { Ast.APtrProj(id, ind) }
-  | v = ID; DOT; ind = INT; { Ast.AProj (v, ind) }
+  | STAR; a = ap_prim; { Paths.deref a }
+  | ~ = ap_prim; <>
+
+let ap_prim :=
+  | v = ID; { Paths.var v }
+  | a1 = ap_prim; DOT; ind = INT; { Paths.t_ind a1 ind }
+  | LPAREN; ~ = ap; RPAREN; <>
 
 let patt :=
   | LPAREN; plist = separated_nonempty_list(COMMA, patt); RPAREN; <Ast.PTuple>

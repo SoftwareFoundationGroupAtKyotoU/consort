@@ -53,12 +53,6 @@ let position_of_sexp sexp =
     ([%of_sexp: int] id, Locations.location_of_sexp pos)
   | _ -> Sexplib.Conv_error.tuple_of_size_n_expected "position" 2 sexp
 
-type src_ap =
-  | AVar of string
-  | AProj of string * int
-  | ADeref of string
-  | APtrProj of string * int [@@deriving sexp]
-
 type raw_exp =
   | Unit
   | Fail
@@ -68,7 +62,7 @@ type raw_exp =
   | Assign of string * imm_op * exp
   | Update of string * string * string * exp
   | Let of patt * lhs * exp
-  | Alias of string * src_ap * exp
+  | Alias of Paths.concr_ap * Paths.concr_ap * exp
   | Assert of relation * exp
   | Return of string [@@deriving sexp]
 

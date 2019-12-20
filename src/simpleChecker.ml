@@ -295,12 +295,16 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     let c_id = fresh_cons_id ctxt.sub @@ assign_t in
     { res_acc with assign_locs = (id,c_id,assign_t)::res_acc.assign_locs },c_id
   in
-  let record_read ty =
+  let record_read ty res_acc =
     let c_id = fresh_cons_id ctxt.sub ty in
     { res_acc with deref_locs = (id,c_id,ty)::res_acc.deref_locs },c_id
   in
-  let record_tcons tup_var ind pvar acc =
-    { acc with t_cons = { var = tup_var; ind; unif = pvar; loc }::acc.t_cons }
+  let record_tcons = 
+    let open Std.StateMonad in
+    let%lm impl tup_var ind pvar acc =
+      { acc with t_cons = { var = tup_var; ind; unif = pvar; loc }::acc.t_cons }
+    in
+    impl
   in
   let save_let ty acc =
     { acc with let_types = Std.IntMap.add id ty acc.let_types }
@@ -346,31 +350,39 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     unify_var ind `Int;
     unify_var u @@ d;
     process_expr ret_type ctxt e res_acc
-  | Alias (v, ap,e) ->
+  | Alias (ap1, ap2 ,e) ->   
     let fresh_node () = UnionFind.new_node ctxt.sub.uf in
-    let find ap =
-      match ap with
-      | AVar v -> res_acc,lkp v
-      | ADeref v ->
-        let tv = fresh_var () in
-        let acc,c_id = record_read @@ tv in
-        unify_var v @@ `TyCons c_id;
-        acc,tv
-      | AProj (v,ind) ->
-        let tuple_v = fresh_node () in
-        let content_v = fresh_node () in
-        unify_var v @@ `Var tuple_v;
-        (record_tcons tuple_v ind content_v res_acc),`Var content_v
-      | APtrProj (v,ind) ->
-        let tuple_v = fresh_node () in
-        let content_v = fresh_node () in
-        let acc,c_id = record_read @@ `Var tuple_v in
-        unify_var v @@ `TyCons c_id;
-        (record_tcons tuple_v ind content_v acc),`Var content_v
+    let find (ap : Paths.concr_ap) =
+      let open Paths in
+      let open Std.StateMonad in
+      let (root, steps, suff) = (ap :> root * steps list * suff) in
+      match root,suff with
+      | Var v,`None ->
+        let rec find_loop tau s =
+          match s with
+          | [] ->
+            unify_var v tau;
+            return ()
+          | `Deref::rest ->
+            let%bind c_id = record_read tau in
+            let ty = `TyCons c_id in
+            find_loop ty rest
+          | `Proj i::rest ->
+            let tuple_v = fresh_node () in
+            let content_v = fresh_node () in
+            unify (`Var content_v) tau;
+            record_tcons tuple_v i content_v >>
+            find_loop (`Var tuple_v) rest
+        in
+        let aliased_type = fresh_var () in
+        let%bind () = find_loop aliased_type steps in
+        return aliased_type
+      | _,_ -> assert false
     in
-    let (acc,ty) = find ap in
-    unify (lkp v) ty;
-    process_expr ret_type ctxt e acc
+    let res_acc,t1 = find ap1 res_acc in
+    let res_acc,t2 = find ap2 res_acc in
+    unify t1 t2;
+    process_expr ret_type ctxt e res_acc
   | Assert ({ rop1; rop2; _ },e) ->
     unify_imm rop1 `Int;
     unify_imm rop2 `Int;
@@ -400,7 +412,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         same @@ `Int
       | Deref p ->
         let tv = fresh_var () in
-        let acc',c_id = record_read tv in
+        let acc',c_id = record_read tv res_acc in
         unify_var p @@ `TyCons c_id;
         acc',tv
       | Null -> same @@ fresh_cons @@ fresh_var ()
@@ -535,8 +547,15 @@ let typecheck_prog intr_types (fns,body) =
         unify ~loc sub (`Var unif) @@ List.nth tl ind
     | Some t' -> failwith @@ "Ill-typed: expected tuple, got " ^ (string_of_typ t')
   ) acc'.t_cons;
-  let fold_locs = get_rec_loc sub acc'.assign_locs in
-  let unfold_locs = get_rec_loc sub acc'.deref_locs in  
+  let distinct_list_to_set l =
+    let l' = Std.IntSet.of_list l in
+    if (List.compare_length_with l @@ Std.IntSet.cardinal l') <> 0 then
+      failwith "Multiple recursive type operations at the same point"
+    else
+      l'
+  in
+  let fold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.assign_locs in
+  let unfold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.deref_locs in  
   let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in
   (List.fold_left (fun acc { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
@@ -544,7 +563,7 @@ let typecheck_prog intr_types (fns,body) =
     let ret_type = get_soln @@ `Var ret_type_v in
     StringMap.add name { arg_types; ret_type } acc
    ) StringMap.empty fns),SideAnalysis.(
-    { unfold_locs = Std.IntSet.of_list unfold_locs;
-      fold_locs = Std.IntSet.of_list fold_locs;
+    { unfold_locs;
+      fold_locs;
       let_types = Std.IntMap.map get_soln acc'.let_types
     })

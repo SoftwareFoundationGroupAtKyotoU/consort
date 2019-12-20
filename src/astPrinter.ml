@@ -33,11 +33,23 @@ let pprint_kv (k,v) =
 
 let upp_imm = ul pp_imm
     
-let pp_ap = function
-  | AVar v -> pv v
-  | ADeref v -> pl [ ps "*"; pv v ]
-  | AProj (v,ind) -> pl [ pv v; ps "."; pi ind ]
-  | APtrProj (v,ind) -> pl [ pf "(*%s)." v; pi ind ]
+let pp_ap r =
+  let open Paths in
+  (* private tuple types are very annoying *)
+  let (root,steps,suff) = (r : concr_ap :> root * steps list * suff) in
+  match root,suff with
+  | Var var,`None ->
+    let rec loop s =
+      match s with
+      | [] -> ps var
+      | `Proj i::`Deref::l ->
+        pf "(*%a).%d" (ul loop) l i
+      | `Proj i::l ->
+        pf "%a.%d" (ul loop) l i
+      | `Deref::l -> pf "*%a" (ul loop) l
+    in
+    loop steps
+  | _ -> failwith "Unsupported operation ap"
 
 let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_ap) RefinementTypes.refinement) =
   let open RefinementTypes in
@@ -137,7 +149,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
       pp_cond ~ip ~annot id "if" x tr fl
     | Alias(x,y,e) ->
       pl [
-          pf "alias%a(%s = %a)" po_id id x (ul pp_ap) y;
+          pf "alias%a(%a = %a)" po_id id (ul pp_ap) x (ul pp_ap) y;
           semi;
           pp_expr ~ip ~annot e
         ]
