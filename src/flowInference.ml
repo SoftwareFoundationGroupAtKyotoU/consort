@@ -258,7 +258,7 @@ let path_simple_type tyenv path =
         )
     | Some (`Proj i) ->
       loop (P.parent path) (function
-        | `Tuple tl -> List.nth tl i
+        | `Tuple tl -> k @@ List.nth tl i
         | _ -> assert false
         )
     | _ -> failwith "Not supported"
