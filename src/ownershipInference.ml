@@ -265,45 +265,45 @@ let map_type k v  =
   let%bind (t',subt,subt') = k t in
   return @@ (update_type v t',subt,subt')
 
-let fresh_ap e_id =
+let fresh_ap e_id (p: P.concr_ap) =
   let loc = MAlias e_id in
-  function
-  | AVar v ->
-    map_type (fun t ->
-        let%bind t' = make_fresh_type loc (P.var v) t in
-        return (t',t,t')
-      ) v
-  | ADeref v ->
-    map_type (function
-      | Ref (t,o) ->
-        let%bind t' = make_fresh_type loc (P.deref @@ P.var v) t in
-        begin%m
-            constrain_wf_loop o t';
-             return (Ref (t',o),t,t')
-        end
-      | _ -> assert false
-      ) v
-  | AProj (v,ind) ->
-    map_type (function
-      | Tuple tl ->
-        let t = List.nth tl ind in
-        let%bind t' = make_fresh_type loc (P.t_ind (P.var v) ind) t in
-        let tl' = update_nth tl ind t' in
-        return (Tuple tl',t,t')
-      | _ -> assert false
-      ) v
-  | APtrProj (v,ind) ->
-    map_type (function
-      | Ref (Tuple tl,o) ->
-        let t = List.nth tl ind in
-        let%bind t' = make_fresh_type loc (P.t_ind (P.deref @@ P.var v) ind) t in
-        let tl' = update_nth tl ind t' in
-        begin%m
-            constrain_wf_loop o t';
-             return (Ref (Tuple tl',o),t,t')
-        end
-      | _ -> assert false) v
-
+  let (root,steps,suff) = (p :> P.root * P.steps list * P.suff) in
+  let v =
+    match root,suff with
+    | Var v,`None -> v
+    | _ -> assert false
+  in
+  let rec loop (k: ?o:ownership -> otype -> (otype * 'a * 'b, context, 'c) Let_syntax.context_monad) st =
+    match st with
+    | [] -> map_type (fun t -> k t) v
+    | `Deref::l ->
+      loop (fun ?o:_ in_t ->
+          match in_t with
+          | Ref (in_t',o) ->
+            let%bind (new_t,lt,lt') = k ~o in_t' in
+            return @@ (Ref (new_t,o), lt, lt')
+          | _ -> assert false
+        ) l
+    | `Proj i::l ->
+      loop (fun ?o in_t ->
+          match in_t with
+          | Tuple tl ->
+            let ith = List.nth tl i in
+            let%bind (new_sub,lt, lt') = k ?o ith in
+            let tl' = update_nth tl i new_sub in
+            return @@ (Tuple tl',lt, lt')
+          | _ -> assert false
+        ) l
+  in
+  loop (fun ?o t ->
+    let%bind t' = make_fresh_type loc p t in
+    let%bind () =
+      match o with
+      | None -> return ()
+      | Some o -> constrain_wf_loop o t'
+    in
+    return (t',t,t')
+  ) steps
 (* this must record *)
 let get_type_scheme e_id v ctxt =
   let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
@@ -476,7 +476,7 @@ let rec process_expr ~output ((e_id,_),expr) =
          process_expr ~output nxt
     end
   | Alias(src,dst,nxt) ->
-    let%bind (src_up,st,st') = fresh_ap e_id @@ AVar src
+    let%bind (src_up,st,st') = fresh_ap e_id src
     and (dst_up,dt,dt') = fresh_ap e_id dst in
     begin%m
         shuffle_types ~e_id ~src:(st,st') ~dst:(dt,dt');
