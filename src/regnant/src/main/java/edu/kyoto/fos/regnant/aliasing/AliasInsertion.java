@@ -1,4 +1,4 @@
-package edu.kyoto.fos.regnant.simpl;
+package edu.kyoto.fos.regnant.aliasing;
 
 import edu.kyoto.fos.regnant.translation.Translate;
 import fj.P;
@@ -146,7 +146,6 @@ public class AliasInsertion {
           rhs = ((CastExpr) rhs).getOp();
         }
         if(lhs.getType() instanceof RefLikeType) {
-          System.out.println("Modelling " + lhs + " <- " + rhs);
           if(rhs instanceof IdentityRef) {
             assert lhs instanceof Local;
             if(rhs instanceof ThisRef) {
@@ -265,7 +264,6 @@ public class AliasInsertion {
   }
 
   public static Body rewrite(final Body body) {
-    System.out.println(body);
     UnitGraph ug = new BriefUnitGraph(body);
     SimpleMustAliasAnalysis mustAlias = new SimpleMustAliasAnalysis(ug);
 

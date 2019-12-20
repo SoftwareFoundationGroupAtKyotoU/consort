@@ -24,6 +24,7 @@ public class Jumps {
   // A map of coordinates and target location to the loop headers which must be broken
   public Map<P2<Coord, BasicBlock>, Set<BasicBlock>> brk = new TreeMap<>(cmp);
   // A set of coordinates (a jump source) and it's target loop header
+  // There should only be one cont flow at a time...
   public Set<P2<Coord, BasicBlock>> cont = new TreeSet<>(cmp);
   // A set of coordinates (jump source) and it's target basic block
   public Set<P2<Coord, BasicBlock>> flow = new TreeSet<>(cmp);

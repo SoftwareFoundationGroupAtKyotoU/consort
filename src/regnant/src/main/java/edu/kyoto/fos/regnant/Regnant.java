@@ -1,5 +1,6 @@
 package edu.kyoto.fos.regnant;
 
+import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.simpl.RewriteChain;
@@ -13,6 +14,7 @@ import soot.Main;
 import soot.PackManager;
 import soot.Scene;
 import soot.SceneTransformer;
+import soot.SootClass;
 import soot.SootMethod;
 import soot.Transform;
 import soot.UnitPatchingChain;
@@ -54,7 +56,14 @@ public class Regnant extends Transform {
   private void internalTransform(final String phaseName, Map<String, String> options) {
     SootMethod mainMethod = Scene.v().getMainMethod();
     removeArgVector(mainMethod);
-    List<Translate> output = this.transform(mainMethod);
+    FieldAliasing as = new FieldAliasing();
+    for(SootClass sc : Scene.v().getClasses()) {
+      if(Scene.v().isExcluded(sc)) {
+        continue;
+      }
+      as.processClass(sc);
+    }
+    List<Translate> output = this.transform(mainMethod, as);
     try(PrintStream pw = new PrintStream(new FileOutputStream(new File(options.get("output"))))) {
       for(Translate t : output) {
         t.printOn(pw);
@@ -85,15 +94,15 @@ public class Regnant extends Transform {
     main.setParameterTypes(List.of());
   }
 
-  private List<Translate> transform(final SootMethod m) {
+  private List<Translate> transform(final SootMethod m, final FieldAliasing as) {
     ChunkedQueue<SootMethod> worklist = new ChunkedQueue<>();
     QueueReader<SootMethod> reader = worklist.reader();
     worklist.add(m);
     HashSet<SootMethod> visited = new HashSet<>();
-    return this.work(reader, worklist, visited); 
+    return this.work(reader, worklist, visited, as);
   }
 
-  private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited) {
+  private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited, final FieldAliasing as) {
     StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
     List<Translate> toReturn = new ArrayList<>();
     while(reader.hasNext()) {
@@ -111,7 +120,7 @@ public class Regnant extends Transform {
 
       FlagInstrumentation fi = new FlagInstrumentation(cfg);
       LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
-      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l);
+      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as);
       toReturn.add(t);
     }
     return toReturn;

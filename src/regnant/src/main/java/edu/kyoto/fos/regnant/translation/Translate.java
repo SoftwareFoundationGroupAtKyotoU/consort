@@ -1,5 +1,6 @@
 package edu.kyoto.fos.regnant.translation;
 
+import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.cfg.graph.BlockSequence;
 import edu.kyoto.fos.regnant.cfg.graph.ConditionalNode;
@@ -18,6 +19,8 @@ import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.ir.expr.IntLiteral;
 import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
 import edu.kyoto.fos.regnant.ir.expr.Variable;
+import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp;
+import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp.Builder;
 import edu.kyoto.fos.regnant.simpl.RandomRewriter;
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
@@ -100,17 +103,19 @@ public class Translate {
   private final ChunkedQueue<SootMethod> worklist;
   private final StorageLayout layout;
   private final ValueLifter lifter;
+  private final FieldAliasing as;
   private int coordCounter = 1;
   private Map<Coord, Integer> coordAssignment = new HashMap<>();
   public static final String CONTROL_FLAG = "reg$control";
 
-  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl) {
+  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl, final FieldAliasing as) {
     this.flg = flg;
     this.b = b;
     this.alloc = alloc;
     this.worklist = worklist;
     this.layout = sl;
     this.lifter = new ValueLifter(worklist, layout);
+    this.as = as;
     this.stream = InstructionStream.fresh("main", l -> {
       Env e = Env.empty();
       if(flg.setFlag.size() > 0) {
@@ -507,7 +512,7 @@ public class Translate {
     } else if(unit instanceof InvokeStmt) {
       InstructionStream call = InstructionStream.fresh("call");
       InvokeStmt is = (InvokeStmt) unit;
-      if(is instanceof SpecialInvokeExpr && is.getInvokeExpr().getMethodRef().getDeclaringClass().getName().equals("java.lang.Object") && is.getInvokeExpr().getMethodRef().getName().equals("<init>")) {
+      if(is.getInvokeExpr() instanceof SpecialInvokeExpr && is.getInvokeExpr().getMethodRef().getDeclaringClass().getName().equals("java.lang.Object") && is.getInvokeExpr().getMethodRef().getName().equals("<init>")) {
         return;
       }
       LocalContents c = this.translateCall(unit, call, is.getInvokeExpr(), env);
@@ -521,6 +526,9 @@ public class Translate {
   }
 
   private void writeField(InstructionStream str, InstanceFieldRef fieldRef, TreeMap<Local, Binding> env, ImpExpr lhs) {
+    if(this.as.isFinal(fieldRef.getField()) && (!this.b.getMethod().getDeclaringClass().equals(fieldRef.getField().getDeclaringClass()) || !this.b.getMethod().isConstructor())) {
+      throw new UnsupportedOperationException("Must alias annotation requires field " + fieldRef.getField() + " to be effectively final");
+    }
     InstructionStream i = InstructionStream.fresh("write", l -> {
       FieldPointer p = unwrapField(l, fieldRef, env, new FieldOpWrite("field"));
       l.addWrite(p.fieldName, lhs);
@@ -610,10 +618,32 @@ public class Translate {
         if(!(sf.getType() instanceof RefLikeType)) {
           throw new RuntimeException("Field " + name + " must be a reference field");
         }
-        VariableContents c1 = this.unwrapPointer(str, env, vm , (Local) op1);
-        FieldPointer fp = this.unwrapField(str, env, vm, (Local) op2, sf);
-        str.addPtrAlias(c1.getWrappedVariable(), fp.fieldName);
-        return new CompoundCleanup(ImpExpr.unitValue(), Stream.of(c1, fp));
+        Local r1 = (Local) op1;
+        Local r2 = (Local) op2;
+
+        Function<Local, Builder> builderRoot = l -> {
+          Builder b = AliasOp.buildAt(l.getName());
+          if(env.get(l).some() == Binding.MUTABLE) {
+            b.deref();
+          }
+          return b;
+        };
+
+        AliasOp p1 = builderRoot.apply(r1).build();
+        AliasOp p2 = builderRoot.apply(r2).deref().proj(layout.getStorageSlot(sf)).deref().build();
+
+        // BUT BEFORE ALL THIS, we must return the auto aliases, (if any)
+        var autoAliasing = as.getAutoAliasing(sf);
+        if(!this.b.getMethod().isConstructor()) {
+          autoAliasing.forEach(l -> {
+            BiConsumer<SootField, Builder> consumeFields = (fld, bld) -> bld.deref().proj(layout.getStorageSlot(fld)).deref();
+            AliasOp a1 = builderRoot.apply(r1).iter(l._1().stream(), consumeFields).build();
+            AliasOp a2 = builderRoot.apply(r2).iter(l._2().stream(), consumeFields).build();
+            str.addAlias(a1, a2);
+          });
+        }
+        str.addAlias(p1, p2);
+        return new SimpleContents(ImpExpr.unitValue());
       } else {
         assert expr.getArgCount() == 2;
         Value op1 = expr.getArg(0);
@@ -763,6 +793,17 @@ public class Translate {
     } else if(v instanceof InstanceFieldRef) {
       InstanceFieldRef fieldRef = (InstanceFieldRef) v;
       FieldPointer fp = this.unwrapField(s, fieldRef, env, m);
+      SootField f = fieldRef.getField();
+      var autoAlias = as.getAutoAliasing(f);
+      if(!autoAlias.isEmpty() && !this.b.getMethod().isConstructor()) {
+        for(var fseq : autoAlias) {
+          List<SootField> resSubFields = fseq._1();
+          List<SootField> srcSubField = fseq._2();
+          AliasOp op1 = AliasOp.buildAt(fp.fieldName).deref().iter(resSubFields.stream(), (sf,b) -> b.deref().proj(layout.getStorageSlot(sf)).deref()).build();
+          AliasOp op2 = AliasOp.buildAt(fp.getBasePointer()).iter(srcSubField.stream(), (sf,b) -> b.deref().proj(layout.getStorageSlot(sf)).deref()).build();
+          s.addAlias(op1, op2);
+        }
+      }
       return new CompoundCleanup(Variable.deref(fp.fieldName), fp);
     } else if(v instanceof ArrayRef) {
       ArrayRef ar = (ArrayRef) v;
@@ -835,6 +876,27 @@ public class Translate {
     } else {
       return new SimpleContents(lifter.lift(v, env));
     }
+  }
+
+  private String unwrapFieldRaw(final String fieldCont, final List<SootField> resSubFields, VarManager vm, final LinkedList<Cleanup> cleanups, InstructionStream str) {
+    return unwrapFieldRaw(0, fieldCont, resSubFields, vm, cleanups, str);
+  }
+
+  private String unwrapFieldRaw(final int i, final String fieldCont, final List<SootField> resSubFields, final VarManager vm, final LinkedList<Cleanup> cleanups, InstructionStream str) {
+    if(i == resSubFields.size()) {
+      return fieldCont;
+    }
+    SootField f = resSubFields.get(i);
+    String tmpFld = vm.getField();
+    int slot = layout.getStorageSlot(f);
+    str.bindProjection(tmpFld, slot, layout.metaStorageSize(f), fieldCont);
+    String tmpBase = vm.getBase();
+    str.addBinding(tmpBase, Variable.deref(tmpFld), false);
+    cleanups.push(l -> {
+      l.addPtrAlias(tmpBase, tmpFld);
+      l.addPtrProjAlias(tmpFld, fieldCont, slot);
+    });
+    return unwrapFieldRaw(i + 1, tmpBase, resSubFields, vm, cleanups, str);
   }
 
   private SootClass getRepresentativeClass(final Set<Type> opTypes) {
@@ -912,6 +974,10 @@ public class Translate {
         assert !storageName.equals(objectName);
         str.addPtrAlias(objectName, storageName);
       }
+    }
+
+    public String getBasePointer() {
+      return objectName;
     }
   }
 

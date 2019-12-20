@@ -13,9 +13,7 @@ import edu.kyoto.fos.regnant.ir.stmt.Effect;
 import edu.kyoto.fos.regnant.ir.stmt.LetBind;
 import edu.kyoto.fos.regnant.ir.stmt.NullCheck;
 import edu.kyoto.fos.regnant.ir.stmt.SideEffect;
-import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasVar;
-import edu.kyoto.fos.regnant.ir.stmt.aliasing.Ptr;
-import edu.kyoto.fos.regnant.ir.stmt.aliasing.PtrProj;
+import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp;
 import fj.P;
 import fj.P3;
 import soot.Local;
@@ -79,7 +77,11 @@ public class InstructionStream implements Printable  {
   }
 
   public void addAlias(final String name, final String paramName) {
-    this.addEffect(new Alias(name, new AliasVar(paramName)));
+    this.addEffect(new Alias(AliasOp.var(name), AliasOp.var(paramName)));
+  }
+
+  public void addAlias(final AliasOp l, final AliasOp r) {
+    this.addEffect(new Alias(l, r));
   }
 
   public void addExpr(final ImpExpr expr) {
@@ -279,11 +281,11 @@ public class InstructionStream implements Printable  {
   }
 
   public void addPtrAlias(final String base, final String ptrVar) {
-    this.addEffect(new Alias(base, new Ptr(ptrVar)));
+    this.addEffect(new Alias(AliasOp.var(base), AliasOp.buildAt(ptrVar).deref().build()));
   }
 
   public void addPtrProjAlias(final String fieldTemp, final String fieldBase, final int slot) {
-    this.addEffect(new Alias(fieldTemp, new PtrProj(fieldBase, slot)));
+    this.addEffect(new Alias(AliasOp.var(fieldTemp), AliasOp.buildAt(fieldBase).deref().proj(slot).build()));
   }
 
   public void bindProjection(final String fieldTemp, final int slot, final int slotOf, final String fieldBase) {

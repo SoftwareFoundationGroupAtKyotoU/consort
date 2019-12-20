@@ -43,7 +43,6 @@ public class AssertionRewriter {
       if(!visited.add(it)) {
         continue;
       }
-      System.out.println(it);
       // is this particularly robust? No
       if(it instanceof AssignStmt) {
         AssignStmt assignStmt = (AssignStmt) it;
