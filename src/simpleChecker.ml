@@ -545,7 +545,7 @@ let typecheck_prog intr_types (fns,body) =
         failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
       else
         unify ~loc sub (`Var unif) @@ List.nth tl ind
-    | Some t' -> failwith @@ "Ill-typed: expected tuple, got " ^ (string_of_typ t')
+    | Some t' -> Locations.raise_errorf ~loc "Ill-typed: expected tuple, got %s" @@ string_of_typ t'
   ) acc'.t_cons;
   let distinct_list_to_set l =
     let l' = Std.IntSet.of_list l in
