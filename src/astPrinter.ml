@@ -149,6 +149,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
         ]
     | Unit -> ps "()"
     | Return v -> pf "return%a %s" po_id id v
+    | Fail -> ps "fail"
   in
   match e with
   | Seq _ -> e_printer

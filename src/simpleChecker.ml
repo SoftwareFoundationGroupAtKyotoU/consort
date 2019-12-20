@@ -375,6 +375,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     unify_imm rop1 `Int;
     unify_imm rop2 `Int;
     process_expr ret_type ctxt e res_acc
+  | Fail -> res_acc,true
   | Let (PVar v,Mkref (RVar v'),expr) ->
     let acc,c_id = save_assign v' in
     process_expr ret_type (add_var v (`TyCons c_id) ctxt) expr @@ save_let (`TyCons c_id) acc

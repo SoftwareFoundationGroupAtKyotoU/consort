@@ -37,6 +37,7 @@ rule read =
   | "let" { LET }
   | "in" { IN }
   | "length" { LENGTH }
+  | "fail" { FAIL }
   | '*' { STAR }
   | ';' { SEMI }
   | ':' { COLON }

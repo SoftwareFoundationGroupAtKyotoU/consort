@@ -61,6 +61,7 @@ type src_ap =
 
 type raw_exp =
   | Unit
+  | Fail
   | Cond of string * exp * exp
   | NCond of string * exp * exp
   | Seq of exp * exp

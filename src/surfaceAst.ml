@@ -29,6 +29,7 @@ type pos = A.position
 
 type exp =
   | Unit of pos
+  | Fail of pos
   | Value of pos * lhs
   | Cond of pos * [`Var of string | `BinOp of lhs * string * lhs | `Nondet | `Call of call] * exp * exp
   | NCond of pos * string * exp * exp
@@ -64,6 +65,7 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
     | Some e' -> simplify_expr ~is_tail count e'
   in
   match e with
+  | Fail i -> A.Fail |> tag_with i
   | Unit i ->
     if is_tail then
       simplify_expr ~is_tail count @@ Value (i,`OInt 0)

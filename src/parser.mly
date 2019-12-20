@@ -17,7 +17,7 @@
 // conditionals
 %token IF THEN ELSE IFNULL
 // control flow
-%token RETURN
+%token RETURN FAIL
 // bindings
 %token LET IN MKREF EQ
 // arrays
@@ -73,7 +73,8 @@ let array_expr :=
   | base = op; LBRACKET; ind = op; RBRACKET; <>
 
 let expr :=
-  | UNIT; ~ = expr_label; { Unit(expr_label,$startpos) } 
+  | UNIT; ~ = expr_label; { Unit(expr_label,$startpos) }
+  | FAIL; ~ = expr_label; { Fail(expr_label,$startpos) }
   | ~ = delimited(LBRACE, expr, RBRACE); <>
   | LBRACE; e = expr; SEMI; rest = seq; {
 		list_to_seq ($startpos) e rest
