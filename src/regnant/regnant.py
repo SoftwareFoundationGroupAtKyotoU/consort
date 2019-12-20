@@ -21,6 +21,7 @@ def main(this_dir, args):
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--jar")
     parser.add_argument("--skip-build", action="store_true", default = False)
+    parser.add_argument("--debug-trans", action="store_true", default = False)
     parser.add_argument("--src-dir")
     parser.add_argument("jdk8")
     parser.add_argument("entry_point")
@@ -30,6 +31,9 @@ def main(this_dir, args):
     if args.src_dir is None and args.jar is None:
         print "Need at least source or jar"
         return 1
+
+    if args.debug_trans:
+        args.verbose = True
 
     if not args.skip_build:
         run_silently(["gradle", "installDist"], cwd = this_dir)
@@ -79,6 +83,8 @@ def main(this_dir, args):
     ]
 
     log_command(args, regnant_command)
+    if args.debug_trans:
+        return subprocess.call(regnant_command)
     print "Translating java bytecode...",
     sys.stdout.flush()
     run_silently(regnant_command)
@@ -104,7 +110,6 @@ def main(this_dir, args):
         os.path.join(this_dir, "../_build/default/test.exe"),
         "-intrinsics", intr_loc,
         "-exit-status",
-        "-mode", "unified"
     ] + args.consort_args + [
         data
     ]
