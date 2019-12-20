@@ -16,7 +16,7 @@
 (defvar imp-highlights nil "first element for `font-lock-defaults'")
 
 (setq imp-highlights
-      '(("\\blet\\b\\|\\bmkarray\\b\\|\\bmkref\\b\\|\\bif\\b\\|\\bthen\\b\\|\\belse\\b\\|\\bifnull\\b\\|\\bin\\b\\|\\bassert\\b\\|\\balias\\b" . font-lock-keyword-face)
+      '(("\\blet\\b\\|\\bfail\\b\\|\\bmkarray\\b\\|\\bmkref\\b\\|\\bif\\b\\|\\bthen\\b\\|\\belse\\b\\|\\bifnull\\b\\|\\bin\\b\\|\\bassert\\b\\|\\balias\\b" . font-lock-keyword-face)
         ("\\btrue\\b\\|\\bfalse\\b\\|\\bnull\\b\\|\\blength\\b\\|\\b[0-9]+\\b" . font-lock-constant-face)))
 
 ; lifted ("inspired") heavily by tuareg

@@ -1540,6 +1540,7 @@ let relation_name ((e_id,_),expr) ctxt =
     | Cond _ -> "ifz"
     | Unit -> "unit"
     | Return _ -> "return"
+    | Fail -> "fail"
   in
   prefix ^ kind
 
@@ -1663,6 +1664,10 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     let copies = compute_copies (P.var v) ret_var @@ path_simple_type tyenv (P.var v) in
     apply_copies ~out_rec_rel ~havoc:false ~sl:(SRet e_id) copies relation out_relation
     >> return false
+  | Fail ->
+    add_assert (IConst 0) "=" (IConst 1) relation >>
+    return false
+
   | Seq (e1, e2) ->
     let%bind e2_rel = fresh_relation_for relation e2 in
     let%bind flg = process_expr ~output st (to_cont e2_rel) e1 in

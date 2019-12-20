@@ -420,6 +420,8 @@ let%lm save_type e_id ctxt =
 let rec process_expr ~output ((e_id,_),expr) =
   save_type e_id >>
   match expr with
+  | Fail ->
+    return `Return
   | Return v ->
     let () = assert (output <> None) in
     let (output_types, return_type) = Option.get output in
