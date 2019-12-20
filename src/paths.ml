@@ -57,6 +57,8 @@ let check_extend step (root,steps,suff) =
   else
     (root,step::steps,suff)
 
+let extend p ext = check_extend ext p
+    
 let set_suff suff' (root,steps,suff) =
   if suff <> `None then
     failwith @@ Printf.sprintf !"Cannot extend terminal path (new %{sexp:suff}) (curr %{sexp:suff})" suff' suff

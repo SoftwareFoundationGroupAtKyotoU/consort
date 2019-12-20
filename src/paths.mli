@@ -55,6 +55,8 @@ val unsafe_get_root : path -> string
 
 val compare : path -> path -> int
 
+val extend : path -> steps -> path
+
 val tail : path -> [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option
 
 module PathSet : Std.PRINTSET with type elt = path
