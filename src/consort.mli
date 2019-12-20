@@ -9,10 +9,6 @@ module Options :
       | Null
 
   
-    type mode =
-      | Unified
-      | Refinement
-
     type t = {
       debug_cons: bool;
       debug_ast: bool;
@@ -22,7 +18,6 @@ module Options :
       check_trivial: bool;
       dry_run : bool;
       solver: solver;
-      mode: mode;
       solver_opts: Solver.options;
       own_solv_opts: OwnershipSolver.options;
       dump_ir : string option

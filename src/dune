@@ -34,12 +34,11 @@
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
  (libraries sexplib util lang str solving ownership)
- (modules Inference KCFA
-          HornBackend SmtBackend
+ (modules KCFA HornBackend SmtBackend
           Z3BasedBackend Consort
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
-          FlowInference FlowBackend TypeInference))
+          FlowInference FlowBackend))
 
 (executable
  (name test)
