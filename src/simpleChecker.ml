@@ -76,6 +76,7 @@ type sub_ctxt = {
   cons_uf: TyConsUF.t;
   resolv: resolv_map;
   cons_arg: typ TyConsResolv.t;
+  fn_name : string;
 }
 
 type ptr_op = (int * TyCons.t * typ)
@@ -184,7 +185,8 @@ let rec unify ~loc sub_ctxt t1 t2 =
   | `Array t1',`Array t2' ->
     unify ~loc sub_ctxt t1' t2'
   | t1',t2' -> Locations.raise_errorf ~loc
-                 "Ill-typed; could not unify %s and %s"
+                 "Ill-typed; in %s could not unify %s and %s"
+                 sub_ctxt.fn_name
                  (string_of_typ t1')
                  (string_of_typ t2')
 and unify_tycons ~loc sub_ctxt c1 c2 =
@@ -468,7 +470,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
-  let ctxt =  { sub; fenv; tyenv  } in
+  let ctxt =  { sub = { sub with fn_name = name }; fenv; tyenv  } in
   let acc',_ = process_expr (Option.some @@ `Var (StringMap.find name fenv).ret_type_v) ctxt body acc in
   acc'
 
@@ -508,7 +510,7 @@ let typecheck_prog intr_types (fns,body) =
   let uf = UnionFind.mk () in
   let cons_uf = TyConsUF.mk () in
   let sub = {
-    uf; cons_uf; resolv; cons_arg
+    uf; cons_uf; resolv; cons_arg; fn_name = "";
   } in
   let fenv_ : funenv = make_fenv uf fns in
   let fenv =
@@ -532,7 +534,7 @@ let typecheck_prog intr_types (fns,body) =
     } fns
   in
   let (acc',_) = process_expr None {
-    sub; fenv; tyenv = StringMap.empty; 
+    sub = { sub with fn_name = "<main>" }; fenv; tyenv = StringMap.empty; 
     } body acc
   in
   List.iter (fun { var; ind; unif; loc } ->
