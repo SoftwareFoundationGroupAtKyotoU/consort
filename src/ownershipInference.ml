@@ -40,7 +40,9 @@ type 'a ownership_ops = {
 }
 
 type context = {
+  relaxed : bool;
   ovars: int list;
+  max_vars: Std.IntSet.t;
   v_counter: int;
   iso: SimpleChecker.SideAnalysis.results;
   ocons: ocon list;
@@ -49,6 +51,23 @@ type context = {
   op_record: ownership ownership_ops;
   save_env: otype StringMap.t IntMap.t
 }
+
+type infr_options = {
+  relaxed_max: bool
+}
+
+let infr_opts_default = {
+  relaxed_max = false
+}
+
+let infr_opts_loader () =
+  let x = ref false in
+  let arg = [
+    ("-relaxed-max", Arg.Unit (fun () -> x := true), "Use alternative, relaxed maximization constraints")
+  ] in
+  (arg, (fun () ->
+     { relaxed_max = !x }
+   ))
 
 let unfold =
   let rec subst_once id sub = function
@@ -75,7 +94,12 @@ let unfold =
   in
   unfold_loop ~unfld:IntSet.empty
 
-let%lm add_constraint c ctxt = { ctxt with ocons = c::ctxt.ocons }
+let%lm add_constraint ?relaxed c ctxt =
+  match relaxed with
+  | Some b when ctxt.relaxed = b ->
+    { ctxt with ocons = c::ctxt.ocons }
+  | None -> { ctxt with ocons = c::ctxt.ocons }
+  | _ -> ctxt
 
 let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   let unfold_dst =
@@ -177,9 +201,16 @@ let%lm record_split loc p o1 o2 ctxt =
 
 let alloc_split,alloc_ovar =
   let alloc_ovar_inner ctxt =
+    let new_ovar = ctxt.v_counter in
+    let max_vars =
+      if ctxt.relaxed then
+        ctxt.max_vars
+      else
+        Std.IntSet.add new_ovar ctxt.max_vars
+    in
     { ctxt with
-      ovars = ctxt.v_counter::ctxt.ovars;
-      v_counter = ctxt.v_counter + 1 },OVar ctxt.v_counter
+      ovars = new_ovar::ctxt.ovars;
+      v_counter = ctxt.v_counter + 1; max_vars },OVar ctxt.v_counter
   in
   let alloc_split loc p o =
     let%bind o1 = alloc_ovar_inner
@@ -400,6 +431,20 @@ let%lm sum_types t1 t2 out ctxt =
   in
   loop t1 t2 out ctxt
 
+let%lm max_ovar ov ctxt =
+  match ov with
+  | OVar i -> { ctxt with max_vars = IntSet.add i ctxt.max_vars }
+  | _ -> ctxt
+
+let rec max_type = function
+  | Array (_,o) -> max_ovar o
+  | Int | TVar _ -> return ()
+  | Mu (_,t) -> max_type t
+  | Tuple tl ->
+    miter max_type tl
+  | Ref (t,o) ->
+    max_ovar o >> max_type t
+
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
@@ -409,6 +454,7 @@ let process_call e_id c =
          let%bind t = lkp arg_name in
          let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
          let out_type = List.nth fun_type.output_types i in
+         max_type t >>
          sum_types t out_type t' >> update_type arg_name t'
        ) c.arg_names;
        return fun_type.result_type
@@ -534,7 +580,8 @@ let rec process_expr ~output ((e_id,_),expr) =
             t2_pre
         in
         begin%m
-          update_type v @@ Ref (t1,o);
+            update_type v @@ Ref (t1,o);
+             add_constraint ~relaxed:true @@ Live o;
              return t2
         end
       | Mkref (RVar _) ->
@@ -592,6 +639,7 @@ module Result = struct
     op_record: ownership ownership_ops;
     ty_envs: otype StringMap.t IntMap.t;
     theta : (otype RefinementTypes._funtype) StringMap.t;
+    max_vars: IntSet.t
   }
 end
 
@@ -600,10 +648,11 @@ let analyze_fn ctxt fn =
   let fn_type = SM.find fn.name ctxt.theta in
   let start_gamma = SM.of_bindings @@ List.combine arg_names fn_type.arg_types in
   let out_type = List.combine arg_names fn_type.output_types in
+  let ctxt = List.fold_left (fun ctxt ty -> fst @@ max_type ty ctxt) ctxt fn_type.output_types in
   let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } in
   { ctxt with gamma = SM.empty }
 
-let infer (simple_types,iso) intr (fn,prog) =
+let infer ~opts:{relaxed_max} (simple_types,iso) intr (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
       lift_to_ownership loc (P.arg i) t
@@ -646,6 +695,7 @@ let infer (simple_types,iso) intr (fn,prog) =
     }
   in
   let init_context = {
+    relaxed = relaxed_max;
     ovars = [];
     v_counter = 0;
     iso;
@@ -656,7 +706,8 @@ let infer (simple_types,iso) intr (fn,prog) =
       splits = SplitMap.empty;
       gen = GenMap.empty
     };
-    save_env = IntMap.empty
+    save_env = IntMap.empty;
+    max_vars = IntSet.empty
   } in
   let ctxt =
     SM.fold (fun nm st acc ->
@@ -675,5 +726,6 @@ let infer (simple_types,iso) intr (fn,prog) =
     Result.ovars = ctxt.ovars;
     Result.op_record = ctxt.op_record;
     Result.ty_envs = ctxt.save_env;
-    Result.theta = ctxt.theta
+    Result.theta = ctxt.theta;
+    Result.max_vars = ctxt.max_vars
   }

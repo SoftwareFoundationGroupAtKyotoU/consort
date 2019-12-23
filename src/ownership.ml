@@ -71,7 +71,7 @@ let pp_owner =
   | OConst o -> pf "%f" o
   | OVar v -> pf "$%d" v
 
-let ownership_infr debug i_gen o_gen file =
+let ownership_infr debug i_gen o_gen inf file =
   let intr = i_gen () in
   let ast = AstUtil.parse_file file in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
@@ -79,10 +79,10 @@ let ownership_infr debug i_gen o_gen file =
   print_endline "FOLD LOCATIONS>>>";
   Std.IntSet.iter (Printf.printf "* %d\n") fl;
   print_endline "<<";
-  let r = OwnershipInference.infer simple_res intr.Intrinsics.op_interp ast in
+  let r = OwnershipInference.infer ~opts:(inf ()) simple_res intr.Intrinsics.op_interp ast in
   print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
   let open PrettyPrint in
-  let o_solve = OwnershipSolver.solve_ownership ~opts:(o_gen ()) ?save_cons:!debug (r.OwnershipInference.Result.ovars,r.OwnershipInference.Result.ocons) in
+  let o_solve = OwnershipSolver.solve_ownership ~opts:(o_gen ()) ?save_cons:!debug (r.OwnershipInference.Result.ovars,r.OwnershipInference.Result.ocons,r.OwnershipInference.Result.max_vars) in
   match o_solve with
   | None -> print_endline "Could not solve ownership constraints"
   | Some soln ->
@@ -95,6 +95,7 @@ let ownership_infr debug i_gen o_gen file =
 let () =
   let (i_list, gen) = Intrinsics.option_loader () in
   let (o_list, o_gen) = OwnershipSolver.ownership_arg_gen () in
+  let (inf_list, inf_gen) = OwnershipInference.infr_opts_loader () in
   let debug = ref None in
-  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (i_list @ o_list) in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr debug gen o_gen
+  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (i_list @ o_list @ inf_list) in
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr debug gen o_gen inf_gen

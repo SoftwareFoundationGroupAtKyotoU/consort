@@ -3,6 +3,7 @@ type ownership =
   | OConst of float
 
 type ocon =
+  | Live of ownership
   (* Constraint ownership variable n to be 1 *)
   | Write of ownership
   (* ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
@@ -14,11 +15,12 @@ type ocon =
   | Ge of ownership * ownership
 
 type options
+
 val default : options
 
 val ownership_arg_gen : unit -> (string * Arg.spec * string) list * (?comb:options -> unit -> options)
 val solve_ownership :
   opts:options ->
   ?save_cons:string ->
-  (int list * ocon list) ->
+  (int list * ocon list * Std.IntSet.t) ->
   (int * float) list option

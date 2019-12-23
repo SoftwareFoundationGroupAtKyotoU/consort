@@ -20,6 +20,7 @@ module Options :
       solver: solver;
       solver_opts: Solver.options;
       own_solv_opts: OwnershipSolver.options;
+      own_infr_opts: OwnershipInference.infr_options;
       dump_ir : string option
     }
 

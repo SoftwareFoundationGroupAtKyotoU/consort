@@ -252,3 +252,11 @@ module OrderedPair(O1: Map.OrderedType)(O2: Map.OrderedType) : Map.OrderedType w
     else
       c1
 end
+
+
+module OptionMonad = struct
+  let (let*) o f =
+    match o with
+    | None -> None
+    | Some s -> f s
+end

@@ -42,6 +42,7 @@ module Options = struct
     solver: solver;
     solver_opts: Solver.options;
     own_solv_opts: OwnershipSolver.options;
+    own_infr_opts: OwnershipInference.infr_options;
     dump_ir : string option;
   }
 
@@ -58,6 +59,7 @@ module Options = struct
     solver = Spacer;
     solver_opts = Solver.default;
     own_solv_opts = OwnershipSolver.default;
+    own_infr_opts = OwnershipInference.infr_opts_default;
     dump_ir = None;
   }
 
@@ -146,18 +148,20 @@ module Options = struct
   let solver_opt_gen () =
     let (l,g) = Solver.opt_gen () in
     let (l2,g2) = OwnershipSolver.ownership_arg_gen () in
-    (l @ l2, (fun ?(comb=default) () ->
+    let (l3,g3) = OwnershipInference.infr_opts_loader () in   
+    (l @ l2 @ l3, (fun ?(comb=default) () ->
        { comb with
          solver_opts = g ~comb:comb.solver_opts ();
-         own_solv_opts = g2 ~comb:comb.own_solv_opts ()
+         own_solv_opts = g2 ~comb:comb.own_solv_opts ();
+         own_infr_opts = g3 ()
        }))
 end
 
 let infer_ownership opts intr simple_res ast =
   let open Options in
   let module OI = OwnershipInference in
-  let o_result = OI.infer simple_res intr.Intrinsics.op_interp ast in
-  match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons) with
+  let o_result = OI.infer ~opts:opts.own_infr_opts simple_res intr.Intrinsics.op_interp ast in
+  match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->
     let map_ownership = function

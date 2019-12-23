@@ -5,6 +5,7 @@ type ownership =
   | OConst of float
 
 type ocon =
+  | Live of ownership
   (* Constraint ownership variable n to be 1 *)
   | Write of ownership
   (* ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
@@ -16,15 +17,10 @@ type ocon =
   (* Ge o1 >= o2 *)
   | Ge of ownership * ownership
 
-let owner_fact = 0.02
-
-let pred = Printf.sprintf
-"(define-fun ov-wf ((o Real) (m Int)) Bool
-  (and (<= o 1) (<= 0 o) (= o (* %f m))))" owner_fact
+let pred = "(define-fun ov-wf ((o Real)) Bool
+  (and (<= o 1) (<= 0 o)))" 
 
 let ovar_name ovar = Printf.sprintf "ovar-%d" ovar
-let mult_name o_name = o_name ^ "-mult"
-let ovar_mult ovar = mult_name @@ ovar_name ovar
 
 type options = Solver.options
 let default = Solver.default
@@ -35,7 +31,6 @@ let pp_wf o_buf i =
   pg "assert" [
     pg "ov-wf" [
       pl @@ ovar_name i;
-      pl @@ ovar_mult i
     ]
   ] o_buf.printer;
   break o_buf
@@ -59,6 +54,12 @@ let pp_oconstraint ff ocon =
                        plift "1.0"
                      ]
                    ]
+    | Live o -> pg "assert" [
+                    pg ">" [
+                      po o;
+                      plift "0.0"
+                    ]
+                  ]
     | Shuff ((o1,o2),(o1',o2')) ->
       begin
         pg "assert" [
@@ -134,26 +135,34 @@ let rec extract_assoc m acc =
     extract_assoc l @@ (nm,ty,body)::acc
   | _::l -> extract_assoc l acc
   | [] -> acc
+
+let rec interp_real sexp =
+  let open Std.OptionMonad in
+  let open Sexplib.Sexp in
+  match sexp with
+  | Atom s ->
+    Float.of_string_opt s
+  | List [Atom "/"; v1; v2] ->
+    let* e1 = interp_real v1 in
+    let* e2 = interp_real v2 in
+    Some (e1 /. e2)
+  | _ -> None
     
-let solve_ownership ~opts ?save_cons (ovars,ocons) =
+let solve_ownership ~opts ?save_cons (ovars,ocons,max_vars) =
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;
   break o_buf;
-  let live_count = List.map (fun ov ->
+  let live_count =
+    Std.IntSet.elements max_vars
+    |> List.map (fun ov ->
     pg "ite" [
-      pg "=" [ pl @@ ovar_mult ov; pl "0" ];
-      pl "0";
-      pl "1"
-    ]) ovars in
+      pg ">" [ pl @@ ovar_name ov; pl "0." ];
+      pl "1";
+      pl "0"
+      ])
+  in
 
-  List.iter (fun i ->
-    pg "declare-const" [
-      pl @@ ovar_mult i;
-      pl "Int"
-    ] o_buf.printer;
-    break o_buf
-  ) ovars;
   List.iter (pp_wf o_buf) ovars;
   if (List.length live_count > 0) then begin
     pg "maximize" [
@@ -170,14 +179,21 @@ let solve_ownership ~opts ?save_cons (ovars,ocons) =
       match s with
       | List (Atom "model"::model) ->
         let model_assoc = extract_assoc model [] in
-        let mult_val = (List.fold_left (fun acc (nm,ty,body) ->
+        let o_sigma = List.fold_left (fun acc (nm,ty,body) ->
             match ty,body with
-            | "Int",[Atom s] ->
-              (nm,(int_of_string s) |> float |> (( *. ) owner_fact))::acc
-            | _ -> acc)) [] model_assoc in
-        Some (List.map (fun o_var ->
-            (o_var,List.assoc (ovar_mult o_var) mult_val)
-        ) ovars)
+            | "Real",[term] ->
+              interp_real term
+              |> Option.fold ~none:acc ~some:(fun o ->
+                  (nm,o)::acc
+                )
+            | _ -> acc) [] model_assoc
+        in
+        let open Std.OptionMonad in
+        List.fold_left (fun oacc o_var ->
+          let* acc = oacc in
+          let* v = List.assoc_opt (ovar_name o_var) o_sigma in
+          Some ((o_var,v)::acc)
+        ) (Some []) ovars
       | _ -> None
     end
   | _ -> None
