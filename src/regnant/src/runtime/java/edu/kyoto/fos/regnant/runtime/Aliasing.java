@@ -5,4 +5,7 @@ public class Aliasing {
   public static <T, U> void alias(T a, U b, String fld) {
 
   }
+
+  public static <T> void noAutoReturn(T p) {
+  }
 }

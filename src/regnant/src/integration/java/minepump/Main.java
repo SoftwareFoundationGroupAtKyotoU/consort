@@ -4,7 +4,7 @@ import java.util.Random;
 
 public  class  Main {
 
-  private static int cleanupTimeShifts = 2;
+  private static final int cleanupTimeShifts = 2;
 
   public static void main(String[] args) {
     randomSequenceOfActions(3);
