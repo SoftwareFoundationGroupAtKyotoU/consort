@@ -19,7 +19,9 @@ import soot.jimple.IntConstant;
 import soot.jimple.LengthExpr;
 import soot.jimple.NewArrayExpr;
 import soot.jimple.NewExpr;
+import soot.jimple.StaticFieldRef;
 import soot.jimple.StaticInvokeExpr;
+import soot.tagkit.IntegerConstantValueTag;
 import soot.util.queue.ChunkedQueue;
 
 import java.util.List;
@@ -97,6 +99,14 @@ public class ValueLifter {
       ArrayRef ref = (ArrayRef) op;
       assert ref.getType().equals(IntType.v());
       return new ArrayRead(this.lift(ref.getBase(), env), this.lift(ref.getIndex(), env));
+    } else if(op instanceof StaticFieldRef) {
+      StaticFieldRef sfr = (StaticFieldRef) op;
+      SootField field = sfr.getField();
+      if(!field.hasTag("IntegerConstantValueTag")) {
+        throw new RuntimeException("Unhandled (non-constant) static field " + op);
+      }
+      var constTag = (IntegerConstantValueTag) field.getTag("IntegerConstantValueTag");
+      return IntLiteral.v(constTag.getIntValue());
     } else {
       throw new RuntimeException("Unhandled :" + op);
     }

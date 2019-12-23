@@ -1,6 +1,7 @@
 package edu.kyoto.fos.regnant.storage.oo;
 
 import edu.kyoto.fos.regnant.storage.oo.UnionFind.Node;
+import edu.kyoto.fos.regnant.translation.Translate;
 import soot.PointsToAnalysis;
 import soot.RefLikeType;
 import soot.RefType;
@@ -17,13 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public class StorageLayout {
   private UnionFind<SootClass> uf = new UnionFind<>();
@@ -46,22 +43,7 @@ public class StorageLayout {
   }
 
   public static Stream<SootClass> getClassHierarhcy(SootClass kls) {
-     return StreamSupport.stream(new Spliterators.AbstractSpliterator<SootClass>(Long.MAX_VALUE, Spliterator.IMMUTABLE | Spliterator.NONNULL) {
-      SootClass curr = kls;
-
-      @Override public boolean tryAdvance(final Consumer<? super SootClass> action) {
-        if(curr == null) {
-          return false;
-        }
-        action.accept(curr);
-        if(curr.hasSuperclass()) {
-          curr = curr.getSuperclass();
-        } else {
-          curr = null;
-        }
-        return true;
-      }
-    }, false);
+    return Stream.iterate(kls, SootClass::hasSuperclass, SootClass::getSuperclass);
   }
 
   public static Stream<SootField> getTransitiveFields(SootClass kls) {
@@ -88,7 +70,7 @@ public class StorageLayout {
   }
 
   public boolean haveSameRepr(Stream<SootClass> str) {
-    var d = str.map(uf::find).map(Optional::<UnionFind.Node<SootClass>>of).reduce((o1, o2) -> o1.flatMap(n1 -> o2.flatMap(n2 -> {
+    var d = str.map(uf::find).map(Optional::of).reduce((o1, o2) -> o1.flatMap(n1 -> o2.flatMap(n2 -> {
       if(n1.getData().equals(n2.getData())) {
         return Optional.of(n1);
       } else {
@@ -106,6 +88,12 @@ public class StorageLayout {
 
   private void unifyRepr(final Stream<? extends soot.jimple.spark.pag.Node> nodeStream) {
     nodeStream.forEach(adf -> {
+      if(adf instanceof LocalVarNode) {
+        LocalVarNode vn = (LocalVarNode) adf;
+        if(vn.isInterProcTarget() && vn.getMethod().getDeclaringClass().getName().equals(Translate.ALIASING_CLASS)) {
+          return;
+        }
+      }
       if(adf instanceof LocalVarNode) {
         LocalVarNode varNode = (LocalVarNode) adf;
         if(varNode.getMethod().getDeclaringClass().getName().equals("java.lang.Object")) {

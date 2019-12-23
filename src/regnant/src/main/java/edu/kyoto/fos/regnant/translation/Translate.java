@@ -301,8 +301,8 @@ public class Translate {
   }
 
   private String getLoopName(final GraphElem elem) {
-    return String.format("_consort_%s_%s__loop_%d",
-        b.getMethod().getDeclaringClass().getName(),
+    return String.format("regnant$%s_%s__loop_%d",
+        b.getMethod().getDeclaringClass().getName().replace(".", "$$"),
         b.getMethod().getName(),
         elem.getHead().id);
   }
@@ -592,6 +592,8 @@ public class Translate {
     if(expr.getMethodRef().getName().equals("rand")) {
       assert expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS);
       return new SimpleContents(ImpExpr.nondet());
+    } else if(expr.getMethodRef().getName().equals("noAutoReturn")) {
+      return new SimpleContents(ImpExpr.unitValue());
     } else {
       assert expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS);
       assert expr.getMethodRef().getName().equals("alias");

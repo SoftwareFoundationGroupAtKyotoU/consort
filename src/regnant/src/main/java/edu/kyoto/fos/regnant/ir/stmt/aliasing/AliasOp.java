@@ -28,7 +28,6 @@ public class AliasOp implements ProgFragment {
     for(ApElem e : this.elems) {
       String pre = it;
       it = e.extendWith(it);
-      System.out.println("Extend " + pre + " with " + e + " --> " + it);
     }
     sb.append(it);
   }

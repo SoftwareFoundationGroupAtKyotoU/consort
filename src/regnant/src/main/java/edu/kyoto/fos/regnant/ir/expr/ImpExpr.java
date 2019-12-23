@@ -2,8 +2,8 @@ package edu.kyoto.fos.regnant.ir.expr;
 
 import edu.kyoto.fos.regnant.translation.FlagTranslation;
 import edu.kyoto.fos.regnant.translation.Translate;
-import soot.IntType;
 import soot.Local;
+import soot.PrimType;
 import soot.Type;
 import soot.VoidType;
 
@@ -26,7 +26,7 @@ public abstract class ImpExpr implements ProgFragment {
   }
 
   public static ImpExpr dummyValue(final Type returnType) {
-    if(returnType.equals(VoidType.v()) || returnType.equals(IntType.v())) {
+    if(returnType.equals(VoidType.v()) || returnType instanceof PrimType) {
       return literalInt(0);
     } else {
       return NullConstant.v();

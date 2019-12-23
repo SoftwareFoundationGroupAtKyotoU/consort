@@ -42,6 +42,9 @@ import java.util.Objects;
 import java.util.Set;
 
 public class AliasInsertion {
+
+  public static final String AUTO_RETURN_SIG = "<edu.kyoto.fos.regnant.runtime.Aliasing: void noAutoReturn(java.lang.Object)>";
+
   private static abstract class Val {
   }
   private static class FieldRef extends Val {
@@ -269,6 +272,7 @@ public class AliasInsertion {
 
     Map<Local, P2<InstanceFieldRef, Stmt>> singleDef = new HashMap<>();
     Map<Local, Stmt> singleUse = new HashMap<>();
+    Set<Local> manualReturn = new HashSet<>();
     for(Unit u : body.getUnits()) {
       Stmt s = (Stmt) u;
       if(s.getDefBoxes().size() == 1 && s.getDefBoxes().get(0).getValue() instanceof Local &&
@@ -293,10 +297,16 @@ public class AliasInsertion {
             }
             singleUse.put(l, s);
           });
+      if(s.containsInvokeExpr() && s.getInvokeExpr().getMethodRef().getSignature().equals(AUTO_RETURN_SIG)) {
+        s.getInvokeExpr().getArgs().stream().filter(Local.class::isInstance).map(Local.class::cast).forEach(manualReturn::add);
+      }
     }
     SootMethodRef mrf = getAliasRef();
     singleUse.entrySet().stream().filter(kv -> singleDef.containsKey(kv.getKey())).forEach(kv -> {
       Local tempLocal = kv.getKey();
+      if(manualReturn.contains(tempLocal)) {
+        return;
+      }
       P2<InstanceFieldRef, Stmt> src = singleDef.get(tempLocal);
       Stmt lastUse = kv.getValue();
       Map<Val, Integer> alias = mustAlias.getFlowAfter(lastUse);
