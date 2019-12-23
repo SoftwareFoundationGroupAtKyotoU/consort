@@ -19,11 +19,13 @@ import fj.P3;
 import soot.Local;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -303,6 +305,31 @@ public class InstructionStream implements Printable  {
         indent(level, b).append("let ").append(bind).append(" = *").append(fieldBase).append(" in ");
       }
     });
+  }
+
+  public List<String> bindProjections(int totalSlots, String fieldBase, Supplier<String> freshVar, int... skip) {
+    int[] sk = Arrays.copyOf(skip, skip.length);
+    Arrays.sort(sk);
+    List<String> toReturn = new ArrayList<>();
+    int skipInd = 0;
+    Stream.Builder<String> builder = Stream.builder();
+    for(int i = 0; i < totalSlots; i++) {
+      if(skipInd < sk.length && sk[skipInd] == i) {
+        while(skipInd < sk.length && sk[skipInd] == i) skipInd++;
+        builder.add("_");
+      } else {
+        String v = freshVar.get();
+        builder.add(v);
+        toReturn.add(v);
+      }
+    }
+    String bind = builder.build().collect(Collectors.joining(", ", "(", ")"));
+    this.addBind(new Bind() {
+      @Override public void printAt(final int level, final StringBuilder b) {
+        indent(level, b).append("let ").append(bind).append(" = *").append(fieldBase).append(" in ");
+      }
+    });
+    return toReturn;
   }
 
   private void inheritFunctions(final InstructionStream fls) {

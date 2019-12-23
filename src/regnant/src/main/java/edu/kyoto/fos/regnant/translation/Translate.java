@@ -115,7 +115,7 @@ public class Translate {
     this.alloc = alloc;
     this.worklist = worklist;
     this.layout = sl;
-    this.objectModel = new MutableTupleModel(layout);
+    this.objectModel = new FunctionalTupleModel(layout);
     this.lifter = new ValueLifter(worklist, layout, objectModel);
     this.as = as;
     this.stream = InstructionStream.fresh("main", l -> {
