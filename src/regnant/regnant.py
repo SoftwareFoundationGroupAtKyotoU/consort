@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import atexit, shutil, os
 import argparse
+import time
 
 def log_command(args, cmd):
     if args.verbose:
@@ -13,7 +14,16 @@ def log_command(args, cmd):
 
 def run_silently(cmd, **kwargs):
     with open("/dev/null", "w") as out:
+        s = time.time()
         subprocess.check_call(cmd, stdout = out, stderr = subprocess.STDOUT, **kwargs)
+        e = time.time()
+        return e - s
+
+def print_done(args, e):
+    if args.timing:
+        print "done (in %.02f)" % e
+    else:
+        print "done"
 
 def main(this_dir, args):
     parser = argparse.ArgumentParser()
@@ -22,6 +32,8 @@ def main(this_dir, args):
     parser.add_argument("--jar")
     parser.add_argument("--skip-build", action="store_true", default = False)
     parser.add_argument("--debug-trans", action="store_true", default = False)
+    parser.add_argument("--functional", action="store_true", default = False)
+    parser.add_argument("--timing", action="store_true")
     parser.add_argument("--src-dir")
     parser.add_argument("jdk8")
     parser.add_argument("entry_point")
@@ -66,6 +78,9 @@ def main(this_dir, args):
 
     regnant_options = "enabled:true,output:%s,flags:%s" % (data, flags)
 
+    if args.functional:
+        regnant_options += ",model:functional"
+
     run_script = os.path.join(this_dir, "build/install/regnant/bin/regnant")
 
     rt_path = os.path.join(args.jdk8, "jre/lib/rt.jar")
@@ -87,8 +102,8 @@ def main(this_dir, args):
         return subprocess.call(regnant_command)
     print "Translating java bytecode...",
     sys.stdout.flush()
-    run_silently(regnant_command)
-    print "done"
+    el = run_silently(regnant_command)
+    print_done(args, el)
     
     print "Generating control flags...",
     sys.stdout.flush()
@@ -102,8 +117,8 @@ def main(this_dir, args):
         "generated.smt"
     ]
     log_command(args, intr_command)
-    run_silently(intr_command)
-    print "done"
+    el = run_silently(intr_command)
+    print_done(args, el)
     
     print "Running ConSORT on translated program:"
     consort_cmd = [
@@ -114,7 +129,12 @@ def main(this_dir, args):
         data
     ]
     log_command(args, consort_cmd)
-    return subprocess.call(consort_cmd)
+    s = time.time()
+    ret = subprocess.call(consort_cmd)
+    e = time.time()
+    if args.timing:
+        print "(ConSORT ran for %.02f seconds)" % (e - s)
+    return ret
 
 if __name__ == "__main__":
     sys.exit(main(os.path.realpath(os.path.dirname(sys.argv[0])), sys.argv[1:]))
