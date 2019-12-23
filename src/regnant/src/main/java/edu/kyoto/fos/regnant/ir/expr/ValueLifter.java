@@ -2,12 +2,12 @@ package edu.kyoto.fos.regnant.ir.expr;
 
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
+import edu.kyoto.fos.regnant.translation.ObjectModel;
 import edu.kyoto.fos.regnant.translation.Translate;
 import fj.data.TreeMap;
 import soot.Immediate;
 import soot.IntType;
 import soot.Local;
-import soot.RefLikeType;
 import soot.SootClass;
 import soot.SootField;
 import soot.SootMethod;
@@ -32,11 +32,13 @@ import static edu.kyoto.fos.regnant.ir.expr.ImpExpr.call;
 
 public class ValueLifter {
   private final StorageLayout layout;
+  private ObjectModel om;
   private final ChunkedQueue<SootMethod> queue;
 
-  public ValueLifter(ChunkedQueue<SootMethod> workQueue, StorageLayout sl) {
+  public ValueLifter(ChunkedQueue<SootMethod> workQueue, StorageLayout sl, final ObjectModel objectModel) {
     this.queue = workQueue;
     this.layout = sl;
+    om = objectModel;
   }
 
   public ImpExpr lift(Value op, TreeMap<Local, Binding> env) {
@@ -78,13 +80,7 @@ public class ValueLifter {
           // runtime tag
           Stream.of(IntLiteral.v(tag)),
           // the initial, default values
-          f.stream().map(sf -> {
-            if(sf.getType() instanceof RefLikeType) {
-              return new Mkref(NullConstant.v());
-            } else {
-              return new Mkref(IntLiteral.v(0));
-            }
-          })).collect(Collectors.toList());
+          f.stream().map(sf -> om.allocFieldOfType(sf.getType()))).collect(Collectors.toList());
       return new Mkref(Tuple.v(flds));
     } else if(op instanceof NewArrayExpr) {
       NewArrayExpr arrayExpr = (NewArrayExpr) op;

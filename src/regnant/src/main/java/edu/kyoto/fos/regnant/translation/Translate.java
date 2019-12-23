@@ -104,6 +104,7 @@ public class Translate {
   private final StorageLayout layout;
   private final ValueLifter lifter;
   private final FieldAliasing as;
+  private final ObjectModel objectModel;
   private int coordCounter = 1;
   private Map<Coord, Integer> coordAssignment = new HashMap<>();
   public static final String CONTROL_FLAG = "reg$control";
@@ -114,7 +115,8 @@ public class Translate {
     this.alloc = alloc;
     this.worklist = worklist;
     this.layout = sl;
-    this.lifter = new ValueLifter(worklist, layout);
+    this.objectModel = new MutableTupleModel(layout);
+    this.lifter = new ValueLifter(worklist, layout, objectModel);
     this.as = as;
     this.stream = InstructionStream.fresh("main", l -> {
       Env e = Env.empty();
@@ -499,7 +501,7 @@ public class Translate {
       AssignStmt assign = (AssignStmt) unit;
       ImpExpr right = lifter.lift(assign.getRightOp(), env);
       InstanceFieldRef fieldRef = (InstanceFieldRef) assign.getLeftOp();
-      this.writeField(str, fieldRef, env, right);
+      this.writeField(str, fieldRef, env, right, new CtxtVarManager(unit, "base", "field"));
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof ArrayRef) {
       ArrayRef arrayRef = (ArrayRef) ((AssignStmt) unit).getLeftOp();
       InstructionStream s = InstructionStream.fresh("array");
@@ -525,14 +527,16 @@ public class Translate {
     }
   }
 
-  private void writeField(InstructionStream str, InstanceFieldRef fieldRef, TreeMap<Local, Binding> env, ImpExpr lhs) {
+  private void writeField(InstructionStream str, InstanceFieldRef fieldRef, TreeMap<Local, Binding> env, ImpExpr lhs, VarManager m) {
     if(this.as.isFinal(fieldRef.getField()) && (!this.b.getMethod().getDeclaringClass().equals(fieldRef.getField().getDeclaringClass()) || !this.b.getMethod().isConstructor())) {
       throw new UnsupportedOperationException("Must alias annotation requires field " + fieldRef.getField() + " to be effectively final");
     }
     InstructionStream i = InstructionStream.fresh("write", l -> {
-      FieldPointer p = unwrapField(l, fieldRef, env, new FieldOpWrite("field"));
-      l.addWrite(p.fieldName, lhs);
-      p.cleanup(l);
+      VariableContents base = this.unwrapPointer(l, env, m, (Local) fieldRef.getBase());
+      LinkedList<Cleanup> c = new LinkedList<>();
+      c.add(base);
+      objectModel.writeField(l, base.getWrappedVariable(), fieldRef.getField(), lhs, m, c);
+      c.forEach(h -> h.cleanup(l));
     });
     i.close();
     str.addBlock(i);
@@ -632,15 +636,14 @@ public class Translate {
         };
 
         AliasOp p1 = builderRoot.apply(r1).build();
-        AliasOp p2 = builderRoot.apply(r2).deref().proj(layout.getStorageSlot(sf)).deref().build();
+        AliasOp p2 = objectModel.extendAP(builderRoot.apply(r2), sf).build();
 
         // BUT BEFORE ALL THIS, we must return the auto aliases, (if any)
         var autoAliasing = as.getAutoAliasing(sf);
         if(!this.b.getMethod().isConstructor()) {
           autoAliasing.forEach(l -> {
-            BiConsumer<SootField, Builder> consumeFields = (fld, bld) -> bld.deref().proj(layout.getStorageSlot(fld)).deref();
-            AliasOp a1 = builderRoot.apply(r1).iter(l._1().stream(), consumeFields).build();
-            AliasOp a2 = builderRoot.apply(r2).iter(l._2().stream(), consumeFields).build();
+            AliasOp a1 = builderRoot.apply(r1).iter(l._1().stream(), objectModel::iterAP).build();
+            AliasOp a2 = builderRoot.apply(r2).iter(l._2().stream(), objectModel::iterAP).build();
             str.addAlias(a1, a2);
           });
         }
@@ -727,10 +730,6 @@ public class Translate {
     return virtName;
   }
 
-  private interface Cleanup {
-    void cleanup(InstructionStream stream);
-  }
-
   private static abstract class LocalContents implements Cleanup {
     public abstract ImpExpr getValue();
   }
@@ -791,19 +790,23 @@ public class Translate {
       return new SimpleContents(lifter.lift(v, env));
     } else if(v instanceof InstanceFieldRef) {
       InstanceFieldRef fieldRef = (InstanceFieldRef) v;
-      FieldPointer fp = this.unwrapField(s, fieldRef, env, m);
+      VariableContents base = this.unwrapPointer(s, env, m, (Local) fieldRef.getBase());
+      LinkedList<Cleanup> handlers = new LinkedList<>();
+      handlers.push(base);
+      FieldContents fc = this.objectModel.readField(s, base.getWrappedVariable(), fieldRef.getField(), m, handlers);
+
       SootField f = fieldRef.getField();
       var autoAlias = as.getAutoAliasing(f);
       if(!autoAlias.isEmpty() && !this.b.getMethod().isConstructor()) {
         for(var fseq : autoAlias) {
           List<SootField> resSubFields = fseq._1();
           List<SootField> srcSubField = fseq._2();
-          AliasOp op1 = AliasOp.buildAt(fp.fieldName).deref().iter(resSubFields.stream(), (sf,b) -> b.deref().proj(layout.getStorageSlot(sf)).deref()).build();
-          AliasOp op2 = AliasOp.buildAt(fp.getBasePointer()).iter(srcSubField.stream(), (sf,b) -> b.deref().proj(layout.getStorageSlot(sf)).deref()).build();
+          AliasOp op1 = fc.ap().iter(resSubFields.stream(), (sf,b) -> objectModel.extendAP(b, sf)).build();
+          AliasOp op2 = AliasOp.buildAt(base.getWrappedVariable()).iter(srcSubField.stream(), (sf,b) -> objectModel.extendAP(b, sf)).build();
           s.addAlias(op1, op2);
         }
       }
-      return new CompoundCleanup(Variable.deref(fp.fieldName), fp);
+      return new CompoundCleanup(fc.getExpr(), handlers.stream());
     } else if(v instanceof ArrayRef) {
       ArrayRef ar = (ArrayRef) v;
       LocalContents c = this.unwrapArray(ar, s, env, m);
@@ -877,27 +880,6 @@ public class Translate {
     }
   }
 
-  private String unwrapFieldRaw(final String fieldCont, final List<SootField> resSubFields, VarManager vm, final LinkedList<Cleanup> cleanups, InstructionStream str) {
-    return unwrapFieldRaw(0, fieldCont, resSubFields, vm, cleanups, str);
-  }
-
-  private String unwrapFieldRaw(final int i, final String fieldCont, final List<SootField> resSubFields, final VarManager vm, final LinkedList<Cleanup> cleanups, InstructionStream str) {
-    if(i == resSubFields.size()) {
-      return fieldCont;
-    }
-    SootField f = resSubFields.get(i);
-    String tmpFld = vm.getField();
-    int slot = layout.getStorageSlot(f);
-    str.bindProjection(tmpFld, slot, layout.metaStorageSize(f), fieldCont);
-    String tmpBase = vm.getBase();
-    str.addBinding(tmpBase, Variable.deref(tmpFld), false);
-    cleanups.push(l -> {
-      l.addPtrAlias(tmpBase, tmpFld);
-      l.addPtrProjAlias(tmpFld, fieldCont, slot);
-    });
-    return unwrapFieldRaw(i + 1, tmpBase, resSubFields, vm, cleanups, str);
-  }
-
   private SootClass getRepresentativeClass(final Set<Type> opTypes) {
     assert layout.haveSameRepr(opTypes.stream().map(t -> ((RefType) t).getSootClass()));
     return ((RefType) opTypes.iterator().next()).getSootClass();
@@ -953,38 +935,6 @@ public class Translate {
     }
   }
 
-  private static class FieldPointer implements Cleanup {
-    public final String fieldName;
-
-    private final int slot;
-    private final String objectName;
-    private final String storageName;
-
-    private FieldPointer(final String fieldName, final int slot, final String objectName, final String storageName) {
-      this.fieldName = fieldName;
-      this.slot = slot;
-      this.objectName = objectName;
-      this.storageName = storageName;
-    }
-
-    public void cleanup(InstructionStream str) {
-      str.addPtrProjAlias(fieldName, objectName, slot);
-      if(storageName != null) {
-        assert !storageName.equals(objectName);
-        str.addPtrAlias(objectName, storageName);
-      }
-    }
-
-    public String getBasePointer() {
-      return objectName;
-    }
-  }
-
-  private interface VarManager {
-    String getBase();
-    String getField();
-  }
-
   private static class CtxtVarManager implements VarManager {
     private final String base;
     private final String field;
@@ -1033,30 +983,6 @@ public class Translate {
     public LocalWrite(final Unit unit) {
       super(unit, "base", "field");
     }
-  }
-
-  private FieldPointer unwrapField(InstructionStream str, final InstanceFieldRef fieldRef, final TreeMap<Local,Binding> env, VarManager vm) {
-    Local l = (Local) fieldRef.getBase();
-    SootField field = fieldRef.getField();
-    return unwrapField(str, env, vm, l, field);
-  }
-
-  private FieldPointer unwrapField(final InstructionStream str, final TreeMap<Local, Binding> env, final VarManager vm, final Local l, final SootField field) {
-    String fieldBase;
-    String localStorage;
-    if(env.get(l).some() == Binding.MUTABLE) {
-      localStorage = l.getName();
-      fieldBase = vm.getBase();
-      str.addBinding(fieldBase, Variable.deref(l.getName()), false);
-    } else {
-      localStorage = null;
-      fieldBase = l.getName();
-    }
-    String fieldPtr = vm.getField();
-
-    int i = this.layout.getStorageSlot(field);
-    str.bindProjection(fieldPtr, i, layout.metaStorageSize(field), fieldBase);
-    return new FieldPointer(fieldPtr, i, fieldBase, localStorage);
   }
 
   private String getParamName(final int paramNumber) {
