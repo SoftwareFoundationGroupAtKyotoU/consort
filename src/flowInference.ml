@@ -1917,6 +1917,19 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     do_alias_fold >> process_expr ~output (k_rel,tyenv) continuation k
       
   | Alias (lhs_path,rhs_ap,k) ->
+    let null_ante_paths ap =
+      let rec null_ante_paths acc ap =
+        match P.tail ap with
+        | None -> acc
+        | Some e ->
+          let p = P.parent ap in
+          if e = `Deref then
+            null_ante_paths ((P.to_null p)::acc) p
+          else
+            null_ante_paths acc p
+      in
+      null_ante_paths [] ap
+    in
     let%bind k_rel = fresh_relation_for relation k in
     let lhs_type = path_simple_type tyenv lhs_path in
     let rhs_subst = compute_copies lhs_path rhs_ap lhs_type in
@@ -1954,6 +1967,16 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
         ]
       else
         [ PRelation (relation, direct, None) ]
+    in
+    let extend_nonnull nfs l =
+      List.fold_left (fun acc nf ->
+        (NullCons (Ap nf, BConst is_nonnull_flag))::acc
+      ) l nfs
+    in
+    let ante =
+      ante
+      |> extend_nonnull @@ null_ante_paths lhs_path
+      |> extend_nonnull @@ null_ante_paths rhs_ap
     in
     let%bind havoc_set = get_havoc_state in
     let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff havoc_set hstate.stable in
