@@ -7,6 +7,8 @@ import edu.kyoto.fos.regnant.simpl.RewriteChain;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import edu.kyoto.fos.regnant.translation.FlagTranslation;
+import edu.kyoto.fos.regnant.translation.ObjectModel;
+import edu.kyoto.fos.regnant.translation.ObjectModel.Impl;
 import edu.kyoto.fos.regnant.translation.Translate;
 import soot.Body;
 import soot.Local;
@@ -50,7 +52,7 @@ public class Regnant extends Transform {
 
   private Regnant() {
     this(new Regnant[1]);
-    setDeclaredOptions("enabled output flags");
+    setDeclaredOptions("enabled output flags model");
   }
 
   private void internalTransform(final String phaseName, Map<String, String> options) {
@@ -63,7 +65,8 @@ public class Regnant extends Transform {
       }
       as.processClass(sc);
     }
-    List<Translate> output = this.transform(mainMethod, as);
+    Impl oimpl = ObjectModel.Impl.valueOf(options.getOrDefault("model", "mutable").toUpperCase());
+    List<Translate> output = this.transform(mainMethod, as, oimpl);
     try(PrintStream pw = new PrintStream(new FileOutputStream(new File(options.get("output"))))) {
       for(Translate t : output) {
         t.printOn(pw);
@@ -94,15 +97,16 @@ public class Regnant extends Transform {
     main.setParameterTypes(List.of());
   }
 
-  private List<Translate> transform(final SootMethod m, final FieldAliasing as) {
+  private List<Translate> transform(final SootMethod m, final FieldAliasing as, final Impl oimpl) {
     ChunkedQueue<SootMethod> worklist = new ChunkedQueue<>();
     QueueReader<SootMethod> reader = worklist.reader();
     worklist.add(m);
     HashSet<SootMethod> visited = new HashSet<>();
-    return this.work(reader, worklist, visited, as);
+    return this.work(reader, worklist, visited, as, oimpl);
   }
 
-  private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited, final FieldAliasing as) {
+  private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited, final FieldAliasing as,
+      final Impl oimpl) {
     StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
     List<Translate> toReturn = new ArrayList<>();
     while(reader.hasNext()) {
@@ -120,7 +124,7 @@ public class Regnant extends Transform {
 
       FlagInstrumentation fi = new FlagInstrumentation(cfg);
       LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
-      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as);
+      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
       toReturn.add(t);
     }
     return toReturn;

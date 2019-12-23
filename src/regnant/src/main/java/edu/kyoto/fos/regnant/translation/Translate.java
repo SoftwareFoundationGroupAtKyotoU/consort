@@ -109,13 +109,13 @@ public class Translate {
   private Map<Coord, Integer> coordAssignment = new HashMap<>();
   public static final String CONTROL_FLAG = "reg$control";
 
-  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl, final FieldAliasing as) {
+  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl, final FieldAliasing as, ObjectModel.Impl om) {
     this.flg = flg;
     this.b = b;
     this.alloc = alloc;
     this.worklist = worklist;
     this.layout = sl;
-    this.objectModel = new FunctionalTupleModel(layout);
+    this.objectModel = om.make(layout);
     this.lifter = new ValueLifter(worklist, layout, objectModel);
     this.as = as;
     this.stream = InstructionStream.fresh("main", l -> {
