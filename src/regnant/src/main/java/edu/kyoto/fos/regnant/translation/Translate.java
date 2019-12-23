@@ -718,10 +718,7 @@ public class Translate {
       gateLoop(body, actions.iterator(), flgs -> {
         String control = FlagTranslation.allocate(flgs);
         return ImpExpr.call(control, flagArg);
-      }, i -> {
-        i.addAssertFalse();
-        i.ret(ImpExpr.dummyValue(repr.getReturnType()));
-      });
+      }, InstructionStream::addAssertFalse);
     });
     virtBody.close();
     s.addSideFunction(virtName, args, virtBody);

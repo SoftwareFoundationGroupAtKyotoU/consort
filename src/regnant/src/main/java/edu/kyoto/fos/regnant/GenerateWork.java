@@ -46,7 +46,7 @@ public class GenerateWork {
           }
         }, ClassReader.SKIP_CODE);
         if(b[0]) {
-          return Stream.of(P.p(cr.getClassName(), b[1]));
+          return Stream.of(P.p(cr.getClassName().replace('/', '.'), b[1]));
         } else {
           return Stream.empty();
         }
