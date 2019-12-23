@@ -1,11 +1,14 @@
 package minepump;
 
+import annotation.SkipTest;
+
 import java.util.Random;
 
 public  class  Main {
 
   private static final int cleanupTimeShifts = 2;
 
+  @SkipTest
   public static void main(String[] args) {
     randomSequenceOfActions(3);
   }

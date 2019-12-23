@@ -40,6 +40,9 @@ public class GenerateWork {
                 if(desc.equals("Lannotation/ExpectFail;")) {
                   b[1] = true;
                 }
+                if(desc.equals("Lannotation/SkipTest;")) {
+                  b[0] = false;
+                }
                 return null;
               }
             };
