@@ -4,7 +4,7 @@ type lhs = [
   | `OVar of string
   | `OInt of int
   | `ODeref of string
-  | `Nondet of RefinementTypes.symbolic_refinement option
+  | `Nondet of RefinementTypes.concr_refinement option
   | `BinOp of lhs * string * lhs
   | `Null
   | `OBool of bool

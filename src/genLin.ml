@@ -14,7 +14,7 @@ let binop,relop,alias_op =
     List.map (fun nm -> pg nm [ pl "Int" ]) [ out; arg1; arg2 ]
     |> ll
   in
-  let in_out_type = [ RefinementTypes.Int `Unconstrained; RefinementTypes.Int `Unconstrained ] in
+  let in_out_type = [ RefinementTypes.Int RefinementTypes.Top; RefinementTypes.Int RefinementTypes.Top ] in
   let module SP = struct
     include SexpPrinter
     let arg1 = pl arg1
@@ -25,7 +25,7 @@ let binop,relop,alias_op =
     sym,{
       arg_types = in_out_type;
       output_types = in_out_type;
-      result_type = Int (`BifPred (out_pred,[0;1]))
+      result_type = Int (RefinementTypes.NamedPred (out_pred,[Paths.arg 0;Paths.arg 1]))
     }
   in
   let binop' ?sat_sym sym out_pred (ty_acc,def_acc) : (string * bif_t) list * ((Sexplib0.Sexp.t -> unit) -> unit) list =

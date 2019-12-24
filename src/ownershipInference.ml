@@ -668,15 +668,15 @@ let infer ~opts:{relaxed_max} (simple_types,iso) intr (fn,prog) =
     let module R = RefinementTypes in
     function
     | R.Int _ -> return Int
-    | R.TVar id -> return @@ TVar id
-    | R.Tuple (_,tl) ->
+    | R.Tuple tl ->
       let%bind tl' = mtmap p (lift_reft loc) tl in
       return @@ Tuple tl'
-    | R.Mu (_,_,id,t) ->
+    | R.Ref (t,o,_) ->
       let%bind t' = lift_reft loc p t in
-      return @@ Mu (id,t')
-    | R.Ref (_,_,_) -> failwith "Unexpected mem type in intrinsic"
-    | R.Array (_,_,_,_) -> failwith "unexpected array type in intrinsic"
+      return @@ Ref (t', OConst o)
+    | R.Array (_,o,t) ->
+      let%bind t' = lift_reft loc p t in
+      return @@ Array (t', OConst o)
   in
   let lift_refp loc l =
     mmapi (fun i t ->

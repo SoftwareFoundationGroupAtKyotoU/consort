@@ -59,8 +59,7 @@ let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_a
   | Relation { rel_op1; rel_cond; rel_op2 } ->
     let print_rimm ff = function
       | RConst i -> pi i ff
-      | RAp (`Sym i) -> pf "$%d" i ff
-      | RAp (`Concr c) -> ps (Paths.to_z3_ident c) ff
+      | RAp c -> ps (Paths.to_z3_ident c) ff
     in
     let r1_printer ff r1 = match r1 with
       | Nu -> ps "~" ff

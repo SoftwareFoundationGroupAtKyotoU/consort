@@ -189,7 +189,7 @@ let ap_elem :=
 
 let ref_ap :=
   | root = ID; rest = separated_list(ARROW, ap_elem); {
-		`Concr (List.fold_left (fun acc i ->
+		(List.fold_left (fun acc i ->
 						 match i with
 						 | `Deref -> Paths.deref acc
 						 | `Proj i -> Paths.t_ind acc i
@@ -197,7 +197,6 @@ let ref_ap :=
 	  }
 
 let rel_arg :=
-  | DOLLAR; s_var = INT; { RefinementTypes.RAp (`Sym s_var) }
   | ~ = ref_ap; { RefinementTypes.RAp (ref_ap :> RefinementTypes.refine_ap) }
   | i = INT; { RefinementTypes.RConst i }
 

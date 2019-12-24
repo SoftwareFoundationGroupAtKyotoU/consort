@@ -219,10 +219,7 @@ let%lq gen_oracle ml ctxt =
   havoc_oracle ctxt ml
 
 let rec lift_refinement ?(map=Fun.id) ?nu_arg =
-  let lift_symbolic_ap = function
-    | `Sym _ -> assert false
-    | `Concr cap -> map cap
-  in
+  let lift_symbolic_ap = map in
   let lift_symbolic_imm = function
     | RT.RConst i -> IConst i
     | RT.RAp p -> Ap (lift_symbolic_ap p)

@@ -11,9 +11,9 @@ let () =
   let flags = Sexp.load_sexp Sys.argv.(2) |> [%of_sexp: (string * int list * bool) list] in
   let (bif, defns) = List.fold_left (fun (bif, defns) (nm, flags, inv) ->
       let ty = {
-        arg_types = [ RefinementTypes.Int `Unconstrained ];
-        output_types = [ RefinementTypes.Int `Unconstrained ];
-        result_type = RefinementTypes.Int (`BifPred (nm, [0]))
+        arg_types = [ RefinementTypes.Int RefinementTypes.Top ];
+        output_types = [ RefinementTypes.Int RefinementTypes.Top ];
+        result_type = RefinementTypes.Int (RefinementTypes.NamedPred (nm, [Paths.arg 0]))
       } in
       let bif = StringMap.add nm ty bif in
       let open SexpPrinter in
