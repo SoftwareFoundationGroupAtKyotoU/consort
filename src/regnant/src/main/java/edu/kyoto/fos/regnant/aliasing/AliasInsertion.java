@@ -294,41 +294,46 @@ public class AliasInsertion {
           .forEach(l -> {
             if(singleUse.containsKey(l)) {
               singleUse.put(l, null);
+            } else {
+              singleUse.put(l, s);
             }
-            singleUse.put(l, s);
           });
       if(s.containsInvokeExpr() && s.getInvokeExpr().getMethodRef().getSignature().equals(AUTO_RETURN_SIG)) {
         s.getInvokeExpr().getArgs().stream().filter(Local.class::isInstance).map(Local.class::cast).forEach(manualReturn::add);
       }
     }
     SootMethodRef mrf = getAliasRef();
-    singleUse.entrySet().stream().filter(kv -> singleDef.containsKey(kv.getKey())).forEach(kv -> {
-      Local tempLocal = kv.getKey();
-      if(manualReturn.contains(tempLocal)) {
-        return;
-      }
-      P2<InstanceFieldRef, Stmt> src = singleDef.get(tempLocal);
-      Stmt lastUse = kv.getValue();
-      Map<Val, Integer> alias = mustAlias.getFlowAfter(lastUse);
-      Loc defKey = new Loc(tempLocal);
-      assert alias.containsKey(defKey) : defKey;
-      InstanceFieldRef sourceField = src._1();
-      Loc baseKey = new Loc((Local) sourceField.getBase());
-      assert alias.containsKey(baseKey);
-      int base = alias.get(baseKey);
-      FieldRef fieldKey = new FieldRef(base, sourceField.getField(), null);
-      assert alias.containsKey(fieldKey);
-      int value = alias.get(fieldKey);
+    singleUse.entrySet().stream()
+      .filter(kv -> kv.getValue() != null)
+      .filter(kv -> singleDef.containsKey(kv.getKey()))
+      .filter(kv -> singleDef.get(kv.getKey()) != null)
+      .forEach(kv -> {
+        Local tempLocal = kv.getKey();
+        if(manualReturn.contains(tempLocal)) {
+          return;
+        }
+        P2<InstanceFieldRef, Stmt> src = singleDef.get(tempLocal);
+        Stmt lastUse = kv.getValue();
+        Map<Val, Integer> alias = mustAlias.getFlowAfter(lastUse);
+        Loc defKey = new Loc(tempLocal);
+        assert alias.containsKey(defKey) : defKey;
+        InstanceFieldRef sourceField = src._1();
+        Loc baseKey = new Loc((Local) sourceField.getBase());
+        assert alias.containsKey(baseKey);
+        int base = alias.get(baseKey);
+        FieldRef fieldKey = new FieldRef(base, sourceField.getField(), null);
+        assert alias.containsKey(fieldKey) : kv.getKey() + " " + lastUse + "\n" + body + "\n" + fieldKey + " " +alias;
+        int value = alias.get(fieldKey);
 
-      if(value == alias.get(defKey)) {
-        System.out.println("Aliasing back " + tempLocal + " to " + sourceField + " defined at " + src._2());
-        // yay! we can alias this back
-        Jimple j = Jimple.v();
-        InvokeStmt invokeStmt = j.newInvokeStmt(j.newStaticInvokeExpr(mrf, tempLocal, sourceField.getBase(), StringConstant.v(sourceField.getField().getName())));
-        ug.getSuccsOf(lastUse).forEach(succ -> {
-          body.getUnits().insertOnEdge(invokeStmt, lastUse, succ);
-        });
-      }
+        if(value == alias.get(defKey)) {
+          System.out.println("Aliasing back " + tempLocal + " to " + sourceField + " defined at " + src._2());
+          // yay! we can alias this back
+          Jimple j = Jimple.v();
+          InvokeStmt invokeStmt = j.newInvokeStmt(j.newStaticInvokeExpr(mrf, tempLocal, sourceField.getBase(), StringConstant.v(sourceField.getField().getName())));
+          ug.getSuccsOf(lastUse).forEach(succ -> {
+            body.getUnits().insertOnEdge(invokeStmt, lastUse, succ);
+          });
+        }
     });
     return body;
   }
