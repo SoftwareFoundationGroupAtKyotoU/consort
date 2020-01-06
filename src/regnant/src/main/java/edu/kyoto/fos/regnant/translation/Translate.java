@@ -377,7 +377,7 @@ public class Translate {
             tCont = cond.fBranch;
             fCont = cond.tBranch;
           }
-          LocalContents l = this.liftValue(el, condE.getOp1(), new FieldOpWrite("null"), lBody, BindMode.INTRAPROC, env_.boundVars);
+          LocalContents l = this.liftValue(el, condE.getOp1(), new FieldOpWrite("null"), lBody, BindMode.IMMEDIATE, env_.boundVars);
           lBody.addNullCond(l.getValue(), compileJump(tCont, env_, l::cleanup), compileJump(fCont, env_, l::cleanup));
         } else {
           ImpExpr path = lifter.lift(condValue, env_.boundVars);
@@ -487,7 +487,7 @@ public class Translate {
       } else {
         writeStream = str;
       }
-      LocalContents c = this.liftValue(unit, as.getRightOp(), new LocalWrite(unit), writeStream, BindMode.INTRAPROC, env);
+      LocalContents c = this.liftValue(unit, as.getRightOp(), new LocalWrite(unit), writeStream, BindMode.COMPLEX, env);
       if(needsDefinition) {
         writeStream.addBinding(target.getName(), c.getValue(), mutableBinding);
       } else {
@@ -582,10 +582,10 @@ public class Translate {
     }
     if(expr instanceof InstanceInvokeExpr) {
       InstanceInvokeExpr iie = (InstanceInvokeExpr) expr;
-      args.add(liftValue(ctxt, iie.getBase(), vm, str, BindMode.INTERPROC, env));
+      args.add(liftValue(ctxt, iie.getBase(), vm, str, BindMode.IMMEDIATE, env));
     }
     for(Value a : v) {
-      var lifted = liftValue(ctxt, a, vm, str, BindMode.INTERPROC, env);
+      var lifted = liftValue(ctxt, a, vm, str, BindMode.IMMEDIATE, env);
       args.add(lifted);
     }
     ImpExpr call = ImpExpr.call(callee, args.stream().map(LocalContents::getValue).collect(Collectors.toList()));
@@ -739,8 +739,7 @@ public class Translate {
   }
 
   private enum BindMode {
-    INTERPROC,
-    INTRAPROC
+    IMMEDIATE, COMPLEX
   }
 
   private static class TempLocal extends VariableContents {
@@ -782,7 +781,7 @@ public class Translate {
   private LocalContents liftValue(Unit ctxt, Value v, VarManager m, InstructionStream s, BindMode mode, TreeMap<Local, Binding> env) {
     if(v instanceof Local) {
       Local local = (Local) v;
-      if(local.getType() instanceof RefLikeType && env.get(local).some() == Binding.MUTABLE && mode == BindMode.INTERPROC) {
+      if(local.getType() instanceof RefLikeType && env.get(local).some() == Binding.MUTABLE && mode == BindMode.IMMEDIATE) {
         String tmp = m.getBase();
         s.addBinding(tmp, Variable.deref(local.getName()), false);
         return new TempLocal(tmp, local);
@@ -792,7 +791,9 @@ public class Translate {
       InstanceFieldRef fieldRef = (InstanceFieldRef) v;
       VariableContents base = this.unwrapPointer(s, env, m, (Local) fieldRef.getBase());
       LinkedList<Cleanup> handlers = new LinkedList<>();
-      handlers.push(base);
+      if(ctxt.getDefBoxes().stream().map(ValueBox::getValue).noneMatch(fieldRef.getBase()::equals)) {
+        handlers.push(base);
+      }
       FieldContents fc = this.objectModel.readField(s, base.getWrappedVariable(), fieldRef.getField(), m, handlers);
 
       SootField f = fieldRef.getField();
