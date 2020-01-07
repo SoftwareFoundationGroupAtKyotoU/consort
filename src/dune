@@ -43,7 +43,7 @@
 (executable
  (name test)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
- (libraries consort)
+ (libraries consort yaml)
  (modules Test))
 
 (executable
