@@ -54,6 +54,12 @@ task integrationJar(type: Jar, dependsOn: integrationClasses) {
 	from sourceSets.integration.output
 }
 
+task runtimeJar(type: Jar, dependsOn: integrationClasses) {
+	archiveBaseName = "runtime"
+	from sourceSets.runtime.output
+}
+
+
 task generateWorkScript(type: CreateStartScripts) {
 	mainClassName = "edu.kyoto.fos.regnant.GenerateWork"
 	applicationName = "generateWork"

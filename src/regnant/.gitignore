@@ -5,3 +5,4 @@ build/
 .gradle
 sootOutput/
 tmp/
+minepump

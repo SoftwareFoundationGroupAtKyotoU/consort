@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import subprocess
@@ -10,7 +10,7 @@ import time
 def log_command(args, cmd):
     if args.verbose:
         import pipes
-        print "executing:"," ".join([ pipes.quote(s) for s in cmd ])
+        print("executing:"," ".join([ pipes.quote(s) for s in cmd ]))
 
 def run_silently(cmd, **kwargs):
     with open("/dev/null", "w") as out:
@@ -21,9 +21,9 @@ def run_silently(cmd, **kwargs):
 
 def print_done(args, e):
     if args.timing:
-        print "done (in %.02f)" % e
+        print("done (in %.02f)" % e)
     else:
-        print "done"
+        print("done")
 
 def main(this_dir, args):
     parser = argparse.ArgumentParser()
@@ -35,13 +35,14 @@ def main(this_dir, args):
     parser.add_argument("--functional", action="store_true", default = False)
     parser.add_argument("--timing", action="store_true")
     parser.add_argument("--src-dir")
+    parser.add_argument("--yaml")
     parser.add_argument("jdk8")
     parser.add_argument("entry_point")
     parser.add_argument("consort_args", nargs="*")
     args = parser.parse_args(args)
     cls = args.entry_point
     if args.src_dir is None and args.jar is None:
-        print "Need at least source or jar"
+        print("Need at least source or jar")
         return 1
 
     if args.debug_trans:
@@ -66,10 +67,10 @@ def main(this_dir, args):
 
         compile_command = ["javac", "-g:lines,vars", "-source", "8", "-target", "8", "-d", cls_dir, args.src_dir + "/" + source_file]
         log_command(args, compile_command)
-        print "compiling source java...",
+        print("compiling source java...", end=' ')
         sys.stdout.flush()
         run_silently(compile_command)
-        print "done"
+        print("done")
     else:
         cls_dir = args.jar
 
@@ -100,12 +101,12 @@ def main(this_dir, args):
     log_command(args, regnant_command)
     if args.debug_trans:
         return subprocess.call(regnant_command)
-    print "Translating java bytecode...",
+    print("Translating java bytecode...", end=' ')
     sys.stdout.flush()
     el = run_silently(regnant_command)
     print_done(args, el)
     
-    print "Generating control flags...",
+    print("Generating control flags...", end=' ')
     sys.stdout.flush()
     intr_loc = os.path.join(work_dir, "java.intr")
 
@@ -120,21 +121,27 @@ def main(this_dir, args):
     el = run_silently(intr_command)
     print_done(args, el)
     
-    print "Running ConSORT on translated program:"
+    print("Running ConSORT on translated program:")
+    yaml_flg = ["-yaml"] if args.yaml is not None else []
     consort_cmd = [
         os.path.join(this_dir, "../_build/default/test.exe"),
         "-intrinsics", intr_loc,
         "-exit-status",
-    ] + args.consort_args + [
+    ] + args.consort_args + yaml_flg + [
         data
     ]
     log_command(args, consort_cmd)
     s = time.time()
-    ret = subprocess.call(consort_cmd)
+    ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
     e = time.time()
     if args.timing:
-        print "(ConSORT ran for %.02f seconds)" % (e - s)
-    return ret
+        print("(ConSORT ran for %.02f seconds)" % (e - s))
+    if args.yaml:
+        with open(args.yaml, 'w') as out:
+            print(ret.stdout.decode("utf-8"), file=out)
+    else:
+        print(ret.stdout)
+    return ret.returncode
 
 if __name__ == "__main__":
     sys.exit(main(os.path.realpath(os.path.dirname(sys.argv[0])), sys.argv[1:]))
