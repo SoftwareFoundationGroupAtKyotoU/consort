@@ -1,11 +1,11 @@
-(menhir (modules parser))
+(menhir (modules parser) (flags "--table"))
 (ocamllex lexer)
 
 (library
  (name util)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
  (wrapped false)
- (libraries sexplib)
+ (libraries sexplib menhirLib)
  (modules StringMap UnionFind PrettyPrint Files SexpPrinter Greek Std Log))
 
 (library

@@ -40,7 +40,7 @@
 %token UNDERSCORE
 
 // types
-%token DOLLAR TOP
+%token TOP
 %token ARROW
 %token NU AND
 

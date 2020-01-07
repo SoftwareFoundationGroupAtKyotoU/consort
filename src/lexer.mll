@@ -62,7 +62,6 @@ rule read =
   | 'T' { TOP }
   | "->" { ARROW }
   | '~' { NU }
-  | '$' { DOLLAR }
   | ":=" { ASSIGN }
   | "null" { NULL }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }
