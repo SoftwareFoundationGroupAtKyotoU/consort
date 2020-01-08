@@ -22,7 +22,7 @@ for (k,v) in worklist.iteritems():
     with open("/dev/null", "w") as out:
         print "Testing",k
         ret = subprocess.call([
-            "python", reg_script, "--jar=" + integration,
+           reg_script, "--jar=" + integration,
            "--skip-build",
             sys.argv[1], k
         ], stdout = out, stderr = subprocess.STDOUT)
