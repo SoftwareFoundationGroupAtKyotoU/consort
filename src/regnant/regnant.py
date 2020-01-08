@@ -134,13 +134,14 @@ def main(this_dir, args):
     s = time.time()
     ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
     e = time.time()
-    if args.timing:
-        print("(ConSORT ran for %.02f seconds)" % (e - s))
     if args.yaml:
         with open(args.yaml, 'w') as out:
             print(ret.stdout.decode("utf-8"), file=out)
+        print("Done")
     else:
-        print(ret.stdout)
+        print(ret.stdout.decode("utf-8").strip())
+    if args.timing:
+        print("(ConSORT ran for %.02f seconds)" % (e - s))
     return ret.returncode
 
 if __name__ == "__main__":
