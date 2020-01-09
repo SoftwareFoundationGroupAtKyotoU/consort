@@ -1,3 +1,26 @@
+(* The surface AST represents the "friendlier" surfact syntax in which IMP programs
+   can be written. The parser (see parser.mly) constructs terms in this syntax,
+   which is then (straightforwardly) translated into the low-level, (roughly)
+   three address form expected by Consort.
+
+   The key differences between the surface syntax and the low-level AST syntax are
+   as follows:
+
+   + Unit's meaning is different. Unit in the surface syntax may appear in a tail position,
+   indicating that the function returns no useful information. In such a case, it is actually
+   translated into a "return 0" (as we do not have a unit type). In contrast, Unit may NOT appear
+   in a tail position in the low-level syntax, as every tail position must either be a fail or explicit return.
+   Unit is only used in non-trail positions as a leaf node to indicate "no more computation" when the grammar
+   demands an expression, i.e., after an assignment, as a branch of a conditional etc.
+   + As hinted above, all expressions in a tail position are lifted into an explicit return statement
+   + Assign, Update, and friends do NOT require a continuation in the surface syntax. If they are sequenced
+   with something, then the remainder of that sequence is shifted into the continuation in the low-level syntax. Otherwise
+   a dummy continuation is inserted.
+
+   A comical note: I got left and right confused, so what I call an LHS is really supposed to be an RHS. I may fix
+   that in my copious free time...
+*)
+
 module A = Ast
 
 type lhs = [
@@ -59,6 +82,14 @@ let tag_fresh pos t =
 let tag_with i t =
   (i, t)  
 
+(* This rewriting is fairly standard, but it helps to understand some key components.
+   First, count determines the number of temporary variables in scope, this ensures
+   temporary variables are unique when they are created. This count is thus threaded through
+   the lifting process, being incremented as necessary. Notice that we can reuse
+   temporary variable names when we are guaranteed the original use is out of scope,
+   a nice invariant provided by the lifting is that if count = n, then any variables generated with
+   ids >= n must not be in scope.
+*)
 let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
   let get_continuation ~ctxt count = match next with
     | None -> simplify_expr ~is_tail count @@ Value (LabelManager.register_with ctxt, `OInt 0)
@@ -73,6 +104,14 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
       A.Unit |> tag_with i
   | Value (i, v) ->
     if is_tail then
+      (* lift_to_var (or lift_to_imm or lift_to_lhs) 
+         lift complicated expressions to the required form,
+         introducing temporary variables as necessary. They all take a continuation,
+         passing in the value in the desired form (var, imm, lhs, etc.) and the current temp var counter.
+
+         The common feature of these is found in bind_in, which actually handles the instrumentation with
+         temporary variables.
+      *)
       lift_to_var ~ctxt:i count v (fun _ tvar ->
         A.Return tvar |> tag_with i
       )
@@ -223,6 +262,18 @@ and lift_to_call ~ctxt count (callee,id,args) rest =
   recurse count args (fun c' l ->
     rest c' { A.callee = callee; A.label = id; A.arg_names = l }
   )
+  (* Bind the lhs to a temporary variable, and then
+     call k with the current temp count, the variable name. k is expected
+     to produce an expression; bind_in wraps that expression
+     with a let expression bindings the temporary variable.
+     
+     Notice that lift_to_lhs (used by bind_in) is mutually recursive
+     with bind_in; when simplifying an lhs, we may need to bind subexpressions
+     to temporary variables, which themselves may require further simplification, etc. etc.
+     Ultimately, this process bottoms out at immediate expressions, literal integers or variables
+     which are base cases for this lifting process. The use of continuations (and intercission by
+     bind_in) guarantees that these "intermediate" temporary variables are bound in the correct order.
+  *)
 and bind_in ~ctxt count lhs (k: int -> string -> A.exp) =
   lift_to_lhs ~ctxt count lhs (fun c' lhs' ->
     let (c'',tvar) = alloc_temp c' in
