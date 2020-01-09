@@ -1,3 +1,23 @@
+(*
+
+SimpleChecker runs a standard HM style type inference algorithm. We have a partial resolution
+map, which takes type variables to partially refined type constructors (ints, arrays, etc.), along
+with the standard union find data structure for type variables.
+
+To handle recursive types through references, we treat every occurrence
+of a reference type as a fresh, unknown type. These are represented
+by TyCons.t, i.e., type constructors. We maintain a separate union
+find data structure for type constructors; intuitively, if two type constructors
+(aka reference types) are unioned, then both types are reference types with identical
+contents. As a consequence, during unification,
+if two type constructors are equal, then we have two identical types, and can stop recursively
+unifying types (this prevents divergence when unifying recursive types). We also maintain a separate
+resolution map, which takes type constructors to inference types (i.e., type variables or partially
+refined type constructors). Similarly, indirecting through type constructors makes detecting recursive
+types extremely easy; if a type constructor X is reachable from the contents of X, then we have a recursive
+type. (Note all other recursion is forbidden).
+*)
+
 open Ast
 open SimpleTypes
 open Sexplib.Std
@@ -65,12 +85,23 @@ type funenv = funtyp_v SM.t
 let _sexp_of_tyenv = SM.sexp_of_t ~v:sexp_of_typ
 type tyenv = typ SM.t
 
-type resolv_map = (int,typ) Hashtbl.t
+type resolv_map = (int,typ c_typ) Hashtbl.t
 
 let _sexp_of_resolv_map r = Hashtbl.fold (fun k v acc ->
     (k,v)::acc
   ) r [] |> [%sexp_of: (int * typ) list]
 
+(* A tuple constraint delays some unification until the rest of type checking is complete.
+   These constraints arise from aliasing constraints which can constrain a specific type
+   at a particular index within a tuple. At the time this constraint is generated, we may not
+   know the full size of the tuple, and currently we have no type representation for "a tuple of at least length n".
+
+   Instead, if the tuple size is not yet known, we save a tuple constraint, which
+   consists of the type variable (var) representing the tuple, the index (ind), and the
+   type variable to unify with type at ind (unif). 
+   After the rest of type inference is completed, we resolve var, and (assuming it has been properly
+   refined to a concrete length tuple) perform the unification with unif at ind.
+*)
 type tuple_cons = {var: int; ind: int; unif: int; loc: Lexing.position}
 
 type sub_ctxt = {
@@ -81,13 +112,21 @@ type sub_ctxt = {
   fn_name : string;
 }
 
+(* A pointer op (ptr_op) (id,cons,t) represents a read or write from the reference associated
+   with the reference type cons. The type read or written is given by t, id is the expression
+   id of the expression. These ptr ops are analyzed later to flag expressions (by their id) that
+   require fold/unfolds (see is_rec_assign)
+*)
 type ptr_op = (int * TyCons.t * typ)
 
+(* Results accumulated during type inference: the tuple constraints (explained above), the read and write
+   pointer operations, and the let types *)
 type side_results = {
   t_cons: tuple_cons list;
   assign_locs: ptr_op list;
   deref_locs: ptr_op list;
-  let_types: typ Std.IntMap.t;
+  let_types: typ Std.IntMap.t; (* let_types gives the type of the RHS of every let expression (by id). This is used
+                                  to know what type to give a null constant *)
 }
 
 module SideAnalysis = struct
@@ -115,6 +154,7 @@ let fresh_cons_id sub_ctxt t =
 let fresh_cons sub_ctxt t =
   `TyCons (fresh_cons_id sub_ctxt t)
 
+(* Abstracts a simple type into an inference type (used to give types to instrinsics) *)
 let abstract_type sub_ctxt t =
   let rec loop = function
     | `TVar _ -> failwith "Not supported"
@@ -149,6 +189,9 @@ let add_var v t ctxt =
   else
     { ctxt with tyenv = StringMap.add v t ctxt.tyenv }
 
+(* Unification related functions *)
+
+(* For type variables or type constructors, find the representative id as recorded in the corresponding UF) *)
 let canonicalize sub = function
   | `Var v -> `Var (UnionFind.find sub.uf v)
   | `TyCons v -> `TyCons (TyConsUF.find sub.cons_uf v)
@@ -161,13 +204,20 @@ let rec occurs_check sub v (t2: typ) =
   | `Array t' -> occurs_check sub v t'
   | `Var _
   | `Int
+  (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
   | `TyCons _ -> ()
 
 let assign sub var t =
   occurs_check sub var (t :> typ);
   Hashtbl.add sub.resolv var t  
 
+(* unify and unify_tycons are mutually recursive, the former unifies types (typ) and the
+   latter unifies reference type constructors *)
 let rec unify ~loc sub_ctxt t1 t2 =
+  (* unfold (despite the terribly misleading name) doesn't unfold recursive types,
+     but rather "unfolds" type variables into whatever the current resolution is.
+     It does this by finding the representative variable, and then looking up the
+     current partial resolution in the resolv map, or simply returns the variable if there is no resolution *)
   let unfold t1 =
     match canonicalize sub_ctxt t1 with
     | `Var v -> Hashtbl.find_opt sub_ctxt.resolv v
@@ -182,8 +232,11 @@ let rec unify ~loc sub_ctxt t1 t2 =
   | `Var v1,(#refined_typ as t)
   | (#refined_typ as t),`Var v1 -> assign sub_ctxt v1 t
   | `Int,`Int -> ()
+  (* structural recursion *)
   | `Tuple tl1,`Tuple tl2 ->
     List.iter2 (unify ~loc sub_ctxt) tl1 tl2
+  (* in this case, we now unify the two reference types, indirecting through that
+     union find/resolution map *)
   | `TyCons c1,`TyCons c2 ->
     unify_tycons ~loc sub_ctxt c1 c2
   | `Array t1',`Array t2' ->
@@ -196,16 +249,40 @@ let rec unify ~loc sub_ctxt t1 t2 =
 and unify_tycons ~loc sub_ctxt c1 c2 =
   let c1' = TyConsUF.find sub_ctxt.cons_uf c1 in
   let c2' = TyConsUF.find sub_ctxt.cons_uf c2 in
+  (* If the two constructors are already unified to the same representative,
+     then we must have unified these references already, in which case we can stop,
+     we know the contents are equal *)
   if TyCons.equal c1' c2' then
     ()
   else
     let a1 = TyConsResolv.find sub_ctxt.cons_arg c1' in
     let a2 = TyConsResolv.find sub_ctxt.cons_arg c2' in
+    (* notice that we are unifying BEFORE recursing into the unification
+       of the reference contents. Effectively, this says: _under the assumption
+       constructors c1' and c2' are equivalent_, prove the contents of the
+       references are equivalent, i.e., a coinductive style proof. In other words,
+       while unifying the contents of c1' and c2', if we reach c1' and c2' we can halt
+       unification (as above) because we've assumed that they are already "equivalent".
+    *)
     TyConsUF.union sub_ctxt.cons_uf c1' c2';
     unify ~loc sub_ctxt a1 a2
 
 module IS = Std.IntSet
 
+(* translates a inference type into a fully concrete simple type.
+   Recursion is detected by means of the v_set and the continuation k.
+
+   In general, k takes two arguments, a set of recursive ids (see below) and the
+   translated type. The set of recursive ids communicates to the caller any type constructors
+   which were found to be recursive during resolution. If the result of resolving the contents
+   of reference type constructor i returns a set containing i, then the reference should be wrapped in a recursive
+   mu binder (see the else branch of the TyCons case below).
+
+   The argument v_set contains the (canonical) ids of all reference type constructors
+   being currently resolved. When resolving a type constructor with id i, if i
+   appears in this set, instead of resolving the reference contents, the continuation is immediately
+   invoked with arguments {i} (tvar i); i.e., reference i is recursive.
+*)
 let rec resolve_with_rec sub v_set k t =
   match canonicalize sub t with
   | `Int -> k IS.empty `Int
@@ -478,6 +555,12 @@ let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let acc',_ = process_expr (Option.some @@ `Var (StringMap.find name fenv).ret_type_v) ctxt body acc in
   acc'
 
+(* 
+checks whether an assignemnt to (or read from) of type t' to constructor c
+requires a fold or unfold. Simply put, we walk the assigned type, and see
+if (the canonical representation of) c appears anywhere in t'. If it does, this is
+a folding or unfolding assignment/read.
+*)
 let is_rec_assign sub c t' =
   let canon_c = TyConsUF.find sub.cons_uf c in
   let rec check_loop h_rec t =
