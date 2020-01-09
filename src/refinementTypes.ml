@@ -1,46 +1,47 @@
+(** Refinement types are currently used in the inline assume
+   statements (to specify the invariants that must hold on non-deterministic input)
+   and in the types for intrinsics (see that file) *)
+
 open Sexplib.Std
 open Greek
 
 module P = Paths
 
-type 'r rel_imm =
-  | RAp of 'r
+type rel_imm =
+  | RAp of P.concr_ap (** An access path given by the type parameter 'r *)
   | RConst of int [@@deriving sexp]
 
-type 'r rel_op =
-    Nu
-  | RImm of 'r rel_imm [@@deriving sexp]
+type rel_op =
+    Nu (** In the context of relating a specific value, refers to the value being refined *)
+  | RImm of rel_imm [@@deriving sexp]
 
+(** A logical relations (think comparison) between two values. rel_cond is the string representation of the
+   relation symbol *)
 type ('a,'b) relation = {
   rel_op1: 'a;
   rel_cond: string;
   rel_op2: 'b
 } [@@deriving sexp]
 
-type 'r refinement_rel = ('r rel_op,'r rel_imm) relation [@@deriving sexp]
+type refinement_rel = (rel_op, rel_imm) relation [@@deriving sexp]
 
 type refine_ap = P.path
 
-(* 
-Pred n,l: A predicate symbol with name n over variables l (nu is implicit)
-CtxtPred c,n,l: A Preciate symbol with name n over variables l with explicit context c
-Top: unconstrained
-Const: the constaint constraint
-Eq: equality with variable b
-*)
-type ('c,'r) refinement =
-  | Pred of string * 'c
-  | CtxtPred of int * string * 'c
-  | Top
-  | ConstEq of int
-  | Relation of 'r refinement_rel
-  | And of ('c,'r) refinement * ('c,'r) refinement
-  | NamedPred of string * 'c [@@deriving sexp]
+(** A refinement on a particular value *)
+type refinement =
+  | Top (** The value is completely unconstrained *)
+  | ConstEq of int (** The value is exactly equal to n *)
+  | Relation of refinement_rel (** The value is constrained according to the relation *)
+  | And of refinement * refinement (** The value is constrained by both sub refinements *)
+  | NamedPred of string * (P.concr_ap list) (** The value is constrained according to the SMT function with the given name. The name of the
+                                               value being refined is given implicitly as the first argument to the function; the paths listed
+                                               in the second argument are given as all remaining arguments *) [@@deriving sexp]
 
-type concr_refinement = (P.concr_ap list, P.concr_ap) refinement [@@deriving sexp]
+type concr_refinement = refinement [@@deriving sexp]
 
 type ownership = float [@@deriving sexp]
 
+(** The type skeleton for refinement type, parameterized by the type of refinements *)
 type 'a _typ =
   | Int of 'a
   | Ref of 'a _typ * ownership * bool
@@ -48,6 +49,7 @@ type 'a _typ =
   | Array of 'a * ownership * 'a _typ
 [@@deriving sexp]
 
+(** Refinement types with refinements defined by concr_refinement *)
 type typ = concr_refinement _typ [@@deriving sexp]
 type ftyp = typ [@@deriving sexp]
 
@@ -81,10 +83,8 @@ let simplify_ref r_in =
   let rec loop ~ex ~k r =
     match r with
     | Relation _
-    | CtxtPred _
     | NamedPred _
-    | ConstEq _
-    | Pred _ -> k r
+    | ConstEq _ -> k r
     | And (r1,r2) ->
       loop
         ~ex:(fun () ->
@@ -103,16 +103,6 @@ let pp_alist = List.map (fun ap -> PrettyPrint.ps @@ P.to_z3_ident ap)
 
 let rec pp_ref pp_alist =
   let open PrettyPrint in
-  let pred_name i = i in
-  let print_pred i o ctxt = pb [
-      pf "%s(" @@ pred_name i;
-      psep_gen (pf ",@ ") @@ [
-        ctxt;
-        ps nu
-      ] @ (pp_alist o);
-      pf ")"
-    ]
-  in
   let pp_rel_imm = function
     | RAp p -> ps @@ P.to_z3_ident p
     | RConst n -> pi n
@@ -122,8 +112,6 @@ let rec pp_ref pp_alist =
     | RImm i -> pp_rel_imm i
   in
   function
-  | Pred (i,o) -> print_pred i o @@ ps alpha
-  | CtxtPred (c,i,o) -> print_pred i o @@ pi c
   | Top -> ps "T"
   | ConstEq n -> pf "%s = %d" nu n
   | Relation { rel_op1; rel_cond; rel_op2 } ->

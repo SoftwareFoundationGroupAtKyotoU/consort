@@ -51,7 +51,7 @@ let pp_ap r =
     loop steps
   | _ -> failwith "Unsupported operation ap"
 
-let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_ap) RefinementTypes.refinement) =
+let rec pp_ref_ast (r: RefinementTypes.concr_refinement) =
   let open RefinementTypes in
   match r with
   | Top -> ps "T"
