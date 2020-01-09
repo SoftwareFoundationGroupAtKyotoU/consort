@@ -8,7 +8,7 @@ type funtyp_v = {
 }
 
 module TyCons : sig
-  type t [@@deriving sexp]
+  type t[@@immediate][@@deriving sexp]
   val equal : t -> t -> bool
   val hash : t -> int
   val fresh : unit -> t
@@ -51,6 +51,8 @@ type typ = [
   typ c_typ
 | `Var of int
 ] [@@deriving sexp]
+
+type refined_typ = typ c_typ
 
 
 module TyConsUF = UnionFind.Make(TyCons)
@@ -117,11 +119,11 @@ let abstract_type sub_ctxt t =
   let rec loop = function
     | `TVar _ -> failwith "Not supported"
     | `Mu _ -> failwith "Not supported"
-    | `Ref t -> fresh_cons sub_ctxt @@ loop t
+    | `Ref t -> fresh_cons sub_ctxt ((loop t) : refined_typ :> typ)
     | `Int -> `Int
     | `Tuple tl ->
-      `Tuple (List.map loop tl)
-    | `Array t -> `Array (loop (t :> SimpleTypes.r_typ))
+      `Tuple (List.map loop tl |> List.map [%cast: typ])
+    | `Array t -> `Array ((loop (t :> SimpleTypes.r_typ)) :> typ)
   in
   loop t
 
@@ -162,21 +164,23 @@ let rec occurs_check sub v (t2: typ) =
   | `TyCons _ -> ()
 
 let assign sub var t =
-  occurs_check sub var t;
+  occurs_check sub var (t :> typ);
   Hashtbl.add sub.resolv var t  
 
 let rec unify ~loc sub_ctxt t1 t2 =
   let unfold t1 =
     match canonicalize sub_ctxt t1 with
     | `Var v -> Hashtbl.find_opt sub_ctxt.resolv v
+      |> Option.map [%cast: typ]
       |> Option.value ~default:(`Var v)
     | _ -> t1
   in
   match unfold t1,(unfold t2) with
   | `Var v1,`Var v2 ->
     UnionFind.union sub_ctxt.uf v1 v2
-  | `Var v1,t
-  | t,`Var v1 -> assign sub_ctxt v1 t
+  (* set partial resolution *)
+  | `Var v1,(#refined_typ as t)
+  | (#refined_typ as t),`Var v1 -> assign sub_ctxt v1 t
   | `Int,`Int -> ()
   | `Tuple tl1,`Tuple tl2 ->
     List.iter2 (unify ~loc sub_ctxt) tl1 tl2
@@ -232,7 +236,7 @@ let rec resolve_with_rec sub v_set k t =
     k IS.empty `Int
   | `Var v ->
     let t' = Hashtbl.find sub.resolv v in
-    resolve_with_rec sub v_set k t'
+    resolve_with_rec sub v_set k (t' :> typ)
   | `Array t' ->
     resolve_with_rec sub v_set (fun is t_lift ->
         match t_lift with
@@ -480,6 +484,7 @@ let is_rec_assign sub c t' =
     match canonicalize sub t with
     | `Var v ->
       Hashtbl.find_opt sub.resolv v
+      |> Option.map [%cast: typ]
       |> Option.map @@ check_loop h_rec
       |> Option.value ~default:true
     | `Int -> false
@@ -505,7 +510,7 @@ let get_rec_loc sub p_ops =
     ) [] p_ops
 
 let typecheck_prog intr_types (fns,body) =
-  let (resolv : (int,typ) Hashtbl.t) = Hashtbl.create 10 in
+  let (resolv : (int,refined_typ) Hashtbl.t) = Hashtbl.create 10 in
   let cons_arg = TyConsResolv.create 10 in
   let uf = UnionFind.mk () in
   let cons_uf = TyConsUF.mk () in
@@ -547,7 +552,7 @@ let typecheck_prog intr_types (fns,body) =
         failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
       else
         unify ~loc sub (`Var unif) @@ List.nth tl ind
-    | Some t' -> Locations.raise_errorf ~loc "Ill-typed: expected tuple, got %s" @@ string_of_typ t'
+    | Some t' -> Locations.raise_errorf ~loc "Ill-typed: expected tuple, got %s" @@ string_of_typ (t' :> typ)
   ) acc'.t_cons;
   let distinct_list_to_set l =
     let l' = Std.IntSet.of_list l in
