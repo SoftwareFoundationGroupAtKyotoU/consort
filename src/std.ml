@@ -1,3 +1,5 @@
+(** Our custom standard library *)
+
 module type PRINTABLE = sig
   type t
   val to_string : t -> string
@@ -19,33 +21,6 @@ end
 module IntMap = Map.Make(Int)
 module IntSet = PrintSet(Int)
 module StringSet = PrintSet(struct include String let to_string = Fun.id end)
-
-let double_fold_k f l k =
-  List.fold_left (fun acc t ->
-    (fun d1 d2 ->
-      f d1 d2 t (fun d1' d2' ->
-        acc d1' d2'
-      )
-    )
-  ) k l
-
-let double_fold f l =
-  List.fold_left (fun acc t ->
-    (fun d1 d2 ->
-      let (d1',d2') = f d1 d2 t in
-      acc d1' d2'
-    )
-  ) (fun d1_final d2_final -> (d1_final, d2_final)) l
-
-let map_with_accum f l acc =
-  double_fold (fun acc' tl e ->
-    let (acc'',e') = f e acc' in
-    (acc'',e'::tl)
-  ) l acc []
-
-let fold_left_fst f = function
-  | [] -> None
-  | h::l -> Option.some @@ List.fold_left f h l
 
 let fold_lefti f a l =
   let rec loop i a l =
@@ -92,13 +67,28 @@ module IntExt = struct
     else fold f (f acc) (i - 1)
 end
 
-module StringExt = struct
-  let starts_with s pref =
-    if String.length s < String.length pref then
-      false
-    else
-      (String.sub s 0 (String.length pref)) = pref
-end
+(** A state monad. The Let_syntax module is for use with the ppx_let
+   processor (we could in principle use the new binding extension in
+   4.08, but we're in too deep now!)
+
+   The state monad itself is given a fairly standard definition
+   (although note the type of state may be changed by a
+   computation). Two convenience functions, [proj] and [mut] are used
+   to lift functions that operate on the state directly. [proj] lifts a
+   function that "projects" some information out of the state (i.e., of type [state -> 'a])
+   into a monadic operation that can be sequenced with >>=. [mut] lifts
+   a function that mutates the state (e.g., of type [state -> state]) and lifts
+   it into monadic operation that can be sequenced with >> or seq. 
+
+   The convenience function, [seq] composes two monadic operations, where the first operation
+   is assumed to side effect the state (and therefore produces [()]).
+
+   These three convenience functions are rarely (if ever?) used directly, they are used
+   by the [with_monad] ppx extension. The extension [lq] (for "lift query", the mnemonic should be lift projection...)
+   function definition let-bindings is desugared into a call to proj, and the extension [lm] (for lift mutation)
+   on a function definition let-binding is similarly desugared into a call to mut. Finally, to simulate do blocks, the
+   [m] extension on begin o1; o2; o3; .. end is desguared into a sequence of [seq] calls.
+*)
 
 module StateMonad = struct
   module Let_syntax = struct
@@ -122,10 +112,6 @@ module StateMonad = struct
 
     let return g = (fun ctxt -> (ctxt,g))
 
-    let mwith o ~(f : ('d -> ('a,'b,'c) context_monad)) : ('a,'b,'c) context_monad = (fun ctxt ->
-      let v = o ctxt in
-      f v ctxt)
-
     let seq ~a ~b =
       (fun ctxt ->
         let (ctxt',()) = a ctxt in
@@ -143,29 +129,7 @@ module StateMonad = struct
   let return = Let_syntax.return
 
   (* combinators *)
-
-  (* sequencing and the dual of the above.
-     Produce a computation that transforms the state according to d1
-     and then produces a state and value according to d2 in the new state *)
   let (>>) d1 d2 = (fun ctxt -> let (c,()) = d1 ctxt in d2 c)
-
-  (* sugar *)
-  let map_state f ctxt = (f ctxt,())
-
-  (* reify the state *)
-  let get_state = fun ctxt -> ((),ctxt)
-
-  (* sets the state *)
-  let put_state ctxt () = (ctxt,())
-
-  (* produce a value from the current state according to f *)
-  let mwith f = Let_syntax.proj ~f
-
-  (* run a computation f in state c, expecting the computation to return (). Return
-     the new state *)
-  let do_with_context c f = let (c',()) = (f c) in c'
-  (* produces a computation that mutates the state and generates no side effect *)
-  let mutate f = Let_syntax.mut ~f
 
   (* stateful versions of list functions *)
   let mfold_left f a l = List.fold_left (fun a e ->
@@ -191,24 +155,6 @@ module StateMonad = struct
         return @@ h'::t'
     in
     loop 0 l
-
-  let mfold_right f l a = List.fold_right (fun e a ->
-      let%bind a' = a in
-      f e a'
-    ) l (return a)
-
-  let mfold_left2 f a l1 l2 =
-    List.fold_left2 (fun a e1 e2 ->
-      let%bind a_raw = a in
-      f a_raw e1 e2
-    ) (return a) l1 l2
-
-
-  let mfold_right2 f l1 l2 a =
-    List.fold_right2 (fun e1 e2 a ->
-      let%bind a_raw = a in
-      f e1 e2 a_raw
-    ) l1 l2 (return a)
 
   let rec miter f l =
     match l with

@@ -107,3 +107,9 @@ If you want to add a new solver backend, you must make the following changes:
 2. Add an argument flag for selecting the new solver. Extend the `solver` type defined in the `Consort.Options` with a descriptive variant, and extend the definition of `solver_arg_gen` in the same module.
 3. Extend the pattern match in `check_file` to handle your new variant, returning a reference to the `solve` function you wrote in 1.
 4. (Optional) If your solver is to be used with the parallel backend, extend the `backends` list in `parallelBackend.ml`, placing your packed module into the list.
+
+# Syntax Extensions
+
+The `%lm`, `%lq`, and `%m` syntax extensions are for monadic operations, and are explained in `std.ml`. They are implemented
+in the `with_monad` rewriter, see that folder for the implementation. The `[%cast: t]` extension
+is implemented by the `ppx_cast` rewriter, and is just replaced with `(fun x -> (x :> t))`.
