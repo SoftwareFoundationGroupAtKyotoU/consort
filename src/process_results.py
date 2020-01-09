@@ -88,10 +88,11 @@ def print_jayhorn_line(table, name, pref, nl = ''):
     correct = g[pref + "_correct"]
     timeout = g[pref + "_timeout"]
     stat_block = g["jayhorn_" + pref]
-    print >> table, r'\textbf{%s} & %d & %d & %d &  %d &  %d &  %d & %d%s' % (
+    assert stat_block["error"] == 0
+    print >> table, r'\textbf{%s} & %d & %d & %d &  %d &  %d & %d%s' % (
         name,
         correct + timeout, correct, timeout,
-        stat_block["correct"], stat_block["timeout"], stat_block["error"], stat_block["imprecise"], nl
+        stat_block["correct"], stat_block["timeout"], stat_block["imprecise"], nl
     )
 
 def jayhorn_column(j):
@@ -105,10 +106,10 @@ def jayhorn_column(j):
             return r'\text{T/O}'
 
 with open(sys.argv[2], 'w') as result_table:
-    print >> result_table, r'\begin{tabular}{cccccccc}\toprule'
-    print >> result_table, r'& & \multicolumn{2}{l}{\textbf{\name}} & \multicolumn{4}{c}{\textbf{JayHorn}} \\'
-    print >> result_table, r'\cmidrule(lr){3-4} \cmidrule(lr){5-8}'
-    print >> result_table, r'\textbf{Set} & \textbf{N. Tests} & \emph{Correct} & \emph{T/O} & \emph{Correct} & \emph{T/O} & \emph{Err.} & \emph{Imp.} \\ \midrule'
+    print >> result_table, r'\begin{tabular}{ccccccc}\toprule'
+    print >> result_table, r'& & \multicolumn{2}{l}{\textbf{\name}} & \multicolumn{3}{c}{\textbf{JayHorn}} \\'
+    print >> result_table, r'\cmidrule(lr){3-4} \cmidrule(lr){5-7}'
+    print >> result_table, r'\textbf{Set} & \textbf{N. Tests} & \emph{Correct} & \emph{T/O} & \emph{Correct} & \emph{T/O} & \emph{Imp.} \\ \midrule'
     print_jayhorn_line(result_table, "Safe", "sat", r'\\')
     print_jayhorn_line(result_table, "Unsafe", "unsat")
     print >> result_table, r'\end{tabular}'

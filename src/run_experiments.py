@@ -59,11 +59,14 @@ def run_jayhorn_with_timeout(config, tmp_dir):
     (o,e) = p.communicate()
     end = time.time() 
     if p.returncode == 124:
+        print "   JayHorn: TIMEOUT"
         return mk_result(False, end - start, reason = "(timeout)")
     if p.returncode != 0:
+        print "   JayHorn: ERROR"
         return mk_result(False, end - start, reason = "(error)")
     o_lines = o.strip().split("\n")
     last = o_lines[-1]
+    print "   JayHorn:", last
     if last == "SAFE":
         return mk_result(True, end - start)
     elif last == "UNSAFE":
@@ -118,6 +121,7 @@ def run_and_check(config, benchimp):
     print " - Running", benchimp
     (raw_result, elapse) = run_consort(config, benchimp)
     aliases = count_aliases(benchimp)
+    print "   Consort:", raw_result
     if raw_result.startswith("VERIFIED"):
         return mk_result(True, elapse, name = benchimp, alias = aliases)
     else:

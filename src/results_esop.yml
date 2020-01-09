@@ -1,0 +1,316 @@
+consort:
+  neg:
+  - elapsed: 0.021860837936401367
+    jayhorn: {elapsed: 60.0799400806427, reason: (timeout), result: false}
+    name: Intro2-BUG
+    reason: (ownership)
+    result: false
+  - elapsed: 1.1242401599884033
+    jayhorn: {elapsed: 60.08010816574097, reason: (timeout), result: false}
+    name: Array-List-BUG
+    reason: (unsafe)
+    result: false
+  - elapsed: 1.30275297164917
+    jayhorn: {elapsed: 60.09003806114197, reason: (timeout), result: false}
+    name: Sorted-List-BUG
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.4213290214538574
+    jayhorn: {elapsed: 60.07695388793945, reason: (timeout), result: false}
+    name: Mut-List-BUG
+    reason: (unsafe)
+    result: false
+  - elapsed: 4.5838799476623535
+    jayhorn: {elapsed: 60.10324001312256, reason: (timeout), result: false}
+    name: Array-Inv-BUG
+    reason: (unsafe)
+    result: false
+  pos:
+  - elapsed: 17.70364809036255
+    jayhorn: {elapsed: 60.07655096054077, reason: (timeout), result: false}
+    name: Array-List
+    result: true
+  - elapsed: 2.0923969745635986
+    jayhorn: {elapsed: 60.20981502532959, reason: (timeout), result: false}
+    name: Sorted-List
+    result: true
+  - elapsed: 0.06845211982727051
+    jayhorn: {elapsed: 2.181428909301758, result: true}
+    name: Shuffle
+    result: true
+  - elapsed: 1.1231989860534668
+    jayhorn: {elapsed: 60.07729911804199, reason: (timeout), result: false}
+    name: Mut-List
+    result: true
+  - elapsed: 9.017271995544434
+    jayhorn: {elapsed: 60.07403898239136, reason: (timeout), result: false}
+    name: Array-Inv
+    result: true
+  - elapsed: 0.08590006828308105
+    jayhorn: {elapsed: 60.07993292808533, reason: (timeout), result: false}
+    name: Intro2
+    result: true
+jayhorn: !!python/tuple
+- - elapsed: 0.07743287086486816
+    jayhorn: {elapsed: 2.829468011856079, result: true}
+    name: ./benchmarks/jayhorn/SatCopies.imp
+    result: true
+  - elapsed: 0.14266109466552734
+    jayhorn: {elapsed: 3.6589231491088867, result: true}
+    name: ./benchmarks/jayhorn/SatAckermann01.imp
+    result: true
+  - elapsed: 63.76375412940979
+    jayhorn: {elapsed: 60.04714918136597, reason: (timeout), result: false}
+    name: ./benchmarks/jayhorn/SatAddition02.imp
+    reason: (timeout)
+    result: false
+  - elapsed: 62.0792920589447
+    jayhorn: {elapsed: 60.04574680328369, reason: (timeout), result: false}
+    name: ./benchmarks/jayhorn/SatEvenOdd01.imp
+    reason: (timeout)
+    result: false
+  - elapsed: 0.07207584381103516
+    jayhorn: {elapsed: 2.1605350971221924, result: true}
+    name: ./benchmarks/jayhorn/SatConstructor.imp
+    result: true
+  - elapsed: 0.06803178787231445
+    jayhorn: {elapsed: 2.112802028656006, result: true}
+    name: ./benchmarks/jayhorn/SatFieldCopy.imp
+    result: true
+  - elapsed: 0.21272683143615723
+    jayhorn: {elapsed: 3.32275390625, result: true}
+    name: ./benchmarks/jayhorn/SatMccarthy91.imp
+    result: true
+  - elapsed: 0.18807411193847656
+    jayhorn: {elapsed: 60.045295000076294, reason: (timeout), result: false}
+    name: ./benchmarks/jayhorn/SatSum.imp
+    result: true
+  - elapsed: 0.08153295516967773
+    jayhorn: {elapsed: 3.9504709243774414, result: true}
+    name: ./benchmarks/jayhorn/SatTwoCalls.imp
+    result: true
+  - elapsed: 0.07360601425170898
+    jayhorn: {elapsed: 2.2357230186462402, result: true}
+    name: ./benchmarks/jayhorn/SatSetGet.imp
+    result: true
+  - elapsed: 0.2301478385925293
+    jayhorn: {elapsed: 3.8112850189208984, result: true}
+    name: ./benchmarks/jayhorn/SatIssue66.imp
+    result: true
+  - elapsed: 6.782731056213379
+    jayhorn: {elapsed: 6.4167938232421875, result: true}
+    name: ./benchmarks/jayhorn/SatAckermann03.imp
+    result: true
+  - elapsed: 0.0834050178527832
+    jayhorn: {elapsed: 4.882833003997803, result: true}
+    name: ./benchmarks/jayhorn/SatBranches.imp
+    result: true
+  - elapsed: 0.05798506736755371
+    jayhorn: {elapsed: 2.199798822402954, result: true}
+    name: ./benchmarks/jayhorn/SatSetField.imp
+    result: true
+  - elapsed: 2.8791627883911133
+    jayhorn: {elapsed: 5.6515419483184814, result: true}
+    name: ./benchmarks/jayhorn/SatLoopAndField.imp
+    result: true
+  - elapsed: 0.05963492393493652
+    jayhorn: {elapsed: 2.262218952178955, result: true}
+    name: ./benchmarks/jayhorn/SatRef.imp
+    result: true
+  - elapsed: 4.059632062911987
+    jayhorn: {elapsed: 3.394619941711426, result: true}
+    name: ./benchmarks/jayhorn/SatAddition01.imp
+    result: true
+  - elapsed: 3.652535915374756
+    jayhorn: {elapsed: 6.983299016952515, reason: (error), result: false}
+    name: ./benchmarks/jayhorn/SatFibonacci02.imp
+    result: true
+  - elapsed: 0.06048989295959473
+    jayhorn: {elapsed: 4.949398994445801, result: true}
+    name: ./benchmarks/jayhorn/SatTwoInstances.imp
+    result: true
+  - elapsed: 0.23860692977905273
+    jayhorn: {elapsed: 3.5146119594573975, result: true}
+    name: ./benchmarks/jayhorn/SatFibonacci01.imp
+    result: true
+  - elapsed: 0.8628349304199219
+    jayhorn: {elapsed: 12.226721048355103, result: true}
+    name: ./benchmarks/jayhorn/SatObjectArray2.imp
+    result: true
+  - elapsed: 0.12065505981445312
+    jayhorn: {elapsed: 3.0005099773406982, result: true}
+    name: ./benchmarks/jayhorn/SatGcd.imp
+    result: true
+  - elapsed: 6.043241024017334
+    jayhorn: {elapsed: 60.06142711639404, reason: (timeout), result: false}
+    name: ./benchmarks/jayhorn/SatAckermann02.imp
+    result: true
+  - elapsed: 0.08500194549560547
+    jayhorn: {elapsed: 3.1391828060150146, result: true}
+    name: ./benchmarks/jayhorn/SatAliasing01.imp
+    result: true
+  - elapsed: 0.0645749568939209
+    jayhorn: {elapsed: 2.20934796333313, result: true}
+    name: ./benchmarks/jayhorn/SatCopy.imp
+    result: true
+  - elapsed: 0.06925487518310547
+    jayhorn: {elapsed: 2.384376049041748, result: true}
+    name: ./benchmarks/jayhorn/SatInterproc.imp
+    result: true
+  - elapsed: 0.06098604202270508
+    jayhorn: {elapsed: 2.3096299171447754, result: true}
+    name: ./benchmarks/jayhorn/SatOverwrite.imp
+    result: true
+  - elapsed: 1.683135986328125
+    jayhorn: {elapsed: 7.993172883987427, reason: (error), result: false}
+    name: ./benchmarks/jayhorn/SatFibonacci03.imp
+    result: true
+  - elapsed: 0.06248188018798828
+    jayhorn: {elapsed: 1.769303798675537, result: true}
+    name: ./benchmarks/jayhorn/SatTrivial.imp
+    result: true
+  - elapsed: 1.0077309608459473
+    jayhorn: {elapsed: 4.272254228591919, result: true}
+    name: ./benchmarks/jayhorn/SatObjectArray.imp
+    result: true
+  - elapsed: 0.07306599617004395
+    jayhorn: {elapsed: 6.332592964172363, result: true}
+    name: ./benchmarks/jayhorn/SatInstances.imp
+    result: true
+  - elapsed: 62.038808822631836
+    jayhorn: {elapsed: 8.033369064331055, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/SatHanoi01.imp
+    reason: (timeout)
+    result: false
+- - elapsed: 0.059101104736328125
+    jayhorn: {elapsed: 3.115917921066284, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatCopy.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 2.563025951385498
+    jayhorn: {elapsed: 9.3195641040802, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatLoopAndField.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 1.8676559925079346
+    jayhorn: {elapsed: 13.364902973175049, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/UnsatFibonacci02.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.08095884323120117
+    jayhorn: {elapsed: 4.8870849609375, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/UnsatBranches.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.11547398567199707
+    jayhorn: {elapsed: 4.307892084121704, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/UnsatEvenOdd01.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.10188913345336914
+    jayhorn: {elapsed: 4.777165174484253, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatArray2.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.05890297889709473
+    jayhorn: {elapsed: 4.672453165054321, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatOverwrite.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07493400573730469
+    jayhorn: {elapsed: 3.117324113845825, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatFieldCopy.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.09414291381835938
+    jayhorn: {elapsed: 3.1300199031829834, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatMccarthy91.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.06331896781921387
+    jayhorn: {elapsed: 4.280452013015747, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatRef.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.2216789722442627
+    jayhorn: {elapsed: 4.317965984344482, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/UnsatAddition01.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.8531539440155029
+    jayhorn: {elapsed: 5.891490936279297, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/UnsatFibonacci01.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.06201791763305664
+    jayhorn: {elapsed: 2.2740910053253174, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatTrivial.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.06664800643920898
+    jayhorn: {elapsed: 9.212825059890747, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatAliasing02.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.06717991828918457
+    jayhorn: {elapsed: 4.946755886077881, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatTwoInstances.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 1.2546358108520508
+    jayhorn: {elapsed: 60.07394599914551, reason: (timeout), result: false}
+    name: ./benchmarks/jayhorn/UnsatHanoi.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07358694076538086
+    jayhorn: {elapsed: 3.823490858078003, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatTwoCalls.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.06365108489990234
+    jayhorn: {elapsed: 2.9113810062408447, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatArray.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07261919975280762
+    jayhorn: {elapsed: 2.9905850887298584, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatConstructor.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 2.5597522258758545
+    jayhorn: {elapsed: 5.5140650272369385, reason: (unknown), result: false}
+    name: ./benchmarks/jayhorn/UnsatAckermann01.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07939505577087402
+    jayhorn: {elapsed: 3.583845853805542, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatSetGet.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.23832201957702637
+    jayhorn: {elapsed: 10.381070852279663, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatIssue66.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07241320610046387
+    jayhorn: {elapsed: 5.851690053939819, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatInstances.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.08061909675598145
+    jayhorn: {elapsed: 9.322772026062012, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatAliasing01.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07078313827514648
+    jayhorn: {elapsed: 3.9429478645324707, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatInterproc.imp
+    reason: (unsafe)
+    result: false
+  - elapsed: 0.07239890098571777
+    jayhorn: {elapsed: 3.0344250202178955, reason: (unsafe), result: false}
+    name: ./benchmarks/jayhorn/UnsatSetField.imp
+    reason: (unsafe)
+    result: false
+- sat: {broken: 1, incl: 32, incomplete: 2, java: 6}
+  unsat: {broken: 0, incl: 26, incomplete: 2, java: 13}
