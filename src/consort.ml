@@ -247,13 +247,6 @@ let print_model t =
   else
     Option.iter (fun _ -> ())
 
-
-module type SOLVER = sig
-  type t
-  val solve : annot_infr:bool -> dump_ir:(string option) -> intr:Intrinsics.interp_t -> SimpleChecker.simple_results -> float OwnershipInference.ownership_ops -> Ast.prog -> (t * Solver.result)
-    
-end
-
 let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
   let open Options in
   let ast = AstUtil.parse_file in_name in
@@ -288,8 +281,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
           ?save_cons:opts.save_cons
           ~get_model:(opts.print_model || opts.check_trivial)
     end in
-    let s_mod = (module FlowBackend.Make(Backend) : SOLVER) in
-    let module S = (val s_mod : SOLVER) in
+    let module S = FlowBackend.Make(Backend) in
     let (_,ans) = S.solve ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
