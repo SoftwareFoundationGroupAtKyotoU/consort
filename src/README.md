@@ -80,3 +80,30 @@ The resulting option structure, intrinsic definitions, and provided `.imp` file 
      * If solving fails with a timeout, solver error, etc. no judgment is made
 
 Detailed explanations of the workings of the above can be found in the corresponding module files.
+
+# Updating the Language
+
+You will need to update the following files:
+
+1. (Optional) `lexer.mll`: to recognize new keywords, etc.
+2. `parser.mly`: to extend the parser to recognize your new form
+3. Some (potentially empty) subset the following:
+  1. (Optional) `surfaceAst.ml`: to represent the surface level parse of your new form, if needed
+  2. (Optional) `ast.ml`: If your new form cannot be straightforwardly represented in the low-level syntax.
+  3. `simpleChecker.ml` and `astPrinter.ml`: if modifying `ast.ml`, you must update the type checker to handle the new form, and describe how to print it back.
+4. If `ast.ml` was modified in the above, you must also modify `ownershipInference.ml` and `flowInference.ml` to handle the new syntactic form
+
+# Adding a New Backend
+
+If you want to add a new solver backend, you must make the following changes:
+
+1. Implement the solver in a new OCaml module; update the `consort` dune module as necessary.
+  * At the very least, your new module should provide a function (preferably called `solve`) which has the following type:
+  ```opts:Solver.options ->
+     debug_cons:bool ->
+     ?save_cons:string ->
+     get_model:bool -> defn_file:string option -> SexpPrinter.t -> Solver.result```
+  * If you want your solver to be run with the parallel backend, you must also provide a function called `solve_cont` with the following type `opts:Solver.options -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont`
+2. Add an argument flag for selecting the new solver. Extend the `solver` type defined in the `Consort.Options` with a descriptive variant, and extend the definition of `solver_arg_gen` in the same module.
+3. Extend the pattern match in `check_file` to handle your new variant, returning a reference to the `solve` function you wrote in 1.
+4. (Optional) If your solver is to be used with the parallel backend, extend the `backends` list in `parallelBackend.ml`, placing your packed module into the list.
