@@ -1,4 +1,4 @@
-.PHONY: all test clean
+.PHONY: all test clean doc
 
 all: stdlib/lin.intr
 	dune build test.exe
@@ -18,6 +18,10 @@ stdlib/lin.intr stdlib/lin-std.smt: ./genLin.ml
 
 %.a:
 	dune build $@
+
+doc:
+	dune build @doc-private
+	@echo "See _build/default/_doc/_html"
 
 clean:
 	dune clean
