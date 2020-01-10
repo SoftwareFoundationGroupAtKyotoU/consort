@@ -13,6 +13,6 @@ unzip -o -j z3.zip z3-4.8.4.d6df51951f4c-x64-ubuntu-14.04/bin/z3 -d ~/.local/bin
 
 # approximately the memory available on travis
 make -C ./src test.exe genFlags.exe stdlib/lin.intr
-#bash ./src/test_suite.sh -solver-args "-memory:6000"
+bash ./src/test_suite.sh -solver-args "-memory:6000"
 
 bash ./src/regnant/.travis-ci.sh
