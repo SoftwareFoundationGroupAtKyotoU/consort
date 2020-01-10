@@ -29,7 +29,6 @@ type concr_arg =
   | Ap of P.concr_ap
   | BConst of bool
   | IConst of int
-  | NondetChoice of concr_arg list
   | KeyedChoice of P.concr_ap * concr_arg * concr_arg [@@deriving sexp]
 
 type clause =

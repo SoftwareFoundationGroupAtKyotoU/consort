@@ -38,7 +38,6 @@ type concr_arg =
   | Ap of P.concr_ap
   | BConst of bool
   | IConst of int
-  | NondetChoice of concr_arg list
   | KeyedChoice of P.concr_ap * concr_arg * concr_arg [@@deriving sexp]
 
 type clause =
@@ -795,7 +794,6 @@ module RecursiveRefinements = struct
       | Ap p -> P.to_z3_ident p
       | BConst b -> Bool.to_string b
       | IConst i -> string_of_int i
-      | NondetChoice l -> List.map concr_arg_to_string l |> String.concat ", " |> Printf.sprintf "{?%s}"
       | KeyedChoice (p,a1,a2) ->
         Printf.sprintf "[? %s %s %s]" (P.to_z3_ident p) (concr_arg_to_string a1) (concr_arg_to_string a2)
         
@@ -935,7 +933,6 @@ module RecursiveRefinements = struct
       | Ap p -> Ap (normalize_ap p)
       | BConst c -> BConst c
       | IConst i -> IConst i
-      | NondetChoice c -> NondetChoice (List.map deep_normalize c)
       | KeyedChoice (p,a1,a2) ->
         KeyedChoice (normalize_ap p, deep_normalize a1, deep_normalize a2)
     in

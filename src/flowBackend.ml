@@ -53,21 +53,6 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
             a1_pp;
             a2_pp
           ]
-      | NondetChoice (arg::(_::_ as l)) ->
-        let%bind fst = pp_arg ty arg in
-        mfold_left (fun expr choice ->
-          let flg = Printf.sprintf "star!%d" !choice_counter in
-          incr choice_counter;
-          let id = P.var flg in
-          let%bind pp_choice = pp_arg ty choice in
-          add_ident id ZBool >>
-          return @@ pg "ite" [
-              pl flg;
-              pp_choice;
-              expr
-            ]
-        ) fst l
-      | NondetChoice _ -> assert false
     in
     match clause with
     | Relation (p,ty) ->
