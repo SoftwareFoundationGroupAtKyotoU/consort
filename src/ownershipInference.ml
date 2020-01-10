@@ -1,3 +1,11 @@
+(** 
+This module walks the AST of a program, generating a series of ownership constraints (type [ocons]) which encode the
+ownership relationships that must hold in any well-typed program.
+
+In addition to the constraints themselves, this analysis produces two major side results: the [ownership_ops] map and
+the maximization variables. These are discussed below.
+*)
+
 open Ast
 open Std
 open Std.StateMonad
@@ -18,38 +26,95 @@ type 'a otype_ =
 
 type otype = ownership otype_
 
+(** For the most part, the ownership and refinement inference passes may be run independently. The only intersection is
+handling 0 ownership references; when a reference drops to 0 ownership, all refinements must go to top (although we use
+a different static semantics, see flowInference for details). Thus, we must communicate the refinement inference
+step when and where a refinement drops to zero. This is accomplished by way of the ownership_ops map, which records
+for each ownership transfer in the program the result ownerships. The [magic_loc] and [split_loc] types defined
+below are used for uniquely identify an ownership operation.
+*)
+
+(** A type identifying when the ownership inference is asked to synthesize an ownership ex nihilo. Of course,
+   the resulting ownership is constrained by future uses of that ownership, but there is no immediate "source"
+   of the ownership. The constructor documentation describes where this occurs.
+*)
 type magic_loc =
-  | MGen of int
-  | MJoin of int
-  | MArg of string
-  | MOut of string
-  | MRet of string
-  | MAlias of int [@@deriving sexp]
+  | MGen of int (** When an ownership is created in the context of processing expression with id. Examples include null pointer, computing the result ownership after a call, etc.*)
+  | MJoin of int (** Describes the ownership values computed at a control-flow join point. This has to be a separate constructor because an ifnull condition may be the source of two ownerships; the new ownership to assign in the ifnull branch, and the ownerships at the join point. *)
+  | MArg of string (** The ownership of an argument to function nm *)
+  | MOut of string (** The ownership of the result to function nm *)
+  | MRet of string (** The ownership of the return value from nm *)
+  | MAlias of int (** The ownership generated at an alias statement with id *) [@@deriving sexp]
 
+(**
+   Split loc is for describing when a single, known ownership is split into to components (with the + operator).
+*)
 type split_loc =
-  | SBind of int
-  | SCall of int
-  | SRet of int [@@deriving sexp]
+  | SBind of int (** For an assignment occuring at expression with id *)
+  | SCall of int (** When splitting an argument passed in to a function at call with expression id *)
+  | SRet of int (** When splitting a variable being returned out of a function *)  [@@deriving sexp]
 
+(** These two maps give the results of ownership operations. The result is defined on a pair of the ownership operation (identified
+   by a split_loc or magic_loc) and the access path (see Paths) of a reference type. These maps are partial, they do NOT contain any
+   information if a reference (identified by a path) was not split or assigned new ownership during an ownership operation *)
+
+(** The second component of the key identifies the reference that was being split by the assignment *)
 module SplitMap : Map.S with type key = (split_loc * Paths.concr_ap) = Map.Make(OrderedPair(DefaultOrd(struct type t = split_loc end))(P.PathOrd))
+    
+(** The second component of the key identifies the reference that was "magically" given a new ownership *)
 module GenMap = Map.Make(OrderedPair(DefaultOrd(struct type t = magic_loc end))(P.PathOrd))
 
 type 'a ownership_ops = {
-  splits: ('a * 'a) SplitMap.t;
-  gen: 'a GenMap.t
+  splits: ('a * 'a) SplitMap.t; (** The codomain of this map gives a pair of ownerships. 
+                                   The first element is the ownership REMAINING in the SOURCE reference (as identified by the second
+                                   component of the key). The second element is the
+                                   ownership TRANSFERRED to the TARGET of the split. *)
+  gen: 'a GenMap.t (** The codomain is the new ownership to assign to the reference identified in the second component of the key *)
 }
+
+(** The relaxed flag determines how aggressive ConSORT is when
+   maximizing ownership preservation.  By default (non-relaxed mode,
+   or stressed mode I guess) ConSORT emits a maximization constraint
+   to asking to maximize the number of non-zero ownership
+   variables. This can lead to an enormous maximization constrain with
+   non-linear components.
+
+   As an alternative, we provide the relaxed mode, which is more
+   selective in how it maximizes the ownership variables to track.
+   This doesn't come without tradeoff; relaxed mode requires that
+   dereferenced pointers must have non-zero ownership.
+   Intuitively, instead of ensuring invariants have not been
+   discarded on referenced pointers through a maximization constraint, we
+   encode this requirement directly (at the cost of some theoretical
+   loss of typability, but the use cases for reading a 0 ownership reference
+   appear limited). Given this constraint, it suffices to ensure the refinement
+   information on a variable that is non-zero is not spuriously weakened
+   before future write. Spurious weakenings can occur when all of the ownership
+   of a reference is transferred to a function parameter, where the parameter's
+   refinement is a weakening of the argument refinement. When the result refinement
+   is transferred back; we will then lose refinement information. It thus
+   suffices to maximize: a) the ownership of the variables representing the residual
+   ownership of function arguments after some ownership has been transferred to
+   the function parameters, and b) the ownership returned back to the function.
+ *) 
 
 type context = {
   relaxed : bool;
   ovars: int list;
-  max_vars: Std.IntSet.t;
+  max_vars: Std.IntSet.t; (** This tracks the ownership variables to
+                             maximize. In relaxed mode, it is those
+                             representing residual argument ownership,
+                             in regular mode, it is all ownership
+                             variables. *)
   v_counter: int;
   iso: SimpleChecker.SideAnalysis.results;
   ocons: ocon list;
   gamma: otype StringMap.t;
   theta: (otype RefinementTypes._funtype) StringMap.t;
   op_record: ownership ownership_ops;
-  save_env: otype StringMap.t IntMap.t
+  save_env: otype StringMap.t IntMap.t (** Save the ownership types at
+                                          each point in the program;
+                                          only used for debugging *)
 }
 
 type infr_options = {
@@ -94,6 +159,10 @@ let unfold =
   in
   unfold_loop ~unfld:IntSet.empty
 
+(** The optional relaxed argument indicates whether the passed in
+   constraint should be applied only if the relaxed flag is in the indicated state.
+   otherwise the constraint is added unconditionally.*)
+(* N.B. the lm extension, see the README and the StateMonad for an explanation *)
 let%lm add_constraint ?relaxed c ctxt =
   match relaxed with
   | Some b when ctxt.relaxed = b ->
@@ -101,7 +170,13 @@ let%lm add_constraint ?relaxed c ctxt =
   | None -> { ctxt with ocons = c::ctxt.ocons }
   | _ -> ctxt
 
+(** Shuffle the ownership between two source types (t1 and t2) and two destination
+   types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
+   parallel, at references the ownerships are shuffled with the Shuff constraint. *)
 let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
+  (* check whether we need to unfold the "destination", which in this case is t2/t2', not t1/t1'.
+     This confusing naming arises from this functions use in returning ownership to a recursive
+     data structure, in that case, t2/t2' represents the destination for the return operation. *)
   let unfold_dst =
     if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
       unfold
@@ -128,6 +203,8 @@ let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   in
   loop t1 (unfold_dst t2) t1' (unfold_dst t2') ctxt
 
+(** Like shuffle above, but no unfolding occurs, and the destination type [out] must
+   have an ownership equal to the "pointwise" sum of ownerships in [t1] and [t2]. *)
 let%lm sum_ownership t1 t2 out ctxt =
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
@@ -158,10 +235,10 @@ let rec unfold_simple arg mu =
   | `Tuple tl_list -> `Tuple (List.map (unfold_simple arg mu) tl_list)
   | `Mu (id,t) -> `Mu (id, unfold_simple arg mu t)
 
-let (>>) a b =
-  let%bind () = a in
-  b
-
+(** Walk a type, constraining the first occurrence of an
+   ownership variable to be well-formed w.r.t [o]. 
+   Recall well-formedness requires that if o = 0 => o' = 0
+   for the "child" ownership o'. *)
 let rec constrain_wf_loop o t ctxt =
   match t with
   | TVar _
@@ -175,6 +252,8 @@ let rec constrain_wf_loop o t ctxt =
         ctxt with ocons = Wf (o,o')::ctxt.ocons
       }
 
+(** Like constrain_wf_above, but only begin emitting wf constraints
+   when the first ownership variable is encountered *)
 let rec constrain_well_formed = function
   | TVar _
   | Int -> return ()
@@ -183,6 +262,8 @@ let rec constrain_well_formed = function
   | Ref (t,o)
   | Array (t,o) -> constrain_wf_loop o t
 
+(** Record the allocation of an ownership variable in the context
+   of a magic operation. Updates the gen map *)
 let%lm record_alloc loc p o ctxt =
   let op = ctxt.op_record in
   {
@@ -192,6 +273,9 @@ let%lm record_alloc loc p o ctxt =
     }
   }
 
+(** Record the splitting of the ownership of a reference
+at path [p] in the context of a ownership operation [loc].
+   The resulting ownerships, [o1] and [o2] are recorded in the split map *)
 let%lm record_split loc p o1 o2 ctxt =
   let op = ctxt.op_record in
   { ctxt with op_record = {
@@ -199,6 +283,10 @@ let%lm record_split loc p o1 o2 ctxt =
     }
   }
 
+(** Functions to allocating ownership variables to handle splits/generations;
+   instrumented to record using the functions above. [alloc_ovar] is to generate
+   a fresh ownership variable (always??? in the context of a generation op) and
+   alloc_split generates two ownership variables in the context of a split operation. *)
 let alloc_split,alloc_ovar =
   let alloc_ovar_inner ctxt =
     let new_ovar = ctxt.v_counter in
@@ -206,6 +294,7 @@ let alloc_split,alloc_ovar =
       if ctxt.relaxed then
         ctxt.max_vars
       else
+        (* In "stressed" mode, all variables are max *)
         Std.IntSet.add new_ovar ctxt.max_vars
     in
     { ctxt with
@@ -225,6 +314,7 @@ let alloc_split,alloc_ovar =
   in
   alloc_split,alloc_ovar
 
+(** Lift a simple type into an ownership type (of type otype) *)
 (* this must record *)
 let lift_to_ownership loc root t_simp =
   let rec simple_lift ~unfld root =
@@ -254,6 +344,10 @@ let lift_to_ownership loc root t_simp =
 let mtmap p f tl =
   mmapi (fun i e -> f (P.t_ind p i) e) tl
 
+(** Make a fresh type of the same shape as [t], whose
+   root is at the path [root]. The ownership variables
+   attached to references reachable from [root]
+   allocated are done so in magic context [loc] *)
 (* This needs to record *)
 let make_fresh_type loc root t =
   let rec loop root = function
@@ -291,11 +385,26 @@ let%lq lkp_array v ctxt = match StringMap.find v ctxt.gamma with
   | Array (t,o) -> (t,o)
   | _ -> failwith "Not an array"
 
+(** Map the type bound to v according to continuation k. k
+   is stateful function (aka a monadic operation) which
+   returns a 3-ary tuple. The first element is the new type for
+   for v. The second two components are returned to the caller.
+   The new type for v is not immediately applied, rather the returned tuple
+   includes a monadic update that, when applied, performs the update to
+   the new type.
+*)
 let map_type k v  =
   let%bind t = lkp v in
   let%bind (t',subt,subt') = k t in
   return @@ (update_type v t',subt,subt')
 
+(**
+   Allocates a fresh type for the reference rooted at path [p]. This
+   function returns a 3-ary tuple consisting of:
+   1. a monadic update, which applies the update at [p] to the environment
+   2. the original type at [p]
+   3. The fresh type at [p]
+*)
 let fresh_ap e_id (p: P.concr_ap) =
   let loc = MAlias e_id in
   let (root,steps,suff) = (p :> P.root * P.steps list * P.suff) in
@@ -304,7 +413,7 @@ let fresh_ap e_id (p: P.concr_ap) =
     | Var v,`None -> v
     | _ -> assert false
   in
-  let rec loop (k: ?o:ownership -> otype -> (otype * 'a * 'b, context, 'c) Let_syntax.context_monad) st =
+  let rec loop (k: ?o:ownership -> _) st =
     match st with
     | [] -> map_type (fun t -> k t) v
     | `Deref::l ->
@@ -335,6 +444,7 @@ let fresh_ap e_id (p: P.concr_ap) =
     in
     return (t',t,t')
   ) steps
+    
 (* this must record *)
 let get_type_scheme e_id v ctxt =
   let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
@@ -367,6 +477,8 @@ let rec split_type loc p =
   | Array (t,o) -> split_mem o t P.elem tarray
 
 
+(** Constrain to types to be pointwse constrained by the generator rel, which
+   takes two ownerships and returns a constraint *)
 let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
   let dst_unfld =
     let open SimpleChecker.SideAnalysis in
@@ -416,6 +528,9 @@ let%lq is_unfold eid ctxt =
 
 let%lq theta f ctxt = SM.find f ctxt.theta
 
+(** Functionally quite similar to split type, but rather than splitting a type
+   in place and giving the two result types, constrains t1 and t2 to be the result
+   of splitting out *)
 let%lm sum_types t1 t2 out ctxt =
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
@@ -454,6 +569,7 @@ let process_call e_id c =
          let%bind t = lkp arg_name in
          let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
          let out_type = List.nth fun_type.output_types i in
+         (* explicitly flag the residual type as one to maximize *)
          max_type t >>
          sum_types t out_type t' >> update_type arg_name t'
        ) c.arg_names;
@@ -581,6 +697,7 @@ let rec process_expr ~output ((e_id,_),expr) =
         in
         begin%m
             update_type v @@ Ref (t1,o);
+             (* only require the ownership to be non-zero in relaxed mode (the relaxed argument) *)
              add_constraint ~relaxed:true @@ Live o;
              return t2
         end
@@ -625,6 +742,7 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
         let tt = StringMap.find k ctxt_t.gamma in
         let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
         begin%m
+            (* notice that we allow ownership to be discarded at join points, the reason for MJoin *)
             constrain_ge ~e_id ~src:tt ~dst:t';
              constrain_ge ~e_id ~src:ft ~dst:t';
              update_type k t'
