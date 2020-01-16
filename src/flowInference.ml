@@ -831,8 +831,8 @@ let to_copy_stream { direct_copies; weak_copies } =
     ) (fun stack in_ap out_ap acc ->      
       let s = (in_ap, Option.map fst stack) in 
       let concr_in = RecRelations.MuChain.to_concr s in
-      let acc = (concr_in, out_ap, `Direct)::acc in
-      Option.fold ~none:acc ~some:(fun (in_mu,out_mu) ->
+      let acc' = (concr_in, out_ap, `Direct)::acc in
+      Option.fold ~none:acc' ~some:(fun (in_mu,out_mu) ->
         (concr_in,out_ap, `Mu (in_ap, in_mu,out_mu, ty))::acc
       ) stack
     ) None acc
