@@ -14,6 +14,15 @@ import soot.Type;
 
 import java.util.LinkedList;
 
+/*
+  Fields are themselves mutable references, hewing closer to the model used by Java.
+
+  Writing is slightly easier than the functional model but not much:
+  the pointer of the field must be projected out, written to, and then aliased back in along
+  a non-trivial access path.
+
+  Reading is also non-trivial: the reference must be projected out, dereferenced, and then aliased back in.
+ */
 public class MutableTupleModel implements ObjectModel {
   private final StorageLayout layout;
 

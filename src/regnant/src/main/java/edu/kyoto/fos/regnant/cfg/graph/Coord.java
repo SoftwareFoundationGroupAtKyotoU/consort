@@ -4,6 +4,12 @@ import edu.kyoto.fos.regnant.cfg.BasicBlock;
 
 import java.util.Comparator;
 
+/*
+  Represents a location of a control flow transfer. The basic block indicates that the jump happens at the end of the basic
+  block. If cond is false, then this refers to the control flow transfer that happens unconditionally at the end of the basic block.
+
+  If cond is true, then the jump occurs for the true/false branch depending on whether branch is true/false respectively.
+ */
 public class Coord implements Comparable<Coord> {
   final BasicBlock src;
   final boolean cond;

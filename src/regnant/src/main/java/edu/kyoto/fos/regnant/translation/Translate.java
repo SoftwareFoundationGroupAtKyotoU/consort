@@ -93,6 +93,16 @@ import java.util.stream.Stream;
 
 import static edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation.*;
 
+/*
+  The big fish translation.
+
+  A big concept is the notion of a Cleanup object. These represent the result of a simplification of some
+  value form, potentially using multiple temporary variables read out of memory. After these values are used,
+  the cleanup interface provides a well-defined way to indicate any temporary values are no longer needed, any may
+  be aliased back as needed.
+
+
+*/
 public class Translate {
   private static final String THIS_PARAM = "reg$this_in";
   public static final String ALIASING_CLASS = "edu.kyoto.fos.regnant.runtime.Aliasing";
@@ -118,12 +128,19 @@ public class Translate {
     this.objectModel = om.make(layout);
     this.lifter = new ValueLifter(worklist, layout, objectModel);
     this.as = as;
+    /* the instructionstream.fresh takes a lambda which builds the instruction stream
+     "in place."
+     */
     this.stream = InstructionStream.fresh("main", l -> {
+      // The environment does not actually track static types (we don't need it to). Rather, it tracks what the current loop name is,
+      // what variables are in scope, and the binding type of each variable (i.e., wrapped in a ref type or immutable)
       Env e = Env.empty();
+      // if we need to track flags during this execution, allocate the special control flag variable.
       if(flg.setFlag.size() > 0) {
         l.addBinding(CONTROL_FLAG, ImpExpr.literalInt(0), true);
         e = e.updateBound(Collections.singletonMap(new JimpleLocal(CONTROL_FLAG, IntType.v()), Binding.MUTABLE));
       }
+      // translate the root start elem
       translateElem(l, startElem, e);
     });
     this.stream.close();
@@ -178,7 +195,10 @@ public class Translate {
           Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))), null);
     }
   }
-
+  /*
+    When translating each element, we may wrap it in multiple conditionals. The first is
+    a check of whether the execution of this block should occur, based on the gate on flag.
+   */
   @SuppressWarnings("unchecked") private Env translateElem(InstructionStream outStream, GraphElem elem, Env e) {
     Map<String, Object> annot = elem.getAnnot();
     if(annot.containsKey(GATE_ON)) {
@@ -186,6 +206,7 @@ public class Translate {
       InstructionStream i = InstructionStream.fresh("gate-top");
       translateElemChoose(i, elem, e);
       outStream.addCond(
+          // this will generate a new conditional to check the value of the control flag
           ImpExpr.controlFlag(cond.stream().map(this::getCoordId).collect(Collectors.toList())),
           i.andClose(),
           InstructionStream.unit("gate"));
@@ -195,6 +216,10 @@ public class Translate {
     }
   }
 
+  /*
+    The next step is to select which block to execute;
+    this generates a chain of if/else expressions
+   */
   @SuppressWarnings("unchecked")
   private Env translateElemChoose(final InstructionStream i, final GraphElem elem, Env e) {
     if(elem.getAnnot().containsKey(CHOOSE_BY)) {
@@ -210,20 +235,31 @@ public class Translate {
     }
   }
 
+  /* i is the instruction stream on which to place the translation of the remainder of the choices */
   private void translateElemChoose(final InstructionStream i,
       final Iterator<GraphElem> iterator,
       final Map<BasicBlock,Set<Coord>> chooseBy, Env e) {
     assert iterator.hasNext();
     GraphElem hd = iterator.next();
     if(!iterator.hasNext()) {
+      /*
+      if this is the last possibility, directly translate onto i
+       */
       translateElemLoop(i, hd, e);
     } else {
       List<Integer> choiceBy = toChoiceFlags(chooseBy.get(hd.getHead()));
       InstructionStream curr = InstructionStream.fresh("choice1");
       InstructionStream rest = InstructionStream.fresh("choice-rest");
+      /*
+        otherwise translate this elements body on curr
+       */
       translateElemLoop(curr, hd, e);
       curr.close();
+      /*
+      translate the remaining elements of the stream on rest
+       */
       translateElemChoose(rest, iterator, chooseBy, e);
+      /* then place the conditional, decided based on the choice flag, on the stream i given to us */
       i.addCond(ImpExpr.controlFlag(choiceBy), curr, rest.andClose());
     }
   }
@@ -232,22 +268,43 @@ public class Translate {
     return tmp.stream().map(this::getCoordId).collect(Collectors.toList());
   }
 
+  /*
+    If this is a loop, lift it into a separate function, and then insert a call to that function.
+
+    Otherwise, do the actual translation in translateElemBase
+   */
   @SuppressWarnings("unchecked")
   private Env translateElemLoop(final InstructionStream i, final GraphElem elem, Env e) {
     if(elem.isLoop()) {
       Map<String, Object> annot = elem.getAnnot();
       String loopName = this.getLoopName(elem);
       List<Local> args = new ArrayList<>();
+      /*
+        Collect all variables in scope
+       */
       e.boundVars.keys().forEach(args::add);
 
       InstructionStream lBody = InstructionStream.fresh("loop-body");
+      /*
+        Translate the loop body on the (fresh) lbody scheme
+       */
       translateElemBase(lBody, elem, e.enterLoop(loopName, args));
       lBody.close();
       assert lBody.isTerminal();
+      /*
+        Attach the body of the function as an auxiliary function to i,
+        the aux function has body lBody, name loopName, and arguments args,
+       */
       i.addSideFunction(loopName, args, lBody);
 
+      /*
+        Invoke the new loop function, passing in all live arguments;
+       */
       i.addLoopInvoke(loopName, args);
       List<P2<List<Integer>, InstructionStream>> doIf = new ArrayList<>();
+      /*
+      Add a series of conditional operations; break out of the root, or recursively invoke the current loop
+       */
       if(annot.containsKey(RECURSE_ON) && !elem.getAnnotation(RECURSE_ON,Set.class).isEmpty()) {
         assert e.currentLoop != null;
         Set<Coord> recFlags = elem.getAnnotation(RECURSE_ON, Set.class);
@@ -271,7 +328,9 @@ public class Translate {
       return translateElemBase(i, elem, e);
     }
   }
-
+  /*
+    Translate a seties of instruction streams and control flag values into a series of if/else statements.
+   */
   private void gateLoop(InstructionStream tgt,
       Iterator<P2<List<Integer>, InstructionStream>> instStream) {
     gateLoop(tgt, instStream, ImpExpr::controlFlag, InstructionStream::close);
@@ -309,10 +368,17 @@ public class Translate {
         elem.getHead().id);
   }
 
+  /*
+    Compile a continuation that appears in a conditional expression. The pre consumer is for attaching cleanup operations
+    generated by evaluating the condition, namely aliasing temporary variables back into their "stable" storage.
+   */
   private InstructionStream compileJump(Continuation c, final Env env, Consumer<InstructionStream> pre) {
     if(c instanceof JumpCont) {
       JumpCont jumpCont = (JumpCont) c;
       Coord srcCoord = jumpCont.c;
+      /*
+        If we have to set a flag, return, or recurse call the jumpFrom function, otherwise do nothing
+       */
       if(flg.setFlag.contains(srcCoord) || flg.returnJump.contains(srcCoord) || jumpCont.j.cont.size() > 0) {
         return InstructionStream.fresh("jump", i -> {
           pre.accept(i);
@@ -327,6 +393,7 @@ public class Translate {
     } else {
       assert c instanceof ElemCont;
       return InstructionStream.fresh("branch", l -> {
+        /* the continuation is actually a block, so translate it, starting the chain against from translateElem */
         pre.accept(l);
         translateElem(l, ((ElemCont) c).elem, env);
       });
@@ -339,13 +406,21 @@ public class Translate {
 
   private void jumpFrom(final Coord c, final InstructionStream i, Env e) {
     if(flg.recurseFlag.contains(c)) {
+      /*
+        The current loop record provides an exact name of the method and the variables available in each iteration;
+        i.e., those that should be passed in as arugments
+       */
       i.ret(ImpExpr.callLoop(e.currentLoop._1(), e.currentLoop._2()));
       assert !flg.setFlag.contains(c) && !flg.returnJump.contains(c);
     }
+    /*
+     the special i.setControl emits a mutation of the special flag variable
+     */
     if(flg.setFlag.contains(c)) {
       assert !i.isTerminal();
       i.setControl(this.getCoordId(c));
     }
+    // This may fire after the above, so we may set the flag and then return
     if(flg.returnJump.contains(c)) {
       assert !i.isTerminal();
       i.returnUnit();
@@ -357,6 +432,7 @@ public class Translate {
     assert !(elem instanceof InstNode);
     if(elem instanceof ConditionalNode) {
       ConditionalNode cond = (ConditionalNode) elem;
+      // we handle the translation of ifstatements ourselves.
       return encodeBasicBlock(cond.head, lBody, u -> {
         assert u instanceof IfStmt; return ((IfStmt)u);
       }, (env_, el) -> {
@@ -386,8 +462,15 @@ public class Translate {
       }, env);
     } else if(elem instanceof JumpNode) {
       JumpNode j = (JumpNode) elem;
+      /*
+        Override the final unit handling if it is a return statement.
+       */
       return encodeBasicBlock(j.head, lBody, u -> (u instanceof ReturnStmt || u instanceof ReturnVoidStmt) ? u : null, (env_, rs_) -> {
         Coord c = Coord.of(j.head);
+        /* before returning, we have to either set control flags and add parameter aliasing
+          (parameters are copied into local variable names, following Soot's argument model. We need this
+          aliasing to transfer the ownership back to the formal argument names
+         */
         if(rs_ instanceof ReturnStmt) {
           ReturnStmt rs = (ReturnStmt) rs_;
           if(flg.setFlag.contains(c)) {
@@ -404,6 +487,7 @@ public class Translate {
           lBody.returnUnit();
           return;
         }
+        // otherwise this is a fall through. This will have been called after the final element has been translated, so set any flags as necessary for intra-procedural control flow
         jumpFrom(c, lBody, env_);
       }, env);
     } else if(elem instanceof BlockSequence) {
@@ -451,11 +535,19 @@ public class Translate {
     assert !(unit instanceof ReturnStmt);
     if(unit instanceof NopStmt) {
       if(unit.hasTag(UnreachableTag.NAME)) {
+        // despite the name, this outputs a fail statement
         str.addAssertFalse();
       }
     } else if(unit instanceof ThrowStmt) {
       throw new RuntimeException("not handled yet");
     } else if(unit instanceof IdentityStmt) {
+      /*
+        Bind the parameters to local storage. Parameters are immutable, so
+        if the program mutates the value of a parameter local, this serves to wrap that
+        value in a mkref.
+
+        Note that mutable parameters will prevent aliasing back
+       */
       IdentityStmt identityStmt = (IdentityStmt) unit;
       Value rhs = identityStmt.getRightOp();
       assert rhs instanceof IdentityRef;
@@ -465,7 +557,6 @@ public class Translate {
       assert needDefine.contains(defn);
       assert env.contains(defn);
       needDefine.remove(defn);
-      // hahaha oo later
       boolean mutableParam = env.get(defn).some() == Binding.MUTABLE;
       if(rhs instanceof ThisRef) {
         str.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
@@ -481,16 +572,20 @@ public class Translate {
       boolean needsDefinition = needDefine.contains(target);
       needDefine.remove(target);
       boolean mutableBinding = env.get(target).some() == Binding.MUTABLE;
+      // the stream in which the write occurs. when possible we do this in a scope block to avoid temp variable clutter
       InstructionStream writeStream;
       if(!needsDefinition) {
         writeStream = InstructionStream.fresh("write");
       } else {
         writeStream = str;
       }
+      // we allow complex RHS in binding forms
+      // liftValue handles the messiness of extracting out field contents.
       LocalContents c = this.liftValue(unit, as.getRightOp(), new LocalWrite(unit), writeStream, BindMode.COMPLEX, env);
       if(needsDefinition) {
         writeStream.addBinding(target.getName(), c.getValue(), mutableBinding);
       } else {
+        // target must be a reference, as any writes after the first require mutable storage
         writeStream.addWrite(target.getName(), c.getValue());
       }
       c.cleanup(writeStream);
@@ -505,7 +600,9 @@ public class Translate {
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof ArrayRef) {
       ArrayRef arrayRef = (ArrayRef) ((AssignStmt) unit).getLeftOp();
       InstructionStream s = InstructionStream.fresh("array");
+      // the base pointer may be in mutable memory, we may need to move it into a temporary, "direct" variable.
       LocalContents basePtr = this.unwrapArray(arrayRef, s, env, new FieldOpWrite("array"));
+      // By the invariants provided by soot, we know these are immediates
       ImpExpr ind = this.lifter.lift(arrayRef.getIndex(), env);
       ImpExpr val = this.lifter.lift(((AssignStmt) unit).getRightOp(), env);
       s.addArrayWrite(basePtr.getValue(), ind, val);
@@ -514,12 +611,17 @@ public class Translate {
     } else if(unit instanceof InvokeStmt) {
       InstructionStream call = InstructionStream.fresh("call");
       InvokeStmt is = (InvokeStmt) unit;
+      // skip super object constructors
       if(is.getInvokeExpr() instanceof SpecialInvokeExpr && is.getInvokeExpr().getMethodRef().getDeclaringClass().getName().equals("java.lang.Object") && is.getInvokeExpr().getMethodRef().getName().equals("<init>")) {
         return;
       }
+      // local contents here actually contains the call expression, which must be added to the stream
+      // N.B>
       LocalContents c = this.translateCall(unit, call, is.getInvokeExpr(), env);
       call.addExpr(c.getValue());
+      // clean up temporary values made in temporary storage as necessary
       c.cleanup(call);
+      // add the block
       str.addBlock(call);
     } else if(!(unit instanceof GotoStmt)) {
       // this is really hard, do it later
@@ -528,13 +630,20 @@ public class Translate {
   }
 
   private void writeField(InstructionStream str, InstanceFieldRef fieldRef, TreeMap<Local, Binding> env, ImpExpr lhs, VarManager m) {
+    /*
+      We disallow writes to fields that we have aliased as must aliasing with another
+     */
     if(this.as.isFinal(fieldRef.getField()) && (!this.b.getMethod().getDeclaringClass().equals(fieldRef.getField().getDeclaringClass()) || !this.b.getMethod().isConstructor())) {
       throw new UnsupportedOperationException("Must alias annotation requires field " + fieldRef.getField() + " to be effectively final");
     }
     InstructionStream i = InstructionStream.fresh("write", l -> {
+      // unwrap the raw pointer representing the memory address in which the object representation is kept.
       VariableContents base = this.unwrapPointer(l, env, m, (Local) fieldRef.getBase());
+      // a list of cleanups. To be processed in order
       LinkedList<Cleanup> c = new LinkedList<>();
       c.add(base);
+      // the object model itself handles the translation of the field write; in so doing, it may generate more temporary variables in the block;
+      // the cleanup for these variables should be added to c; they are applied in a well defined order after the write is complete.
       objectModel.writeField(l, base.getWrappedVariable(), fieldRef.getField(), lhs, m, c);
       c.forEach(h -> h.cleanup(l));
     });
@@ -544,6 +653,7 @@ public class Translate {
 
   private LocalContents translateCall(Unit ctxt, InstructionStream str, InvokeExpr expr, final TreeMap<Local, Binding> env) {
     if(isRegnantIntrinsic(expr)) {
+      // short circuit
       return this.handleIntrinsic(ctxt, str, env, expr);
     }
     final VarManager vm = new BindCall(ctxt);
@@ -551,6 +661,7 @@ public class Translate {
     String callee;
     List<Value> v = expr.getArgs();
     if(expr instanceof StaticInvokeExpr) {
+      // straightforward, the method we call is the one statically named in the java bytecode.
       callee = getMangledName(expr.getMethod());
       worklist.add(expr.getMethod());
     } else if(expr instanceof SpecialInvokeExpr) {
@@ -564,6 +675,7 @@ public class Translate {
       Local l = (Local) inv.getBase();
       PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
       NumberedString subSig = expr.getMethodRef().getSubSignature();
+      // find the possible callees
       Map<SootMethod, Set<SootClass>> callees =
           pta.reachingObjects(l).possibleTypes().stream()
               .filter(RefType.class::isInstance)
@@ -572,14 +684,16 @@ public class Translate {
                   .groupingBy(refTy -> VirtualCalls.v().resolveNonSpecial(refTy, subSig, false),
                       Collectors.mapping(RefType::getSootClass, Collectors.toSet())));
       if(callees.size() == 1) {
+        // if there is just one, then this is easy, the call is direct
         SootMethod m = callees.keySet().iterator().next();
         callee = getMangledName(m);
         worklist.add(m);
       } else {
-        // de-virtualize
+        // de-virtualize. The result of this operation will be a function with exactly the interface of the expected callee
         callee = devirtualize(ctxt, str, callees);
       }
     }
+    // Lift all of the arguments to immediate values with cleanups, as represented by LocalContents
     if(expr instanceof InstanceInvokeExpr) {
       InstanceInvokeExpr iie = (InstanceInvokeExpr) expr;
       args.add(liftValue(ctxt, iie.getBase(), vm, str, BindMode.IMMEDIATE, env));
@@ -588,7 +702,9 @@ public class Translate {
       var lifted = liftValue(ctxt, a, vm, str, BindMode.IMMEDIATE, env);
       args.add(lifted);
     }
+    // Generate the call itself, using the immediate forms generated above
     ImpExpr call = ImpExpr.call(callee, args.stream().map(LocalContents::getValue).collect(Collectors.toList()));
+    // this translated call, and the cleanups of each argument form the cleanup-annotated value of the call
     return new CompoundCleanup(call, args.stream());
   }
 
@@ -597,6 +713,7 @@ public class Translate {
       assert expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS);
       return new SimpleContents(ImpExpr.nondet());
     } else if(expr.getMethodRef().getName().equals("noAutoReturn")) {
+      // ignored
       return new SimpleContents(ImpExpr.unitValue());
     } else {
       assert expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS);
@@ -604,6 +721,10 @@ public class Translate {
       VarManager vm = new CtxtVarManager(ctxt, "alias", "fld");
       if(expr.getArgCount() == 3) {
         assert expr.getMethodRef().getSubSignature().getString().equals("void alias(java.lang.Object,java.lang.Object,java.lang.String)") : expr.getMethodRef().getSubSignature();
+        /*
+        Extract the two object variables and the field name. This is for asserting that x = y.f must alias, expressed as
+        alias(x, y, "f") (the f string is quite kludgy)
+         */
         Value fldName = expr.getArg(2);
         if(!(fldName instanceof StringConstant)) {
           throw new RuntimeException("Non-constant field name in alias expression");
@@ -627,6 +748,9 @@ public class Translate {
         Local r1 = (Local) op1;
         Local r2 = (Local) op2;
 
+        /* this returns an access path builder rooted at the given local variable.
+          It automatically handles the insertion of a dereference
+         */
         Function<Local, Builder> builderRoot = l -> {
           Builder b = AliasOp.buildAt(l.getName());
           if(env.get(l).some() == Binding.MUTABLE) {
@@ -639,6 +763,12 @@ public class Translate {
         AliasOp p2 = objectModel.extendAP(builderRoot.apply(r2), sf).build();
 
         // BUT BEFORE ALL THIS, we must return the auto aliases, (if any)
+        /* If we are aliasing with a field where another other object reachable from the base pointer
+           aliases with this fields contents, we have to automatically alias with that object as well
+
+
+           XXX(jtoman): is this right...?
+         */
         var autoAliasing = as.getAutoAliasing(sf);
         if(!this.b.getMethod().isConstructor()) {
           autoAliasing.forEach(l -> {
@@ -697,17 +827,22 @@ public class Translate {
 
     String virtName = String.format("reg$vtable_%d", l);
     List<String> args = new ArrayList<>();
+    // generate pass through parameters
     for(int i = 0; i < repr.getParameterCount(); i++) {
       args.add("p" + i);
     }
     args.add(0, "this");
+    // these are the arguments we will be directly forwarding to the devirtualized targets
     List<ImpExpr> fwdCalls = args.stream().map(Variable::immut).collect(Collectors.toList());
 
+    /* this is a gross hack to get the size of the tuple used to store objects of the static type of the receiver */
     SootClass klassSz = callees.entrySet().iterator().next().getValue().iterator().next();
     int projSize = layout.metaStorageSize(klassSz);
     InstructionStream virtBody = InstructionStream.fresh("devirt", body -> {
       List<P2<List<Integer>, InstructionStream>> actions = new ArrayList<>();
-
+      /*
+        This is a list of the possible instruction streams that call the target method, and the runtime tags that resolve to that method.
+       */
       callees.forEach((meth, kls) -> {
         List<Integer> flgs = kls.stream().map(SootClass::getNumber).collect(Collectors.toList());
         worklist.add(meth);
@@ -717,9 +852,10 @@ public class Translate {
       });
 
       String runtimeTag = "ty";
+      // project the runtime tag out
       body.bindProjection(runtimeTag, 0, projSize, "this");
       List<ImpExpr> flagArg = List.of(Variable.immut(runtimeTag));
-
+      // use the same machinery as the recurse-on/return-on flags to generate the if/else flags, but the final else block must be a fail (devirtualization shouldn't fail)
       gateLoop(body, actions.iterator(), flgs -> {
         String control = FlagTranslation.allocate(flgs);
         return ImpExpr.call(control, flagArg);
@@ -734,14 +870,26 @@ public class Translate {
     public abstract ImpExpr getValue();
   }
 
+  /*
+    Variable contents is a local contents (aka, local value) that must be a variable.
+    It may or may not have clean up actions
+   */
   private static abstract class VariableContents extends LocalContents {
     public abstract String getWrappedVariable();
   }
 
+  /*
+    When lifting a value, how complete should the lifting be. e.g., if we need access to the value of a variable, is *x sufficient (assuming x is a mutable variable)
+    or do we need t where t is bound by let t = *x in ...
+   */
   private enum BindMode {
     IMMEDIATE, COMPLEX
   }
 
+  /*
+    a temp local represents the value of a mutable variable, unwrapped from the mutable reference and stored in tmp. alias is the name of the (reference typed) variable
+    into which tmp should be returned when done.
+   */
   private static class TempLocal extends VariableContents {
     private final String tmp;
     private final Local alias;
@@ -763,6 +911,9 @@ public class Translate {
     }
   }
 
+  /*
+    Nothing, no temporary variables or aliasing required
+   */
   private static class SimpleContents extends LocalContents {
     private final ImpExpr lifted;
 
@@ -791,6 +942,10 @@ public class Translate {
       InstanceFieldRef fieldRef = (InstanceFieldRef) v;
       VariableContents base = this.unwrapPointer(s, env, m, (Local) fieldRef.getBase());
       LinkedList<Cleanup> handlers = new LinkedList<>();
+      /*
+        Check if we have an assignment like x = x.f. If so, we should NOT try to alias back the
+        the base contents of x, it will NOT alias anymore.
+       */
       if(ctxt.getDefBoxes().stream().map(ValueBox::getValue).noneMatch(fieldRef.getBase()::equals)) {
         handlers.push(base);
       }
@@ -798,6 +953,8 @@ public class Translate {
 
       SootField f = fieldRef.getField();
       var autoAlias = as.getAutoAliasing(f);
+      // if we read this field, we must have that another object reachable from the same base pointer must alias with the object we just read.
+      // automatically generate an aliasing assertion between that object and the value just read
       if(!autoAlias.isEmpty() && !this.b.getMethod().isConstructor()) {
         for(var fseq : autoAlias) {
           List<SootField> resSubFields = fseq._1();
@@ -820,6 +977,11 @@ public class Translate {
       LocalContents c = this.liftValue(ctxt, le.getOp(), m, s, mode, env);
       return new CompoundCleanup(new ArrayLength(c.getValue()), c);
     } else if(v instanceof CastExpr) {
+      /* a cast is translated into a check of the runtime tags, to see if all tags are consistent with the static type given in the cast
+        If so, then nothing happens (the static type in ConSORT remains the same). If not, the cast fails, and thus the program goes to the fail configuration
+
+        (Note we could catch castclassexceptions, but no one ever does...?)
+       */
       CastExpr ce = (CastExpr) v;
       Value op = ce.getOp();
       Local castOp = (Local) op;
@@ -835,6 +997,7 @@ public class Translate {
       assert ty instanceof RefType;
       FastHierarchy fh = Scene.v().getOrMakeFastHierarchy();
       // XXX(jtoman): this could be better computed with points-to info
+      // What runtime tags are valid choices for this static type
       List<Integer> validDownCasts = opTypes.stream().filter(reachTy -> fh.canStoreType(reachTy, ty) && reachTy instanceof RefType).map(RefType.class::cast)
           .map(RefType::getSootClass).map(SootClass::getNumber).collect(Collectors.toList());
       if(validDownCasts.size() == 0) {
@@ -855,6 +1018,7 @@ public class Translate {
       Type checkType = instExpr.getCheckType();
       FastHierarchy fh = Scene.v().getOrMakeFastHierarchy();
       Set<Type> opTypes = pta.reachingObjects(check).possibleTypes();
+      // as above, what are the possible runtime tags that are instances of the interrogated type
       List<Integer> collect = opTypes.stream()
           .filter(ty -> fh.canStoreType(ty, checkType))
           .filter(RefType.class::isInstance)
@@ -863,17 +1027,22 @@ public class Translate {
           .distinct()
           .collect(Collectors.toList());
       VariableContents c = this.unwrapPointer(s, env, m, check);
+      // get a temporary variable to store the contents of this check, it has to proceed is several steps
       String tmp = m.getBase();
       s.addBinding(tmp, ImpExpr.literalInt(0), true);
+      // if the value is null, then it is definitely not an instance
       InstructionStream isNull = InstructionStream.fresh("is-null-branch", l -> l.addWrite(tmp, IntLiteral.v(0)));
+      // if it is not null, then interrogate the runtime tag.
       InstructionStream isInhabited = InstructionStream.fresh("non-null-branch", l -> {
         int sz = layout.metaStorageSize(getRepresentativeClass(opTypes));
         String runtimeField = m.getField();
         l.bindProjection(runtimeField, 0, sz, c.getWrappedVariable());
+        // generate a check that queries if the runtime tag is one of the possible tags
         String isSubPred = FlagTranslation.allocate(collect, true);
         ImpExpr checkCall = ImpExpr.call(isSubPred, Variable.immut(runtimeField));
         l.addWrite(tmp, checkCall);
       });
+      // wrap the two possibilities into a conditional
       s.addNullCond(c.getValue(), isNull, isInhabited);
       return new CompoundCleanup(Variable.deref(tmp), c);
     } else {
@@ -892,6 +1061,7 @@ public class Translate {
   }
 
   private VariableContents unwrapPointer(final InstructionStream s, final TreeMap<Local, Binding> env, final VarManager m, final Local l) {
+    // Get the raw address (or null) of the pointer in a single variable name. This may require a dereference.
     if(env.get(l).some() == Binding.MUTABLE) {
       String tmp = m.getBase();
       s.addBinding(tmp, Variable.deref(l.getName()), false);
@@ -990,6 +1160,11 @@ public class Translate {
     return String.format("regnant$in_%s", b.getParameterLocal(paramNumber).getName());
   }
 
+  /*
+    Encodes a basic block into the stream str. In come cases, the final element of the stream may need special handling or must be skipped.
+    This is done with the extractFinal and o argument. If the extract final returns null, then it indicates it wants
+    the final unit to be translated. In either event, value extracted with extractFinal is then passed to o
+   */
   private <R> Env encodeBasicBlock(final BasicBlock head,
       InstructionStream str,
       Function<Unit, R> extractFinal,
@@ -997,9 +1172,16 @@ public class Translate {
       Env inEnv) {
     System.out.println("Encoding " + head);
     List<Unit> units = head.units;
+    /*
+      These are the variables that need to be bound in this block.
+     */
     Map<Local, Binding> localStorage = alloc.letBind.getOrDefault(head, Collections.emptyMap());
     Env outEnv = inEnv.updateBound(localStorage);
 
+    /* These variables are actually defined with an assignment within the block, so their assignment may be deferred. Variables
+      whose assignment do not appear in the block occur when a variable is only assigned in two branches of a conditional; for the scoping to work
+      out in IMPerial, we need to have the variable declared in the common ancester block of the two branches.
+     */
     Set<Local> defInBlock = units.stream().flatMap(u ->
       u.getDefBoxes().stream().map(ValueBox::getValue).flatMap(v ->
         v instanceof Local ? Stream.of((Local)v) : Stream.empty()
@@ -1008,9 +1190,14 @@ public class Translate {
     Set<Local> needDefined = new HashSet<>();
     localStorage.forEach((loc, bind) -> {
       if(!defInBlock.contains(loc)) {
+        /* Those variables that require this ahead of time declaration are given dummy values, bound before translating the rest of the block.
+          These variables must be mutable, otherwise there is no feasible way to declare them ahead of time, and indeed, there is no need to
+         */
         assert bind == Binding.MUTABLE;
         str.addBinding(loc.getName(), ImpExpr.dummyValue(loc.getType()), true);
       } else {
+        // need defined tracks which variables declared in this block still require definition. Essentially the first write to
+        // a variable will create a let binding, but all future bindings translate to assignments
         needDefined.add(loc);
       }
     });

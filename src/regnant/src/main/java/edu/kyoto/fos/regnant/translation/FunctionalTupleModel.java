@@ -17,6 +17,12 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+/*
+  Field values are stored in immutable tuple positions. Updates are performed by reading all tuple values not updated by the write, and writing back a new tuple
+  with the new value in place.
+
+  Updates are simple projections out of a tuple field.
+ */
 public class FunctionalTupleModel implements ObjectModel {
   private StorageLayout layout;
 
@@ -27,12 +33,14 @@ public class FunctionalTupleModel implements ObjectModel {
   @Override public void writeField(final InstructionStream l, final String objectVar, final SootField f, final ImpExpr lhs, final VarManager vm,
       final LinkedList<Cleanup> handlers) {
     int sz = layout.metaStorageSize(f);
+    // Project out all fields
     List<String> fields = l.bindProjections(sz, objectVar, vm::getField, layout.getStorageSlot(f));
     assert fields.size() == sz - 1;
     Iterator<String> it = fields.iterator();
     List<ImpExpr> newTuple = new ArrayList<>();
     for(int i = 0; i < sz; i++) {
       if(i == layout.getStorageSlot(f)) {
+        // replace the old field value with the new field value
         newTuple.add(lhs);
       } else {
         assert it.hasNext();
@@ -40,6 +48,7 @@ public class FunctionalTupleModel implements ObjectModel {
       }
     }
     assert !it.hasNext();
+    // write the field into the object pointer
     l.addWrite(objectVar, Tuple.v(newTuple));
   }
 
@@ -56,6 +65,7 @@ public class FunctionalTupleModel implements ObjectModel {
   }
 
   @Override public ImpExpr allocFieldOfType(final Type t) {
+    // just the dummy values
     if(t instanceof RefLikeType) {
       return NullConstant.v();
     } else {
