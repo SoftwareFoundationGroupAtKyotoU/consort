@@ -14,8 +14,4 @@ public class AnnotatedEdge {
     this.block = block;
   }
 
-  public boolean isDirect() {
-    return brk.isEmpty() && !cont.isPresent();
-  }
-
 }

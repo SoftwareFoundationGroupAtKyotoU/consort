@@ -2,8 +2,6 @@ package edu.kyoto.fos.regnant.storage;
 
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.cfg.BlockTree;
-import fj.P;
-import fj.P2;
 import soot.Local;
 import soot.ValueBox;
 
@@ -41,7 +39,7 @@ public class LetBindAllocator {
               .filter(v -> v instanceof Local)
               .map(v -> (Local)v)
               .forEach(v -> {
-                writeCounts.merge(v, 1, (a,b) -> a + b);
+                writeCounts.merge(v, 1, Integer::sum);
                 def.merge(v, Collections.singleton(bb), (v1,v2) -> {
                   Set<BasicBlock> m = new HashSet<>(v1); m.addAll(v2); return m;
             });

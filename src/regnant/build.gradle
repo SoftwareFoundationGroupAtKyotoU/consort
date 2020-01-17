@@ -43,12 +43,6 @@ dependencies {
 	implementation "org.functionaljava:functionaljava:4.8"
 }
 
-task allDeps(type: Jar) {
-    archiveBaseName = 'regnant-with-deps'
-    from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
-}
-
 task integrationJar(type: Jar, dependsOn: integrationClasses) {
 	archiveBaseName = "integration"
 	from sourceSets.integration.output
