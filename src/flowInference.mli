@@ -45,6 +45,7 @@ type res_t =
   * P.PathSet.t StringMap.t (* omit sets (used in relax mode only *)
 
 val infer :
+  null_checks:bool ->
   bif_types:(RefinementTypes.funtype StringMap.t) ->
   SimpleTypes.funtyp StringMap.t * SimpleChecker.SideAnalysis.results ->
   float OwnershipInference.ownership_ops ->

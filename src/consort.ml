@@ -47,6 +47,7 @@ module Options = struct
     dump_ir : string option;
     relaxed_mode : bool relaxed_flag;
     omit_havoc: bool;
+    null_checks: bool
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -65,7 +66,8 @@ module Options = struct
     own_solv_opts = OwnershipSolver.default;
     dump_ir = None;
     relaxed_mode = false;
-    omit_havoc = false
+    omit_havoc = false;
+    null_checks = false;
   }
 
   let string_opt r =
@@ -132,12 +134,14 @@ module Options = struct
     let dump_ir = ref default.dump_ir in
     let omit_havoc = ref default.omit_havoc in
     let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
+    let null_checks = ref default.null_checks in
     (oi_args @ [
        ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
        ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
        ("-mode", Symbol (["refinement"; "unified"], fun _ -> prerr_endline "WARNING: the mode option is deprecated and does nothing"), " (DEPRECATED) No effect");
        ("-dump-ir", string_opt dump_ir, "Dump intermediate relations and debugging information (only implemented in unified)");
        ("-omit-havoc", Set omit_havoc, "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
+       ("-check-null", Set null_checks, "For freedom of null pointer exceptions"); 
        ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
           | "spacer" -> solver := Spacer
           | "hoice" -> solver := Hoice
@@ -152,7 +156,8 @@ module Options = struct
          solver = !solver;
          dump_ir = !dump_ir;
          relaxed_mode = oi_gen () || !omit_havoc;
-         omit_havoc = !omit_havoc
+         omit_havoc = !omit_havoc;
+         null_checks = !null_checks
        }))
 
   let solver_opt_gen () =
@@ -290,7 +295,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
           ~get_model:(opts.print_model || opts.check_trivial)
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~relaxed:opts.relaxed_mode ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~opts:S.({relaxed = opts.relaxed_mode; null_checks = opts.null_checks}) ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

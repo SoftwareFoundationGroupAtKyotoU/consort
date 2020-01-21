@@ -185,6 +185,7 @@ type state_snapshot = {
 }
 
 type ctxt = {
+  null_checks: bool; (** whether to emit checks that all read/written pointers are provably null *)
   relations: relation list; (** List of all defined relations *)
   impl: (clause list * clause) list; (** List of CHC implications, represented by a list of preconditions (clauses) and a single conclusion (a clause) *)
   o_hints: float OI.ownership_ops;
@@ -407,6 +408,15 @@ let path_simple_type tyenv path =
 
 let is_null_flag = true
 let is_nonnull_flag = false
+
+let%lm add_null_path_check curr_rel null_flag_path ctxt =
+  if not ctxt.null_checks then
+    ctxt
+  else
+    { ctxt with impl = ([ PRelation (curr_rel, [], None) ], rel ~ty:ZBool @@ mk_relation (Ap null_flag_path) "=" (BConst is_nonnull_flag))::ctxt.impl }
+
+let add_null_check curr_rel pointer_path =
+  add_null_path_check curr_rel @@ P.to_null pointer_path
 
 (** Generate nullity well-formedness conditions for the relation
    arguments, using the argument subst. Iterates the arguments looking for null-flags,
@@ -2131,7 +2141,10 @@ let apply_patt ~e_id tyenv patt rhs =
 
   | _,Deref v ->
     let copies = compute_patt_copies (vderef v) patt @@ path_simple_type tyenv (vderef v) in
-    apply_copies ~pre:[ rel ~ty:ZBool @@ mk_relation (Ap (P.to_null @@ P.var v)) "=" (BConst is_nonnull_flag) ] ~havoc:false ~sl:(OI.SBind e_id) copies
+    (fun ir orel ->
+      add_null_check ir (P.var v) >>
+      apply_copies ~pre:[ rel ~ty:ZBool @@ mk_relation (Ap (P.to_null @@ P.var v)) "=" (BConst is_nonnull_flag) ] ~havoc:false ~sl:(OI.SBind e_id) copies ir orel
+    )
 
   | PVar t,Tuple tl ->
     let tup_root = P.var t in
@@ -2379,18 +2392,22 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
       
   | Assign (lhs,IInt i,k) ->
     let%bind k_rel = fresh_relation_for relation k in
-    const_assign (P.deref @@ P.var lhs) i relation k_rel >> process_expr ~output (k_rel,tyenv) continuation k
+    add_null_check relation (P.var lhs) >>
+    const_assign (P.deref @@ P.var lhs) i relation k_rel >>
+    process_expr ~output (k_rel,tyenv) continuation k
 
   | Assign (lhs, IVar rhs,k) when iso = `IsoFold ->
     let%bind k_rel = fresh_relation_for relation k in
     let out_ap = P.var lhs in
     let ty = path_simple_type tyenv out_ap in
+    add_null_check relation (P.var lhs) >>
     do_fold_copy ~e_id rhs lhs ty relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
 
   | Assign (lhs,IVar rhs,k) ->
     let%bind k_rel = fresh_relation_for relation k in
     let copies = compute_copies (P.var rhs) (vderef lhs) @@ List.assoc rhs tyenv in
+    add_null_check relation (P.var lhs) >>
     apply_copies ~havoc:true ~sl:(SBind e_id) copies relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
       
@@ -2480,6 +2497,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     let out_mapping = List.fold_left (fun acc (_,uf,real_path,_) ->
         PPMap.add uf real_path acc
       ) out_mapping @@ to_mu_copies copies in
+    add_null_check relation (P.var rhs) >>
     do_unfold_copy ~with_havoc:true ~e_id ~out_mapping rhs "$uf" ref_ty relation k_rel >>
     post_bind bind_info @@ process_expr ~output (k_rel,tyenv') continuation k
 
@@ -2494,7 +2512,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     apply_identity_flow relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
 
-  | Alias (lhs, rhs, k) when iso = `IsoUnfold->
+  | Alias (lhs, rhs, k) when iso = `IsoUnfold->   
     (* This means that the root of a recursive type
        aliases with the mu binder under another recursive type.
        Our basic strategy is as follows:
@@ -2511,6 +2529,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
       | `Mu _ -> true
       | `Tuple tl -> List.exists has_mu_binder tl
     in
+    (* TODO: add null ante pre *)
     (* If we have an isounfold here, then one of the alias
        paths must go to a mu binder. This finds
        the root of the recursive type being unfolded.
@@ -2795,11 +2814,10 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
         (NullCons (Ap nf, BConst is_nonnull_flag))::acc
       ) l nfs
     in
-    let ante =
-      ante
-      |> extend_nonnull @@ null_ante_paths lhs_path
-      |> extend_nonnull @@ null_ante_paths rhs_ap
+    let must_inhabit_paths =
+      (null_ante_paths lhs_path) @ (null_ante_paths rhs_ap)
     in
+    let ante = extend_nonnull must_inhabit_paths ante in
     let%bind havoc_set = get_havoc_state in
     let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff havoc_set hstate.stable in
     let out_subst = augment_havocs direct havoc_set in
@@ -2821,6 +2839,9 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
           |> RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante dst ty
         ) ctxt
     in
+    List.fold_left (fun seq p ->
+      seq >> add_null_path_check relation p
+    ) (return ()) must_inhabit_paths >>
     set_havoc_state ~rel:(get_relation_ident k_rel) havoc_set >>
     alias_recursive >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
@@ -2896,7 +2917,7 @@ let analyze_main start_rel main ctxt =
   let ctxt,_ = process_expr (start_rel,[]) ~output:None None main ctxt in
   ctxt
 
-let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
+let infer ~null_checks ~bif_types (simple_theta,side_results) o_hints (fns,main) =
   let lift_and_unfold = (fun p -> deep_type_normalization @@ simple_to_fltype p) in
   let simple_theta = StringMap.map (fun ft ->
       {
@@ -2999,6 +3020,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
   let entry_relation = (start_name, [], Start) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
+    null_checks;
     relations;
     o_hints;
     curr_fun = None;

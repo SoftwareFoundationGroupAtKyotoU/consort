@@ -10,6 +10,11 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
   module RT = RefinementTypes
 
+  type options = {
+    relaxed: bool;
+    null_checks: bool
+  }
+
   let pp_ap p = pl @@ Paths.to_z3_ident p
 
   let pp_ztype = function
@@ -229,9 +234,9 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-  let solve ~relaxed ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
+  let solve ~opts:{null_checks; relaxed} ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
     let open Intrinsics in
-    let rel,impl,snap,start,omit = FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast in
+    let rel,impl,snap,start,omit = FlowInference.infer ~null_checks ~bif_types:intr.op_interp simple_res o_hints ast in
     let fgen =
       if not relaxed then
         (fun _ _ -> true)

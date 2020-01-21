@@ -22,7 +22,8 @@ module Options :
       own_solv_opts: OwnershipSolver.options;
       dump_ir : string option;
       relaxed_mode : bool;
-      omit_havoc: bool
+      omit_havoc: bool;
+      null_checks: bool
     }
 
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)

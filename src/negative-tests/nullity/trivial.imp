@@ -1,0 +1,3 @@
+{
+  let x = null in x := 5
+}

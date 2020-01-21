@@ -1,0 +1,17 @@
+cond_set(p) {
+  ifnull p then () else {
+    p := 1
+  }
+}
+
+{
+  let x = mkref null in {
+  if _ then
+    ()
+  else x := mkref 4;
+  let d = *x in
+  ifnull d then
+    d := 3
+  else ()
+  }
+}
