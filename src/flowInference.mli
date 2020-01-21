@@ -37,9 +37,16 @@ type clause =
   | NamedRel of string * (concr_arg list)
   | NullCons of concr_arg * concr_arg
 
+type res_t =
+  relation list (* the list of all relations generated *)
+  * (clause list * clause) list (* implications *)
+  * state_snapshot Std.IntMap.t (* snapshots at each location (for annotation) *)
+  * string (* entry point relation *)
+  * P.PathSet.t StringMap.t (* omit sets (used in relax mode only *)
+
 val infer :
   bif_types:(RefinementTypes.funtype StringMap.t) ->
   SimpleTypes.funtyp StringMap.t * SimpleChecker.SideAnalysis.results ->
   float OwnershipInference.ownership_ops ->
   Ast.fn list * Ast.exp ->
-  relation list * (clause list * clause) list * state_snapshot Std.IntMap.t * string
+  res_t

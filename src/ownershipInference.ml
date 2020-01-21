@@ -117,23 +117,17 @@ type context = {
                                           only used for debugging *)
 }
 
-type infr_options = {
-  relaxed_max: bool
-}
+type infr_options = bool
 
-let infr_opts_default = {
-  relaxed_max = false
-}
+let infr_opts_default = false
 
 let infr_opts_loader () =
   let x = ref false in
   let arg = [
     ("-relaxed-max", Arg.Unit (fun () -> x := true), "Use alternative, relaxed maximization constraints")
   ] in
-  (arg, (fun () ->
-     { relaxed_max = !x }
-   ))
-
+  (arg, (fun () -> !x ))
+    
 let unfold =
   let rec subst_once id sub = function
     | TVar id' when id = id' -> sub
@@ -770,7 +764,7 @@ let analyze_fn ctxt fn =
   let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } in
   { ctxt with gamma = SM.empty }
 
-let infer ~opts:{relaxed_max} (simple_types,iso) intr (fn,prog) =
+let infer ~opts:relaxed_max (simple_types,iso) intr (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
       lift_to_ownership loc (P.arg i) t

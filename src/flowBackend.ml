@@ -39,7 +39,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       pl @@ string_of_int i
      
 
-  let close_and_print rel_op clause =
+  let close_and_print ~fgen rel_op clause =
     let rec pp_arg ty = function
       | Ap p -> add_ident p ty >> return @@ pp_ap p
       | IConst i -> return @@ pp_int i
@@ -80,18 +80,23 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         ]
 
     | PRelation ((name,formals,_),subst,ctxt_shift) ->
+      let pred = fgen name in
       let subst_map = List.fold_left (fun acc (k,v) ->
           Paths.PathMap.add k v acc
         ) Paths.PathMap.empty subst
       in
       let%bind val_args =
         mmap (fun (arg_path,ty) ->
-          let subst = Paths.PathMap.find_opt arg_path subst_map in
-          match subst with
-          | None -> add_ident arg_path ty >> return @@ pp_ap arg_path
-          | Some subst -> pp_arg ty subst
+          if pred arg_path then
+            let subst = Paths.PathMap.find_opt arg_path subst_map in
+            match subst with
+            | None -> add_ident arg_path ty >> return @@ Some (pp_ap arg_path)
+            | Some subst -> let%bind a = pp_arg ty subst in return (Some a)
+          else
+            return None
         ) formals
       in
+      let val_args = List.filter_map Fun.id val_args in
       let%bind ctxt_args =
         if !KCFA.cfa = 0 then
           return []
@@ -110,18 +115,18 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       else
         return @@ pl name
 
-  let close_impl relops ante conseq =
+  let close_impl ~fgen relops ante conseq =
     let path_types = Paths.PathMap.empty in
-    let path_types,ante_k = mmap (close_and_print relops) ante path_types in
+    let path_types,ante_k = mmap (close_and_print ~fgen relops) ante path_types in
     let ante_k = match ante_k with
       | [] -> pl "true"
       | _ -> pg "and" ante_k
     in
-    let path_types,conseq_k = close_and_print relops conseq path_types in
+    let path_types,conseq_k = close_and_print ~fgen relops conseq path_types in
     (path_types,ante_k,conseq_k)
 
-  let pp_impl relops (ante,conseq) ff =
-    let (args,ante_k,conseq_k) = close_impl relops ante conseq in
+  let pp_impl ~fgen relops (ante,conseq) ff =
+    let (args,ante_k,conseq_k) = close_impl ~fgen relops ante conseq in
     let quantif = Paths.PathMap.bindings args |> List.map (fun (s,t) ->
         ll [ pp_ap s; pp_ztype t ]
         ) in
@@ -143,7 +148,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         ]
       ] ff.printer
 
-  let solve_constraints ~interp:(relops,defn_file) rel impl start_relation =
+  let solve_constraints ~interp:(relops,defn_file) ~fgen rel impl start_relation =
     let ff = SexpPrinter.fresh () in
     let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
     let grounded =
@@ -156,13 +161,21 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       List.iter (fun (nm,args,_) ->
         pg "declare-fun" [
           pl nm;
-          ll @@ ctxt_args @ List.map (fun (_,ty) -> pp_ztype ty) args;
+          ll @@ ctxt_args @ (
+            let pred = fgen nm in
+            List.filter_map (fun (p,ty) ->
+              if pred p then
+                Option.some @@ pp_ztype ty
+              else
+                None
+            ) args
+          );
           pl "Bool"
         ] ff.printer;
         break ff
       ) rel;
       List.iter (fun imp ->
-        pp_impl relops imp ff;
+        pp_impl ~fgen relops imp ff;
         break ff
       ) impl;
 
@@ -216,9 +229,20 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-  let solve ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
+  let solve ~relaxed ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
     let open Intrinsics in
-    let rel,impl,snap,start = FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast in
+    let rel,impl,snap,start,omit = FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast in
+    let fgen =
+      if not relaxed then
+        (fun _ _ -> true)
+      else
+        (fun s ->
+          StringMap.find_opt s omit
+          |> Option.map (fun s ->
+              (fun p -> not @@ P.PathSet.mem p s))
+          |> Option.value ~default:(fun _ -> true)
+        )
+    in
     let () =
       if annot_infr then
         AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
@@ -239,5 +263,5 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           flush f;
         )
       ) dump_ir in
-    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) rel impl start
+    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) ~fgen rel impl start
 end

@@ -31,6 +31,8 @@ module Options = struct
     | Parallel
     | Null
 
+  type 'a relaxed_flag = 'a constraint 'a = OwnershipInference.infr_options constraint 'a = bool
+
   type t = {
     debug_cons: bool;
     debug_ast: bool;
@@ -42,11 +44,13 @@ module Options = struct
     solver: solver;
     solver_opts: Solver.options;
     own_solv_opts: OwnershipSolver.options;
-    own_infr_opts: OwnershipInference.infr_options;
     dump_ir : string option;
+    relaxed_mode : bool relaxed_flag;
+    omit_havoc: bool;
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
+
 
   let default = {
     debug_cons = false;
@@ -59,8 +63,9 @@ module Options = struct
     solver = Spacer;
     solver_opts = Solver.default;
     own_solv_opts = OwnershipSolver.default;
-    own_infr_opts = OwnershipInference.infr_opts_default;
     dump_ir = None;
+    relaxed_mode = false;
+    omit_havoc = false
   }
 
   let string_opt r =
@@ -125,42 +130,45 @@ module Options = struct
     let check_trivial = ref default.check_trivial in
     let solver = ref default.solver in
     let dump_ir = ref default.dump_ir in
-    ([
-      ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
-      ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
-      ("-mode", Symbol (["refinement"; "unified"], fun _ -> prerr_endline "WARNING: the mode option is deprecated and does nothing"), " (DEPRECATED) No effect");
-      ("-dump-ir", string_opt dump_ir, "Dump intermediate relations and debugging information (only implemented in unified)");
-      ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
-         | "spacer" -> solver := Spacer
-         | "hoice" -> solver := Hoice
-         | "null" -> solver := Null
-         | "z3" -> solver := Z3SMT
-         | "eldarica" -> solver := Eldarica
-         | "parallel" -> solver := Parallel
-         | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
+    let omit_havoc = ref default.omit_havoc in
+    let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
+    (oi_args @ [
+       ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
+       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
+       ("-mode", Symbol (["refinement"; "unified"], fun _ -> prerr_endline "WARNING: the mode option is deprecated and does nothing"), " (DEPRECATED) No effect");
+       ("-dump-ir", string_opt dump_ir, "Dump intermediate relations and debugging information (only implemented in unified)");
+       ("-omit-havoc", Set omit_havoc, "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
+       ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
+          | "spacer" -> solver := Spacer
+          | "hoice" -> solver := Hoice
+          | "null" -> solver := Null
+          | "z3" -> solver := Z3SMT
+          | "eldarica" -> solver := Eldarica
+          | "parallel" -> solver := Parallel
+          | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
     ], (fun ?(comb=default) () ->
        { comb with
          check_trivial = !check_trivial;
          solver = !solver;
-         dump_ir = !dump_ir
+         dump_ir = !dump_ir;
+         relaxed_mode = oi_gen () || !omit_havoc;
+         omit_havoc = !omit_havoc
        }))
 
   let solver_opt_gen () =
     let (l,g) = Solver.opt_gen () in
     let (l2,g2) = OwnershipSolver.ownership_arg_gen () in
-    let (l3,g3) = OwnershipInference.infr_opts_loader () in   
-    (l @ l2 @ l3, (fun ?(comb=default) () ->
+    (l @ l2, (fun ?(comb=default) () ->
        { comb with
          solver_opts = g ~comb:comb.solver_opts ();
          own_solv_opts = g2 ~comb:comb.own_solv_opts ();
-         own_infr_opts = g3 ()
        }))
 end
 
 let infer_ownership opts intr simple_res ast =
   let open Options in
   let module OI = OwnershipInference in
-  let o_result = OI.infer ~opts:opts.own_infr_opts simple_res intr.Intrinsics.op_interp ast in
+  let o_result = OI.infer ~opts:opts.relaxed_mode simple_res intr.Intrinsics.op_interp ast in
   match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->
@@ -282,7 +290,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
           ~get_model:(opts.print_model || opts.check_trivial)
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~relaxed:opts.relaxed_mode ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

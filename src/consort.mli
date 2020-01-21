@@ -20,8 +20,9 @@ module Options :
       solver: solver;
       solver_opts: Solver.options;
       own_solv_opts: OwnershipSolver.options;
-      own_infr_opts: OwnershipInference.infr_options;
-      dump_ir : string option
+      dump_ir : string option;
+      relaxed_mode : bool;
+      omit_havoc: bool
     }
 
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)

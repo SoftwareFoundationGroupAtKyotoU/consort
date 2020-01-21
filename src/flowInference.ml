@@ -198,8 +198,17 @@ type ctxt = {
   unfold_iso: IntSet.t;
   fold_iso: IntSet.t;
   recursive_rel : recursive_ref_map; (** The set of mu relations at each mu binder *)
-  snapshots : state_snapshot IntMap.t
+  snapshots : state_snapshot IntMap.t;
+  omit_set: P.PathSet.t StringMap.t;
 }
+
+type res_t =
+  relation list (* the list of all relations generated *)
+  * (clause list * clause) list (* implications *)
+  * state_snapshot Std.IntMap.t (* snapshots at each location (for annotation) *)
+  * string (* entry point relation *)
+  * P.PathSet.t StringMap.t (* omit sets (used in relax mode only) *)
+
 
 let rec unfold_fltype subst = function
   | `TVar -> subst
@@ -251,7 +260,15 @@ let%lq get_function_info f_name ctxt =
 
 let%lq copy_state ctxt = ctxt
 
-let%lm set_havoc_state havoc_state ctxt = { ctxt with havoc_set = havoc_state }
+let get_relation_ident ((n, _, _) : relation) = n
+
+let merge_havoc_omit rel set omit_map =
+  StringMap.update rel (function
+  | None -> Some set
+  | Some x -> Some (P.PathSet.union x set)
+  ) omit_map
+    
+let%lm set_havoc_state ~rel havoc_state ctxt = { ctxt with havoc_set = havoc_state; omit_set = merge_havoc_omit rel havoc_state ctxt.omit_set  }
 
 let%lq get_havoc_state ctxt = ctxt.havoc_set
 
@@ -743,7 +760,8 @@ module RecRelations = struct
         )
       |> Option.value ~default:[]
     in
-    { ctxt with impl = (ante, PRelation (dst_rel, havoc_subst, out_shift))::ctxt.impl }
+    let omit_paths = List.fold_left (fun acc (p,_) -> P.PathSet.add p acc) P.PathSet.empty havoc_subst in
+    { ctxt with impl = (ante, PRelation (dst_rel, havoc_subst, out_shift))::ctxt.impl; omit_set = merge_havoc_omit (get_relation_ident dst_rel) omit_paths ctxt.omit_set }
 
   (** Generate a fresh recursive relation for the mu binder at dst_root, and then generate an implication
      from [ante] *)
@@ -1062,7 +1080,7 @@ let%lm apply_copies ?out_rec_rel ~havoc:havoc_flag ~sl ?(flows=[]) ?pre copies i
           { ctxt with impl = ([ PRelation(in_rel, [], None)], PRelation (rel, [], None))::ctxt.impl }
         ) ctxt extra_rec_flows
   in
-  { ctxt with havoc_set; impl = (pre, conseq)::ctxt.impl }
+  { ctxt with havoc_set; impl = (pre, conseq)::ctxt.impl; omit_set = merge_havoc_omit (get_relation_ident out_rel) havoc_set ctxt.omit_set }
 
 module IdMap(M: Map.S) : sig
   type t
@@ -1610,7 +1628,8 @@ module RecursiveRefinements = struct
     let output_subst = augment_havocs output_flows all_havocs.havoc in
     
     let unfold_impl = (pre_flows @ null_pre out_rel output_subst, PRelation (out_rel, output_subst, None)) in
-    { ctxt with impl = unfold_impl::ctxt.impl; havoc_set = P.PathSet.union ctxt.havoc_set all_havocs.havoc }
+    let havoc_set = P.PathSet.union ctxt.havoc_set all_havocs.havoc in
+    { ctxt with impl = unfold_impl::ctxt.impl; havoc_set; omit_set = merge_havoc_omit (get_relation_ident out_rel) havoc_set ctxt.omit_set }
 
   type ap_subst = (P.concr_ap * P.concr_ap) list
 
@@ -1804,7 +1823,7 @@ module RecursiveRefinements = struct
       let conseq = relation_subst out_rel flows in
       (ante @ null_ante, conseq)
     in
-    { ctxt with impl = (fold_impl :: ctxt.impl); havoc_set }
+    { ctxt with impl = (fold_impl :: ctxt.impl); havoc_set; omit_set = merge_havoc_omit (get_relation_ident out_rel) havoc_set ctxt.omit_set }
 end
 
 
@@ -1834,8 +1853,9 @@ let const_assign lhs const in_rel out_rel =
         Havoc p::acc
       ) [ Const (lhs,const) ]
   in
-  add_relation_flow flows in_rel out_rel
-
+  add_relation_flow flows in_rel out_rel >>
+  set_havoc_state ~rel:(get_relation_ident out_rel) havoc_state
+  
 let vderef v = P.deref @@ P.var v
 
 (** This simply determines whether a path needs a pre version.
@@ -2047,7 +2067,7 @@ let bind_args ~e_id out_patt call_expr curr_rel body_rel =
          PRelation (curr_rel,pre_bindings,None);
          PRelation (out_rel,return_bindings @ out_bindings,Some call_expr.label)
        ] @@ PRelation (body_rel,havoc_subst,None);
-       set_havoc_state havoc_state
+       set_havoc_state ~rel:(get_relation_ident body_rel) havoc_state
   end
 
 let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
@@ -2696,8 +2716,9 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
       (* now remove all of the $uf stuff *)
       let uf_root = P.var "$uf" in
       let concr_root_p = Fun.negate @@ P.has_prefix ~prefix:uf_root in
+      let havoc_set = P.PathSet.filter concr_root_p ctxt.havoc_set in
       { ctxt with
-        havoc_set = P.PathSet.filter concr_root_p ctxt.havoc_set;
+        havoc_set;
         recursive_rel = P.PathMap.filter (fun p _ ->
             concr_root_p p
           ) ctxt.recursive_rel
@@ -2800,7 +2821,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
           |> RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante dst ty
         ) ctxt
     in
-    set_havoc_state havoc_set >>
+    set_havoc_state ~rel:(get_relation_ident k_rel) havoc_set >>
     alias_recursive >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
     process_expr ~output (k_rel,tyenv) continuation k
@@ -2818,10 +2839,12 @@ let analyze_function fn ctxt =
   let arg_mapping = fold_lefti (fun i acc nm ->
       StringMap.add (P.arg_name i) nm acc
     ) StringMap.empty fn.args in
+  let map_arg_root = Paths.map_root (fun t ->
+      StringMap.find t arg_mapping
+    )
+  in
   let map_args = List.map (fun (p,ty) ->
-      let p' = Paths.map_root (fun t ->
-          StringMap.find t arg_mapping
-        ) p
+      let p' = map_arg_root p
       in
       (p',ty)
     )
@@ -2858,6 +2881,14 @@ let analyze_function fn ctxt =
   let mapped_in_args = map_args in_args in
   let mapped_out_args = map_args out_args in
   let cont = Some ((out_nm, mapped_out_args,osrc),P.ret,(direct_flow, direct_out)) in
+  let add_omit nm ctxt =
+    StringMap.find_opt nm ctxt.omit_set
+    |> Option.fold ~none:ctxt ~some:(fun set ->
+        let set' = P.PathSet.map map_arg_root set |> P.PathSet.union set in
+        { ctxt with omit_set = StringMap.add nm set' ctxt.omit_set }
+      )
+  in
+  let ctxt = add_omit in_nm ctxt |> add_omit out_nm in
   let ctxt,_ = process_expr ((in_nm,mapped_in_args,isrc),initial_env) ~output:cont None fn.body {ctxt with curr_fun = Some fn.name; havoc_set; recursive_rel = start_rel } in
   ctxt
 
@@ -2873,17 +2904,59 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
         ret_type = lift_and_unfold ft.ret_type
       }
     ) simple_theta in
-  let (fenv,relations) = StringMap.fold (fun name ty (theta,rel) ->
+  let (fenv,relations, omit_set) = StringMap.fold (fun name ty (theta,rel,os) ->
       let arg_paths =
         List.mapi (fun i arg_t ->
           type_to_paths ~pre:true (P.arg i) arg_t
         ) ty.arg_types
       in
+      let get_havoced_paths ml p ty =
+        walk_type ty (fun k path ->
+          match k with
+          | `Ref ->
+            let o = OI.GenMap.find (ml,path) o_hints.OI.gen in
+            if o = 0.0 then
+              `K (fun ty acc ->
+                match ty with
+                | `Ref (_,t) -> (type_to_paths (P.deref path) t) @ acc
+                | _ -> assert false
+              )
+            else
+              `Cont (P.deref path)
+          | `Array ->
+            let o = OI.GenMap.find (ml,path) o_hints.OI.gen in
+            if o = 0.0 then
+              `K (fun _ acc ->
+                (P.ind path)::(P.elem path)::acc
+              )
+            else
+              `Cont path
+          | _ -> `Cont (path_step k path)
+        ) (fun _ acc -> acc) p []
+      in
       let in_rel_types = List.map (fun p -> (p,path_type p)) @@ List.concat arg_paths in
       let ret_rel = type_to_paths P.ret ty.ret_type |> List.map (fun p -> (p,path_type p)) in
       let out_rel_types = in_rel_types @ ret_rel in
+      let in_havoc_paths = fold_lefti (fun i acc t ->
+          get_havoced_paths (OI.MArg name) (P.arg i) t
+          |> List.fold_left (fun s p -> P.PathSet.add p s) acc
+        ) P.PathSet.empty ty.arg_types
+      in
+      let out_havoc_paths = fold_lefti (fun i acc t ->
+          get_havoced_paths (OI.MOut name) (P.arg i) t
+          |> List.fold_left (fun s p -> P.PathSet.add p s) acc
+        ) P.PathSet.empty ty.arg_types
+      in
       let in_rel = (name ^ "-in", in_rel_types, Fun (name, `In)) in
       let out_rel = (name ^ "-out", out_rel_types, Fun (name, `Out)) in
+      let () =
+        assert (not @@ StringMap.mem (get_relation_ident in_rel) os);
+        assert (not @@ StringMap.mem (get_relation_ident out_rel) os)
+      in
+      let os =
+        StringMap.add (get_relation_ident in_rel) in_havoc_paths os
+        |> StringMap.add (get_relation_ident out_rel) out_havoc_paths
+      in
       let in_rec_rel,out_rec_rel,rel = fold_lefti (fun i acc arg_t ->
           RecRelations.get_recursive_roots (P.arg i) arg_t
           |> List.fold_left (fun acc (root,ty) ->
@@ -2919,8 +2992,8 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
         out_rel;
         f_type = ty
       } in
-      (StringMap.add name ftype theta,in_rel::out_rel::rel)
-    ) simple_theta (StringMap.empty, [])
+      (StringMap.add name ftype theta,in_rel::out_rel::rel,os)
+    ) simple_theta (StringMap.empty, [], StringMap.empty)
   in
   let start_name = "program-start" in
   let entry_relation = (start_name, [], Start) in
@@ -2937,7 +3010,8 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
     fold_iso = side_results.SimpleChecker.SideAnalysis.fold_locs;
     unfold_iso = side_results.SimpleChecker.SideAnalysis.unfold_locs;
     recursive_rel = P.PathMap.empty;
-    snapshots = IntMap.empty
+    snapshots = IntMap.empty;
+    omit_set;
   } in
   let ctxt = List.fold_left (fun ctxt fn ->
       analyze_function fn ctxt
@@ -2947,4 +3021,4 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
         curr_fun = None; havoc_set = P.PathSet.empty; recursive_rel = P.PathMap.empty
       }
   in
-  (ctxt.relations,ctxt.impl,ctxt.snapshots,start_name)
+  (ctxt.relations,ctxt.impl,ctxt.snapshots,start_name,ctxt.omit_set)
