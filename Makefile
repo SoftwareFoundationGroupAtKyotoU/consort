@@ -19,6 +19,17 @@ lang.tex: $(OTTNAME).ott
 	ott -i $(OTTNAME).ott -tex_wrap false -tex_filter $< $@
 	@chmod -w $@
 
+flow.pdf: flow.tex flow-lang.tex
+	pdflatex flow.tex
+
+flow-lang.tex: flow.ott
+	ott -i $< -o $@ -tex_wrap false
+
+flow.tex: flow.otex flow.ott
+	@rm -rf $@
+	ott -i flow.ott -tex_wrap false -tex_filter $< $@
+	@chmod -w $@
+
 src/all:
 	+make -C src all
 
