@@ -99,10 +99,13 @@ If you want to add a new solver backend, you must make the following changes:
 
 1. Implement the solver in a new OCaml module; update the `consort` dune module as necessary.
   * At the very least, your new module should provide a function (preferably called `solve`) which has the following type:
-  ```opts:Solver.options ->
-     debug_cons:bool ->
-     ?save_cons:string ->
-     get_model:bool -> defn_file:string option -> SexpPrinter.t -> Solver.result```
+  ```
+  opts:Solver.options ->
+  debug_cons:bool ->
+  ?save_cons:string ->
+  get_model:bool -> defn_file:string option -> SexpPrinter.t -> Solver.result
+  ```
+  
   * If you want your solver to be run with the parallel backend, you must also provide a function called `solve_cont` with the following type `opts:Solver.options -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont`
 2. Add an argument flag for selecting the new solver. Extend the `solver` type defined in the `Consort.Options` with a descriptive variant, and extend the definition of `solver_arg_gen` in the same module.
 3. Extend the pattern match in `check_file` to handle your new variant, returning a reference to the `solve` function you wrote in 1.
