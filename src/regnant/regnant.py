@@ -3,21 +3,27 @@
 import sys
 import subprocess
 import tempfile
-import atexit, shutil, os
+import atexit
+import shutil
+import os
 import argparse
 import time
+
 
 def log_command(args, cmd):
     if args.verbose:
         import pipes
-        print("executing:"," ".join([ pipes.quote(s) for s in cmd ]))
+        print("executing:", " ".join([pipes.quote(s) for s in cmd]))
+
 
 def run_silently(cmd, **kwargs):
     with open("/dev/null", "w") as out:
         s = time.time()
-        subprocess.check_call(cmd, stdout = out, stderr = subprocess.STDOUT, **kwargs)
+        subprocess.check_call(
+            cmd, stdout=out, stderr=subprocess.STDOUT, **kwargs)
         e = time.time()
         return e - s
+
 
 def print_done(args, e):
     if args.timing:
@@ -25,14 +31,15 @@ def print_done(args, e):
     else:
         print("done")
 
+
 def main(this_dir, args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--work-dir")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--jar")
-    parser.add_argument("--skip-build", action="store_true", default = False)
-    parser.add_argument("--debug-trans", action="store_true", default = False)
-    parser.add_argument("--functional", action="store_true", default = False)
+    parser.add_argument("--skip-build", action="store_true", default=False)
+    parser.add_argument("--debug-trans", action="store_true", default=False)
+    parser.add_argument("--functional", action="store_true", default=False)
     parser.add_argument("--timing", action="store_true")
     parser.add_argument("--src-dir")
     parser.add_argument("--yaml")
@@ -49,7 +56,7 @@ def main(this_dir, args):
         args.verbose = True
 
     if not args.skip_build:
-        run_silently(["gradle", "installDist"], cwd = this_dir)
+        run_silently(["./gradlew", "installDist"], cwd=this_dir)
 
     if args.work_dir is None:
         work_dir = tempfile.mkdtemp()
@@ -65,7 +72,8 @@ def main(this_dir, args):
 
         source_file = cls.replace(".", "/") + ".java"
 
-        compile_command = ["javac", "-g:lines,vars", "-source", "8", "-target", "8", "-d", cls_dir, args.src_dir + "/" + source_file]
+        compile_command = ["javac", "-g:lines,vars", "-cp", args.src_dir, "-source",
+                           "8", "-target", "8", "-d", cls_dir, args.src_dir + "/" + source_file]
         log_command(args, compile_command)
         print("compiling source java...", end=' ')
         sys.stdout.flush()
@@ -88,14 +96,14 @@ def main(this_dir, args):
 
     regnant_command = [
         run_script,
-        "-f", "n", # no output
-        "-no-bodies-for-excluded", # don't load the JCL (for now)
-        "-w", # whole program mode
-        "-p", "cg.spark", "on", # run points to analysis
-#        "-p", "jb", "use-original-names:true", # try to make our names easier
-        "-soot-class-path", cls_dir + ":" + rt_path, # where to find the test file
+        "-f", "n",  # no output
+        "-no-bodies-for-excluded",  # don't load the JCL (for now)
+        "-w",  # whole program mode
+        "-p", "cg.spark", "on",  # run points to analysis
+        #        "-p", "jb", "use-original-names:true", # try to make our names easier
+        "-soot-class-path", cls_dir + ":" + rt_path,  # where to find the test file
         "-p", "wjtp.regnant", regnant_options,
-        cls # the class to run on
+        cls  # the class to run on
     ]
 
     log_command(args, regnant_command)
@@ -105,7 +113,7 @@ def main(this_dir, args):
     sys.stdout.flush()
     el = run_silently(regnant_command)
     print_done(args, el)
-    
+
     print("Generating control flags...", end=' ')
     sys.stdout.flush()
     intr_loc = os.path.join(work_dir, "java.intr")
@@ -120,8 +128,12 @@ def main(this_dir, args):
     log_command(args, intr_command)
     el = run_silently(intr_command)
     print_done(args, el)
-    
+
     print("Running ConSORT on translated program:")
+    if args.verbose:
+        print(data)
+        with open(data, 'r') as file:
+            print(file.read())
     yaml_flg = ["-yaml"] if args.yaml is not None else []
     consort_cmd = [
         os.path.join(this_dir, "../_build/default/test.exe"),
@@ -132,7 +144,7 @@ def main(this_dir, args):
     ]
     log_command(args, consort_cmd)
     s = time.time()
-    ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
+    ret = subprocess.run(consort_cmd, stdout=subprocess.PIPE)
     e = time.time()
     if args.yaml:
         with open(args.yaml, 'w') as out:
@@ -144,5 +156,7 @@ def main(this_dir, args):
         print("(ConSORT ran for %.02f seconds)" % (e - s))
     return ret.returncode
 
+
 if __name__ == "__main__":
-    sys.exit(main(os.path.realpath(os.path.dirname(sys.argv[0])), sys.argv[1:]))
+    sys.exit(main(os.path.realpath(
+        os.path.dirname(sys.argv[0])), sys.argv[1:]))
