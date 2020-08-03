@@ -131,7 +131,6 @@ def main(this_dir, args):
 
     print("Running ConSORT on translated program:")
     if args.verbose:
-        print(data)
         with open(data, 'r') as file:
             print(file.read())
     yaml_flg = ["-yaml"] if args.yaml is not None else []

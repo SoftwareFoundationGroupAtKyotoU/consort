@@ -9,7 +9,7 @@ addons:
       - libstdc++6
       - libgomp1
       - libgmp-dev
-      - python
+      - python3-pip
 sudo: false
 cache:
   directories:
