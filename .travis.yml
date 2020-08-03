@@ -1,4 +1,7 @@
 language: c
+os:
+  - "linux"
+dist: "xenial"
 addons:
   apt:
     sources:
@@ -10,7 +13,6 @@ addons:
       - libgomp1
       - libgmp-dev
       - python3-pip
-sudo: false
 cache:
   directories:
     - $HOME/.opam
