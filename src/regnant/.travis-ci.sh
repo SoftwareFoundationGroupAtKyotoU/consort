@@ -11,7 +11,5 @@ if [[ ! -d $HOME/jdk8/jdk8u232-b09 ]]; then
         tar xf /tmp/jdk.tar.gz -C $HOME/jdk8;
 fi
 
-python -V
-python3 -V
-pip install yaml
-python $THIS_DIR/integration-test.py $HOME/jdk8/jdk8u232-b09
+pip3 install PyYaml
+python3 $THIS_DIR/integration-test.py $HOME/jdk8/jdk8u232-b09
