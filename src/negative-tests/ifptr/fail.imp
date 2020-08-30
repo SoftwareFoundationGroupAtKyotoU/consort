@@ -1,0 +1,20 @@
+f(p,q){
+    if _ then{
+        p := mkref 5;
+    }
+    else {
+        ()
+    }
+}
+
+{
+    let p = mkref (mkref 3) in
+    let q = p in {
+        f(p,q);
+        ifptr *p = *q then { 
+            let pp = *p in
+            let qq = *q in
+            assert(*pp = *qq)
+        } else ()
+    }
+}

@@ -1,0 +1,11 @@
+{
+  let y = mkarray 4 in {
+      y[0] <- 5;
+      let x = mkref y[0] in
+      let z = x in {
+          ifptr z = x then {
+              assert(*z = y[0])
+          } else ()
+      }
+  }
+}

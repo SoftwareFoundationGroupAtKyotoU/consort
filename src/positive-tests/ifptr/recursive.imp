@@ -1,0 +1,23 @@
+f(x){
+    if *x < 1 then 0 else {
+        x := *x - 1;
+        *x + f(x)
+    }
+}
+
+
+{
+    let x = mkref 5 in
+    let y = x in
+    let z = f(y) in {
+        ifptr x = y then {
+            assert(*x = 0);
+        } else {
+            // if we set the code as:
+            // assert(*x = 5)
+            // this should also be safe, but it won't pass because we don't know that alias(x != y) here.
+            // (If ifptr is implemented properly, ignore this)
+            assert(z = 10)
+        }
+    }
+}
