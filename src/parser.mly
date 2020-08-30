@@ -15,7 +15,7 @@
 %token NULL
 %token TRUE FALSE
 // conditionals
-%token IF THEN ELSE IFNULL
+%token IF THEN ELSE IFNULL IFPTR
 // control flow
 %token RETURN FAIL
 // bindings
@@ -86,6 +86,9 @@ let expr :=
   | IFNULL; lbl = expr_label; id = ID; THEN; thenc = expr; ELSE; elsec = expr; {
 		NCond ((lbl,$startpos),id,thenc,elsec)
 	  }
+  | IFPTR; lbl = expr_label; (a,b) = pcond_expr; THEN; thenc = expr; ELSE; elsec = expr; {
+    Cond ((lbl, $startpos), `Nondet, Seq ($startpos, Alias ((lbl, $startpos), a,b), thenc), elsec)
+  }
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; {
 		Assign((lbl,$startpos),x,y)
 	  }
@@ -151,6 +154,9 @@ let cond_expr :=
   | b = bin_op; { (b :> [ `BinOp of (lhs * string * lhs) | `Var of string | `Nondet | `Call of call]) }
   | f = fn_call; { `Call f }
   | UNDERSCORE; { `Nondet }
+
+let pcond_expr := 
+  | a = ap; EQ; b = ap; { (a,b) }
 
 let bin_op :=
   | o1 = op; op_name = operator; o2 = op; <`BinOp>
