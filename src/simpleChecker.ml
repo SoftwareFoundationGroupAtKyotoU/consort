@@ -396,10 +396,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     let (a',r2) = b a in
     a',(r1 && r2)
   in
-  let (>>) (a,f) b =
-    if f then
-      Locations.raise_errorf ~loc "Dead code"
-    else
+  let (>>) (a,_) b =
       b a
   in
   let unify_imm imm t =
