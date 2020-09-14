@@ -3,7 +3,6 @@
     let p = mkref x in
     let q = mkref x in
     ifptr p = q then {
-        p := *p + 1;
         assert(*p = *q)
     } else ()
 }

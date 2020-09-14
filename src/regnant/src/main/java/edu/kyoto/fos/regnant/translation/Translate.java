@@ -70,6 +70,7 @@ import soot.jimple.StringConstant;
 import soot.jimple.ThisRef;
 import soot.jimple.ThrowStmt;
 import soot.jimple.internal.JimpleLocal;
+import soot.jimple.internal.JEqExpr;
 import soot.jimple.toolkits.callgraph.VirtualCalls;
 import soot.util.NumberedString;
 import soot.util.Numberer;
@@ -439,7 +440,20 @@ public class Translate {
         Value condValue = el.getCondition();
         // based on asm source, the right (aka 2nd) op will always be null when representing ifnull/ifnonull
         // this is not terribly *robust* mind you, but serves for the moment.
-        if(condValue instanceof ConditionExpr && ((ConditionExpr) condValue).getOp2().equals(NullConstant.v())) {
+        if(condValue instanceof ConditionExpr 
+           && ((ConditionExpr) condValue).getOp1().equals(NullConstant.v()) 
+           && ((ConditionExpr) condValue).getOp2().equals(NullConstant.v())){
+            ConditionExpr condE = (ConditionExpr) condValue;
+
+            if(condE.getSymbol().trim().equals("==")){
+              lBody.addBlock(compileJump(cond.tBranch, env_));
+            }else if(condE.getSymbol().trim().equals("!=")){
+              lBody.addBlock(compileJump(cond.fBranch, env_));
+            }else{
+              assert false;
+            }
+        }
+        else if(condValue instanceof ConditionExpr && ((ConditionExpr) condValue).getOp2().equals(NullConstant.v())) {
           ConditionExpr condE = (ConditionExpr) condValue;
           Continuation tCont, fCont;
           if(condE.getSymbol().trim().equals("==")) {
@@ -455,7 +469,22 @@ public class Translate {
           }
           LocalContents l = this.liftValue(el, condE.getOp1(), new FieldOpWrite("null"), lBody, BindMode.IMMEDIATE, env_.boundVars);
           lBody.addNullCond(l.getValue(), compileJump(tCont, env_, l::cleanup), compileJump(fCont, env_, l::cleanup));
-        } else {
+        } else if(condValue instanceof ConditionExpr 
+                  && ((ConditionExpr) condValue).getOp1().getType() instanceof RefType 
+                  && ((ConditionExpr) condValue).getOp2().getType() instanceof RefType){
+          ConditionExpr condE = (ConditionExpr) condValue;
+          Continuation tCont, fCont;
+          if(condE.getSymbol().trim().equals("==")){
+            tCont = cond.tBranch;
+            fCont = cond.fBranch;
+          }else{
+            tCont = cond.fBranch;
+            fCont = cond.tBranch;
+          }
+          condE = new JEqExpr(condE.getOp1(), condE.getOp2());
+          ImpExpr path = lifter.lift(condE, env_.boundVars);
+          lBody.addPtrCond(path, compileJump(tCont, env_).andClose(), compileJump(fCont, env_).andClose());
+        }else {
           ImpExpr path = lifter.lift(condValue, env_.boundVars);
           lBody.addCond(path, compileJump(cond.tBranch, env_).andClose(), compileJump(cond.fBranch, env_).andClose());
         }
