@@ -98,7 +98,6 @@ module Options = struct
           ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
           ("-save-cons", string_opt save_cons, "Save constraints in <file>");
           ("-show-warn", Unit (fun () ->
-              List.iter (fun r -> r := true) all_debug_flags;
               Log.set_level Log.level_warn;
               Log.all ();
             ), "Show warning output");

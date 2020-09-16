@@ -27,19 +27,21 @@ let check_source w =
 
 let debug ?src fmt =
   let Level lvl = !level in
-  if (check_source src) && lvl <= 1 then
+  if (check_source src) && lvl <= 0 then
     match src with
     | Some w -> Printf.eprintf ("Debug: [%s] " ^^ fmt ^^ "\n%!") w
     | None -> Printf.eprintf ("Debug: " ^^ fmt ^^ "\n%!")
   else
     Printf.ifprintf stderr fmt
 
+let yellow s = "\027[33m " ^^ s ^^ " \027[0m"
+
 let warn ?src fmt = 
   let Level lvl = !level in
-  if (check_source src) && lvl <= 2 then
+  if (check_source src) && lvl <= 1 then
     match src with
-    | Some w -> Printf.eprintf ("Warn: [%s] " ^^ fmt ^^ "\n%!") w
-    | None -> Printf.eprintf ("Warn: " ^^ fmt ^^ "\n%!")
+    | Some w -> Printf.eprintf ((yellow "Warn: [%s]") ^^ fmt ^^ "\n%!") w
+    | None -> Printf.eprintf ((yellow "Warn: ") ^^ fmt ^^ "\n%!")
   else
     Printf.ifprintf stderr fmt
 

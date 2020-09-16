@@ -138,6 +138,7 @@ def main(this_dir, args):
         os.path.join(this_dir, "../_build/default/test.exe"),
         "-intrinsics", intr_loc,
         "-exit-status",
+        "-show-warn",
     ] + args.consort_args + yaml_flg + [
         data
     ]
