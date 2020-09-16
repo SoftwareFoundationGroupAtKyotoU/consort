@@ -97,8 +97,14 @@ module Options = struct
           ("-show-model", Set show_model, "Print model produced from successful verification");
           ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
           ("-save-cons", string_opt save_cons, "Save constraints in <file>");
+          ("-show-warn", Unit (fun () ->
+              List.iter (fun r -> r := true) all_debug_flags;
+              Log.set_level Log.level_warn;
+              Log.all ();
+            ), "Show warning output");
           ("-show-all", Unit (fun () ->
              List.iter (fun r -> r := true) all_debug_flags;
+             Log.set_level Log.level_debug;
              Log.all ();
            ), "Show all debug output");
           ("-none", Unit (fun () ->
@@ -106,9 +112,13 @@ module Options = struct
              Log.disable ()
            ), "Suppress all debug output");
           ("-debug", String (fun s ->
+             Log.set_level Log.level_debug;
              Log.filter @@ List.map String.trim @@ String.split_on_char ',' s
            ), "Debug sources s1,s2,...");
-          ("-debug-all", Unit Log.all, "Show all debug output")
+          ("-debug-all", Unit ( fun () -> 
+            Log.set_level Log.level_debug; 
+            Log.all ();
+          ), "Show all debug output")
         ] in
     (arg_defs, (fun ?(comb=default) () ->
        { comb with

@@ -2385,9 +2385,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
 
   | Seq (e1, e2) ->
     let%bind e2_rel = fresh_relation_for relation e2 in
-    let%bind flg = process_expr ~output st (to_cont e2_rel) e1 in
-    (* otherwise we have dead code *)
-    (assert flg);
+    let%bind _ = process_expr ~output st (to_cont e2_rel) e1 in
     process_expr (e2_rel,tyenv) ~output continuation e2
       
   | Assign (lhs,IInt i,k) ->

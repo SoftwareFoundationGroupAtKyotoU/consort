@@ -21,6 +21,7 @@ type. (Note all other recursion is forbidden).
 open Ast
 open SimpleTypes
 open Sexplib.Std
+open (val Log.located ~where:"SIMPLE" : Log.LocatedD) [@@ocaml.warning "-33"]
     
 type funtyp_v = {
   arg_types_v: int list;
@@ -398,7 +399,10 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   in
   let (>>) (a,f) b =
     if f then
-      Locations.raise_errorf ~loc "Dead code"
+      let pos = Locations.string_of_location loc in
+      let msg = !"Dead code at %s" in
+      Log.warn ~src:"WARN-DEAD" msg pos;
+      b a
     else
       b a
   in

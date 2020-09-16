@@ -590,8 +590,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     >> return `Return
   | Unit -> return `Cont
   | Seq (e1,e2) ->
-    let%bind stat = process_expr ~output e1 in
-    assert (stat <> `Return);
+    let%bind _ = process_expr ~output e1 in
     process_expr ~output e2
   | NCond (v,e1,e2) ->
     process_conditional ~e_id ~tr_branch:(
