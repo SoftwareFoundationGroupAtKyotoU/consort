@@ -87,7 +87,14 @@ let expr :=
 		NCond ((lbl,$startpos),id,thenc,elsec)
 	  }
   | IFPTR; lbl = expr_label; (a,b) = pcond_expr; THEN; thenc = expr; ELSE; elsec = expr; {
-    Cond ((lbl, $startpos), `Nondet, Seq ($startpos, Alias ((lbl, $startpos), a,b), thenc), elsec)
+    Cond ((lbl, $startpos), `Nondet,
+     Seq ($startpos, Seq ($startpos, 
+      Alias ((LabelManager._internal_fresh (), $startpos), a,b), 
+      thenc), 
+      Alias ((LabelManager._internal_fresh (), $startpos), a,b)
+      ),
+     elsec
+    )
   }
   | lbl = pre_label; x = ID; ASSIGN; y = lhs; {
 		Assign((lbl,$startpos),x,y)

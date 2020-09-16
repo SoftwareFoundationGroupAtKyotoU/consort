@@ -6,6 +6,7 @@ public class ObjectEquality4{
         C b = a;
         a.setJ(12);
         
-        // assert(a == b);
+        // won't work unless ifptr is implemented differently
+        //assert(a == b);
     }
 }
