@@ -11,5 +11,7 @@ if [[ ! -d $HOME/jdk8/jdk8u232-b09 ]]; then
         tar xf /tmp/jdk.tar.gz -C $HOME/jdk8;
 fi
 
+pip3 install -U setuptools
+pip3 install wheel
 pip3 install PyYaml
 python3 $THIS_DIR/integration-test.py $HOME/jdk8/jdk8u232-b09
