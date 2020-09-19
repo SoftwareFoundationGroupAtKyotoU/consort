@@ -1,0 +1,7 @@
+{
+  let object = mkref (mkref null, mkref 41) in
+  let (o, f) = *object in
+  {
+      o := object;
+  }
+}
