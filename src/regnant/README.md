@@ -47,6 +47,56 @@ Any future argumens after the entry point are passed directly to the
 underlying consort tool (you will likely need to provide the `--`
 argument to avoid confusion from python).
 
+## Install Instructions for Mac
+
+> tested on ConSORT commit fe88545 on 2020-02-18
+
+First, the assumption is that you are in the SoftwareFoundationGroupAtKyotoU/consort repository.
+
+1. Install Java(s)
+1. Run the build scripts
+1. Run the command
+
+### Install the required Java JDKs
+
+First, we will install Java > 11
+
+```sh
+$ brew tap homebrew/cask-versions
+$ brew cask install java11
+```
+
+Next, install Java 8. [Oracle has stopped releasing Java 8](https://qiita.com/d_forest/items/290bb05bb929e5d74647).
+Therefore, we need to install OpenJDK or something similar.
+
+```sh
+$ brew cask install adoptopenjdk8
+```
+
+We can locate the jdk by using the following command
+
+```sh
+$ /usr/libexec/java_home
+# /Library/Java/JavaVirtualMachines/**jdk_version**/Contents/Home
+```
+
+### Running build scripts
+
+You can run the build scripts like it says at the top of this README.
+
+```sh
+$ pwd
+# ...SoftwareFoundationGroupAtKyotoU/consort/src/regnant
+$ ./gradlew installDist
+$ ./gradlew integrationJar
+```
+
+### Run the Command
+
+Now you can run `./regnant.py --src-dir ./src/integration/java /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home **ClassName**` to verify Java programs!
+
+---
+
 ## Code Walkthrough
 
 As mentioned above, Regnant is built upon Soot; you will need at least
@@ -216,51 +266,3 @@ strategies are feasible.
 As a final note, the functional approach appear to scale better as it requires _significantly_
 fewer ownership variables. Even in the relaxed ownership mode, the maximization constraint
 emited by ConSORT can grind Z3 to a halt if the number of ownership variables is too large.
-
-### Install Instructions for Mac
-
-> tested on ConSORT commit fe88545 on 2020-02-18
-
-First, the assumption is that you are in the SoftwareFoundationGroupAtKyotoU/consort repository.
-
-1. Install Java(s)
-1. Run the build scripts
-1. Run the command
-
-#### Install the required Java JDKs
-
-First, we will install Java > 11
-
-```sh
-$ brew tap homebrew/cask-versions
-$ brew cask install java11
-```
-
-Next, install Java 8. [Oracle has stopped releasing Java 8](https://qiita.com/d_forest/items/290bb05bb929e5d74647).
-Therefore, we need to install OpenJDK or something similar.
-
-```sh
-$ brew cask install adoptopenjdk8
-```
-
-We can locate the jdk by using the following command
-
-```sh
-$ /usr/libexec/java_home
-# /Library/Java/JavaVirtualMachines/**jdk_version**/Contents/Home
-```
-
-#### Running build scripts
-
-You can run the build scripts like it says at the top of this README.
-
-```sh
-$ pwd
-# ...SoftwareFoundationGroupAtKyotoU/consort/src/regnant
-$ ./gradlew installDist
-$ ./gradlew integrationJar
-```
-
-#### Run the Command
-
-Now you can run `./regnant.py --src-dir ./src/integration/java /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home **ClassName**` to verify Java programs!
