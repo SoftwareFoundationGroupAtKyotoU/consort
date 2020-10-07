@@ -1,5 +1,6 @@
 (menhir (modules parser))
-(ocamllex lexer)
+(menhir (modules eldaricaParser))
+(ocamllex lexer eldaricaLexer)
 
 (library
  (name util)
