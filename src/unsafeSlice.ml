@@ -115,7 +115,7 @@ let rec unsafe_involved_variable st fun_env (_, e) =
   )
   | Let(PTuple(tp), lhs, e) ->
     abort := true;
-    print_string "Currently, not tuple is not supported";
+    print_string "Currently, not tuple is not supported\n";
     st
 
   (* (

@@ -1,9 +1,24 @@
-{
-  let x = mkref 0 in {
-  let b = _ in
-  if b then
-    x := 1
-  else ();
-  assert(*x = 0)
+mk_list(v) {
+  if _ then null
+  else {
+    let v2 = v in
+  	let nxt = mk_list(v2) in
+  	mkref (v2, nxt)
   }
+}
+
+verify_incr(p, idx) {
+  ifnull p then ()
+  else {
+    let (v1, p2) = *p in
+    {
+      assert(v1 >= idx);
+      verify_incr(p2, (idx + 1))
+    }
+  }
+}
+
+{
+ let n = mk_list(0) in
+ verify_incr(n, 0)
 }

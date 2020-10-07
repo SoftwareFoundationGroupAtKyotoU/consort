@@ -1,25 +1,17 @@
-do_up(i,a) {
-  if i = a.length then
-    ()
-   else {
-     a[i] <- i;
-	 do_up((i + 1),a)
-   }
-}
-
-check_up(i,a) {
-  if i = a.length then
-    ()
+fill_up(i, a) {
+  if i = (a.length - 1) then ()
   else {
-    assert(a[i] = i);
-	check_up((i + 1),a)
+     a[i] <- i;
+     let nxt = i + 1 in 
+     fill_up(nxt ,a)
   }
 }
 
+
 {
   let x = mkarray 7 in {
-    do_up(0,x);
-	x[6] <- 0;
-	check_up(0,x)
+    fill_up(0, x);
+    let idx = (_ : ~ >= 0 /\ ~ <= 6) in
+    assert(x[idx] = idx)
   }
 }

@@ -53,7 +53,7 @@ fresh_list() {
 {
  let l = fresh_list () in {
    insert(2,l);
-   insert(3,l);
+   insert(_,l);
    insert(5,l);
    test_sorted(l)
  }

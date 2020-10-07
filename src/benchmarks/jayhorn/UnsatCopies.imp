@@ -1,8 +1,11 @@
 /** fail: memory-refinement */
 {
-  let a = mkref mkref 0 in
-  let b = mkref mkref 0 in
-  let c = mkref mkref 0 in {
+  let aa = mkref 0 in
+  let bb = mkref 0 in
+  let cc = mkref 0 in
+  let a = mkref(aa) in
+  let b = mkref(bb) in
+  let c = mkref(cc) in {
     let a_ = *a in {
 	  a_ := 41; alias(a_ = *a)
 	};
@@ -15,7 +18,7 @@
 	if _ then {
       c := *a
     } else ();
-	assert(*a = *c)
+	assert(*(*a) = *(*c))
   }
   
 }
