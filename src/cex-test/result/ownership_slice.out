@@ -1,0 +1,27 @@
+First run ownershp slice generation
+(l-1-1 l-0-2 l-5-3 l-6-4)
+============ Ownership Failed Dump Slice ============= 
+### Before
+{
+ let:6 x = mkref 0 in 
+ let:5 y = x in 
+ let:4 a = *x in {
+   0:x := 0;
+   1:y := 1;
+   let:3 b = *y in 
+   b::2
+ }
+}
+### After
+{
+ let:6 x = mkref 0 in 
+ let:5 y = x in {
+   0:x := 0;
+   1:y := 1;
+   b::2
+ }
+}
+Running eldarica....
+(error "__tmp__eldarica__cons (No such file or directory)")
+Trying to extract trace....
+Fatal error: exception (Failure "Parse error at line 1, col 0 in file __tmp__eldarica__cex")

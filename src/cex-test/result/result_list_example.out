@@ -1,0 +1,24 @@
+First run ownershp slice generation
+Owership CHECK passed proceed to create an unsafe trace
+Running eldarica....
+unsat
+Trying to extract trace....
+================ Unsafe Trace ====================
+Input = [1, 1, 0]
+let p = mk_list(v: 0) 
+  let b = /* input */ 1 in
+  if (b: 1) -> else 
+  let nxt = mk_list(v: 0) 
+    let b = /* input */ 1 in
+    if (b: 1) -> else 
+    let nxt = mk_list(v: 0) 
+      let b = /* input */ 0 in
+      if (b: 0) -> then 
+      return null;  /* heap:{} */
+      return a1;  /* heap:{a1 : (0,null)} */
+    return a2;  /* heap:{a1 : (0,null), a2 : (0,a1)} */
+  verify_incr(p: a2) 
+    assert(0 < 0)
+
+    AssertFail :assert(v1 < v2);
+    

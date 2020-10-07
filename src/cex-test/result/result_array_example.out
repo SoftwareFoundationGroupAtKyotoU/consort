@@ -1,0 +1,40 @@
+First run ownershp slice generation
+Owership CHECK passed proceed to create an unsafe trace
+Running eldarica....
+unsat
+Trying to extract trace....
+================ Unsafe Trace ====================
+Input = [6]
+let x = a1 in /* heap:{a1 : [ 0, 0, 0, 0, 0, 0, 0]} */
+fill_up(i: 0, a: a1) 
+  if (1) -> else 
+  a[0] <- 0;  /* heap:{a1 : [ 0, 0, 0, 0, 0, 0, 0]} */
+  fill_up(i: 1, a: a1) 
+    if (1) -> else 
+    a[1] <- 1;  /* heap:{a1 : [ 0, 1, 0, 0, 0, 0, 0]} */
+    fill_up(i: 2, a: a1) 
+      if (1) -> else 
+      a[2] <- 2;  /* heap:{a1 : [ 0, 1, 2, 0, 0, 0, 0]} */
+      fill_up(i: 3, a: a1) 
+        if (1) -> else 
+        a[3] <- 3;  /* heap:{a1 : [ 0, 1, 2, 3, 0, 0, 0]} */
+        fill_up(i: 4, a: a1) 
+          if (1) -> else 
+          a[4] <- 4;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 0, 0]} */
+          fill_up(i: 5, a: a1) 
+            if (1) -> else 
+            a[5] <- 5;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+            fill_up(i: 6, a: a1) 
+              if (0) -> then 
+              return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+              return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+            return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+          return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+        return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+      return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+    return 0;  /* heap:{a1 : [ 0, 1, 2, 3, 4, 5, 0]} */
+  let idx = /* input */ 6 in
+assert(0 = 6)
+
+AssertFail :assert(__t1 = idx);
+
