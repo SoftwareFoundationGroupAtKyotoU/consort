@@ -10,11 +10,12 @@ At least, it will work in the following setup
 ```
 $ cd src
 # ownership slice
-$ ./test_counterexample.sh cex_test/ownership_slice.imp
+$ ./test_counterexample.sh cex-test/ownership_slice.imp
 # trace
-$ ./test_counterexample.sh cex_test/cex_gen_example.imp
-$ ./test_coutnerexample.sh cex_test/result_list_example.imp
-$ ./test_counterexample.sh cex_test/result_array_example.imp
+$ ./test_counterexample.sh cex-test/cex_gen_example.imp
+$ ./test_coutnerexample.sh cex-test/result_list_example.imp
+$ ./test_counterexample.sh cex-test/result_array_example.imp
 # unsafe slice
-$ ./test_counterexample.sh cex_test/unsafe_slice.imp 
+$ ./test_counterexample.sh cex-test/unsafe_slice.imp 
 ```
+Outputs exists in `cex-test/result/`
