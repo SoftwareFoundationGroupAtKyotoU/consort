@@ -1,0 +1,17 @@
+fill_up(i, a) {
+  if i = (a.length - 1) then ()
+  else {
+     a[i] <- i;
+     let nxt = i + 1 in 
+     fill_up(nxt ,a)
+  }
+}
+
+
+{
+  let x = mkarray 7 in {
+    fill_up(0, x);
+    let idx = (_ : ~ >= 0 /\ ~ <= 6) in
+    assert(x[idx] = idx)
+  }
+}

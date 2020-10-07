@@ -1,0 +1,27 @@
+mk_list(v) {
+let b = _ in
+  if b then null
+  else {
+      let nxt = mk_list(v) in
+      mkref (v, nxt)
+  }
+}
+
+verify_incr(p) {
+  ifnull p then ()
+    else {
+      let (v1, p2) = *p in
+        ifnull p2 then ()
+        else {
+          let (v2, _) = *p2 in {
+            assert(v1 < v2);
+            verify_incr(p2)
+      }
+    }
+  }
+}
+
+{
+  let p = mk_list(0) in
+    verify_incr(p)
+}

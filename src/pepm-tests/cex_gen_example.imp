@@ -1,0 +1,10 @@
+f(x){
+  x := *x + 1;
+  let b = _ in
+  if b then { () } else { f(x) }
+}
+{
+let y = mkref 0 in {
+f(y); assert(*y <= 2)
+}
+}

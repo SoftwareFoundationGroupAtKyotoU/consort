@@ -1,0 +1,14 @@
+{
+let x = mkref 1 in
+let a = mkref 1 in
+let b = mkref 1 in
+let y = x in {
+y:=0; a := 0;
+let tmp = *a in
+if tmp then {
+b := 0;
+let z = *x in
+assert(z = 0)
+} else {()}
+}
+}
