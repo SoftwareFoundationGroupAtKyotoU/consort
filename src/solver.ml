@@ -36,10 +36,12 @@ let opt_gen ?nm ?(solv_nm="solver") () =
   let timeout = ref default.timeout in
   let command = ref None in
   let extra = ref None in
+  (* let solver_dry_run = ref false in *)
   ([
     ("-" ^ pref ^ "timeout", Set_int timeout, Printf.sprintf "Timeout for %s in seconds" solv_nm);
     ("-" ^ pref ^ "command", String (fun s -> command := Some s), Printf.sprintf "Executable for %s" solv_nm);
-    ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s), Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
+    ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s), Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm);
+    (* ("-" ^ pref ^ "solver_dry_run", Unit (fun () -> solver_dry_run := true), Printf.sprintf "Extra arguments not to run solver") *)
   ], fun ?comb:_ () ->
      {
        timeout = !timeout;

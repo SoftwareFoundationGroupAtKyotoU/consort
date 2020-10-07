@@ -12,8 +12,6 @@ module P = Paths
 module OI = OwnershipInference
 module RT = RefinementTypes
 
-open (val Log.located ~where:"FLOW" : Log.LocatedD) [@@ocaml.warning "-33"]
-
 type z3_types =
   | ZBool
   | ZInt [@@deriving sexp]
@@ -96,7 +94,6 @@ type ctxt = {
   recursive_rel : recursive_ref_map;
   snapshots : state_snapshot IntMap.t
 }
-
 let rec unfold_fltype subst = function
   | `TVar -> subst
   | `Mu _ -> assert false
@@ -1411,8 +1408,7 @@ let process_intrinsic out_patt call_expr intr_type curr_rel body_rel =
   let type_fail () = failwith @@ "Cannot handle non-integer typed args in built in functions: " ^ call_expr.callee in
   let%bind () =
     miteri (fun i t ->
-      let nu_arg = P.var (List.nth call_expr.arg_names i) in
-      match t with
+      let nu_arg = P.var (List.nth call_expr.arg_names i) in match t with
       | RT.Int r ->
         lift_refinement ~map:(P.map_root (fun n -> SM.find n arg_names)) ~nu_arg r
         |> miter @@ add_implication [ PRelation (curr_rel,[],None) ]
@@ -1527,7 +1523,7 @@ let apply_patt ~e_id tyenv patt rhs =
       add_relation_flow ?pre:None flows in_rel out_rel)
 
 let relation_name ((e_id,_),expr) ctxt =
-  let prefix = Printf.sprintf "%s-%d-" (Option.value ~default:"main-fn" ctxt.curr_fun) e_id in
+  let prefix = Printf.sprintf "%s-%d-" (Option.value ~default:"main" ctxt.curr_fun) e_id in
   let kind =
     match expr with
     | Let _ -> "let"
@@ -2032,7 +2028,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
             |> List.fold_left (fun (out_rec_rel,rel) root ->
                 let nm = Printf.sprintf !"%s-out-%{P}-%s" name root "mu" in
                 let ret_rel = (nm, args, FunMu (name,`Out,root)) in
-                RecRelations.update_rel_map root ret_rel out_rec_rel, ret_rel::rel
+                 RecRelations.update_rel_map root ret_rel out_rec_rel, ret_rel::rel
               ) acc
           ) (out_rec_rel,rel)
       in
@@ -2046,7 +2042,7 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
       (StringMap.add name ftype theta,in_rel::out_rel::rel)
     ) simple_theta (StringMap.empty, [])
   in
-  let start_name = "program-start" in
+  let start_name = "program_start" in
   let entry_relation = (start_name, [], Start) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
@@ -2071,4 +2067,5 @@ let infer ~bif_types (simple_theta,side_results) o_hints (fns,main) =
         curr_fun = None; havoc_set = P.PathSet.empty; recursive_rel = P.PathMap.empty
       }
   in
+  let ctxt = {ctxt with impl = List.map(fun (x,y) -> List.rev x, y) ctxt.impl} in
   (ctxt.relations,ctxt.impl,ctxt.snapshots,start_name)

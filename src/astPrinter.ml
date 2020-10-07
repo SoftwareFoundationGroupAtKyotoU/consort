@@ -39,12 +39,9 @@ let pp_ap = function
   | AProj (v,ind) -> pl [ pv v; ps "."; pi ind ]
   | APtrProj (v,ind) -> pl [ pf "(*%s)." v; pi ind ]
 
-let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_ap) RefinementTypes.refinement) =
-  let open RefinementTypes in
-  match r with
-  | Top -> ps "T"
-  | ConstEq n -> pf "~ = %d" n
-  | Relation { rel_op1; rel_cond; rel_op2 } ->
+let pp_rel = 
+let open RefinementTypes in
+  fun { rel_op1; rel_cond; rel_op2 }  ->
     let print_rimm ff = function
       | RConst i -> pi i ff
       | RAp (`Sym i) -> pf "$%d" i ff
@@ -58,6 +55,13 @@ let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_a
       r1_printer rel_op1
       rel_cond
       print_rimm rel_op2
+
+let rec pp_ref_ast (r: (RefinementTypes.refine_ap list, RefinementTypes.refine_ap) RefinementTypes.refinement) =
+  let open RefinementTypes in
+  match r with
+  | Top -> ps "T"
+  | ConstEq n -> pf "~ = %d" n
+  | Relation rel -> pp_rel rel 
   | And (r1,r2) ->
     pf "%a@ /\\@ %a"
       (ul pp_ref_ast) r1
@@ -148,6 +152,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
     match e with
     | Seq (e1, e2) ->
       pl [
+          pf "(seq:%a)" po_id id;
           maybe_brace ~ip ~annot e1;
           semi;
           pp_expr ~ip ~annot e2

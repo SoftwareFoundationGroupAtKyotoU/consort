@@ -350,7 +350,7 @@ module Make(S: Solver.SOLVER_BACKEND) = struct
         in
         pblock ~nl:true ~op:(ps "/*") ~body:pp_ty_env ~close:(ps "*/")
     
-  let solve ~annot_infr ~dump_ir:_ ~intr simple_res o_hints ast =
+  let solve ~annot_infr ~dump_ir:_ ~dry_run:_ ~intr  simple_res o_hints ast =
     let res = infer
         ~save_types:true
         ~intrinsics:intr.Intrinsics.op_interp

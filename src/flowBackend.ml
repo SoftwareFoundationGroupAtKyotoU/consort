@@ -231,7 +231,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-  let solve ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
+  let solve ~annot_infr ~dump_ir ~dry_run ~intr simple_res o_hints ast =
     let open Intrinsics in
     let rel,impl,snap,start = FlowInference.infer ~bif_types:intr.op_interp simple_res o_hints ast in
     let () =
@@ -254,5 +254,6 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           flush f;
         )
       ) dump_ir in
-    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) rel impl start
+    let ans = solve_constraints ~interp:(intr.rel_interp,intr.def_file) rel impl start in
+    ((), ans)
 end

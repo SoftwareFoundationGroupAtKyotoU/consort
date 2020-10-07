@@ -263,7 +263,7 @@ let print_model t =
 
 module type SOLVER = sig
   type t
-  val solve : annot_infr:bool -> dump_ir:(string option) -> intr:Intrinsics.interp_t -> SimpleChecker.simple_results -> float OwnershipInference.ownership_ops -> Ast.prog -> (t * Solver.result)
+  val solve : annot_infr:bool -> dump_ir:(string option) -> dry_run: bool -> intr:Intrinsics.interp_t -> SimpleChecker.simple_results -> float OwnershipInference.ownership_ops -> Ast.prog -> (t * Solver.result)
     
 end
 
@@ -282,7 +282,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
   end;
   let infer_opt = infer_ownership opts intr simple_res ast in
   match infer_opt with
-  | None -> Unverified Aliasing
+  | None -> (print_string "HOGE";Unverified Aliasing)
   | Some r ->
     let solver =
       match opts.solver with
@@ -308,7 +308,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
         (module TypeInference.Make(Backend) : SOLVER)
     in
     let module S = (val s_mod : SOLVER) in
-    let (_,ans) = S.solve ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~dump_ir:opts.dump_ir  ~dry_run:opts.dry_run ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

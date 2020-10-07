@@ -2,22 +2,30 @@ open PrettyPrint
 open Std
 open Ast
 open Sexplib.Std
+open Format
 
+let indent_from_here ff = pp_open_vbox ff 2
+
+type runtime_addr = RNull | RNonNull of int 
 type runtime_value = 
-  RConst of int | RAddr of int  | RTuple of runtime_value list | RArray of int array | RNull
+  RConst of int | RAddr of runtime_addr  | RTuple of runtime_value list | RArray of int array 
+
+let ff = Format.formatter_of_out_channel stderr
 
 let rec pp_runtime_value = function
   | RConst i -> pi i
-  | RAddr v -> ps (Printf.sprintf "[%d]" v) 
-  | RTuple vs -> pl (List.map (fun x -> pl [pp_runtime_value x; ps ","]) vs)
+  | RTuple vs -> pl ( (ps"(")::(List.map (fun x -> pl [pp_runtime_value x; ps ","] ) vs) @ [ps ")"])
   | RArray ar -> pl [ps "[ "; psep ", " (Array.to_list(Array.map pi ar)); ps "]"]
-  | RNull -> ps "null"
+  | RAddr(RNull) -> ps "null"
+  (*| RAddr(RNonNull v) -> ps (Printf.sprintf "[a%d]" v) *)
+  | RAddr(RNonNull v) -> ps (Printf.sprintf "a%d" v) 
 
 
+let newline ff = pp_force_newline ff ()
 type heap = runtime_value IntMap.t
 
 let pp_mem (addr, rt_val) = 
-    pl [pi addr; ps " -> "; pp_runtime_value rt_val]
+  pl [ps "a"; pi addr; ps " : "; pp_runtime_value rt_val]
 
 type register = runtime_value StringMap.t
 
@@ -43,13 +51,50 @@ type env =
 let pp_env env =
     pf "env { reg:{%a}, heap:{%a}} " (ul pp_register) env.register (ul pp_heap) env.heap
 
-type unreal_error = InsufficentNondet | InvalidNondet [@@deriving sexp]
-type real_error =  AssertFail of Ast.relation | AliasFail of string * Ast.src_ap | OutOfIndex  [@@deriving sexp]
-type error =  UnrealError of unreal_error | RealError of real_error [@@deriving sexp]
+
+type unreal_error = InsufficentNondet | InvalidNondet 
+type real_error =  AssertFail of Ast.relation | AliasFail of string * Ast.src_ap | OutOfIndex of string* string | NullPointerException of string | ArrayMakeInvalidLength of string * int
+type error =  UnrealError of unreal_error | RealError of real_error 
+let pp_real_err =
+  let open AstPrinter in
+ function 
+  | AssertFail({ rop1; cond; rop2 }) ->
+      pl [
+          pf "assert(%a %s %a)" upp_imm rop1 cond upp_imm rop2;
+          semi;
+        ]
+  | AliasFail(x, y) -> 
+        pl [
+          pf "alias(%s = %a)"  x (ul pp_ap) y;
+          semi;
+        ]
+  | OutOfIndex(x, y) -> 
+      pl [
+          pf "out-of-index(%s[%s])"  x y;
+          semi;
+        ]
+  | NullPointerException(x) -> 
+      pl [
+          pf "null-pointer-exception(%s)" x;
+          semi;
+        ]
+  | ArrayMakeInvalidLength(x, y) -> 
+      pl [
+          pf "array.make.invalid.length(%s: %d)" x y;
+          semi;
+        ]
+
+
+let pp_err = function
+  | RealError(e) -> pl [ps "AssertRail :"; pp_real_err e ]
+  | UnrealError(_) -> ps "Unreal error"
+
+let pp_env env = 
+    pf "/* heap:{%a} */" (ul pp_heap) env.heap
+
+
 
 exception StopEvaluation of error 
-
-
 
 
 
@@ -62,14 +107,24 @@ let proj_array = function RArray s -> s | _ -> assert false
 let proj_tuple = function RTuple s -> s | _ -> assert false
 
 let lkp_reg_addr env var = match lkp_reg var env with RAddr s -> s | _ -> assert false
-let lkp_reg_int env var = match lkp_reg var env with RConst s -> s | _ -> assert false
+let lkp_reg_int env var = 
+  match lkp_reg var env with RConst s -> s | _ -> assert false
+
 let lkp_reg_array env var = match lkp_reg var env with RArray s -> s | _ -> assert false
 
-let lkp_heap {heap;_} addr  = try 
- IntMap.find addr heap  
- with _ -> failwith @@ Printf.sprintf "addr [%d] not found" addr
+let lkp_heap ({heap;_}as env) ptr  =
+ match lkp_reg_addr ptr env with
+ | RNull -> raise (StopEvaluation(RealError(NullPointerException(ptr))))
+ | RNonNull(addr) -> IntMap.find addr heap  
 let update_reg var value ({register; _} as env) = {env with register = StringMap.add var value register}
-let update_heap addr value ({heap;_} as env)= {env with heap = IntMap.add addr value heap}  
+let update_heap' ptr value ({heap;_} as env)= 
+match lkp_reg_addr ptr env with
+| RNonNull(addr) -> {env with heap = IntMap.add addr value heap}  
+| _ -> raise (StopEvaluation(RealError(NullPointerException(ptr))))
+
+
+let update_heap addr value ({heap;_} as env)= 
+{env with heap = IntMap.add addr value heap}  
 
 let consume_nondet env = 
   if List.length env.oracle = 0 then 
@@ -83,11 +138,11 @@ fun () -> incr r ; !r
 
 let mkref_env v env = 
   let new_addr = mkref() in
-  (RAddr(new_addr), update_heap new_addr v env)
+  (RAddr(RNonNull(new_addr)), update_heap new_addr v env)
 let eval_ref_contents env =
 function 
   RNone -> 
-    let (addr, env) = consume_nondet env  in (RAddr(addr), env)
+    let (addr, env) = consume_nondet env  in (RAddr(RNonNull(addr)), env)
   | RInt i -> (RConst i, env)
   | RVar i -> (lkp_reg env i, env)
 
@@ -97,6 +152,17 @@ match refine with
 | Top -> true
 | And(r1, r2) -> refinement_holds env r1 v && refinement_holds env r2 v
 | ConstEq i -> i = v
+| Relation({rel_op1=Nu;rel_cond;rel_op2=RConst(j)})-> 
+(
+  match rel_cond with
+  | "=" -> v = j
+  | "<" -> v < j
+  | "<=" -> v <= j
+  | ">" -> v > j
+  | ">=" -> v >= j
+  | _ -> false
+)
+
 | _ -> false (* TODO *)
 
 let hard_code = 
@@ -106,9 +172,11 @@ let hard_code =
 
   [("+", (+)); 
    ("-", (-));
+   ("%", (mod));
    ("*", ( * ));
    ("=", cast_ret (=));
    ("<=", cast_ret(<=));
+   ("!=", cast_ret(<>));
    ("<", cast_ret(<));
    (">", cast_ret(>));
    (">=", cast_ret(>=));
@@ -122,13 +190,25 @@ let eval_call fn env =
   | None, _ -> None
   | Some(_), _ -> assert false
 
-let eval_src_ap env = function
+let rec eval_src_ap env = function
 | AVar s -> lkp_reg_addr s env
 | AProj (s, i) -> 
     let rs = proj_tuple(lkp_reg env s) in
     proj_addr (List.nth rs i)
-| _ -> assert false
-let merge_env env new_env = {env with oracle = new_env.oracle; heap = new_env.heap}
+| ADeref (ptr) -> 
+  (* let addr = lkp_reg_addr ptr env in *)
+  let v = lkp_heap env ptr in
+  proj_addr v
+| APtrProj(ptr, i) -> 
+  let rs = proj_tuple(lkp_heap env ptr) in
+  proj_addr (List.nth rs i)
+
+let merge_env env new_env = {env with oracle = new_env.oracle; heap = new_env.heap; ff = new_env.ff}
+
+let no_name x = match x with
+| PNone -> true
+| PVar s -> String.length s >= 2 && (String.sub s 0 2 = "__")
+| _ -> false
 
 let rec eval_lhs env dst k = 
 let open Ast in
@@ -138,25 +218,43 @@ match k with
   | Const s ->
     (RConst s, env)
   | Deref x ->
-    (lkp_heap env (lkp_reg_int x env), env)
+    (lkp_heap env x , env)
   | Mkref (RVar s)-> 
-    mkref_env (lkp_reg env s) env
+      let (v, env) = mkref_env (lkp_reg env s) env in
+    begin
+    pl [
+        pf "let %a = %a in"
+        (ul AstPrinter.pp_patt) dst (ul pp_runtime_value) v;
+        newline;
+      ] env.ff
+    end;
+    (v, env)
   | Mkref (RInt s)-> 
-    mkref_env (RConst s) env
+    let (v, env) = mkref_env (RConst s) env in
+    begin
+    pl [
+        pf "let %a = %a in"
+        (ul AstPrinter.pp_patt) dst (ul pp_runtime_value) v;
+        newline;
+      ] env.ff
+    end;
+    (v, env)
   | Mkref RNone-> 
     let (v,env) = consume_nondet env in 
     mkref_env (RConst v) env
   | Null -> 
-    (RNull, env)
+    (RAddr(RNull), env)
   | LengthOf s -> 
     let arr = lkp_reg_array s env in
     (RConst(Array.length arr), env)
   | Read (arr, idx) -> 
+    let arr' = arr in
+    let idx' = idx in 
     let arr = lkp_reg_array arr env in
     let idx = lkp_reg_int idx env in
-    if Array.length arr > idx then
+    if Array.length arr > idx && idx>=0 then
     (RConst(arr.(idx)), env)
-    else raise (StopEvaluation(RealError(OutOfIndex)))
+    else raise (StopEvaluation(RealError(OutOfIndex(arr', idx'))))
   | Tuple(rs) -> 
     let (ts, env) = List.fold_left
       (fun (vs, env) r -> 
@@ -170,10 +268,21 @@ match k with
       raise (StopEvaluation(UnrealError(InvalidNondet)))
   | Nondet (None) -> 
     let (v, env) = consume_nondet env in
+    begin
+    pl [
+        pf "let %a = /* input */ %d in"
+        (ul AstPrinter.pp_patt) dst v;
+        newline;
+      ] env.ff
+    end;
     (RConst v, env)
+
   | MkArray(len) -> 
-    let len = lkp_reg_int len env in
-    (RArray(Array.make len 0), env)
+    let len' = lkp_reg_int len env in
+    if len' < 0 then 
+      raise (StopEvaluation(RealError(ArrayMakeInvalidLength(len, len'))))
+    else 
+    (RArray(Array.make len' 0), env)
   | Call ({callee;arg_names;_} as f)-> 
   (
     let open Ast in
@@ -181,19 +290,37 @@ match k with
     | Some({args;name;body}) -> 
       let args' = List.map (lkp_reg env) arg_names in
       let bind = List.map2 (fun x y -> (x,y)) args args' in
+
+      let _ = indent_from_here env.ff in
+      begin
+        (
+      if no_name dst then
+        (
       pl [
-        indent_from_here ;
+        pf "%s("
+         name;
+        (psep ", " (List.map (fun (x,y) -> pl [ps x; ps ": "; pp_runtime_value y]) bind));
+        pf ") ";
+        newline;
+      ] env.ff;)
+      else
+        (
+      pl [
         pf "let %a = %s("
         (ul AstPrinter.pp_patt) dst name;
         (psep ", " (List.map (fun (x,y) -> pl [ps x; ps ": "; pp_runtime_value y]) bind));
         pf ") ";
         newline;
-      ] env.ff;
+      ] env.ff;)
+        )
+      end;
       let reg = StringMap.of_bindings bind in
       let new_env = { env with register = reg} in
       let (ret,new_env) = eval new_env body in
-      pl[ ps "return " ; pp_runtime_value ret ; ps ";"; dedent;newline] env.ff;
-      (ret,merge_env env new_env)
+      let env = merge_env env new_env in
+      pl[ ps "return " ; pp_runtime_value ret ; ps ";  ";  pp_env env; newline] env.ff;
+      dedent env.ff;
+      (ret, env)
 
     | None -> begin 
           match eval_call f env with
@@ -208,24 +335,40 @@ let open Ast in
   let lk_reg_int x = match lk_reg x with RConst i -> i | _ -> assert false in
   let lk_reg_addr x = match lk_reg x with RAddr i -> i | _ -> assert false in
   let lk_reg_array x = match lk_reg x with RArray i -> i | _ -> assert false in
-  let eval_imm = function IVar s -> lk_reg_int s | IInt s -> s in
+  let eval_imm_int = function IVar s -> lk_reg_int s | IInt s -> s in
+  let eval_imm = function IVar s -> lk_reg s | IInt s -> RConst(s) in
   match exp with
   | EVar (s) -> (lk_reg s, env)
-  | Cond (s, e1, e2) -> eval env (if lk_reg_int s = 0 then e1 else e2) 
-  | NCond (s, e1, e2) -> if lk_reg_int s <> 0 then eval env e1 else  eval env e2
+  | Cond (s, e1, e2) -> 
+      (
+      pl [
+        pf "if (%s: %d) -> %s " s (lk_reg_int s) (if lk_reg_int s = 0 then "then" else "else"); newline
+      ] env.ff;
+      (* indent_from_here env.ff; *)
+      let t = eval env (if lk_reg_int s = 0 then e1 else e2) in
+      (* dedent env.ff; *) t
+      )
+  | NCond (s, e1, e2) -> if lk_reg s = RAddr(RNull) then eval env e1 else  eval env e2
   | Seq (e1, e2) -> let _, new_env = eval env e1 in eval (merge_env env new_env) e2
   | Assign (s, imm, e) -> 
-    let addr = lk_reg_addr s in 
-    let env = update_heap addr (RConst (eval_imm imm)) env in
+    (* let addr = lk_reg_addr s in  *)
+    (
+      pl [
+        pf "%s := %a;" s (ul pp_runtime_value) (eval_imm imm); ps "  "; pp_env env; newline
+      ] env.ff;
+    );
+    let env = update_heap' s (eval_imm imm) env in
     eval env e
   | Update(array, idx, value, e) -> 
+    let array' = array in 
+    let idx' = idx in
     let array = lk_reg_array array in
     let idx = lk_reg_int idx in
     let v = lk_reg_int value in
-    if Array.length array > idx then
+    if Array.length array > idx && idx >= 0 then
     (array.(idx) <- v;
     eval env e)
-    else raise (StopEvaluation(RealError(OutOfIndex)))
+    else raise (StopEvaluation(RealError(OutOfIndex(array', idx'))))
 
   | Let (PNone, lhs, e) -> 
     let (_, env) = eval_lhs env PNone lhs in
@@ -247,12 +390,14 @@ let open Ast in
     let env = List.fold_left (fun env (b,c) -> update_reg b c env) env binds in
     eval env e
   | Assert(({rop1; cond;rop2} as rel), e) -> 
-    let rop1' = eval_imm rop1 in
-    let rop2' = eval_imm rop2 in
+    let rop1' = eval_imm_int rop1 in
+    let rop2' = eval_imm_int rop2 in
     let f = List.assoc_opt cond hard_code in
     let open AstPrinter in
     pl [
-          pf "assert%d(%a %s %a) => assert%d(%d %s %d)" id upp_imm rop1 cond upp_imm rop2 id rop1' cond rop2';
+(*          pf "assert(%a:%d %s %a:%d)\n" upp_imm rop1 rop1' cond upp_imm rop2 rop2'; *)
+          pf "assert(%d %s %d)\n" rop1' cond rop2';
+
     ] env.ff;
     begin
     match f with
