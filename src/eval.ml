@@ -14,7 +14,13 @@ let ff = Format.formatter_of_out_channel stderr
 
 let rec pp_runtime_value = function
   | RConst i -> pi i
-  | RTuple vs -> pl ( (ps"(")::(List.map (fun x -> pl [pp_runtime_value x; ps ","] ) vs) @ [ps ")"])
+  | RTuple vs -> 
+      (
+      match vs with
+      | [] -> ps "()"
+      | x :: y -> 
+          pl ( (ps"(")::(pp_runtime_value x)::(List.map (fun x -> pl [ps ",";pp_runtime_value x] ) y) @ [ps ")"])
+      )
   | RArray ar -> pl [ps "[ "; psep ", " (Array.to_list(Array.map pi ar)); ps "]"]
   | RAddr(RNull) -> ps "null"
   (*| RAddr(RNonNull v) -> ps (Printf.sprintf "[a%d]" v) *)
@@ -110,7 +116,6 @@ let lkp_reg_addr env var = match lkp_reg var env with RAddr s -> s | _ -> assert
 let lkp_reg_int env var = 
   match lkp_reg var env with RConst s -> s | _ -> assert false
 
-let lkp_reg_array env var = match lkp_reg var env with RArray s -> s | _ -> assert false
 
 let lkp_heap ({heap;_}as env) ptr  =
  match lkp_reg_addr ptr env with
@@ -122,6 +127,8 @@ match lkp_reg_addr ptr env with
 | RNonNull(addr) -> {env with heap = IntMap.add addr value heap}  
 | _ -> raise (StopEvaluation(RealError(NullPointerException(ptr))))
 
+
+let lkp_reg_array env var = match lkp_heap var env with RArray s -> s | _ -> assert false
 
 let update_heap addr value ({heap;_} as env)= 
 {env with heap = IntMap.add addr value heap}  
@@ -205,9 +212,12 @@ let rec eval_src_ap env = function
 
 let merge_env env new_env = {env with oracle = new_env.oracle; heap = new_env.heap; ff = new_env.ff}
 
+let no_name_str s =
+String.length s >= 2 && (String.sub s 0 2 = "__")
+
 let no_name x = match x with
 | PNone -> true
-| PVar s -> String.length s >= 2 && (String.sub s 0 2 = "__")
+| PVar s -> no_name_str s
 | _ -> false
 
 let rec eval_lhs env dst k = 
@@ -220,8 +230,9 @@ match k with
   | Deref x ->
     (lkp_heap env x , env)
   | Mkref (RVar s)-> 
-      let (v, env) = mkref_env (lkp_reg env s) env in
+    let (v, env) = mkref_env (lkp_reg env s) env in
     begin
+    if no_name dst then () else 
     pl [
         pf "let %a = %a in"
         (ul AstPrinter.pp_patt) dst (ul pp_runtime_value) v;
@@ -235,6 +246,8 @@ match k with
     pl [
         pf "let %a = %a in"
         (ul AstPrinter.pp_patt) dst (ul pp_runtime_value) v;
+        ps " ";
+        pp_env env;
         newline;
       ] env.ff
     end;
@@ -264,6 +277,13 @@ match k with
     (RTuple (List.rev ts), env)
   | Nondet (Some(refine)) -> 
     let (v, env) = consume_nondet env in
+    begin
+    pl [
+        pf "let %a = /* input */ %d in"
+        (ul AstPrinter.pp_patt) dst v;
+        newline;
+      ] env.ff
+    end;
     if refinement_holds env refine v then (RConst v, env) else 
       raise (StopEvaluation(UnrealError(InvalidNondet)))
   | Nondet (None) -> 
@@ -282,12 +302,23 @@ match k with
     if len' < 0 then 
       raise (StopEvaluation(RealError(ArrayMakeInvalidLength(len, len'))))
     else 
-    (RArray(Array.make len' 0), env)
+      let (v, env) = mkref_env (RArray(Array.make len' 0)) env in
+    begin
+    pl [
+        pf "let %a = %a in"
+        (ul AstPrinter.pp_patt) dst (ul pp_runtime_value) v;
+        ps " ";
+        pp_env env;
+        newline;
+      ] env.ff
+    end;
+    (v, env)
+
+      
   | Call ({callee;arg_names;_} as f)-> 
   (
     let open Ast in
-    match List.find_opt (fun x -> x.name = callee) env.fns with
-    | Some({args;name;body}) -> 
+    match List.find_opt (fun x -> x.name = callee) env.fns with | Some({args;name;body}) -> 
       let args' = List.map (lkp_reg env) arg_names in
       let bind = List.map2 (fun x y -> (x,y)) args args' in
 
@@ -342,7 +373,7 @@ let open Ast in
   | Cond (s, e1, e2) -> 
       (
       pl [
-        pf "if (%s: %d) -> %s " s (lk_reg_int s) (if lk_reg_int s = 0 then "then" else "else"); newline
+        pf "if (%s%d) -> %s " (if no_name_str s then "" else (s^": ")) (lk_reg_int s) (if lk_reg_int s = 0 then "then" else "else"); newline
       ] env.ff;
       (* indent_from_here env.ff; *)
       let t = eval env (if lk_reg_int s = 0 then e1 else e2) in
@@ -352,21 +383,24 @@ let open Ast in
   | Seq (e1, e2) -> let _, new_env = eval env e1 in eval (merge_env env new_env) e2
   | Assign (s, imm, e) -> 
     (* let addr = lk_reg_addr s in  *)
+    let env = update_heap' s (eval_imm imm) env in
     (
       pl [
         pf "%s := %a;" s (ul pp_runtime_value) (eval_imm imm); ps "  "; pp_env env; newline
       ] env.ff;
     );
-    let env = update_heap' s (eval_imm imm) env in
     eval env e
-  | Update(array, idx, value, e) -> 
-    let array' = array in 
+  | Update(array_name, idx, value, e) -> 
+    let array' = array_name in 
     let idx' = idx in
-    let array = lk_reg_array array in
+    let RArray(array) = lkp_heap env array_name in
     let idx = lk_reg_int idx in
     let v = lk_reg_int value in
     if Array.length array > idx && idx >= 0 then
     (array.(idx) <- v;
+    pl [
+      pf "%s[%d] <- %d;" array_name idx v; ps "  "; pp_env env; newline
+      ] env.ff;
     eval env e)
     else raise (StopEvaluation(RealError(OutOfIndex(array', idx'))))
 

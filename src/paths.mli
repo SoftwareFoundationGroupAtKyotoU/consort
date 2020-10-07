@@ -1,7 +1,7 @@
 
 type suff = [`Len | `Ind | `Elem | `None | `Null ] [@@deriving sexp]
 
-type root = private
+type root = 
   | Pre of string
   | Var of string
   | Ret
@@ -12,7 +12,7 @@ type steps = [
   | `Proj of int
 ] [@@deriving sexp]
 
-type path = private root * steps list * suff [@@deriving sexp]
+type path = root * steps list * suff [@@deriving sexp]
 type concr_ap = path [@@deriving sexp]
 
 val to_z3_ident : path ->  string

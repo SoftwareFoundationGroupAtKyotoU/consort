@@ -40,6 +40,12 @@
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
           FlowInference FlowBackend TypeInference))
+(library
+ (name counterexample)
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
+ (wrapped false)
+ (libraries lang sexplib util ownership)
+ (modules counterExampleDAG EldaricaLexer EldaricaParser Eval UnsafeSlice))
 
 (executable
  (name test)
@@ -77,3 +83,13 @@
  (libraries util sexplib)
  (modules UnsatCore))
 
+(executable
+ (name counterexample)
+ (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf))
+ (libraries counterexample consort util)
+ (modules Counterexample))
+
+(env
+ (dev
+  (flags (:standard -warn-error -a)))
+)
