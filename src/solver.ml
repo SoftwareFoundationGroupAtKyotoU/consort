@@ -1,5 +1,5 @@
 type result = 
-  | Unsat
+  | Unsat of string option 
   | Sat of string option
   | Timeout
   | Unhandled of string

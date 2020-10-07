@@ -175,8 +175,9 @@ let infer_ownership opts intr simple_res ast =
   let module OI = OwnershipInference in
   let o_result = OI.infer simple_res intr.Intrinsics.op_interp ast in
   match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons) with
-  | None -> None
-  | Some o_soln ->
+  | Unknown -> None
+  | UnsatCore _ -> None
+  | Sat o_soln ->
     let map_ownership = function
       | OwnershipSolver.OVar v -> List.assoc v o_soln
       | OwnershipSolver.OConst c -> c
@@ -315,7 +316,7 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
       (*      check_triviality state ast opts.check_trivial m;*)
       print_model opts.print_model m;
       Verified
-    | Unsat -> Unverified Unsafe
+    | Unsat _-> Unverified Unsafe
     | Timeout -> Unverified Timeout
     | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
     | Error s -> Unverified (SolverError s)

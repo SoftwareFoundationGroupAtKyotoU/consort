@@ -1,3 +1,4 @@
+open Std
 type ownership =
     OVar of int
   | OConst of float
@@ -13,6 +14,11 @@ type ocon =
   | Wf of ownership * ownership
   | Ge of ownership * ownership
 
+type result = 
+  | Sat of (int * float) list
+  | UnsatCore of IntSet.t
+  | Unknown
+
 type options
 val default : options
 
@@ -20,5 +26,6 @@ val ownership_arg_gen : unit -> (string * Arg.spec * string) list * (?comb:optio
 val solve_ownership :
   opts:options ->
   ?save_cons:string ->
-  (int list * ocon list) ->
-  (int * float) list option
+  ?gen_cex:bool ->
+  (int list * (int * ocon) list) ->
+  result

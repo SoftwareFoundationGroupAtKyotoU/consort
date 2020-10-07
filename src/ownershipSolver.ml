@@ -1,4 +1,5 @@
 open SexpPrinter
+open Std
 
 type ownership =
     OVar of int
@@ -15,6 +16,11 @@ type ocon =
   | Wf of ownership * ownership
   (* Ge o1 >= o2 *)
   | Ge of ownership * ownership
+
+type result = 
+  | Sat of (int * float) list 
+  | UnsatCore of IntSet.t
+  | Unknown
 
 let owner_fact = 0.02
 
@@ -50,18 +56,32 @@ let po : ownership -> (Sexplib.Sexp.t -> 'a) -> 'a = function
   | OVar o -> pl @@ ovar_name o
   | OConst f -> pl @@ string_of_float f
 
-let pp_oconstraint ff ocon =
+let get_line_id_from_name s = 
+  int_of_string @@ List.nth (String.split_on_char '-' s) 1
+
+let wrap_id
+  =
+  let unique_id = ref 0 in
+  fun e_id rest ff ->
+    pg "assert" [
+      pg "!"[
+        rest;
+        pl ":named";
+        pl (Printf.sprintf "l-%d-%d"  e_id (incr unique_id;!unique_id;))
+      ]
+    ] ff
+let pp_oconstraint ff (e_id, ocon) =
+  let wrap_id = wrap_id e_id in
   begin
     match ocon with
-    | Write o -> pg "assert" [
-                     pg "=" [
+    | Write o -> wrap_id @@
+                 pg "=" [
                        po o;
                        plift "1.0"
-                     ]
-                   ]
+                 ]
     | Shuff ((o1,o2),(o1',o2')) ->
       begin
-        pg "assert" [
+        wrap_id (
           pg "=" [
             pg "+" [
               po o1;
@@ -72,9 +92,9 @@ let pp_oconstraint ff ocon =
               po o2'
             ];
           ]
-        ] ff.printer;
+        ) ff.printer;
         break ff;
-        pg "assert" [
+        wrap_id (
           pg "<=" [
             pg "+" [
               po o1;
@@ -82,10 +102,10 @@ let pp_oconstraint ff ocon =
             ];
             pl "1.0"
           ]
-        ]
+        )
       end
     | Split (o,(o1,o2)) ->
-      pg "assert" [
+       wrap_id @@
           pg "=" [
             po o;
             pg "+" [
@@ -93,28 +113,24 @@ let pp_oconstraint ff ocon =
               po o2
             ]
           ]
-        ]
     | Eq (o1,o2) ->
-      pg "assert" [
+      wrap_id @@
           pg "=" [
             po o1;
             po o2
           ]
-        ]
     | Ge (o1,o2) ->
-      pg "assert" [
+      wrap_id @@
           pg ">=" [
             po o1;
             po o2
           ]
-        ]
     | Wf (o1,o2) ->
-      pg "assert" [
+      wrap_id @@
           pg "=>" [
             pg "=" [ po o1; pl "0.0" ];
             pg "=" [ po o2; pl "0.0" ]
           ]
-        ]
   end ff.printer;
   break ff
 
@@ -135,8 +151,9 @@ let rec extract_assoc m acc =
   | _::l -> extract_assoc l acc
   | [] -> acc
     
-let solve_ownership ~opts ?save_cons (ovars,ocons) =
+let solve_ownership ~opts ?save_cons ?(gen_cex=false) (ovars,ocons) =
   let o_buf = SexpPrinter.fresh () in
+  if gen_cex then pg "set-option :produce-unsat-cores true" [] o_buf.printer else();
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;
   break o_buf;
@@ -175,10 +192,25 @@ let solve_ownership ~opts ?save_cons (ovars,ocons) =
             | "Int",[Atom s] ->
               (nm,(int_of_string s) |> float |> (( *. ) owner_fact))::acc
             | _ -> acc)) [] model_assoc in
-        Some (List.map (fun o_var ->
+        Sat (List.map (fun o_var ->
             (o_var,List.assoc (ovar_mult o_var) mult_val)
         ) ovars)
-      | _ -> None
+      | _ -> Unknown
     end
-  | _ -> None
+  | Solver.Unsat _ when gen_cex->
+       (
+        let res = Z3Channel.Ch.call ~opts ?save_cons ~debug_cons:false ~defn_file:None ~get_model:false ~strat:"(check-sat)\n(get-unsat-core)" o_buf in
+        match res with 
+        | Solver.Unsat (Some core) -> ((print_string core); 
+            let open Sexplib.Sexp in
+            let s = match (scan_sexp @@ Lexing.from_string core) with List l -> l | _ -> failwith "" in 
+            let proj_id = function  
+            | Atom l  -> get_line_id_from_name l
+            | _ -> failwith "" 
+              in  
+            UnsatCore(IntSet.of_list (List.map proj_id s))
+         )
+        | _ -> Unknown
+       )
+  | _ -> Unknown
 

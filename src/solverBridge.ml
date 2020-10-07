@@ -33,7 +33,7 @@ module Make(D: sig
           None
       in
       return_and_close @@ Solver.Sat m
-    | "unsat" -> return_and_close Solver.Unsat
+    | "unsat" -> return_and_close @@ Solver.Unsat (Some (Files.string_of_channel p.Process.proc_stdout))
     | "timeout" -> return_and_close Solver.Timeout
     | "unknown" -> return_and_close Solver.Unknown
     | s ->

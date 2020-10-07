@@ -82,10 +82,11 @@ let ownership_infr debug i_gen o_gen file =
   let r = OwnershipInference.infer simple_res intr.Intrinsics.op_interp ast in
   print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
   let open PrettyPrint in
-  let o_solve = OwnershipSolver.solve_ownership ~opts:(o_gen ()) ?save_cons:!debug (r.OwnershipInference.Result.ovars,r.OwnershipInference.Result.ocons) in
+  let o_solve = OwnershipSolver.solve_ownership ~opts:(o_gen ()) ?save_cons:!debug ?gen_cex:(Some true) (r.OwnershipInference.Result.ovars,r.OwnershipInference.Result.ocons) in
   match o_solve with
-  | None -> print_endline "Could not solve ownership constraints"
-  | Some soln ->
+  | Unknown -> print_endline "Could not solve ownership constraints"
+  | UnsatCore _ -> print_endline "Could not solve ownership constraints"
+  | Sat soln ->
     print_program ~o_map:(fun o ->
         match o with
         | OwnershipSolver.OConst o -> o

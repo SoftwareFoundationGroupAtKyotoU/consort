@@ -115,7 +115,6 @@ let rec unsafe_involved_variable st fun_env (_, e) =
   )
   | Let(PTuple(tp), lhs, e) ->
     abort := true;
-    print_string "Currently, not tuple is not supported\n";
     st
 
   (* (
@@ -154,11 +153,11 @@ let slice_func {args;name;body} =
   in
   let st = StringSet.of_list args in
   let st = slice_sub st in
-  if !abort then {args;name;body} else
+  if !abort then(print_string "Currently, not tuple is not supported\n In this case, whole program is taken as a slice\n";  {args;name;body}) else
   {args;name;body=slice st body}
 
 let rec unsafe_slicing (fns, main) = 
-  print_string "Unsafe Slice\n";
+  print_string "============ Unsafe Slice =============\n";
   let fns' = List.map slice_func fns in
   let {body=main'} = slice_func {args=[];name="";body=main} in 
   pretty_print_program stdout (fns', main')

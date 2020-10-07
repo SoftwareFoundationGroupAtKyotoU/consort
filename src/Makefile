@@ -5,6 +5,7 @@ all: stdlib/lin.intr
 	dune build counterexample.exe
 	dune build test_suite.exe
 	dune build ownership.exe
+	dune build counterexampleOwnership.exe
 
 test: all
 

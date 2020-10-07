@@ -39,11 +39,14 @@ type 'a ownership_ops = {
   gen: 'a GenMap.t
 }
 
+(* Currently, this dummy id is used in function def(arguments, returned value).*)
+let dummy_e_id = -1
+
 type context = {
   ovars: int list;
   v_counter: int;
   iso: SimpleChecker.SideAnalysis.results;
-  ocons: ocon list;
+  ocons: (int * ocon) list;
   gamma: otype StringMap.t;
   theta: (otype RefinementTypes._funtype) StringMap.t;
   op_record: ownership ownership_ops;
@@ -90,7 +93,7 @@ let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
     | Ref (r1,o1),Ref (r2,o2), Ref (r1',o1'), Ref(r2',o2') ->
       loop r1 r2 r1' r2' @@
         { ctxt with
-          ocons = Shuff ((o1,o2),(o1',o2')) :: ctxt.ocons }
+          ocons = (e_id, Shuff ((o1,o2),(o1',o2'))) :: ctxt.ocons }
     | Tuple tl1, Tuple tl2, Tuple tl1', Tuple tl2' ->
       let orig_tl = List.combine tl1 tl2 in
       let new_tl = List.combine tl1' tl2' in
@@ -104,13 +107,14 @@ let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   in
   loop t1 (unfold_dst t2) t1' (unfold_dst t2') ctxt
 
-let%lm sum_ownership t1 t2 out ctxt =
+(* Unused? *)
+let%lm sum_ownership e_id t1 t2 out ctxt =
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
     | Int, Int, Int -> ctxt
     | Ref (r1,o1), Ref (r2,o2), Ref (ro,oo) ->
       loop r1 r2 ro
-        { ctxt with ocons = (Split (oo,(o1,o2)))::ctxt.ocons}
+        { ctxt with ocons = (e_id, (Split (oo,(o1,o2))))::ctxt.ocons}
     | Tuple tl1, Tuple tl2, Tuple tl_out ->
       fold_left3i (fun ctxt _ e1 e2 e_out ->
           loop e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
@@ -119,7 +123,7 @@ let%lm sum_ownership t1 t2 out ctxt =
     | TVar _,TVar _, TVar _ -> ctxt
     | Array (et1,o1), Array (et2,o2), Array (et3,o3) ->
       loop et1 et2 et3
-        { ctxt with ocons = Split (o3,(o1,o2))::ctxt.ocons }
+        { ctxt with ocons = (e_id, Split (o3,(o1,o2)))::ctxt.ocons }
     | _ -> failwith "Mismatched types (simple checker broken C?)"
   in
   loop t1 t2 out ctxt
@@ -138,7 +142,8 @@ let (>>) a b =
   let%bind () = a in
   b
 
-let rec constrain_wf_loop o t ctxt =
+let rec constrain_wf_loop e_id o t ctxt =
+  let constrain_wf_loop = constrain_wf_loop e_id in
   match t with
   | TVar _
   | Int -> (ctxt,())
@@ -148,16 +153,16 @@ let rec constrain_wf_loop o t ctxt =
   | Ref (t',o')
   | Array (t',o') ->
     constrain_wf_loop o' t' {
-        ctxt with ocons = Wf (o,o')::ctxt.ocons
+        ctxt with ocons = (e_id, Wf (o,o'))::ctxt.ocons
       }
 
-let rec constrain_well_formed = function
+let rec constrain_well_formed e_id  = function
   | TVar _
   | Int -> return ()
-  | Tuple tl -> miter constrain_well_formed tl
-  | Mu (_,t) -> constrain_well_formed t
+  | Tuple tl -> miter (constrain_well_formed e_id) tl
+  | Mu (_,t) -> constrain_well_formed e_id t
   | Ref (t,o)
-  | Array (t,o) -> constrain_wf_loop o t
+  | Array (t,o) -> constrain_wf_loop e_id o t
 
 let%lm record_alloc loc p o ctxt =
   let op = ctxt.op_record in
@@ -181,10 +186,10 @@ let alloc_split,alloc_ovar =
       ovars = ctxt.v_counter::ctxt.ovars;
       v_counter = ctxt.v_counter + 1 },OVar ctxt.v_counter
   in
-  let alloc_split loc p o =
+  let alloc_split e_id loc p o =
     let%bind o1 = alloc_ovar_inner
     and o2 = alloc_ovar_inner in
-    add_constraint (Split (o,(o1,o2))) >>
+    add_constraint ((e_id, Split (o,(o1,o2)))) >>
     record_split loc p o1 o2 >>
     return (o1,o2)
   in
@@ -195,7 +200,7 @@ let alloc_split,alloc_ovar =
   alloc_split,alloc_ovar
 
 (* this must record *)
-let lift_to_ownership loc root t_simp =
+let lift_to_ownership e_id loc root t_simp =
   let rec simple_lift ~unfld root =
     function
     | `Mu (id,t) when IntSet.mem id unfld ->
@@ -218,13 +223,13 @@ let lift_to_ownership loc root t_simp =
       return @@ Tuple tl'
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
-  constrain_well_formed t >> return t
+  constrain_well_formed e_id t >> return t
 
 let mtmap p f tl =
   mmapi (fun i e -> f (P.t_ind p i) e) tl
 
 (* This needs to record *)
-let make_fresh_type loc root t =
+let make_fresh_type e_id loc root t =
   let rec loop root = function
   | Int -> return Int
   | Array (t,_) ->
@@ -244,7 +249,7 @@ let make_fresh_type loc root t =
     return @@ Mu (id,t')
   in
   let%bind t' = loop root t in
-  constrain_well_formed t' >> return t'
+  constrain_well_formed e_id t' >> return t'
 
 let update_map v t m =
   SM.remove v m |> SM.add v t
@@ -267,6 +272,7 @@ let map_type k v  =
 
 let fresh_ap e_id =
   let loc = MAlias e_id in
+  let make_fresh_type = make_fresh_type e_id in
   function
   | AVar v ->
     map_type (fun t ->
@@ -278,7 +284,7 @@ let fresh_ap e_id =
       | Ref (t,o) ->
         let%bind t' = make_fresh_type loc (P.deref @@ P.var v) t in
         begin%m
-            constrain_wf_loop o t';
+            constrain_wf_loop e_id o t';
              return (Ref (t',o),t,t')
         end
       | _ -> assert false
@@ -299,7 +305,7 @@ let fresh_ap e_id =
         let%bind t' = make_fresh_type loc (P.t_ind (P.deref @@ P.var v) ind) t in
         let tl' = update_nth tl ind t' in
         begin%m
-            constrain_wf_loop o t';
+            constrain_wf_loop e_id o t';
              return (Ref (Tuple tl',o),t,t')
         end
       | _ -> assert false) v
@@ -307,18 +313,20 @@ let fresh_ap e_id =
 (* this must record *)
 let get_type_scheme e_id v ctxt =
   let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
-  lift_to_ownership (MGen e_id) (P.var v) st ctxt
+  lift_to_ownership e_id (MGen e_id) (P.var v) st ctxt
 
 let tarray o t = Array (t,o)
 let tref o t = Ref (t,o)
 
-let rec split_type loc p =
+let rec split_type e_id loc p =
+  let split_type = split_type e_id in
+  let alloc_split = alloc_split e_id in
   let split_mem o t ext k =
     let%bind (t1,t2) = split_type loc (ext p) t
     and (o1,o2) = alloc_split loc p o in
     begin%m
-        constrain_wf_loop o1 t1;
-         constrain_wf_loop o2 t2;
+        constrain_wf_loop e_id o1 t1;
+         constrain_wf_loop e_id o2 t2;
          return @@ (k o1 t1,k o2 t2)
     end
   in
@@ -359,9 +367,9 @@ let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
   in
   loop t1 dst_unfld ctxt
 
-let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1,o2))
+let constrain_eq ~e_id = constrain_rel ~e_id ~rel:(fun o1 o2 -> (e_id, Eq (o1,o2)))
 
-let constrain_write o = add_constraint @@ Write o
+let constrain_write e_id o  = add_constraint @@ (e_id, Write o)
 
 let%lm with_types bindings cont ctxt =
   let (ctxt',()) = cont {
@@ -374,9 +382,9 @@ let%lm with_types bindings cont ctxt =
         SM.remove k acc
       ) ctxt'.gamma bindings }
 
-let lkp_split loc v =
+let lkp_split e_id loc v =
   let%bind t = lkp v in
-  let%bind (t1,t2) = split_type loc (P.var v) t in
+  let%bind (t1,t2) = split_type e_id loc (P.var v) t in
   update_type v t1 >> return t2
 
 let%lq is_unfold eid ctxt =
@@ -385,7 +393,7 @@ let%lq is_unfold eid ctxt =
 
 let%lq theta f ctxt = SM.find f ctxt.theta
 
-let%lm sum_types t1 t2 out ctxt =
+let%lm sum_types e_id t1 t2 out ctxt =
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
     | TVar _,TVar _,TVar _
@@ -395,21 +403,21 @@ let%lm sum_types t1 t2 out ctxt =
       fold_left3i (fun ctxt _ t1 t2 t3 -> loop t1 t2 t3 ctxt) ctxt tl1 tl2 tl3
     | Ref (t1,o1), Ref (t2,o2), Ref (out,oout)
     | Array (t1,o1), Array (t2,o2), Array (out,oout) ->
-      loop t1 t2 out { ctxt with ocons = Split (oout,(o1,o2))::ctxt.ocons }
+      loop t1 t2 out { ctxt with ocons = (e_id, Split (oout,(o1,o2)))::ctxt.ocons }
     | _,_,_ -> failwith "type mismatch (simple checker broken A?)"
   in
   loop t1 t2 out ctxt
 
 let process_call e_id c =
-  let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
+  let%bind arg_types = mmap (lkp_split e_id @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
   begin%m
       miter (fun (i,a) -> constrain_eq ~e_id ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
        miteri (fun i arg_name ->
          let%bind t = lkp arg_name in
-         let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
+         let%bind t' = make_fresh_type e_id (MGen e_id) (P.var arg_name) t in
          let out_type = List.nth fun_type.output_types i in
-         sum_types t out_type t' >> update_type arg_name t'
+         sum_types e_id t out_type t' >> update_type arg_name t'
        ) c.arg_names;
        return fun_type.result_type
   end
@@ -418,6 +426,9 @@ let%lm save_type e_id ctxt =
   { ctxt with save_env = IntMap.add e_id ctxt.gamma ctxt.save_env }
 
 let rec process_expr ?output ((e_id,_),expr) =
+  let lkp_split = lkp_split e_id in
+  let split_type = split_type e_id in
+  let make_fresh_type = make_fresh_type e_id in
   save_type e_id >>
   match expr with
   | EVar v -> begin
@@ -446,7 +457,7 @@ let rec process_expr ?output ((e_id,_),expr) =
   | Assign (v,IInt _,nxt) ->
     let%bind (t,o) = lkp_ref v in
     assert (t = Int);
-    constrain_write o >> process_expr ?output nxt
+    constrain_write e_id o >> process_expr ?output nxt
   | Assign (v, IVar i,nxt) ->
     let%bind t2 = lkp_split (SBind e_id) i
     and (vt,o) = lkp_ref v in
@@ -456,19 +467,19 @@ let rec process_expr ?output ((e_id,_),expr) =
       | _ -> assert false
     in
     begin%m
-        constrain_wf_loop o' vt';
+        constrain_wf_loop e_id o' vt';
          constrain_eq ~e_id ~src:t2 ~dst:vt';
          update_type v @@ Ref (vt',o');
-         constrain_write o;
-         constrain_write o';
+         constrain_write e_id o;
+         constrain_write e_id o';
          process_expr ?output nxt
     end
   | Update (base,_,contents,nxt) ->
     let%bind (cts,o) = lkp_array base
     and new_cts = lkp_split (SBind e_id) contents in
     begin%m
-         constrain_wf_loop o new_cts;
-         constrain_write o;
+         constrain_wf_loop e_id o new_cts;
+         constrain_write e_id o;
          constrain_eq ~e_id ~src:cts ~dst:new_cts;
          update_type base @@ Array (new_cts,o);
          process_expr ?output nxt
@@ -490,7 +501,7 @@ let rec process_expr ?output ((e_id,_),expr) =
       | (Ref (ref_cont,o)) as t' ->
         begin%m
             constrain_eq ~e_id ~src:t2 ~dst:ref_cont;
-             add_constraint @@ Write o;
+             add_constraint @@ (e_id, Write o);
              with_types [(v,t')] @@ process_expr ?output body
         end
       | _ -> assert false
@@ -501,7 +512,7 @@ let rec process_expr ?output ((e_id,_),expr) =
   | Let (PVar v,Mkref (RNone | RInt _), body) ->
     let%bind new_var = alloc_ovar (MGen e_id) (P.var v) in
     begin%m
-        add_constraint @@ Write new_var;
+        add_constraint @@ (e_id, Write new_var);
          with_types [(v,Ref (Int, new_var))] @@ process_expr ?output body
     end
   | Let (patt,rhs,body) ->
@@ -570,9 +581,9 @@ and process_conditional ~e_id ~tr_branch ?output e1 e2 ctxt =
   assert (StringMap.for_all (fun k _ -> StringMap.mem k ctxt_t.gamma) ctxt_f.gamma);
   assert (StringMap.for_all (fun k _ -> StringMap.mem k ctxt_f.gamma) ctxt_t.gamma);
   miter (fun (k,ft) ->
-    let%bind t' = make_fresh_type (MJoin e_id) (P.var k) ft in
+    let%bind t' = make_fresh_type e_id (MJoin e_id) (P.var k) ft in
     let tt = StringMap.find k ctxt_t.gamma in
-    let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
+    let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> (e_id, Ge (o1, o2))) in
     begin%m
         constrain_ge ~e_id ~src:tt ~dst:t';
          constrain_ge ~e_id ~src:ft ~dst:t';
@@ -582,7 +593,7 @@ and process_conditional ~e_id ~tr_branch ?output e1 e2 ctxt =
 
 module Result = struct
   type t = {
-    ocons: ocon list;
+    ocons: (int * ocon) list;
     ovars: int list;
     op_record: ownership ownership_ops;
     ty_envs: otype StringMap.t IntMap.t;
@@ -601,13 +612,13 @@ let analyze_fn ctxt fn =
 let infer (simple_types,iso) intr (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
-      lift_to_ownership loc (P.arg i) t
+      lift_to_ownership dummy_e_id loc (P.arg i) t
     ) l
   in   
   let lift_simple_ft nm ft =
     let%bind arg_types = lift_plist (MArg nm) ft.SimpleTypes.arg_types
     and output_types = lift_plist (MOut nm) ft.SimpleTypes.arg_types
-    and result_type = lift_to_ownership (MRet nm) P.ret ft.SimpleTypes.ret_type in
+    and result_type = lift_to_ownership dummy_e_id (MRet nm) P.ret ft.SimpleTypes.ret_type in
     return RefinementTypes.{ arg_types; output_types; result_type }
   in
   let rec lift_reft loc p =

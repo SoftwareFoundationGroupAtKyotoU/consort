@@ -90,6 +90,11 @@
  (libraries counterexample consort util)
  (modules Counterexample))
 
+(executable
+ (name counterexampleOwnership)
+ (libraries lang ownership util)
+ (modules CounterexampleOwnership))
+
 (env
  (dev
   (flags (:standard -warn-error -a)))

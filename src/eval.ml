@@ -92,7 +92,7 @@ let pp_real_err =
 
 
 let pp_err = function
-  | RealError(e) -> pl [ps "AssertRail :"; pp_real_err e ]
+  | RealError(e) -> pl [ps "AssertFail :"; pp_real_err e ]
   | UnrealError(_) -> ps "Unreal error"
 
 let pp_env env = 

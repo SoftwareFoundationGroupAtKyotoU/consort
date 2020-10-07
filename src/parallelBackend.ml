@@ -18,7 +18,7 @@ let solve ~opts ~debug_cons:_ ?save_cons:_ ~get_model ~defn_file cons =
   in
   Process.select_pool ~timeout:(opts.Solver.timeout + 10) ~prock:(fun acc res ->
     match res with
-    | Solver.Sat _ | Solver.Unsat -> `Return res
+    | Solver.Sat _ | Solver.Unsat _ -> `Return res
     | _ -> `Continue (res::acc)
   ) ~acc:[] ~finish:(fun l ->
     assert (l <> []);
