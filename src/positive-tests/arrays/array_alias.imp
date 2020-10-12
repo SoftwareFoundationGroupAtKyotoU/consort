@@ -1,0 +1,9 @@
+{
+    let y = mkarray 2 in {
+    y[1] <- 5;
+    y[0] <- 4;
+    let x = y in {
+    x[0] <- 5;
+    alias(x = y);
+    assert(y[0] = 5)}}
+}
