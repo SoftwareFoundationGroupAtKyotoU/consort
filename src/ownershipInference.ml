@@ -179,7 +179,7 @@ let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   let rec loop t1 t2 t1' t2' ctxt =
     match t1,t2,t1',t2' with
     | Int,Int,Int,Int -> ctxt
-    | Array (r1,o1), Array (r2,o2), Ref (r1',o1'), Ref (r2',o2')
+    | Array (r1,o1), Array (r2,o2), Array (r1',o1'), Array (r2',o2')
     | Ref (r1,o1),Ref (r2,o2), Ref (r1',o1'), Ref(r2',o2') ->
       loop r1 r2 r1' r2' @@
         { ctxt with
