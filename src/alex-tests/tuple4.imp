@@ -1,0 +1,18 @@
+{
+  let object1 = mkref (mkref null, mkref null, mkref 41, mkref 43) in
+  let object2 = mkref (mkref null, mkref null, mkref -41, mkref -43) in
+  let (o1of1, o1of2, o1if3, o1if4) = *object1 in
+  let (o2of1, o2of2, o2if3, o2if4) = *object2 in
+  {
+     o1of1 := object1;
+//    o1of2 := object2;
+//    o2of1 := object1;
+//    o2of2 := object2;
+//    assert (*o1if3 > 0);
+//    assert (*o1if4 > 0);
+//    assert (*o2if3 < 0);
+//    assert (*o2if4 < 0);
+//    alias (o1of1 = o2of1);
+    assert (0 = 0);
+  }
+}

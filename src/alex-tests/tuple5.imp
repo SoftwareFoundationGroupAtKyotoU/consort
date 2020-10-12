@@ -1,0 +1,7 @@
+{
+  let object = mkref mkref null in
+  let o1 = *object in
+  {
+    o1 := *object;
+  }
+}

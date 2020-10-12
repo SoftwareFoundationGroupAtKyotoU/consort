@@ -1,0 +1,51 @@
+Simple_main(){
+  let _tmp_r3 = mkref (751, mkref null) in 
+  {
+    Simple_$init$(_tmp_r3);
+    let r1 = _tmp_r3 in 
+    let r2 = r1 in 
+    {
+      Simple_doIt(r1, r2);
+      return 0
+    }
+  }
+
+}
+Simple_$init$(reg$this_in){
+  let r0 = reg$this_in in 
+  {
+    {
+      let (_, reg$field_6) = *r0 in 
+      {
+        reg$field_6 := null;
+        alias(reg$field_6 = ((*r0).1));
+      }
+
+    }
+;
+    alias(r0 = reg$this_in);
+    return 0
+  }
+
+}
+Simple_doIt(reg$this_in,regnant$in_r1){
+  let r0 = reg$this_in in 
+  let r1 = regnant$in_r1 in 
+  {
+    {
+      let (_, reg$field_7) = *r0 in 
+      {
+        reg$field_7 := r1;
+        alias(reg$field_7 = ((*r0).1));
+      }
+
+    }
+;
+    alias(r1 = regnant$in_r1);
+    alias(r0 = reg$this_in);
+    return 0
+  }
+
+}
+
+{ Simple_main() }
