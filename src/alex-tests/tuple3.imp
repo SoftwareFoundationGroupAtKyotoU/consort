@@ -1,0 +1,10 @@
+doIt(tuple) {
+  let (t1, t2) = *tuple in
+  t1 := tuple;
+  42;
+}
+
+{
+  let param = mkref (mkref null, mkref 43) in
+  assert (doIt(param) = 42)
+}
