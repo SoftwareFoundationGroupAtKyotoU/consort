@@ -1,0 +1,13 @@
+create_nested_objects() {
+    let random_v = _ in
+    if random_v then
+        null
+    else {
+        let tail = create_nested_objects() in
+        mkref (mkref tail)
+    }
+}
+
+{
+    assert(1 = 1)
+}

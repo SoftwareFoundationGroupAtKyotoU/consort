@@ -1,0 +1,15 @@
+create_int_list() {
+  if _ then {
+    let t = (0, null) in
+    return t
+  } else {
+    let tail = create_int_list:1() in 
+    let t = mkref tail in
+    let t0 = (1, t) in 
+    return t0
+  }
+}
+
+{
+  assert (1 = 1)
+}
