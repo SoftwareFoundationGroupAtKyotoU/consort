@@ -164,60 +164,55 @@ let%lm add_constraint ?relaxed c ctxt =
   | None -> { ctxt with ocons = c::ctxt.ocons }
   | _ -> ctxt
 
-(** Shuffle the ownership between two source types (t1 and t2) and two destination
-   types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
-   parallel, at references the ownerships are shuffled with the Shuff constraint. *)
-let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
-  (* check whether we need to unfold the "destination", which in this case is t2/t2', not t1/t1'.
-     This confusing naming arises from this functions use in returning ownership to a recursive
-     data structure, in that case, t2/t2' represents the destination for the return operation. *)
-  let unfold_dst =
-    if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
-      unfold
-    else Fun.id
-  in
-  let rec loop t1 t2 t1' t2' ctxt =
+module TypeSet = Set.Make( 
+  struct
+    let compare = compare
+    type t = otype * otype
+  end)
+
+let rec substitute_tyvar tyvar_id with_type = function
+  | TVar id when id = tyvar_id -> with_type
+  | TVar id -> TVar id
+  | Int -> Int
+  | Ref (t, o) -> Ref (substitute_tyvar tyvar_id with_type t, o)
+  | Tuple tl -> Tuple (List.map (substitute_tyvar tyvar_id with_type) tl)
+  | Array (t, o) -> Array (substitute_tyvar tyvar_id with_type t, o)
+  | Mu (id, t) -> Mu (id, substitute_tyvar tyvar_id with_type t)
+
+let%lm shuffle_types ~src:(t1,t1') ~dst:(t2,t2') ctxt =
+  (* alias(t1 = t2) *)
+  let rec loop t1 t2 t1' t2' eqset ctxt =
     match t1,t2,t1',t2' with
+    | TVar _, TVar _, TVar _, TVar _ -> ctxt
     | Int,Int,Int,Int -> ctxt
-    | Array (r1,o1), Array (r2,o2), Array (r1',o1'), Array (r2',o2')
-    | Ref (r1,o1),Ref (r2,o2), Ref (r1',o1'), Ref(r2',o2') ->
-      loop r1 r2 r1' r2' @@
+    | Array (r1, o1), Array (r2, o2), Array (r1', o1'), Array (r2', o2')
+    | Ref (r1, o1),Ref (r2, o2), Ref (r1', o1'), Ref(r2', o2') ->
+      loop r1 r2 r1' r2' eqset @@
         { ctxt with
           ocons = Shuff ((o1,o2),(o1',o2')) :: ctxt.ocons }
     | Tuple tl1, Tuple tl2, Tuple tl1', Tuple tl2' ->
       let orig_tl = List.combine tl1 tl2 in
       let new_tl = List.combine tl1' tl2' in
       List.fold_left2 (fun ctxt' (te1,te2) (te1',te2') ->
-        loop te1 te2 te1' te2' ctxt'
+        loop te1 te2 te1' te2' eqset ctxt'
       ) ctxt orig_tl new_tl
-    | Mu (_,m1), Mu (_,m2), Mu (_,m1'), Mu (_,m2') ->
-      loop m1 m2 m1' m2' ctxt
-    | TVar _, TVar _, TVar _, TVar _ -> ctxt
+    | Mu (id1, b1), _, Mu (id1', b1'), _ ->
+      if TypeSet.mem (t1, t2) eqset then
+        ctxt
+      else
+        let unfolded_t1 = substitute_tyvar id1 t1 b1 in
+        let unfolded_t1' = substitute_tyvar id1' t1' b1' in
+        loop unfolded_t1 t2 unfolded_t1' t2' (TypeSet.add (t1, t2) eqset) ctxt 
+    | _, Mu (id2, b2), _, Mu (id2', b2') ->
+      if TypeSet.mem (t1, t2) eqset then
+        ctxt
+      else
+        let unfolded_t2 = substitute_tyvar id2 t2 b2 in
+        let unfolded_t2' = substitute_tyvar id2' t2' b2' in
+        loop t1 unfolded_t2 t1' unfolded_t2' (TypeSet.add (t1, t2) eqset) ctxt 
     | _ -> failwith "Type mismatch (simple checker broken D?)"
   in
-  loop t1 (unfold_dst t2) t1' (unfold_dst t2') ctxt
-
-(** Like shuffle above, but no unfolding occurs, and the destination type [out] must
-   have an ownership equal to the "pointwise" sum of ownerships in [t1] and [t2]. *)
-let%lm sum_ownership t1 t2 out ctxt =
-  let rec loop t1 t2 out ctxt =
-    match t1,t2,out with
-    | Int, Int, Int -> ctxt
-    | Ref (r1,o1), Ref (r2,o2), Ref (ro,oo) ->
-      loop r1 r2 ro
-        { ctxt with ocons = (Split (oo,(o1,o2)))::ctxt.ocons}
-    | Tuple tl1, Tuple tl2, Tuple tl_out ->
-      fold_left3i (fun ctxt _ e1 e2 e_out ->
-          loop e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
-    | Mu (_,t1'), Mu (_,t2'), Mu (_,out') ->
-      loop t1' t2' out' ctxt
-    | TVar _,TVar _, TVar _ -> ctxt
-    | Array (et1,o1), Array (et2,o2), Array (et3,o3) ->
-      loop et1 et2 et3
-        { ctxt with ocons = Split (o3,(o1,o2))::ctxt.ocons }
-    | _ -> failwith "Mismatched types (simple checker broken C?)"
-  in
-  loop t1 t2 out ctxt
+  loop t1 t2 t1' t2' TypeSet.empty ctxt
     
 let rec unfold_simple arg mu =
   function
@@ -470,31 +465,39 @@ let rec split_type loc p =
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
 
+let rec str_of_otype = function
+  | Array (t, _) -> "[" ^ str_of_otype t ^ "]"
+  | Int -> "Int"
+  | Ref (t, _) -> str_of_otype t ^ " ref"
+  | Tuple tl -> "(" ^ (String.concat ", " (List.map str_of_otype tl)) ^ ")"
+  | TVar i -> "TVar " ^ string_of_int i
+  | Mu (i, t) -> "Mu " ^ string_of_int i ^ ". (" ^ str_of_otype t ^ ")"
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
-let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
-  let dst_unfld =
-    let open SimpleChecker.SideAnalysis in
-    if (IntSet.mem e_id ctxt.iso.unfold_locs) ||
-       (IntSet.mem e_id ctxt.iso.fold_locs) then
-      unfold t2
-    else
-      t2
-  in
-  let rec loop t1 t2 ctxt =
+let%lm constrain_rel ~rel ~src:t1 ~dst:t2 ctxt =
+  let rec loop t1 t2 eqset ctxt =
     match t1, t2 with
     | TVar _,TVar _
     | Int, Int -> ctxt
     | Ref (t1',o1), Ref (t2',o2)
     | Array (t1',o1), Array (t2',o2) ->
-      loop t1' t2' { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
-    | Mu (_,t1'), Mu (_,t2') -> loop t1' t2' ctxt
-    | Tuple tl1,Tuple tl2 ->
-      List.fold_left2 (fun acc t1 t2 -> loop t1 t2 acc) ctxt tl1 tl2
-    | _,_ -> failwith "Type mismatch (simple checker broken B?)"
+      loop t1' t2' eqset { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
+    | Tuple tl1, Tuple tl2 ->
+      List.fold_left2 (fun ctxt t1 t2 -> loop t1 t2 eqset ctxt) ctxt tl1 tl2
+    | Mu (id, b), _ ->
+      if TypeSet.mem (t1, t2) eqset then ctxt
+      else 
+        let unfolded_t1 = substitute_tyvar id t1 b in
+        loop unfolded_t1 t2 (TypeSet.add (t1, t2) eqset) ctxt
+    | _, Mu (id, b) ->
+      if TypeSet.mem (t1, t2) eqset then ctxt
+      else
+        let unfolded_t2 = substitute_tyvar id t2 b in
+        loop t1 unfolded_t2 (TypeSet.add (t1, t2) eqset) ctxt
+    | _,_ -> failwith "Type mismatch (simple checker broken Z?)"
   in
-  loop t1 dst_unfld ctxt
+  loop t1 t2 TypeSet.empty ctxt
 
 let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1,o2))
 
@@ -522,10 +525,75 @@ let%lq is_unfold eid ctxt =
 
 let%lq theta f ctxt = SM.find f ctxt.theta
 
+module TypeSetMap = Map.Make(
+  struct
+    type t = otype * otype
+    let compare = compare
+  end)
+
+let%lm sum_types ~e_id root t1 t2 ctxt =
+  let rec scan_type t id = 
+    match t with
+    | TVar id' -> max id id'
+    | Int -> id
+    | Ref (t', _) | Array (t', _) -> scan_type t' id 
+    | Tuple tl -> 
+      List.fold_left (fun acc t -> let id' = scan_type t acc in max acc id') id tl
+    | Mu (id', t') ->
+      let id'' = max id' id in
+      scan_type t' id'' in
+  let largest_tyvar_in_t = scan_type t1 0 in
+  let largest_tyvar_in_t = scan_type t2 largest_tyvar_in_t in
+  let tvar = ref largest_tyvar_in_t in
+  let fresh_tvar () = 
+    let new_tvar = !tvar + 1 in
+    (tvar := new_tvar; new_tvar) in
+  let rec loop root t1 t2 eqmap ctxt =
+    match t1, t2 with
+    | TVar _, TVar _
+    | Int, Int -> ctxt, t1
+    | Ref (t1', o1), Ref (t2', o2) ->
+      let ctxt, t' = loop (P.deref root) t1' t2' eqmap ctxt in
+      let ctxt, o3 = alloc_ovar (MGen e_id) root ctxt in
+      { ctxt with ocons = Split (o3,(o1,o2))::ctxt.ocons }, Ref (t', o3)
+    | Array (t1', o1), Array (t2', o2) ->
+      let ctxt, t' = loop (P.elem root) t1' t2' eqmap ctxt in
+      let ctxt, o3 = alloc_ovar (MGen e_id) root ctxt in
+      { ctxt with ocons = Split (o3,(o1,o2))::ctxt.ocons }, Array (t', o3)
+    | Tuple tl1, Tuple tl2 ->
+      let rec fold_map2 ctxt tl1 tl2 = 
+        match tl1, tl2 with
+        | [], [] -> ctxt, []
+        | hd1 :: tl1, hd2 :: tl2 -> let ctxt, tl = fold_map2 ctxt tl1 tl2 in
+                                    let ctxt, t = loop root hd1 hd2 eqmap ctxt in
+                                    ctxt, t :: tl
+        | _, _ -> failwith "Type mismatch (Tuple) (simple checker broken A2?)" in
+      let ctxt, tl = fold_map2 ctxt tl1 tl2 in
+      ctxt, Tuple tl
+    | Mu (id, b), _ ->
+      if TypeSetMap.mem (t1, t2) eqmap then
+        ctxt, TVar (TypeSetMap.find (t1, t2) eqmap)
+      else 
+        let unfolded_t1 = substitute_tyvar id t1 b in
+        let new_tvar = fresh_tvar () in
+        let ctxt, t = loop root unfolded_t1 t2 (TypeSetMap.add (t1, t2) new_tvar eqmap) ctxt in
+        ctxt, Mu (new_tvar, t)
+    | _, Mu (id, b) ->
+      if TypeSetMap.mem (t1, t2) eqmap then 
+        ctxt, TVar (TypeSetMap.find (t1, t2) eqmap)
+      else
+        let unfolded_t2 = substitute_tyvar id t2 b in
+        let new_tvar = fresh_tvar () in
+        let ctxt, t = loop root t1 unfolded_t2 (TypeSetMap.add (t1, t2) new_tvar eqmap) ctxt in
+        ctxt, Mu (new_tvar, t)
+    | _,_ -> failwith "Type mismatch (simple checker broken A?)"
+  in
+  loop root t1 t2 TypeSetMap.empty ctxt
+
 (** Functionally quite similar to split type, but rather than splitting a type
    in place and giving the two result types, constrains t1 and t2 to be the result
    of splitting out *)
-let%lm sum_types t1 t2 out ctxt =
+(*let%lm sum_types t1 t2 out ctxt =
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
     | TVar _,TVar _,TVar _
@@ -538,7 +606,7 @@ let%lm sum_types t1 t2 out ctxt =
       loop t1 t2 out { ctxt with ocons = Split (oout,(o1,o2))::ctxt.ocons }
     | _,_,_ -> failwith "type mismatch (simple checker broken A?)"
   in
-  loop t1 t2 out ctxt
+  loop t1 t2 out ctxt*)
 
 let%lm max_ovar ov ctxt =
   match ov with
@@ -558,14 +626,14 @@ let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
   begin%m
-      miter (fun (i,a) -> constrain_eq ~e_id ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
+      miter (fun (i,a) -> constrain_eq ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
        miteri (fun i arg_name ->
          let%bind t = lkp arg_name in
-         let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
          let out_type = List.nth fun_type.output_types i in
+         let update_type_monad (ctxt, t) = update_type arg_name t ctxt in
          (* explicitly flag the residual type as one to maximize *)
          max_type t >>
-         sum_types t out_type t' >> update_type arg_name t'
+         sum_types ~e_id (P.var arg_name) t out_type >> update_type_monad
        ) c.arg_names;
        return fun_type.result_type
   end
@@ -582,10 +650,10 @@ let rec process_expr ~output ((e_id,_),expr) =
     let () = assert (output <> None) in
     let (output_types, return_type) = Option.get output in
     let%bind t2 = lkp_split (SRet e_id) v in
-    constrain_eq ~e_id ~src:t2 ~dst:return_type
+    constrain_eq ~src:t2 ~dst:return_type
     >> miter (fun (v,out_t) ->
         let%bind curr_t = lkp v in
-        constrain_eq ~e_id ~src:curr_t ~dst:out_t
+        constrain_eq ~src:curr_t ~dst:out_t
       ) output_types
     >> return `Return
   | Unit -> return `Cont
@@ -615,7 +683,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     in
     begin%m
         constrain_wf_loop o' vt';
-         constrain_eq ~e_id ~src:t2 ~dst:vt';
+         constrain_eq ~src:t2 ~dst:vt';
          update_type v @@ Ref (vt',o');
          constrain_write o;
          constrain_write o';
@@ -627,7 +695,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     begin%m
          constrain_wf_loop o new_cts;
          constrain_write o;
-         constrain_eq ~e_id ~src:cts ~dst:new_cts;
+         constrain_eq ~src:cts ~dst:new_cts;
          update_type base @@ Array (new_cts,o);
          process_expr ~output nxt
     end
@@ -635,10 +703,10 @@ let rec process_expr ~output ((e_id,_),expr) =
     let%bind (src_up,st,st') = fresh_ap e_id src
     and (dst_up,dt,dt') = fresh_ap e_id dst in
     begin%m
-        shuffle_types ~e_id ~src:(st,st') ~dst:(dt,dt');
-         src_up;
-         dst_up;
-         process_expr ~output nxt
+      shuffle_types ~src:(st,st') ~dst:(dt,dt');
+      src_up;
+      dst_up;
+      process_expr ~output nxt
     end
   | Assert (_,nxt) -> process_expr ~output nxt
   | Let (PVar v,Mkref (RVar src),body) ->
@@ -647,7 +715,7 @@ let rec process_expr ~output ((e_id,_),expr) =
       match%bind get_type_scheme e_id v with
       | (Ref (ref_cont,o)) as t' ->
         begin%m
-            constrain_eq ~e_id ~src:t2 ~dst:ref_cont;
+            constrain_eq ~src:t2 ~dst:ref_cont;
              add_constraint @@ Write o;
              with_types [(v,t')] @@ process_expr ~output body
         end
@@ -737,8 +805,8 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
         let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
         begin%m
             (* notice that we allow ownership to be discarded at join points, the reason for MJoin *)
-            constrain_ge ~e_id ~src:tt ~dst:t';
-             constrain_ge ~e_id ~src:ft ~dst:t';
+            constrain_ge ~src:tt ~dst:t';
+             constrain_ge ~src:ft ~dst:t';
              update_type k t'
         end
       ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in
