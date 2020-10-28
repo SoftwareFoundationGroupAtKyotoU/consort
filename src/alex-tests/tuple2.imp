@@ -1,0 +1,10 @@
+{
+  let a = 1 in
+  let b = 2 in
+  let c = 3 in
+  let d = (41, 43) in
+  let tuple = mkref (mkref a, mkref b, mkref c, mkref d) in {
+    let (t1, t2, t3, t4) = *tuple in
+    assert (*t1 = 1)
+  }
+}
