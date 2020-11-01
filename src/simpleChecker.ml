@@ -21,6 +21,7 @@ type. (Note all other recursion is forbidden).
 open Ast
 open SimpleTypes
 open Sexplib.Std
+open Std
     
 type funtyp_v = {
   arg_types_v: int list;
@@ -283,6 +284,7 @@ module IS = Std.IntSet
    appears in this set, instead of resolving the reference contents, the continuation is immediately
    invoked with arguments {i} (tvar i); i.e., reference i is recursive.
 *)
+(*
 let rec resolve_with_rec sub v_set k t =
   match canonicalize sub t with
   | `Int -> k IS.empty `Int
@@ -305,10 +307,9 @@ let rec resolve_with_rec sub v_set k t =
             k_acc (t'::l) (IS.union is_acc is)
           ) t
         )
-      ) 
-      (fun l is ->
-          k is @@ `Tuple l
-        ) tl [] IS.empty
+      )
+      (fun l is -> k is @@ `Tuple l) tl 
+      [] IS.empty (* f [] IS.empty returns a type, [] is for tuple type list, k   *)
   | `Var v when not @@ Hashtbl.mem sub.resolv v ->
     k IS.empty `Int
   | `Var v ->
@@ -319,7 +320,66 @@ let rec resolve_with_rec sub v_set k t =
         match t_lift with
         | `Int -> k is @@ `Array `Int
         | _ -> failwith "Only integer arrays are supported"
-      ) t'
+      ) t'*)
+
+let rec resolve_rec_type sub v_set solved_ty_map t =
+  match canonicalize sub t with
+  | `Int -> IS.empty, `Int, IntMap.empty, IntMap.empty
+  | `TyCons t ->
+    let id = TyCons.unwrap t in
+    if IntMap.mem id solved_ty_map then
+      let ty = IntMap.find id solved_ty_map in
+      IS.empty, ty, IntMap.empty, IntMap.empty
+    else if IS.mem id v_set then
+      IS.singleton id, `TVar id, IntMap.empty, IntMap.empty
+    else
+      let arg_type = TyConsResolv.find sub.cons_arg t in
+      let rec_set, t', rec_ty_map, ty_map = resolve_rec_type sub (IS.add id v_set) solved_ty_map arg_type in
+      let return_type = `Ref t' in
+      if IS.mem id rec_set then
+        let return_type = `Mu (id, return_type) in
+        IS.remove id rec_set, return_type, IntMap.add id return_type rec_ty_map, ty_map
+      else
+        rec_set, return_type, rec_ty_map, IntMap.add id return_type ty_map
+  | `Tuple tl ->
+    let rec_set, tl, rec_ty_map, ty_map = List.fold_right (fun t (rec_set, tl, rec_ty_map, ty_map) ->
+      let rec_set', t', rec_ty_map', ty_map' = resolve_rec_type sub v_set solved_ty_map t in
+      let compare_func _ t1 t2 = if t1 <> t2 then failwith "Recursive type resolve error?" else Some t1 in
+      IntSet.union rec_set rec_set', t' :: tl, IntMap.union compare_func rec_ty_map rec_ty_map', IntMap.union compare_func ty_map ty_map')
+    tl (IntSet.empty, [], IntMap.empty, IntMap.empty) in
+    rec_set, `Tuple tl, rec_ty_map, ty_map
+  | `Var v when not (Hashtbl.mem sub.resolv v) ->
+    IS.empty, `Int, IntMap.empty, IntMap.empty
+  | `Var v ->
+    let t' = Hashtbl.find sub.resolv v in
+    resolve_rec_type sub v_set solved_ty_map (t' :> typ)
+  | `Array t' ->
+    let rec_set', t', rec_ty_map', ty_map' = resolve_rec_type sub v_set solved_ty_map t' in
+    if t' <> `Int then
+      failwith "Only integer arrays are supported"
+    else
+      rec_set', `Array `Int, rec_ty_map', ty_map'
+
+let resolve_a_rec_type sub solved_ty_map t =
+  let _, return_type, rec_ty_map, ty_map = resolve_rec_type sub IS.empty solved_ty_map t in
+  let rec loop t = 
+  match t with
+  | `Mu _ -> t
+  | `Array `Int -> `Array `Int
+  | `Ref t' -> `Ref (loop t')
+  | `TVar id ->
+    if IntMap.mem id rec_ty_map then
+      IntMap.find id rec_ty_map
+    else
+      `TVar id
+  | `Tuple tl -> `Tuple (List.map loop tl)
+  | `Int -> `Int
+  | `Array _ -> failwith "Only integer arrays are supported"
+  in
+  let ty_map = IntMap.map (fun ty -> loop ty) ty_map in
+  let compare_func _ t1 t2 = if t1 <> t2 then failwith "Recursive type resolve error?" else Some t1 in
+  let new_ty_map = IntMap.union compare_func ty_map rec_ty_map in
+  IntMap.union compare_func new_ty_map solved_ty_map, return_type
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
@@ -561,6 +621,7 @@ requires a fold or unfold. Simply put, we walk the assigned type, and see
 if (the canonical representation of) c appears anywhere in t'. If it does, this is
 a folding or unfolding assignment/read.
 *)
+(*
 let is_rec_assign sub c t' =
   let canon_c = TyConsUF.find sub.cons_uf c in
   let rec check_loop h_rec t =
@@ -590,7 +651,40 @@ let get_rec_loc sub p_ops =
         i::acc
       else
         acc
-    ) [] p_ops
+    ) [] p_ops*)
+
+let is_mu_type = function
+  | `Mu _ -> true
+  | _ -> false
+
+(*
+We cannot use let_types here because alias and assign can also be a fold/unfold location
+*)
+let get_fold_loc sub tymap p_ops = 
+  List.fold_left (fun (tymap, fold_locs) (i, tycon, _) ->
+    let id = TyCons.unwrap tycon in
+    let tymap, t = if IntMap.mem id tymap then
+                    tymap, IntMap.find id tymap
+                   else
+                    resolve_a_rec_type sub tymap (`TyCons tycon) in
+    if is_mu_type t then
+        tymap, i::fold_locs
+      else
+        tymap, fold_locs
+    ) (tymap, []) p_ops
+
+let get_unfold_loc sub tymap p_ops =
+  List.fold_left (fun (tymap, unfold_locs) (i, tycon, _) ->
+      let id = TyCons.unwrap tycon in
+      let tymap, t = if IntMap.mem id tymap then
+                tymap, IntMap.find id tymap
+              else
+                resolve_a_rec_type sub tymap (`TyCons tycon) in  
+      if is_mu_type t then
+        tymap, i::unfold_locs
+      else
+        tymap, unfold_locs
+    ) (tymap, []) p_ops
 
 let typecheck_prog intr_types (fns,body) =
   let (resolv : (int,refined_typ) Hashtbl.t) = Hashtbl.create 10 in
@@ -644,16 +738,25 @@ let typecheck_prog intr_types (fns,body) =
     else
       l'
   in
-  let fold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.assign_locs in
-  let unfold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.deref_locs in  
-  let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in
-  (List.fold_left (fun acc { name; _ } ->
+  (*let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in*)
+  let tymap, sm = List.fold_left (fun (tymap, acc) { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
-    let arg_types = List.map get_soln @@ List.map (fun x -> `Var x) arg_types_v in
-    let ret_type = get_soln @@ `Var ret_type_v in
-    StringMap.add name { arg_types; ret_type } acc
-   ) StringMap.empty fns),SideAnalysis.(
-    { unfold_locs;
-      fold_locs;
-      let_types = Std.IntMap.map get_soln acc'.let_types
-    })
+    let tymap, arg_types = List.fold_right (fun t (tymap, tl) -> let tymap, t = resolve_a_rec_type sub tymap t in
+                                                                 tymap , t :: tl)
+                                   (List.map (fun x -> `Var x) arg_types_v)
+                                   (tymap, []) in
+    let tymap, ret_type = resolve_a_rec_type sub tymap (`Var ret_type_v) in
+    tymap, StringMap.add name { arg_types; ret_type } acc
+  ) (IntMap.empty, StringMap.empty) fns in
+  let tymap, let_types = IntMap.fold (fun eid t (tymap, map) ->
+                    let tymap, t = resolve_a_rec_type sub tymap t in
+                    tymap, IntMap.add eid t map)
+                 acc'.let_types
+                 (tymap, IntMap.empty) in
+  let tymap, fold_locs =  get_fold_loc sub tymap acc'.assign_locs in
+  let _, unfold_locs =  get_unfold_loc sub tymap acc'.deref_locs in  
+  sm, SideAnalysis.{ 
+        unfold_locs = distinct_list_to_set unfold_locs;
+        fold_locs = distinct_list_to_set fold_locs;
+        let_types 
+      }
