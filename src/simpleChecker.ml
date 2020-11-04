@@ -280,11 +280,11 @@ let combine_equal_type _ t1 t2 =
    Recursion is detected by means of the v_set.
    The argument v_set contains the (canonical) ids of all reference type constructors being currently resolved.
    If we reach an id which exists in v_set then we know it's a cyclic graph, i.e. a recursive type.
-   solved_ty_map maps from type constructor ids to transitted types.
+   solved_ty_map maps from type constructor ids to translated types.
    This function returns a tuple containing 4 elements.
    1st - A set of ids which are recursive in the current graph.
-   2nd - (partly) transitted type of t
-   3rd - (partly) transitted types of all reference types that we are resolving
+   2nd - (partly) translated type of t
+   3rd - (partly) translated types of all reference types that we are resolving
 *)
 let rec build_rec_type sub v_set solved_ty_map t =
   match canonicalize sub t with
