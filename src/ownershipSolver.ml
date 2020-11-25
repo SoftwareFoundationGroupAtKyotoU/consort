@@ -170,7 +170,7 @@ let solve_ownership ~opts ?save_cons (ovars,ocons,max_vars) =
     ] o_buf.printer
   end;
   finish o_buf;
-  let res = Z3Channel.call_z3_raw ~opts ?save_cons ~debug_cons:false ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
+  let res = Z3Channel.call_z3_raw ~opts ?save_cons ~debug_cons:(Log.check_source None) ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
   match res with
   | Solver.Sat Some m ->
     begin
