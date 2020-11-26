@@ -1381,6 +1381,7 @@ module RecursiveRefinements = struct
   *)
   let unfold_to ~with_havoc ?(out_mapping=PPMap.id_map) ~e_id ref_ty root target in_rel out_rel ctxt =
 
+    (** NK: begin: Commentout
     (** Normalize the paths to be havoced/stabilized *)
     let normalize_havoc pset = P.PathSet.filter (fun p ->
         PPMap.mem p out_mapping
@@ -1388,12 +1389,16 @@ module RecursiveRefinements = struct
           PPMap.find p out_mapping
         )
     in
+     ** NK: end: commentout **)
     let normalize_ap p =
       if PPMap.mem p out_mapping then
         PPMap.find p out_mapping
       else
         p
     in
+    (** NK: begin: add **)
+    let normalize_havoc pset = P.PathSet.map normalize_ap pset in
+    (** NK: end: add **)
     (** Normalize a substitution, walking into keyed choices as necessary *)
     let rec deep_normalize = function
       | Ap p -> Ap (normalize_ap p)
