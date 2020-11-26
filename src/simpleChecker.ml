@@ -225,6 +225,13 @@ let rec unify ~loc sub_ctxt t1 t2 =
       |> Option.value ~default:(`Var v)
     | _ -> t1
   in
+  let raise_ill_typed_error t1 t2 =
+    Locations.raise_errorf ~loc
+              "Ill-typed; in %s could not unify tuples %s and %s"
+              sub_ctxt.fn_name
+              (string_of_typ t1)
+              (string_of_typ t2)
+  in
   match unfold t1,(unfold t2) with
   | `Var v1,`Var v2 ->
     UnionFind.union sub_ctxt.uf v1 v2
@@ -233,19 +240,19 @@ let rec unify ~loc sub_ctxt t1 t2 =
   | (#refined_typ as t),`Var v1 -> assign sub_ctxt v1 t
   | `Int,`Int -> ()
   (* structural recursion *)
-  | `Tuple tl1,`Tuple tl2 ->
-    List.iter2 (unify ~loc sub_ctxt) tl1 tl2
+  | (`Tuple tl1 as t1'), (`Tuple tl2 as t2') ->
+    if List.length tl1 <> List.length tl2 then
+      raise_ill_typed_error t1' t2'
+    else
+      List.iter2 (unify ~loc sub_ctxt) tl1 tl2
   (* in this case, we now unify the two reference types, indirecting through that
      union find/resolution map *)
   | `TyCons c1,`TyCons c2 ->
     unify_tycons ~loc sub_ctxt c1 c2
   | `Array t1',`Array t2' ->
     unify ~loc sub_ctxt t1' t2'
-  | t1',t2' -> Locations.raise_errorf ~loc
-                 "Ill-typed; in %s could not unify %s and %s"
-                 sub_ctxt.fn_name
-                 (string_of_typ t1')
-                 (string_of_typ t2')
+  | t1',t2' ->
+    raise_ill_typed_error t1' t2'
 and unify_tycons ~loc sub_ctxt c1 c2 =
   let c1' = TyConsUF.find sub_ctxt.cons_uf c1 in
   let c2' = TyConsUF.find sub_ctxt.cons_uf c2 in
