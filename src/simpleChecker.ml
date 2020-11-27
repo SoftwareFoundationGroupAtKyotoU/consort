@@ -227,7 +227,7 @@ let rec unify ~loc sub_ctxt t1 t2 =
   in
   let raise_ill_typed_error t1 t2 =
     Locations.raise_errorf ~loc
-              "Ill-typed; in %s could not unify tuples %s and %s"
+              "Ill-typed; in %s could not unify %s and %s"
               sub_ctxt.fn_name
               (string_of_typ t1)
               (string_of_typ t2)
