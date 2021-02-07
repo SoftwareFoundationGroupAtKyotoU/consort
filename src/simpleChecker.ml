@@ -270,82 +270,73 @@ and unify_tycons ~loc sub_ctxt c1 c2 =
 
 module IS = Std.IntSet
 
-let combine_equal_type _ t1 t2 = 
-  if t1 <> t2 then 
-    failwith "Recursive type resolve error?" 
-  else
-    Some t1
+let rec substitute_tyvar tyvar ty = function 
+  | `Int -> `Int
+  | `Ref t -> `Ref (substitute_tyvar tyvar ty t)
+  | `Array `Int -> `Array `Int
+  | `Tuple tl -> `Tuple (List.map (substitute_tyvar tyvar ty) tl)
+  | `TVar id when id = tyvar -> ty
+  | `TVar id -> `TVar id 
+  | `Mu (id, t) -> assert(id <> tyvar); `Mu (id, substitute_tyvar tyvar ty t)
 
 (* translates a inference type into a fully concrete simple type.
    Recursion is detected by means of the v_set.
    The argument v_set contains the (canonical) ids of all reference type constructors being currently resolved.
    If we reach an id which exists in v_set then we know it's a cyclic graph, i.e. a recursive type.
    solved_ty_map maps from type constructor ids to translated types.
-   This function returns a tuple containing 4 elements.
+   This function returns a tuple containing 3 elements.
    1st - A set of ids which are recursive in the current graph.
    2nd - (partly) translated type of t
    3rd - (partly) translated types of all reference types that we are resolving
 *)
-let rec build_rec_type sub v_set solved_ty_map t =
+let rec solve_cycle sub v_set solved_ty_map partially_solved_ty_map t =
   match canonicalize sub t with
-  | `Int -> IS.empty, `Int, IntMap.empty
+  | `Int -> IS.empty, `Int, partially_solved_ty_map
   | `TyCons t ->
     let id = TyCons.unwrap t in
     if IntMap.mem id solved_ty_map then
       let ty = IntMap.find id solved_ty_map in
-      IS.empty, ty, IntMap.empty
+      IS.empty, ty, partially_solved_ty_map
+    else if IntMap.mem id partially_solved_ty_map then
+      let ty = IntMap.find id partially_solved_ty_map in 
+      IS.empty, ty, partially_solved_ty_map
     else if IS.mem id v_set then
-      IS.singleton id, `TVar id, IntMap.empty
+      IS.singleton id, `TVar id, partially_solved_ty_map
     else
       let arg_type = TyConsResolv.find sub.cons_arg t in
-      let rec_set, t', ty_map = build_rec_type sub (IS.add id v_set) solved_ty_map arg_type in
+      let rec_set, t', ty_map = solve_cycle sub (IS.add id v_set) solved_ty_map partially_solved_ty_map arg_type in
       let return_type = `Ref t' in
       if IS.mem id rec_set then
         let return_type = `Mu (id, return_type) in
+        let ty_map = IntMap.map (substitute_tyvar id return_type) ty_map in 
         IS.remove id rec_set, return_type, IntMap.add id return_type ty_map
       else
         rec_set, return_type, IntMap.add id return_type ty_map
   | `Tuple tl ->
-    let rec_set, tl, ty_map = List.fold_right (fun t (rec_set, tl, ty_map) ->
-      let rec_set', t', ty_map' = build_rec_type sub v_set solved_ty_map t in
-      IntSet.union rec_set rec_set', t' :: tl, IntMap.union combine_equal_type ty_map ty_map')
-    tl (IntSet.empty, [], IntMap.empty) in
+    let rec_set, tl, ty_map = List.fold_right (fun t (rec_set, tl, partially_solved_ty_map) ->
+      let rec_set', t', partially_solved_ty_map' = solve_cycle sub v_set solved_ty_map partially_solved_ty_map t in
+      IntSet.union rec_set rec_set', t' :: tl, partially_solved_ty_map')
+    tl (IntSet.empty, [], partially_solved_ty_map) in
     rec_set, `Tuple tl, ty_map
   | `Var v when not (Hashtbl.mem sub.resolv v) ->
-    IS.empty, `Int, IntMap.empty
+    IS.empty, `Int, partially_solved_ty_map
   | `Var v ->
     let t' = Hashtbl.find sub.resolv v in
-    build_rec_type sub v_set solved_ty_map (t' :> typ)
+    solve_cycle sub v_set solved_ty_map partially_solved_ty_map (t' :> typ)
   | `Array t' ->
-    let rec_set', t', ty_map' = build_rec_type sub v_set solved_ty_map t' in
+    let rec_set', t', ty_map' = solve_cycle sub v_set solved_ty_map partially_solved_ty_map t' in
     if t' <> `Int then
       failwith "Only integer arrays are supported"
     else
       rec_set', `Array `Int, ty_map'
 
-let resolve_rec_type sub solved_ty_map t =
-  let _, return_type, ty_map = build_rec_type sub IS.empty solved_ty_map t in
-  let rec loop recursive_ids t = 
-  match t with
-  | `Mu (id, t') ->
-    if IntSet.mem id recursive_ids then
-      failwith "Malformed recursive types (resolve_a_rec_type)"
-    else
-      `Mu (id, loop (IntSet.add id recursive_ids) t')
-  | `Array `Int -> `Array `Int
-  | `Ref t' -> `Ref (loop recursive_ids t')
-  | `TVar id ->
-    if IntSet.mem id recursive_ids then
-      `TVar id
-    else if IntMap.mem id ty_map then
-      IntMap.find id ty_map
-    else
-      failwith "Malformed recursive types (resolve_a_rec_type)"
-  | `Tuple tl -> `Tuple (List.map (loop recursive_ids) tl)
-  | `Int -> `Int
-  | `Array _ -> failwith "Only integer arrays are supported (resolve_a_rec_type)"
-  in
-  let ty_map = IntMap.map (fun ty -> loop IntSet.empty ty) ty_map in
+let translate_type sub solved_ty_map t =
+  let _, return_type, ty_map = solve_cycle sub IS.empty solved_ty_map IntMap.empty t in
+  let combine_equal_type _ t1 t2 = 
+  if t1 <> t2 then begin 
+    failwith "Recursive type resolve error?" end
+  else
+    Some t1 in
   IntMap.union combine_equal_type ty_map solved_ty_map, return_type
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
@@ -599,7 +590,7 @@ let get_fold_loc sub tymap p_ops =
     let tymap, t = if IntMap.mem id tymap then
                     tymap, IntMap.find id tymap
                    else
-                    resolve_rec_type sub tymap (`TyCons tycon) in
+                    translate_type sub tymap (`TyCons tycon) in
     if is_mu_type t then
         tymap, i::fold_locs
       else
@@ -612,7 +603,7 @@ let get_unfold_loc sub tymap p_ops =
       let tymap, t = if IntMap.mem id tymap then
                 tymap, IntMap.find id tymap
               else
-                resolve_rec_type sub tymap (`TyCons tycon) in  
+                translate_type sub tymap (`TyCons tycon) in  
       if is_mu_type t then
         tymap, i::unfold_locs
       else
@@ -674,15 +665,15 @@ let typecheck_prog intr_types (fns,body) =
   (*let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in*)
   let tymap, sm = List.fold_left (fun (tymap, acc) { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
-    let tymap, arg_types = List.fold_right (fun t (tymap, tl) -> let tymap, t = resolve_rec_type sub tymap t in
+    let tymap, arg_types = List.fold_right (fun t (tymap, tl) -> let tymap, t = translate_type sub tymap t in
                                                                  tymap , t :: tl)
                                    (List.map (fun x -> `Var x) arg_types_v)
                                    (tymap, []) in
-    let tymap, ret_type = resolve_rec_type sub tymap (`Var ret_type_v) in
+    let tymap, ret_type = translate_type sub tymap (`Var ret_type_v) in
     tymap, StringMap.add name { arg_types; ret_type } acc
   ) (IntMap.empty, StringMap.empty) fns in
   let tymap, let_types = IntMap.fold (fun eid t (tymap, map) ->
-                    let tymap, t = resolve_rec_type sub tymap t in
+                    let tymap, t = translate_type sub tymap t in
                     tymap, IntMap.add eid t map)
                  acc'.let_types
                  (tymap, IntMap.empty) in
