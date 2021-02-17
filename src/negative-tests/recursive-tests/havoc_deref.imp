@@ -1,0 +1,26 @@
+/*
+    Test whether values in a recursive data structure are havocked correctly at a deref expression.
+    If values (under references whose ownerships are 0) are not havocked correctly, 
+    then our alias assumption 
+    (i.e. two references point to the same memory location = they have the same value) 
+    becomes wrong. The verification will become unsound.
+*/
+
+create_list() {
+    if _ then
+        null
+    else
+        let tail = create_list() in
+        let tup = (1, tail) in
+        mkref tup
+}
+
+{
+    let l = create_list() in
+    let (v1, l1) = *l in
+    {
+        l1 := (999, null);
+        alias(l1 = (*l).1);
+        assert(1 = 2)
+    }
+}

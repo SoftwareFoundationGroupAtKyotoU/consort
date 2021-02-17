@@ -1,0 +1,23 @@
+/*
+    Test whether values in a recursive data structure are havocked correctly at an alias statement.
+*/
+
+create_list() {
+    if _ then
+        null
+    else
+        let tail = create_list() in
+        let tup = (1, tail) in
+        mkref tup
+}
+
+{
+    let l = create_list() in
+    let (_, l1) = *l in
+    {
+        alias(l1 = (*l).1);
+        l1 := (99, null);
+        alias(l1 = (*l).1);
+        assert(1 = 2)
+    }
+}
