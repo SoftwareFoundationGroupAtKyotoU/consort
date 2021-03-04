@@ -79,9 +79,9 @@ module Options = struct
     let debug_ast = ref default.debug_ast in
     let save_cons = ref default.save_cons in
     let annot_infr = ref default.annot_infr in
-    let show_model = ref default.print_model in
+    let print_model = ref default.print_model in
     let dry_run = ref default.dry_run in
-    let all_debug_flags = [ debug_cons; debug_ast; show_model ] in
+    let all_debug_flags = [ debug_cons; debug_ast; print_model ] in
     let mk_arg key flg what =
       [
         ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
@@ -90,11 +90,11 @@ module Options = struct
     let arg_defs =
       (mk_arg "cons" debug_cons "constraints sent to Z3") @
       (mk_arg "ast" debug_ast "(low-level) AST") @
-      (mk_arg "model" show_model "inferred model") @
+      (mk_arg "model" print_model "inferred model") @
       [
         ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
         ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
-        ("-show-model", Set show_model, "Print model produced from successful verification");
+        ("-show-model", Set print_model, "Print model produced from successful verification");
         ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
         ("-save-cons", string_opt save_cons, "Save constraints in <file>");
         ("-show-all", Unit (fun () ->
@@ -116,7 +116,7 @@ module Options = struct
            debug_ast = !debug_ast;
            save_cons = !save_cons;
            annot_infr = !annot_infr;
-           print_model = !show_model;
+           print_model = !print_model;
            dry_run = !dry_run
          }))
 
