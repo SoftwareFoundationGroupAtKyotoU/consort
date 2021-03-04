@@ -39,15 +39,15 @@ module Options = struct
     save_cons: string option;
     annot_infr: bool;
     print_model: bool;
-    check_trivial: bool;
     dry_run : bool;
+    check_trivial: bool;
     solver: solver;
-    solver_opts: Solver.options;
-    own_solv_opts: OwnershipSolver.options;
     dump_ir : string option;
     relaxed_mode : bool relaxed_flag;
     omit_havoc: bool;
-    null_checks: bool
+    null_checks: bool;
+    solver_opts: Solver.options;
+    own_solv_opts: OwnershipSolver.options
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -55,19 +55,19 @@ module Options = struct
 
   let default = {
     debug_cons = false;
-    save_cons = None;
     debug_ast = false;
+    save_cons = None;
     annot_infr = false;
     print_model = false;
-    check_trivial = false;
     dry_run = false;
+    check_trivial = false;
     solver = Spacer;
-    solver_opts = Solver.default;
-    own_solv_opts = OwnershipSolver.default;
     dump_ir = None;
     relaxed_mode = false;
     omit_havoc = false;
     null_checks = false;
+    solver_opts = Solver.default;
+    own_solv_opts = OwnershipSolver.default;
   }
 
   let string_opt r =
@@ -77,10 +77,10 @@ module Options = struct
     let open Arg in
     let debug_cons = ref default.debug_cons in
     let debug_ast = ref default.debug_ast in
-    let show_model = ref default.print_model in
-    let annot_infr = ref default.annot_infr in
-    let dry_run = ref default.dry_run in
     let save_cons = ref default.save_cons in
+    let annot_infr = ref default.annot_infr in
+    let show_model = ref default.print_model in
+    let dry_run = ref default.dry_run in
     let all_debug_flags = [ debug_cons; debug_ast; show_model ] in
     let mk_arg key flg what =
       [
@@ -112,11 +112,11 @@ module Options = struct
       ] in
     (arg_defs, (fun ?(comb=default) () ->
          { comb with
-           debug_ast = !debug_ast;
-           print_model = !show_model;
-           annot_infr = !annot_infr;
            debug_cons = !debug_cons;
+           debug_ast = !debug_ast;
            save_cons = !save_cons;
+           annot_infr = !annot_infr;
+           print_model = !show_model;
            dry_run = !dry_run
          }))
 
@@ -133,8 +133,8 @@ module Options = struct
     let solver = ref default.solver in
     let dump_ir = ref default.dump_ir in
     let omit_havoc = ref default.omit_havoc in
-    let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
     let null_checks = ref default.null_checks in
+    let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
     (oi_args @ [
         ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
         ("-check-triviality", Set check_trivial, "Check if produced model is trivial");

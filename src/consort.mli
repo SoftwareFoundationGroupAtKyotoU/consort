@@ -15,15 +15,15 @@ module Options :
       save_cons: string option;
       annot_infr: bool;
       print_model: bool;
-      check_trivial: bool;
       dry_run : bool;
+      check_trivial: bool;
       solver: solver;
-      solver_opts: Solver.options;
-      own_solv_opts: OwnershipSolver.options;
       dump_ir : string option;
       relaxed_mode : bool;
       omit_havoc: bool;
-      null_checks: bool
+      null_checks: bool;
+      solver_opts: Solver.options;
+      own_solv_opts: OwnershipSolver.options
     }
 
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
