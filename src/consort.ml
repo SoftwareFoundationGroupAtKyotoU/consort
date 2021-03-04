@@ -85,16 +85,15 @@ module Options = struct
     let mk_arg key flg what =
       [
         ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
-        ("-show-" ^key, Set flg, Printf.sprintf "Print %s on stderr" what)
+        ("-show-" ^ key, Set flg, Printf.sprintf "Print %s on stderr" what)
       ] in
     let arg_defs =
       (mk_arg "cons" debug_cons "constraints sent to Z3") @
       (mk_arg "ast" debug_ast "(low-level) AST") @
-      (mk_arg "model" print_model "inferred model") @
+      (mk_arg "model" print_model "inferred model produced from successful verification") @
       [
         ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
         ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
-        ("-show-model", Set print_model, "Print model produced from successful verification");
         ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
         ("-save-cons", string_opt save_cons, "Save constraints in <file>");
         ("-show-all", Unit (fun () ->
