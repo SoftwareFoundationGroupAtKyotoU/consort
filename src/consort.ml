@@ -81,7 +81,7 @@ module Options = struct
     let annot_infr = ref default.annot_infr in
     let print_model = ref default.print_model in
     let dry_run = ref default.dry_run in
-    let all_debug_flags = [ debug_cons; debug_ast; print_model ] in
+    let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
     let mk_arg key flg what =
       [
         ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
