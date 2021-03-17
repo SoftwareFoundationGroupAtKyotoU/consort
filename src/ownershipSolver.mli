@@ -12,13 +12,9 @@ type ocon =
   | Wf of ownership * ownership (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership (** o1 >= o2 *)
 
-type options = ArgOptions.Solver.options
-
-val default : options
-
-val ownership_arg_gen : unit -> (string * Arg.spec * string) list * (?comb:options -> unit -> options)
+val ownership_arg_gen : unit -> (string * Arg.spec * string) list * (?comb:ArgOptions.Solver.options -> unit -> ArgOptions.Solver.options)
 val solve_ownership :
-  opts:options ->
+  opts:ArgOptions.Solver.options ->
   ?save_cons:string ->
   (int list * ocon list * Std.IntSet.t) ->
   (int * float) list option

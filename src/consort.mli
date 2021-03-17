@@ -23,7 +23,7 @@ module Options :
       omit_havoc: bool;
       null_checks: bool;
       solver_opts: ArgOptions.Solver.options;
-      own_solv_opts: OwnershipSolver.options
+      own_solv_opts: ArgOptions.Solver.options
     }
 
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
