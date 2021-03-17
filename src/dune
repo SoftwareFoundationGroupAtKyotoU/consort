@@ -9,6 +9,12 @@
  (modules StringMap UnionFind PrettyPrint Files SexpPrinter Greek Std Log))
 
 (library
+ (name options)
+ (wrapped false)
+ (libraries util)
+ (modules ArgOptions))
+
+(library
  (name lang)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (wrapped false)
