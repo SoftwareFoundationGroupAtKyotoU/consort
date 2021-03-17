@@ -12,7 +12,6 @@ type ocon =
   | Wf of ownership * ownership (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership (** o1 >= o2 *)
 
-val ownership_arg_gen : unit -> (string * Arg.spec * string) list * (?comb:ArgOptions.Solver.options -> unit -> ArgOptions.Solver.options)
 val solve_ownership :
   opts:ArgOptions.Solver.options ->
   ?save_cons:string ->

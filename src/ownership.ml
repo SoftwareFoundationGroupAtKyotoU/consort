@@ -94,7 +94,7 @@ let ownership_infr debug i_gen o_gen inf file =
 
 let () =
   let (i_list, gen) = Intrinsics.option_loader () in
-  let (o_list, o_gen) = OwnershipSolver.ownership_arg_gen () in
+  let (o_list, o_gen) = ArgOptions.ownership_arg_gen () in
   let (inf_list, inf_gen) = OwnershipInference.infr_opts_loader () in
   let debug = ref None in
   let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (i_list @ o_list @ inf_list) in
