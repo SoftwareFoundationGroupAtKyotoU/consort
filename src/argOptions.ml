@@ -40,3 +40,20 @@ module Solver = struct
       } in
     (spec, update)
 end
+
+type t = {
+  debug_cons : bool;
+  debug_ast : bool;
+  save_cons : string option;
+  annot_infr : bool;
+  print_model : bool;
+  dry_run : bool;
+  check_trivial : bool;
+  solver : Solver.choice;
+  dump_ir : string option;
+  relaxed_mode : bool;
+  omit_havoc : bool;
+  null_checks : bool;
+  solver_opts : Solver.options;
+  own_solv_opts : Solver.options
+}

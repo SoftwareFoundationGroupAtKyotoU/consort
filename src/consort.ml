@@ -23,29 +23,13 @@ let result_to_string = function
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
 
 module Options = struct
-  type 'a relaxed_flag = 'a constraint 'a = OwnershipInference.infr_options constraint 'a = bool
-
-  type t = {
-    debug_cons: bool;
-    debug_ast: bool;
-    save_cons: string option;
-    annot_infr: bool;
-    print_model: bool;
-    dry_run : bool;
-    check_trivial: bool;
-    solver: ArgOptions.Solver.choice;
-    dump_ir : string option;
-    relaxed_mode : bool relaxed_flag;
-    omit_havoc: bool;
-    null_checks: bool;
-    solver_opts: ArgOptions.Solver.options;
-    own_solv_opts: ArgOptions.Solver.options
-  }
+  type t = ArgOptions.t
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
 
 
-  let default = {
+  let default =
+    let open ArgOptions in {
     debug_cons = false;
     debug_ast = false;
     save_cons = None;
@@ -67,6 +51,7 @@ module Options = struct
 
   let debug_arg_gen () =
     let open Arg in
+    let open ArgOptions in
     let debug_cons = ref default.debug_cons in
     let debug_ast = ref default.debug_ast in
     let save_cons = ref default.save_cons in
@@ -162,7 +147,7 @@ module Options = struct
 end
 
 let infer_ownership opts intr simple_res ast =
-  let open Options in
+  let open ArgOptions in
   let module OI = OwnershipInference in
   let o_result = OI.infer ~opts:opts.relaxed_mode simple_res intr.Intrinsics.op_interp ast in
   match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
@@ -252,7 +237,6 @@ let print_model t =
     Option.iter (fun _ -> ())
 
 let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
-  let open Options in
   let ast = AstUtil.parse_file in_name in
   let intr = intrinsic_defn in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
