@@ -1,10 +1,9 @@
 let () =
   let (flags,to_opts) =
-    let open Consort.Options in
     let open ArgOptions in
     debug_arg_gen ()
-    |> seq solver_arg_gen
-    |> seq solver_opt_gen
+    |> spec_seq solver_arg_gen
+    |> spec_seq solver_opt_gen
   in
   let (intr_fl,loader) = Intrinsics.option_loader () in
   let return_status = ref false in

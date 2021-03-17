@@ -26,14 +26,6 @@ module Options = struct
   type t = ArgOptions.t
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
-
-  let (>>) ((a1,f1) : arg_spec) ((a2,f2) : arg_spec) =
-    let open ArgOptions in
-    (a1 @ a2, (fun ?(comb=default) () ->
-         f2 ~comb:(f1 ~comb ()) ()))
-
-  let seq f o =
-    (o >> f ())
 end
 
 let infer_ownership opts intr simple_res ast =

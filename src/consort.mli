@@ -3,7 +3,6 @@ module Options :
     type t = ArgOptions.t
 
     type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
-    val seq : (unit -> arg_spec) -> arg_spec -> arg_spec
   end
 
 type reason =
