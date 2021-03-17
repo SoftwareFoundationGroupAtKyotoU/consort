@@ -22,12 +22,6 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
 
-module Options = struct
-  type t = ArgOptions.t
-
-  type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
-end
-
 let infer_ownership opts intr simple_res ast =
   let open ArgOptions in
   let module OI = OwnershipInference in
