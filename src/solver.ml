@@ -8,12 +8,7 @@ type result =
 
 type options = ArgOptions.Solver.options
 
-let default =
-  let open ArgOptions.Solver in {
-  timeout = 30;
-  command = None;
-  command_extra = None
-}
+let default = ArgOptions.Solver.default
 type 'a option_fn = opts:options -> debug_cons:bool ->  ?save_cons:string -> get_model:bool -> 'a
 type solve_fn = (defn_file:(string option) -> SexpPrinter.t -> result) option_fn   
 type cont = Process.t * (unit -> result) * (unit -> unit)
