@@ -27,56 +27,6 @@ module Options = struct
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
 
-  let string_opt r =
-    Arg.String (fun s -> r := Some s)
-
-  let debug_arg_gen () =
-    let open Arg in
-    let open ArgOptions in
-    let debug_cons = ref default.debug_cons in
-    let debug_ast = ref default.debug_ast in
-    let save_cons = ref default.save_cons in
-    let annot_infr = ref default.annot_infr in
-    let print_model = ref default.print_model in
-    let dry_run = ref default.dry_run in
-    let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
-    let mk_arg key flg what =
-      [
-        ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
-        ("-show-" ^ key, Set flg, Printf.sprintf "Print %s on stderr" what)
-      ] in
-    let arg_defs =
-      (mk_arg "cons" debug_cons "constraints sent to Z3") @
-      (mk_arg "ast" debug_ast "(low-level) AST") @
-      (mk_arg "model" print_model "inferred model produced from successful verification") @
-      [
-        ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
-        ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
-        ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
-        ("-save-cons", string_opt save_cons, "Save constraints in <file>");
-        ("-show-all", Unit (fun () ->
-             List.iter (fun r -> r := true) all_debug_flags;
-             Log.all ();
-           ), "Show all debug output");
-        ("-none", Unit (fun () ->
-             List.iter (fun r -> r:= false) all_debug_flags;
-             Log.disable ()
-           ), "Suppress all debug output");
-        ("-debug", String (fun s ->
-             Log.filter @@ List.map String.trim @@ String.split_on_char ',' s
-           ), "Debug sources s1,s2,...");
-        ("-debug-all", Unit Log.all, "Show all debug output")
-      ] in
-    (arg_defs, (fun ?(comb=default) () ->
-         { comb with
-           debug_cons = !debug_cons;
-           debug_ast = !debug_ast;
-           save_cons = !save_cons;
-           annot_infr = !annot_infr;
-           print_model = !print_model;
-           dry_run = !dry_run
-         }))
-
   let (>>) ((a1,f1) : arg_spec) ((a2,f2) : arg_spec) =
     let open ArgOptions in
     (a1 @ a2, (fun ?(comb=default) () ->

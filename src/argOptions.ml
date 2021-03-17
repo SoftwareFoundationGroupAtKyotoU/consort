@@ -83,6 +83,54 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(comb=default) () = f2 ~comb:(f1 ~comb ()) () in
   (spec, update)
+let debug_arg_gen () =
+  let open Arg in
+  let debug_cons = ref default.debug_cons in
+  let debug_ast = ref default.debug_ast in
+  let save_cons = ref default.save_cons in
+  let annot_infr = ref default.annot_infr in
+  let print_model = ref default.print_model in
+  let dry_run = ref default.dry_run in
+  let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
+  let mk_arg key flg what = [
+    ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
+    ("-show-" ^ key, Set flg, Printf.sprintf "Print %s on stderr" what)
+  ] in
+  let spec =
+    (mk_arg "cons" debug_cons "constraints sent to Z3") @
+    (mk_arg "ast" debug_ast "(low-level) AST") @
+    (mk_arg "model" print_model "inferred model produced from successful verification") @ [
+      ("-annot-infer", Set annot_infr,
+       "Print an annotated AST program with the inferred types on stderr");
+      ("-dry-run", Set dry_run,
+       "Parse, typecheck, and run inference, but do not actually run Z3");
+      ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"),
+       "Here we go again...");
+      ("-save-cons", String (fun s -> save_cons := Some s),
+       "Save constraints in <file>");
+      ("-show-all", Unit (fun () ->
+           List.iter (fun r -> r := true) all_debug_flags;
+           Log.all ()),
+       "Show all debug output");
+      ("-none", Unit (fun () ->
+           List.iter (fun r -> r:= false) all_debug_flags;
+           Log.disable ()),
+       "Suppress all debug output");
+      ("-debug", String (fun s ->
+           Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
+       "Debug sources s1,s2,...");
+      ("-debug-all", Unit Log.all, "Show all debug output")
+    ] in
+  let update ?(comb=default) () = {
+    comb with
+    debug_cons = !debug_cons;
+    debug_ast = !debug_ast;
+    save_cons = !save_cons;
+    annot_infr = !annot_infr;
+    print_model = !print_model;
+    dry_run = !dry_run
+  } in
+  (spec, update)
 let infr_opts_loader () =
   let relaxed_max = ref false in
   let open Arg in
