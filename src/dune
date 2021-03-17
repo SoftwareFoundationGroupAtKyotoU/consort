@@ -25,7 +25,7 @@
  (name solving)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (wrapped false)
- (libraries util)
+ (libraries util options)
  (modules Z3Channel Solver SolverBridge Process))
 
 (library

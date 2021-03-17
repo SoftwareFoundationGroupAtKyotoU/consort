@@ -6,13 +6,10 @@ type result =
   | Error of string
   | Unknown
 
-type options = {
-  timeout : int;
-  command : string option;
-  command_extra : string option;
-}
+type options = ArgOptions.Solver.options
 
-let default = {
+let default =
+  let open ArgOptions.Solver in {
   timeout = 30;
   command = None;
   command_extra = None
@@ -41,6 +38,7 @@ let opt_gen ?nm ?(solv_nm="solver") () =
     ("-" ^ pref ^ "command", String (fun s -> command := Some s), Printf.sprintf "Executable for %s" solv_nm);
     ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s), Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
   ], fun ?comb:_ () ->
+      let open ArgOptions.Solver in
      {
        timeout = !timeout;
        command = !command;

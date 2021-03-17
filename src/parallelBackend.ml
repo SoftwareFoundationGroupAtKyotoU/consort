@@ -16,7 +16,7 @@ let solve ~opts ~debug_cons:_ ?save_cons:_ ~get_model ~defn_file cons =
       D.solve_cont ~opts ~get_model ~defn_file cons
     ) backends
   in
-  Process.select_pool ~timeout:(opts.Solver.timeout + 10) ~prock:(fun acc res ->
+  Process.select_pool ~timeout:(opts.ArgOptions.Solver.timeout + 10) ~prock:(fun acc res ->
     match res with
     | Solver.Sat _ | Solver.Unsat -> `Return res
     | _ -> `Continue (res::acc)
