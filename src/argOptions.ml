@@ -104,5 +104,49 @@ let ownership_arg_gen () =
         comb with
         own_solv_opts = update ~comb:comb.own_solv_opts ()
       })
+let solver_arg_gen () =
+  let check_trivial = ref default.check_trivial in
+  let solver = ref default.solver in
+  let dump_ir = ref default.dump_ir in
+  let omit_havoc = ref default.omit_havoc in
+  let null_checks = ref default.null_checks in
+  let oi_args,oi_gen = infr_opts_loader () in
+  let open Arg in
+  let spec = [
+    ("-seq-solver", Unit (fun () ->
+         prerr_endline "WARNING: seq solver option is deprecated and does nothing"),
+     "(DEPRECATED) No effect");
+    ("-check-triviality", Set check_trivial,
+     "Check if produced model is trivial");
+    ("-mode", Symbol (["refinement"; "unified"], fun _ ->
+         prerr_endline "WARNING: the mode option is deprecated and does nothing"),
+     " (DEPRECATED) No effect");
+    ("-dump-ir", String (fun s -> dump_ir := Some s),
+     "Dump intermediate relations and debugging information (only implemented in unified)");
+    ("-omit-havoc", Set omit_havoc,
+     "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
+    ("-check-null", Set null_checks,
+     "For freedom of null pointer exceptions");
+    ("-solver",
+     Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
+         | "spacer" -> solver := Spacer
+         | "hoice" -> solver := Hoice
+         | "null" -> solver := Null
+         | "z3" -> solver := Z3SMT
+         | "eldarica" -> solver := Eldarica
+         | "parallel" -> solver := Parallel
+         | _ -> assert false),
+     " Use solver backend <solver>. (default: spacer)")
+  ] in
+  let update ?(comb=default) () = {
+    comb with
+    check_trivial = !check_trivial;
+    solver = !solver;
+    dump_ir = !dump_ir;
+    relaxed_mode = oi_gen () || !omit_havoc;
+    omit_havoc = !omit_havoc;
+    null_checks = !null_checks
+  } in
+  (oi_args @ spec, update)
 let solver_opt_gen () =
   ownership_arg_gen () |> spec_seq opt_gen

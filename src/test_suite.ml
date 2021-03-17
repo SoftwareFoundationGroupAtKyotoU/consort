@@ -39,8 +39,7 @@ let () =
   let maybe_print s = if !verbose then (print_string s; flush stdout) else () in
   let (a_list,gen) =
     let open ArgOptions in
-    Consort.Options.solver_arg_gen ()
-    |> spec_seq solver_opt_gen
+    solver_arg_gen () |> spec_seq solver_opt_gen
   in
   let (i_list,i_gen) = Intrinsics.option_loader () in
   let file_list = ref [] in
