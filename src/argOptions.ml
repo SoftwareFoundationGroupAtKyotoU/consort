@@ -57,6 +57,9 @@ type t = {
   solver_opts : Solver.options;
   own_solv_opts : Solver.options
 }
+type arg_spec = Arg.key * Arg.spec * Arg.doc
+type arg_update = ?comb:t -> unit -> t
+type arg_gen = arg_spec list * arg_update
 
 let default = {
   debug_cons = false;
@@ -74,3 +77,9 @@ let default = {
   solver_opts = Solver.default;
   own_solv_opts = Solver.default;
 }
+let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
+  let s1, f1 = g1 in
+  let s2, f2 = g2 () in
+  let spec = s1 @ s2 in
+  let update ?(comb=default) () = f2 ~comb:(f1 ~comb ()) () in
+  (spec, update)
