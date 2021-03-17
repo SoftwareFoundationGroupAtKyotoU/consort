@@ -1,14 +1,5 @@
 module Options :
   sig
-    type solver =
-      | Hoice
-      | Spacer
-      | Z3SMT
-      | Eldarica
-      | Parallel
-      | Null
-
-  
     type t = {
       debug_cons: bool;
       debug_ast: bool;
@@ -17,7 +8,7 @@ module Options :
       print_model: bool;
       dry_run : bool;
       check_trivial: bool;
-      solver: solver;
+      solver: ArgOptions.Solver.choice;
       dump_ir : string option;
       relaxed_mode : bool;
       omit_havoc: bool;

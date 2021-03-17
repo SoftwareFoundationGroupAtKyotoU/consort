@@ -23,14 +23,6 @@ let result_to_string = function
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
 
 module Options = struct
-  type solver =
-    | Hoice
-    | Spacer
-    | Z3SMT
-    | Eldarica
-    | Parallel
-    | Null
-
   type 'a relaxed_flag = 'a constraint 'a = OwnershipInference.infr_options constraint 'a = bool
 
   type t = {
@@ -41,7 +33,7 @@ module Options = struct
     print_model: bool;
     dry_run : bool;
     check_trivial: bool;
-    solver: solver;
+    solver: ArgOptions.Solver.choice;
     dump_ir : string option;
     relaxed_mode : bool relaxed_flag;
     omit_havoc: bool;

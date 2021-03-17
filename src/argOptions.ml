@@ -1,4 +1,11 @@
 module Solver = struct
+  type choice =
+    | Hoice
+    | Spacer
+    | Z3SMT
+    | Eldarica
+    | Parallel
+    | Null
   type options = {
     timeout : int;
     command : string option;
