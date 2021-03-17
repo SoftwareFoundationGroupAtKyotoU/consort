@@ -1,5 +1,5 @@
 module type S = sig
-  val solve_cont : opts:Solver.options -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont
+  val solve_cont : opts:ArgOptions.Solver.options -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont
 end
 
 let backends = [

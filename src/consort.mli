@@ -22,7 +22,7 @@ module Options :
       relaxed_mode : bool;
       omit_havoc: bool;
       null_checks: bool;
-      solver_opts: Solver.options;
+      solver_opts: ArgOptions.Solver.options;
       own_solv_opts: OwnershipSolver.options
     }
 

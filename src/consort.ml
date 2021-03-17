@@ -46,8 +46,8 @@ module Options = struct
     relaxed_mode : bool relaxed_flag;
     omit_havoc: bool;
     null_checks: bool;
-    solver_opts: Solver.options;
-    own_solv_opts: OwnershipSolver.options
+    solver_opts: ArgOptions.Solver.options;
+    own_solv_opts: ArgOptions.Solver.options
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -66,8 +66,8 @@ module Options = struct
     relaxed_mode = false;
     omit_havoc = false;
     null_checks = false;
-    solver_opts = Solver.default;
-    own_solv_opts = OwnershipSolver.default;
+    solver_opts = ArgOptions.Solver.default;
+    own_solv_opts = ArgOptions.Solver.default;
   }
 
   let string_opt r =

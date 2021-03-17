@@ -12,7 +12,7 @@ type ocon =
   | Wf of ownership * ownership (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership (** o1 >= o2 *)
 
-type options
+type options = ArgOptions.Solver.options
 
 val default : options
 

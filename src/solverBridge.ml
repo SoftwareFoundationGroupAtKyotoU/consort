@@ -4,8 +4,8 @@ let load_defn = function
 
 module type S = sig
   val call : (defn_file:string option -> strat:string -> SexpPrinter.t -> Solver.result) Solver.option_fn
-  val call_cont : 
-    opts:Solver.options ->
+  val call_cont :
+    opts:ArgOptions.Solver.options ->
     get_model:bool ->
     defn_file:string option ->
     strat:string ->
@@ -16,7 +16,7 @@ end
 module Make(D: sig
       type st
       val spawn : st -> Process.t
-      val prepare_out : solver_opts:Solver.options -> string option -> st * out_channel
+      val prepare_out : solver_opts:ArgOptions.Solver.options -> string option -> st * out_channel
       val dispose : st -> unit
       val name : string
     end) : S = struct
