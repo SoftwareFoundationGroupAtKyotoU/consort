@@ -118,13 +118,6 @@ module Options = struct
           omit_havoc = !omit_havoc;
           null_checks = !null_checks
         }))
-
-  let solver_opt_gen () =
-    let open ArgOptions in
-    let (l,g) = ArgOptions.opt_gen () in
-    let (l2,g2) = ArgOptions.ownership_arg_gen () in
-    (l @ l2, (fun ?(comb=default) () ->
-         g2 ~comb:(g ~comb ()) ()))
 end
 
 let infer_ownership opts intr simple_res ast =

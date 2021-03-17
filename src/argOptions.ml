@@ -96,3 +96,5 @@ let ownership_arg_gen () =
         comb with
         own_solv_opts = update ~comb:comb.own_solv_opts ()
       })
+let solver_opt_gen () =
+  ownership_arg_gen () |> spec_seq opt_gen

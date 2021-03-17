@@ -1,6 +1,7 @@
 let () =
   let (flags,to_opts) =
     let open Consort.Options in
+    let open ArgOptions in
     debug_arg_gen ()
     |> seq solver_arg_gen
     |> seq solver_opt_gen
