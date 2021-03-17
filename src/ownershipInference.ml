@@ -121,13 +121,6 @@ type infr_options = bool
 
 let infr_opts_default = false
 
-let infr_opts_loader () =
-  let x = ref false in
-  let arg = [
-    ("-relaxed-max", Arg.Unit (fun () -> x := true), "Use alternative, relaxed maximization constraints")
-  ] in
-  (arg, (fun () -> !x ))
-    
 let unfold =
   let rec subst_once id sub = function
     | TVar id' when id = id' -> sub
