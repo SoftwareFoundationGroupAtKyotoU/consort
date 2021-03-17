@@ -6,7 +6,6 @@ type result =
   | Error of string
   | Unknown
 
-type 'a option_fn = opts:ArgOptions.Solver.options -> debug_cons:bool ->  ?save_cons:string -> get_model:bool -> 'a
 type cont = Process.t * (unit -> result) * (unit -> unit)
 
 module type SOLVER_BACKEND = sig

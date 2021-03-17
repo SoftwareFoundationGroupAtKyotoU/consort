@@ -3,7 +3,15 @@ let load_defn = function
   | None -> ""
 
 module type S = sig
-  val call : (defn_file:string option -> strat:string -> SexpPrinter.t -> Solver.result) Solver.option_fn
+  val call :
+    opts:ArgOptions.Solver.options ->
+    debug_cons:bool ->
+    ?save_cons:string ->
+    get_model:bool ->
+    defn_file:string option ->
+    strat:string ->
+    SexpPrinter.t ->
+    Solver.result
   val call_cont :
     opts:ArgOptions.Solver.options ->
     get_model:bool ->
