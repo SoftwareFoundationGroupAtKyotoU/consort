@@ -83,6 +83,14 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(comb=default) () = f2 ~comb:(f1 ~comb ()) () in
   (spec, update)
+let infr_opts_loader () =
+  let relaxed_max = ref false in
+  let open Arg in
+  let spec = [
+    ("-relaxed-max", Unit (fun () -> relaxed_max := true),
+     "Use alternative, relaxed maximization constraints")
+  ] in
+  (spec, (fun () -> !relaxed_max))
 let opt_gen () =
   let (spec, update) = Solver.opt_gen () in
   (spec, fun ?(comb=default) () -> {

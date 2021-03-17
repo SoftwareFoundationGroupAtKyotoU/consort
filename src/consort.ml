@@ -93,7 +93,7 @@ module Options = struct
     let dump_ir = ref default.dump_ir in
     let omit_havoc = ref default.omit_havoc in
     let null_checks = ref default.null_checks in
-    let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
+    let oi_args,oi_gen = infr_opts_loader () in
     (oi_args @ [
         ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
         ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
