@@ -121,13 +121,10 @@ module Options = struct
 
   let solver_opt_gen () =
     let open ArgOptions in
-    let (l,g) = ArgOptions.Solver.opt_gen () in
+    let (l,g) = ArgOptions.opt_gen () in
     let (l2,g2) = ArgOptions.ownership_arg_gen () in
     (l @ l2, (fun ?(comb=default) () ->
-         g2 ~comb:
-         { comb with
-           solver_opts = g ~comb:comb.solver_opts ();
-         } ()))
+         g2 ~comb:(g ~comb ()) ()))
 end
 
 let infer_ownership opts intr simple_res ast =

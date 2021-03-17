@@ -83,6 +83,12 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(comb=default) () = f2 ~comb:(f1 ~comb ()) () in
   (spec, update)
+let opt_gen () =
+  let (spec, update) = Solver.opt_gen () in
+  (spec, fun ?(comb=default) () -> {
+        comb with
+        solver_opts = update ~comb:comb.solver_opts ()
+      })
 let ownership_arg_gen () =
   let (spec, update) =
     Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver" () in
