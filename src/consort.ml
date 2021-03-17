@@ -160,7 +160,7 @@ module Options = struct
         }))
 
   let solver_opt_gen () =
-    let (l,g) = Solver.opt_gen () in
+    let (l,g) = ArgOptions.Solver.opt_gen () in
     let (l2,g2) = OwnershipSolver.ownership_arg_gen () in
     (l @ l2, (fun ?(comb=default) () ->
          { comb with
