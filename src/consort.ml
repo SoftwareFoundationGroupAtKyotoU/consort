@@ -27,25 +27,6 @@ module Options = struct
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
 
-
-  let default =
-    let open ArgOptions in {
-    debug_cons = false;
-    debug_ast = false;
-    save_cons = None;
-    annot_infr = false;
-    print_model = false;
-    dry_run = false;
-    check_trivial = false;
-    solver = Spacer;
-    dump_ir = None;
-    relaxed_mode = false;
-    omit_havoc = false;
-    null_checks = false;
-    solver_opts = ArgOptions.Solver.default;
-    own_solv_opts = ArgOptions.Solver.default;
-  }
-
   let string_opt r =
     Arg.String (fun s -> r := Some s)
 
@@ -97,6 +78,7 @@ module Options = struct
          }))
 
   let (>>) ((a1,f1) : arg_spec) ((a2,f2) : arg_spec) =
+    let open ArgOptions in
     (a1 @ a2, (fun ?(comb=default) () ->
          f2 ~comb:(f1 ~comb ()) ()))
 
@@ -105,6 +87,7 @@ module Options = struct
 
   let solver_arg_gen () =
     let open Arg in
+    let open ArgOptions in
     let check_trivial = ref default.check_trivial in
     let solver = ref default.solver in
     let dump_ir = ref default.dump_ir in
@@ -137,6 +120,7 @@ module Options = struct
         }))
 
   let solver_opt_gen () =
+    let open ArgOptions in
     let (l,g) = ArgOptions.Solver.opt_gen () in
     let (l2,g2) = OwnershipSolver.ownership_arg_gen () in
     (l @ l2, (fun ?(comb=default) () ->
@@ -236,7 +220,7 @@ let print_model t =
   else
     Option.iter (fun _ -> ())
 
-let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
+let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
   let ast = AstUtil.parse_file in_name in
   let intr = intrinsic_defn in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in

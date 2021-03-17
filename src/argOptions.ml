@@ -57,3 +57,20 @@ type t = {
   solver_opts : Solver.options;
   own_solv_opts : Solver.options
 }
+
+let default = {
+  debug_cons = false;
+  debug_ast = false;
+  save_cons = None;
+  annot_infr = false;
+  print_model = false;
+  dry_run = false;
+  check_trivial = false;
+  solver = Spacer;
+  dump_ir = None;
+  relaxed_mode = false;
+  omit_havoc = false;
+  null_checks = false;
+  solver_opts = Solver.default;
+  own_solv_opts = Solver.default;
+}

@@ -7,7 +7,6 @@ module Options :
     val solver_arg_gen : unit -> arg_spec
     val solver_opt_gen : unit -> arg_spec
     val seq : (unit -> arg_spec) -> arg_spec -> arg_spec
-    val default : t
   end
 
 type reason =
