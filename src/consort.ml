@@ -23,9 +23,8 @@ let result_to_string = function
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
 
 let infer_ownership opts intr simple_res ast =
-  let open ArgOptions in
   let module OI = OwnershipInference in
-  let o_result = OI.infer ~opts:opts.relaxed_mode simple_res intr.Intrinsics.op_interp ast in
+  let o_result = OI.infer ~opts simple_res intr.Intrinsics.op_interp ast in
   match OwnershipSolver.solve_ownership ~opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->

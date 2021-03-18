@@ -757,7 +757,7 @@ let analyze_fn ctxt fn =
   let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } in
   { ctxt with gamma = SM.empty }
 
-let infer ~opts:relaxed_max (simple_types,iso) intr (fn,prog) =
+let infer ~opts (simple_types,iso) intr (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
       lift_to_ownership loc (P.arg i) t
@@ -800,7 +800,7 @@ let infer ~opts:relaxed_max (simple_types,iso) intr (fn,prog) =
     }
   in
   let init_context = {
-    relaxed = relaxed_max;
+    relaxed = opts.ArgOptions.relaxed_mode;
     ovars = [];
     v_counter = 0;
     iso;
