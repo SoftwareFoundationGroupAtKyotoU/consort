@@ -7,14 +7,12 @@ module type S = sig
     opts:ArgOptions.t ->
     debug_cons:bool ->
     ?save_cons:string ->
-    get_model:bool ->
     defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
     Solver.result
   val call_cont :
     opts:ArgOptions.t ->
-    get_model:bool ->
     defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
@@ -76,11 +74,13 @@ module Make(D: sig
     let p = D.spawn s in
     (s,p)
     
-  let call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
+  let call ~opts ~debug_cons ?save_cons ~defn_file ~strat cons =
+    let get_model = ArgOptions.get_model opts in
     let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons in
     handle_return get_model s p
 
-  let call_cont ~opts ~get_model ~defn_file ~strat cons =
+  let call_cont ~opts ~defn_file ~strat cons =
+    let get_model = ArgOptions.get_model opts in
     let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons:false ?save_cons:None ~get_model ~defn_file ~strat cons in
     (p, (fun () -> handle_return get_model s p), (fun () -> D.dispose s))
 end

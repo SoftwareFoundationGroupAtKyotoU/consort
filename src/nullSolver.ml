@@ -1,4 +1,4 @@
-let solve ~opts:_ ~debug_cons ?save_cons ~get_model:_ ~defn_file cons =
+let solve ~opts:_ ~debug_cons ?save_cons ~defn_file cons =
   let cons = SexpPrinter.to_string cons in
   let cons' =
     Option.map Files.string_of_file defn_file
@@ -15,4 +15,4 @@ let solve ~opts:_ ~debug_cons ?save_cons ~get_model:_ ~defn_file cons =
   |> Option.iter (fun f -> f cons');
   Solver.Unhandled "dummy solver"
 
-let solve_cont ~opts:_ ~get_model:_ ~defn_file:_ _ = failwith "Unsupported"
+let solve_cont ~opts:_ ~defn_file:_ _ = failwith "Unsupported"
