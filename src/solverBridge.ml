@@ -5,13 +5,11 @@ let load_defn = function
 module type S = sig
   val call :
     opts:ArgOptions.t ->
-    defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
     Solver.result
   val call_cont :
     opts:ArgOptions.t ->
-    defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
     Solver.cont
@@ -51,8 +49,9 @@ module Make(D: sig
       with
       | Failure _ -> return_and_close @@ Solver.Unhandled s
 
-  let prepare_call ~opts ~defn_file ~strat cons =
+  let prepare_call ~opts ~strat cons =
     let open ArgOptions in
+    let defn_file = opts.intrinsics.def_file in
     if opts.debug_cons then begin
       let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
       Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
@@ -73,17 +72,17 @@ module Make(D: sig
     let p = D.spawn s in
     (s,p)
 
-  let call ~opts ~defn_file ~strat cons =
-    let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
+  let call ~opts ~strat cons =
+    let (s,p) = prepare_call ~opts ~strat cons in
     handle_return ~opts s p
 
-  let call_cont ~opts ~defn_file ~strat cons =
+  let call_cont ~opts ~strat cons =
     let opts =
       let open ArgOptions in {
         opts with
         debug_cons = false;
         save_cons = None
       } in
-    let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
+    let (s,p) = prepare_call ~opts ~strat cons in
     (p, (fun () -> handle_return ~opts s p), (fun () -> D.dispose s))
 end

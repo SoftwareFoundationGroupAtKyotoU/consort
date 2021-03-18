@@ -1,5 +1,5 @@
 module type S = sig
-  val solve_cont : opts:ArgOptions.t -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont
+  val solve_cont : opts:ArgOptions.t -> SexpPrinter.t -> Solver.cont
 end
 
 let backends = [
@@ -9,11 +9,11 @@ let backends = [
   (module SmtBackend : S)
 ]
 
-let solve ~opts ~defn_file cons =
+let solve ~opts cons =
   let proc_pool =
     List.map (fun d ->
       let module D = (val d : S) in
-      D.solve_cont ~opts ~defn_file cons
+      D.solve_cont ~opts cons
     ) backends
   in
   Process.select_pool ~timeout:(opts.ArgOptions.solver_opts.timeout + 10) ~prock:(fun acc res ->

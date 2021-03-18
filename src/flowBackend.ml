@@ -149,7 +149,6 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       ] ff.printer
 
   let solve_constraints ~opts ~fgen rel impl start_relation =
-    let intr = opts.ArgOptions.intrinsics in
     let ff = SexpPrinter.fresh () in
     let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
     let grounded =
@@ -176,7 +175,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         break ff
       ) rel;
       List.iter (fun imp ->
-        pp_impl ~fgen intr.rel_interp imp ff;
+        pp_impl ~fgen opts.ArgOptions.intrinsics.rel_interp imp ff;
         break ff
       ) impl;
 
@@ -190,7 +189,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       break ff
     in
     SexpPrinter.finish ff;
-    C.solve ~opts ~defn_file:intr.def_file ff
+    C.solve ~opts ff
 
   let pprint_annot =
     let open PrettyPrint in

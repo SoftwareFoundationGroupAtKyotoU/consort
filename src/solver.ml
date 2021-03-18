@@ -9,7 +9,7 @@ type result =
 type cont = Process.t * (unit -> result) * (unit -> unit)
 
 module type SOLVER_BACKEND = sig
-  val solve: opts:ArgOptions.t -> defn_file:(string option) -> SexpPrinter.t -> result
+  val solve: opts:ArgOptions.t -> SexpPrinter.t -> result
 end
 
 let add_extra_arg () cmd_extra =
