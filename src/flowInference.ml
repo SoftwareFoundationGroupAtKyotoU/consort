@@ -2917,7 +2917,7 @@ let analyze_main start_rel main ctxt =
   let ctxt,_ = process_expr (start_rel,[]) ~output:None None main ctxt in
   ctxt
 
-let infer ~null_checks ~bif_types (simple_theta,side_results) o_hints (fns,main) =
+let infer ~opts:_ ~null_checks ~bif_types (simple_theta,side_results) o_hints (fns,main) =
   let lift_and_unfold = (fun p -> deep_type_normalization @@ simple_to_fltype p) in
   let simple_theta = StringMap.map (fun ft ->
       {
