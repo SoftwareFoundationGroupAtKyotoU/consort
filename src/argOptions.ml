@@ -17,28 +17,6 @@ module Solver = struct
     command = None;
     command_extra = None
   }
-
-  let opt_gen ?nm ?(solv_nm="solver") () =
-    let open Arg in
-    let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
-    let timeout = ref default.timeout in
-    let command = ref None in
-    let extra = ref None in
-    let spec = [
-      ("-" ^ pref ^ "timeout", Set_int timeout,
-       Printf.sprintf "Timeout for %s in seconds" solv_nm);
-      ("-" ^ pref ^ "command", String (fun s -> command := Some s),
-       Printf.sprintf "Executable for %s" solv_nm);
-      ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s),
-       Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
-    ] in
-    let update ?(comb=default) () =
-      let _ = comb in {
-        timeout = !timeout;
-        command = !command;
-        command_extra = !extra
-      } in
-    (spec, update)
 end
 
 type t = {
@@ -55,10 +33,9 @@ type t = {
   omit_havoc : bool;
   null_checks : bool;
   solver_opts : Solver.options;
-  own_solv_opts : Solver.options
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
-type arg_update = ?comb:t -> unit -> t
+type arg_update = ?opts:t -> unit -> t
 type arg_gen = arg_spec list * arg_update
 
 let default = {
@@ -75,13 +52,13 @@ let default = {
   omit_havoc = false;
   null_checks = false;
   solver_opts = Solver.default;
-  own_solv_opts = Solver.default;
 }
+let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let s1, f1 = g1 in
   let s2, f2 = g2 () in
   let spec = s1 @ s2 in
-  let update ?(comb=default) () = f2 ~comb:(f1 ~comb ()) () in
+  let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
 let debug_arg_gen () =
   let open Arg in
@@ -121,8 +98,8 @@ let debug_arg_gen () =
        "Debug sources s1,s2,...");
       ("-debug-all", Unit Log.all, "Show all debug output")
     ] in
-  let update ?(comb=default) () = {
-    comb with
+  let update ?(opts=default) () = {
+    opts with
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
     save_cons = !save_cons;
@@ -139,19 +116,29 @@ let infr_opts_loader () =
      "Use alternative, relaxed maximization constraints")
   ] in
   (spec, (fun () -> !relaxed_max))
-let opt_gen () =
-  let (spec, update) = Solver.opt_gen () in
-  (spec, fun ?(comb=default) () -> {
-        comb with
-        solver_opts = update ~comb:comb.solver_opts ()
-      })
-let ownership_arg_gen () =
-  let (spec, update) =
-    Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver" () in
-  (spec, fun ?(comb=default) () -> {
-        comb with
-        own_solv_opts = update ~comb:comb.own_solv_opts ()
-      })
+let opt_gen ?nm ?(solv_nm="solver") () =
+  let open Arg in
+  let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
+  let timeout = ref default.solver_opts.timeout in
+  let command = ref None in
+  let extra = ref None in
+  let spec = [
+    ("-" ^ pref ^ "timeout", Set_int timeout,
+     Printf.sprintf "Timeout for %s in seconds" solv_nm);
+    ("-" ^ pref ^ "command", String (fun s -> command := Some s),
+     Printf.sprintf "Executable for %s" solv_nm);
+    ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s),
+     Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
+  ] in
+  let update ?(opts=default) () = {
+    opts with solver_opts = {
+      timeout = !timeout;
+      command = !command;
+      command_extra = !extra
+    }
+  } in
+  (spec, update)
+let ownership_arg_gen () = opt_gen ~nm:"o" ~solv_nm:"ownership solver" ()
 let solver_arg_gen () =
   let check_trivial = ref default.check_trivial in
   let solver = ref default.solver in
@@ -186,8 +173,8 @@ let solver_arg_gen () =
          | _ -> assert false),
      " Use solver backend <solver>. (default: spacer)")
   ] in
-  let update ?(comb=default) () = {
-    comb with
+  let update ?(opts=default) () = {
+    opts with
     check_trivial = !check_trivial;
     solver = !solver;
     dump_ir = !dump_ir;

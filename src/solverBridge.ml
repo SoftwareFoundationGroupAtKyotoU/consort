@@ -4,17 +4,13 @@ let load_defn = function
 
 module type S = sig
   val call :
-    opts:ArgOptions.Solver.options ->
-    debug_cons:bool ->
-    ?save_cons:string ->
-    get_model:bool ->
+    opts:ArgOptions.t ->
     defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
     Solver.result
   val call_cont :
-    opts:ArgOptions.Solver.options ->
-    get_model:bool ->
+    opts:ArgOptions.t ->
     defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
@@ -24,17 +20,17 @@ end
 module Make(D: sig
       type st
       val spawn : st -> Process.t
-      val prepare_out : solver_opts:ArgOptions.Solver.options -> string option -> st * out_channel
+      val prepare_out : opts:ArgOptions.t -> st * out_channel
       val dispose : st -> unit
       val name : string
     end) : S = struct
-  let handle_return get_model s p = 
+  let handle_return ~opts s p =
     let res = String.trim @@ input_line p.Process.proc_stdout in
     let return_and_close f = Process.dispose p; D.dispose s; f in
     match res with
     | "sat" ->
       let m =
-        if get_model then
+        if (ArgOptions.get_model opts) then
           let model = Files.string_of_channel p.Process.proc_stdout in
           Some model
         else
@@ -55,17 +51,18 @@ module Make(D: sig
       with
       | Failure _ -> return_and_close @@ Solver.Unhandled s
 
-  let prepare_call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
-    if debug_cons then begin
+  let prepare_call ~opts ~defn_file ~strat cons =
+    let open ArgOptions in
+    if opts.debug_cons then begin
       let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
       Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
       flush stderr
     end;
-    let (s,o) = D.prepare_out ~solver_opts:opts save_cons in
+    let (s,o) = D.prepare_out ~opts in
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
     let cmd = "\n" ^ strat ^ "\n" ^ (
-        if get_model then
+        if (get_model opts) then
           "(get-model)\n"
         else
           ""
@@ -75,12 +72,18 @@ module Make(D: sig
     close_out o;
     let p = D.spawn s in
     (s,p)
-    
-  let call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
-    let (s,p) = prepare_call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons in
-    handle_return get_model s p
 
-  let call_cont ~opts ~get_model ~defn_file ~strat cons =
-    let (s,p) = prepare_call ~opts ~debug_cons:false ?save_cons:None ~get_model ~defn_file ~strat cons in
-    (p, (fun () -> handle_return get_model s p), (fun () -> D.dispose s))
+  let call ~opts ~defn_file ~strat cons =
+    let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
+    handle_return ~opts s p
+
+  let call_cont ~opts ~defn_file ~strat cons =
+    let opts =
+      let open ArgOptions in {
+        opts with
+        debug_cons = false;
+        save_cons = None
+      } in
+    let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
+    (p, (fun () -> handle_return ~opts s p), (fun () -> D.dispose s))
 end

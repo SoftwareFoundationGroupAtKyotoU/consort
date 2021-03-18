@@ -26,7 +26,7 @@ let infer_ownership opts intr simple_res ast =
   let open ArgOptions in
   let module OI = OwnershipInference in
   let o_result = OI.infer ~opts:opts.relaxed_mode simple_res intr.Intrinsics.op_interp ast in
-  match OwnershipSolver.solve_ownership ~opts:opts.own_solv_opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
+  match OwnershipSolver.solve_ownership ~opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->
     let map_ownership = function
@@ -138,15 +138,10 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
       | Parallel -> ParallelBackend.solve
     in
     let module Backend = struct
-      let solve =
-        solver
-          ~opts:opts.solver_opts
-          ~debug_cons:opts.debug_cons
-          ?save_cons:opts.save_cons
-          ~get_model:(opts.print_model || opts.check_trivial)
+      let solve = solver ~opts
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts:S.({relaxed = opts.relaxed_mode; null_checks = opts.null_checks}) ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~opts ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

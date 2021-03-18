@@ -10,11 +10,6 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
   module RT = RefinementTypes
 
-  type options = {
-    relaxed: bool;
-    null_checks: bool
-  }
-
   let pp_ap p = pl @@ Paths.to_z3_ident p
 
   let pp_ztype = function
@@ -234,11 +229,12 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-  let solve ~opts:{null_checks; relaxed} ~annot_infr ~dump_ir ~intr simple_res o_hints ast =
+  let solve ~opts ~intr simple_res o_hints ast =
     let open Intrinsics in
-    let rel,impl,snap,start,omit = FlowInference.infer ~null_checks ~bif_types:intr.op_interp simple_res o_hints ast in
+    let open ArgOptions in
+    let rel,impl,snap,start,omit = FlowInference.infer ~null_checks:opts.null_checks ~bif_types:intr.op_interp simple_res o_hints ast in
     let fgen =
-      if not relaxed then
+      if not opts.relaxed_mode then
         (fun _ _ -> true)
       else
         (fun s ->
@@ -249,7 +245,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         )
     in
     let () =
-      if annot_infr then
+      if opts.annot_infr then
         AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
       flush stderr
     in
@@ -267,6 +263,6 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           Sexplib.Sexp.output_hum f @@ [%sexp_of: Ast.prog * FlowInference.relation list * (int * P.concr_ap * relation) list] (ast,rel,mu_bind);
           flush f;
         )
-      ) dump_ir in
+      ) opts.dump_ir in
     (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) ~fgen rel impl start
 end
