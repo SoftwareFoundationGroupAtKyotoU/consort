@@ -140,7 +140,7 @@ let check_file ?(opts=ArgOptions.default) in_name =
       let solve = solver ~opts
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts ~intr simple_res r ast in
+    let (_,ans) = S.solve ~opts simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

@@ -229,9 +229,10 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-  let solve ~opts ~intr simple_res o_hints ast =
+  let solve ~opts simple_res o_hints ast =
     let open Intrinsics in
     let open ArgOptions in
+    let intr = opts.intrinsics in
     let rel,impl,snap,start,omit = FlowInference.infer ~null_checks:opts.null_checks ~bif_types:intr.op_interp simple_res o_hints ast in
     let fgen =
       if not opts.relaxed_mode then
