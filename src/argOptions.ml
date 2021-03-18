@@ -230,3 +230,14 @@ let test_suite_arg_gen () =
     file_list = !file_list
   } in
   (spec, update)
+let test_arg_gen () =
+  let open Arg in
+  let cfa = ref default.cfa in
+  let spec = [
+    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
+  ] in
+  let update ?(opts=default) () = {
+    opts with
+    cfa = !cfa;
+  } in
+  (spec, update)

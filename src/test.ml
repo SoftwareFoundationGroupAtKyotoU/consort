@@ -5,11 +5,11 @@ let () =
     |> spec_seq solver_arg_gen
     |> spec_seq solver_opt_gen
     |> spec_seq intrinsics_arg_gen
+    |> spec_seq test_arg_gen
   in
   let return_status = ref false in
   let yaml_result = ref false in
   let spec = flags @ [
-      ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");
       ("-exit-status", Arg.Set return_status, "Indicate successful verification with exit code");
       ("-yaml", Arg.Set yaml_result, "Print verification result in YAML format");
   ] in
@@ -19,6 +19,7 @@ let () =
   | None -> print_endline "No file provided"; exit 1
   | Some in_name -> 
     let opts = to_opts () in
+    KCFA.cfa := opts.cfa;
     let res = Consort.check_file ~opts in_name in
     let () = 
       if !yaml_result then
