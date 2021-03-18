@@ -34,29 +34,23 @@ let test_file run n_tests f_name =
   else ()
 
 let () =
-  let expect = ref true in
-  let verbose = ref false in
-  let maybe_print s = if !verbose then (print_string s; flush stdout) else () in
   let (a_list,gen) =
     let open ArgOptions in
     solver_arg_gen ()
     |> spec_seq solver_opt_gen
     |> spec_seq intrinsics_arg_gen
   in
-  let file_list = ref [] in
   let (spec, update) = ArgOptions.test_suite_arg_gen () in
   let args = spec @ a_list in
   let dir_list = ref [] in
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let v_opts = gen () in
   let opts = update ~opts:v_opts () in
-  expect := opts.expect_typing;
   KCFA.cfa := opts.cfa;
-  verbose := opts.verbose;
-  file_list := opts.file_list;
-  let n_tests = ref 0 in
-  let run = run_test v_opts v_opts.intrinsics !expect in
+  let run = run_test v_opts v_opts.intrinsics opts.expect_typing in
+  let maybe_print s = if opts.verbose then (print_string s; flush stdout) else () in
   maybe_print "Testing ";
+  let n_tests = ref 0 in
   List.iter (fun dir ->
     maybe_print @@ dir ^ "... ";
     let test_files = Sys.readdir dir in
@@ -64,5 +58,5 @@ let () =
       test_file run n_tests @@ Filename.concat dir f_name
     ) test_files;
   ) !dir_list;
-  List.iter (test_file run n_tests) !file_list; 
+  List.iter (test_file run n_tests) opts.file_list;
   Printf.printf "PASSED (%d tests)\n" @@ !n_tests
