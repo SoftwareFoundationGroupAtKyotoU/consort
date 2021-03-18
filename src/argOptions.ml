@@ -202,3 +202,15 @@ let intrinsics_arg_gen () =
     opts with intrinsics = Intrinsics.option_loader !f_name
   } in
   (spec, update)
+let test_suite_arg_gen () =
+  let open Arg in
+  let expect = ref true in
+  let spec = [
+    ("-neg", Clear expect, "Expect typing failures");
+    ("-pos", Set expect, "Expect typing success (default)");
+  ] in
+  let update ?(opts=default) () = {
+    opts with
+    expect_typing = !expect
+  } in
+  (spec, update)
