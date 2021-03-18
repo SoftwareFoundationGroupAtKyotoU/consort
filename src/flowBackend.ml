@@ -230,10 +230,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
   let solve ~opts simple_res o_hints ast =
-    let open Intrinsics in
-    let open ArgOptions in
-    let intr = opts.intrinsics in
-    let rel,impl,snap,start,omit = FlowInference.infer ~opts ~bif_types:intr.op_interp simple_res o_hints ast in
+    let rel,impl,snap,start,omit = FlowInference.infer ~opts simple_res o_hints ast in
     let fgen =
       if not opts.relaxed_mode then
         (fun _ _ -> true)
@@ -265,5 +262,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           flush f;
         )
       ) opts.dump_ir in
-    (),solve_constraints ~interp:(intr.rel_interp,intr.def_file) ~fgen rel impl start
+    (),
+    let intr = opts.intrinsics in
+    solve_constraints ~interp:(intr.rel_interp,intr.def_file) ~fgen rel impl start
 end
