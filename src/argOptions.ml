@@ -34,6 +34,7 @@ type t = {
   null_checks : bool;
   solver_opts : Solver.options;
   intrinsics : Intrinsics.interp_t;
+  expect_typing : bool;
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
 type arg_update = ?opts:t -> unit -> t
@@ -54,6 +55,7 @@ let default = {
   null_checks = false;
   solver_opts = Solver.default;
   intrinsics = Intrinsics.empty;
+  expect_typing = true;
 }
 let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
