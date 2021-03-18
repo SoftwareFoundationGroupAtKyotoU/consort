@@ -34,20 +34,18 @@ let test_file run n_tests f_name =
   else ()
 
 let () =
-  let (a_list,gen) =
+  let (spec, update) =
     let open ArgOptions in
     solver_arg_gen ()
     |> spec_seq solver_opt_gen
     |> spec_seq intrinsics_arg_gen
+    |> spec_seq test_suite_arg_gen
   in
-  let (spec, update) = ArgOptions.test_suite_arg_gen () in
-  let args = spec @ a_list in
   let dir_list = ref [] in
-  Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
-  let v_opts = gen () in
-  let opts = update ~opts:v_opts () in
+  Arg.parse spec (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
+  let opts = update () in
   KCFA.cfa := opts.cfa;
-  let run = run_test v_opts v_opts.intrinsics opts.expect_typing in
+  let run = run_test opts opts.intrinsics opts.expect_typing in
   let maybe_print s = if opts.verbose then (print_string s; flush stdout) else () in
   maybe_print "Testing ";
   let n_tests = ref 0 in
