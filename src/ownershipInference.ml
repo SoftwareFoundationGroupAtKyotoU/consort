@@ -757,12 +757,12 @@ let analyze_fn ctxt fn =
   let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } in
   { ctxt with gamma = SM.empty }
 
-let infer ~opts (simple_types,iso) intr (fn,prog) =
+let infer ~opts (simple_types,iso) (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
       lift_to_ownership loc (P.arg i) t
     ) l
-  in   
+  in
   let lift_simple_ft nm ft =
     let%bind arg_types = lift_plist (MArg nm) ft.SimpleTypes.arg_types
     and output_types = lift_plist (MOut nm) ft.SimpleTypes.arg_types
@@ -822,7 +822,7 @@ let infer ~opts (simple_types,iso) intr (fn,prog) =
     |> SM.fold (fun nm it acc ->
         let (acc,ft) = lift_intrinsic_type nm it acc in
         { acc with theta = SM.add nm ft acc.theta }
-      ) intr 
+      ) opts.intrinsics.op_interp
   in
   let ctxt = List.fold_left analyze_fn ctxt fn in
   let (ctxt,_) = process_expr ~output:None prog ctxt in

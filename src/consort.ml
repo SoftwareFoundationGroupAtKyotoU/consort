@@ -24,7 +24,7 @@ let result_to_string = function
 
 let infer_ownership opts simple_res ast =
   let module OI = OwnershipInference in
-  let o_result = OI.infer ~opts simple_res opts.intrinsics.Intrinsics.op_interp ast in
+  let o_result = OI.infer ~opts simple_res ast in
   match OwnershipSolver.solve_ownership ~opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->

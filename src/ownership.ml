@@ -72,14 +72,13 @@ let pp_owner =
   | OVar v -> pf "$%d" v
 
 let ownership_infr ~opts file =
-  let intr = opts.ArgOptions.intrinsics in
   let ast = AstUtil.parse_file file in
-  let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv opts.ArgOptions.intrinsics.op_interp in
   let ((_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
   print_endline "FOLD LOCATIONS>>>";
   Std.IntSet.iter (Printf.printf "* %d\n") fl;
   print_endline "<<";
-  let r = OwnershipInference.infer ~opts simple_res intr.Intrinsics.op_interp ast in
+  let r = OwnershipInference.infer ~opts simple_res ast in
   print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
   let open PrettyPrint in
   let o_solve = OwnershipSolver.solve_ownership
