@@ -119,22 +119,22 @@ let debug_arg_gen () =
   } in
   (spec, update)
 let infr_arg_gen () =
-  let relaxed_max = ref false in
+  let relaxed_mode = ref default.relaxed_mode in
   let open Arg in
   let spec = [
-    ("-relaxed-max", Unit (fun () -> relaxed_max := true),
+    ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
      "Use alternative, relaxed maximization constraints")
   ] in
   let update ?(opts=default) () = {
-    opts with relaxed_mode = !relaxed_max
+    opts with relaxed_mode = !relaxed_mode
   } in
   (spec, update)
 let opt_gen ?nm ?(solv_nm="solver") () =
   let open Arg in
   let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
   let timeout = ref default.solver_opts.timeout in
-  let command = ref None in
-  let extra = ref None in
+  let command = ref default.solver_opts.command in
+  let extra = ref default.solver_opts.command_extra in
   let spec = [
     ("-" ^ pref ^ "timeout", Set_int timeout,
      Printf.sprintf "Timeout for %s in seconds" solv_nm);
@@ -210,10 +210,10 @@ let intrinsics_arg_gen () =
   (spec, update)
 let test_suite_arg_gen () =
   let open Arg in
-  let expect = ref true in
-  let verbose = ref false in
-  let cfa = ref 1 in
-  let file_list = ref [] in
+  let expect = ref default.expect_typing in
+  let verbose = ref default.verbose in
+  let cfa = ref default.cfa in
+  let file_list = ref default.file_list in
   let spec = [
     ("-neg", Clear expect, "Expect typing failures");
     ("-pos", Set expect, "Expect typing success (default)");
