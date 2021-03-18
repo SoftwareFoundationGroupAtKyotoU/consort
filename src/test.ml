@@ -5,7 +5,8 @@ let () =
     |> spec_seq solver_arg_gen
     |> spec_seq solver_opt_gen
   in
-  let (intr_fl,loader) = ArgOptions.option_loader () in
+  let (intr_fl,loader) = ArgOptions.intrinsics_arg_gen () in
+  let loader () = (loader ()).ArgOptions.intrinsics in
   let return_status = ref false in
   let yaml_result = ref false in
   let spec = flags @ intr_fl @ [

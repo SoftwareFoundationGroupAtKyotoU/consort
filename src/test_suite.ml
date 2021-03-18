@@ -41,7 +41,8 @@ let () =
     let open ArgOptions in
     solver_arg_gen () |> spec_seq solver_opt_gen
   in
-  let (i_list,i_gen) = ArgOptions.option_loader () in
+  let (i_list,i_gen) = ArgOptions.intrinsics_arg_gen () in
+  let i_gen () = (i_gen ()).ArgOptions.intrinsics in
   let file_list = ref [] in
   let args = [
     ("-neg", Arg.Clear expect, "Expect typing failures");
