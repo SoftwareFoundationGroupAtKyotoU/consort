@@ -143,7 +143,7 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
           ~opts
           ~debug_cons:opts.debug_cons
           ?save_cons:opts.save_cons
-          ~get_model:(opts.print_model || opts.check_trivial)
+          ~get_model:(ArgOptions.get_model opts)
     end in
     let module S = FlowBackend.Make(Backend) in
     let (_,ans) = S.solve ~opts ~intr:intrinsic_defn simple_res r ast in

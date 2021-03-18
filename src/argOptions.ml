@@ -53,6 +53,7 @@ let default = {
   null_checks = false;
   solver_opts = Solver.default;
 }
+let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let s1, f1 = g1 in
   let s2, f2 = g2 () in
