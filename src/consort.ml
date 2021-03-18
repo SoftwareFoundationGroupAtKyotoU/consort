@@ -138,11 +138,7 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
       | Parallel -> ParallelBackend.solve
     in
     let module Backend = struct
-      let solve =
-        solver
-          ~opts
-          ~debug_cons:opts.debug_cons
-          ?save_cons:opts.save_cons
+      let solve = solver ~opts
     end in
     let module S = FlowBackend.Make(Backend) in
     let (_,ans) = S.solve ~opts ~intr:intrinsic_defn simple_res r ast in

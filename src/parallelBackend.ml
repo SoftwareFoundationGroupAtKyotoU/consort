@@ -9,7 +9,7 @@ let backends = [
   (module SmtBackend : S)
 ]
 
-let solve ~opts ~debug_cons:_ ?save_cons:_ ~defn_file cons =
+let solve ~opts ~defn_file cons =
   let proc_pool =
     List.map (fun d ->
       let module D = (val d : S) in

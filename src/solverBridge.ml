@@ -5,8 +5,6 @@ let load_defn = function
 module type S = sig
   val call :
     opts:ArgOptions.t ->
-    debug_cons:bool ->
-    ?save_cons:string ->
     defn_file:string option ->
     strat:string ->
     SexpPrinter.t ->
@@ -74,9 +72,9 @@ module Make(D: sig
     let p = D.spawn s in
     (s,p)
     
-  let call ~opts ~debug_cons ?save_cons ~defn_file ~strat cons =
+  let call ~opts ~defn_file ~strat cons =
     let get_model = ArgOptions.get_model opts in
-    let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons in
+    let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons:opts.ArgOptions.debug_cons ?save_cons:opts.ArgOptions.save_cons ~get_model ~defn_file ~strat cons in
     handle_return get_model s p
 
   let call_cont ~opts ~defn_file ~strat cons =
