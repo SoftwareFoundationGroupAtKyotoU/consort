@@ -39,15 +39,15 @@ module Options = struct
     save_cons: string option;
     annot_infr: bool;
     print_model: bool;
-    check_trivial: bool;
     dry_run : bool;
+    check_trivial: bool;
     solver: solver;
-    solver_opts: Solver.options;
-    own_solv_opts: OwnershipSolver.options;
     dump_ir : string option;
     relaxed_mode : bool relaxed_flag;
     omit_havoc: bool;
-    null_checks: bool
+    null_checks: bool;
+    solver_opts: Solver.options;
+    own_solv_opts: OwnershipSolver.options
   }
 
   type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
@@ -55,19 +55,19 @@ module Options = struct
 
   let default = {
     debug_cons = false;
-    save_cons = None;
     debug_ast = false;
+    save_cons = None;
     annot_infr = false;
     print_model = false;
-    check_trivial = false;
     dry_run = false;
+    check_trivial = false;
     solver = Spacer;
-    solver_opts = Solver.default;
-    own_solv_opts = OwnershipSolver.default;
     dump_ir = None;
     relaxed_mode = false;
     omit_havoc = false;
     null_checks = false;
+    solver_opts = Solver.default;
+    own_solv_opts = OwnershipSolver.default;
   }
 
   let string_opt r =
@@ -77,52 +77,51 @@ module Options = struct
     let open Arg in
     let debug_cons = ref default.debug_cons in
     let debug_ast = ref default.debug_ast in
-    let show_model = ref default.print_model in
-    let annot_infr = ref default.annot_infr in
-    let dry_run = ref default.dry_run in
     let save_cons = ref default.save_cons in
-    let all_debug_flags = [ debug_cons; debug_ast; show_model ] in
+    let annot_infr = ref default.annot_infr in
+    let print_model = ref default.print_model in
+    let dry_run = ref default.dry_run in
+    let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
     let mk_arg key flg what =
       [
         ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
-        ("-show-" ^key, Set flg, Printf.sprintf "Print %s on stderr" what)
+        ("-show-" ^ key, Set flg, Printf.sprintf "Print %s on stderr" what)
       ] in
     let arg_defs =
       (mk_arg "cons" debug_cons "constraints sent to Z3") @
-        (mk_arg "ast" debug_ast "(low-level) AST") @
-        (mk_arg "model" show_model "inferred model") @
-        [
-          ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
-          ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
-          ("-show-model", Set show_model, "Print model produced from successful verification");
-          ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
-          ("-save-cons", string_opt save_cons, "Save constraints in <file>");
-          ("-show-all", Unit (fun () ->
+      (mk_arg "ast" debug_ast "(low-level) AST") @
+      (mk_arg "model" print_model "inferred model produced from successful verification") @
+      [
+        ("-annot-infer", Set annot_infr, "Print an annotated AST program with the inferred types on stderr");
+        ("-dry-run", Set dry_run, "Parse, typecheck, and run inference, but do not actually run Z3");
+        ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"), "Here we go again...");
+        ("-save-cons", string_opt save_cons, "Save constraints in <file>");
+        ("-show-all", Unit (fun () ->
              List.iter (fun r -> r := true) all_debug_flags;
              Log.all ();
            ), "Show all debug output");
-          ("-none", Unit (fun () ->
+        ("-none", Unit (fun () ->
              List.iter (fun r -> r:= false) all_debug_flags;
              Log.disable ()
            ), "Suppress all debug output");
-          ("-debug", String (fun s ->
+        ("-debug", String (fun s ->
              Log.filter @@ List.map String.trim @@ String.split_on_char ',' s
            ), "Debug sources s1,s2,...");
-          ("-debug-all", Unit Log.all, "Show all debug output")
-        ] in
+        ("-debug-all", Unit Log.all, "Show all debug output")
+      ] in
     (arg_defs, (fun ?(comb=default) () ->
-       { comb with
-         debug_ast = !debug_ast;
-         print_model = !show_model;
-         annot_infr = !annot_infr;
-         debug_cons = !debug_cons;
-         save_cons = !save_cons;
-         dry_run = !dry_run
-       }))
+         { comb with
+           debug_cons = !debug_cons;
+           debug_ast = !debug_ast;
+           save_cons = !save_cons;
+           annot_infr = !annot_infr;
+           print_model = !print_model;
+           dry_run = !dry_run
+         }))
 
   let (>>) ((a1,f1) : arg_spec) ((a2,f2) : arg_spec) =
     (a1 @ a2, (fun ?(comb=default) () ->
-       f2 ~comb:(f1 ~comb ()) ()))
+         f2 ~comb:(f1 ~comb ()) ()))
 
   let seq f o =
     (o >> f ())
@@ -133,41 +132,41 @@ module Options = struct
     let solver = ref default.solver in
     let dump_ir = ref default.dump_ir in
     let omit_havoc = ref default.omit_havoc in
-    let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
     let null_checks = ref default.null_checks in
+    let oi_args,oi_gen = OwnershipInference.infr_opts_loader () in
     (oi_args @ [
-       ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
-       ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
-       ("-mode", Symbol (["refinement"; "unified"], fun _ -> prerr_endline "WARNING: the mode option is deprecated and does nothing"), " (DEPRECATED) No effect");
-       ("-dump-ir", string_opt dump_ir, "Dump intermediate relations and debugging information (only implemented in unified)");
-       ("-omit-havoc", Set omit_havoc, "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
-       ("-check-null", Set null_checks, "For freedom of null pointer exceptions"); 
-       ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
-          | "spacer" -> solver := Spacer
-          | "hoice" -> solver := Hoice
-          | "null" -> solver := Null
-          | "z3" -> solver := Z3SMT
-          | "eldarica" -> solver := Eldarica
-          | "parallel" -> solver := Parallel
-          | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
-    ], (fun ?(comb=default) () ->
-       { comb with
-         check_trivial = !check_trivial;
-         solver = !solver;
-         dump_ir = !dump_ir;
-         relaxed_mode = oi_gen () || !omit_havoc;
-         omit_havoc = !omit_havoc;
-         null_checks = !null_checks
-       }))
+        ("-seq-solver", Unit (fun () -> prerr_endline "WARNING: seq solver option is deprecated and does nothing"), "(DEPRECATED) No effect");
+        ("-check-triviality", Set check_trivial, "Check if produced model is trivial");
+        ("-mode", Symbol (["refinement"; "unified"], fun _ -> prerr_endline "WARNING: the mode option is deprecated and does nothing"), " (DEPRECATED) No effect");
+        ("-dump-ir", string_opt dump_ir, "Dump intermediate relations and debugging information (only implemented in unified)");
+        ("-omit-havoc", Set omit_havoc, "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
+        ("-check-null", Set null_checks, "For freedom of null pointer exceptions"); 
+        ("-solver", Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
+             | "spacer" -> solver := Spacer
+             | "hoice" -> solver := Hoice
+             | "null" -> solver := Null
+             | "z3" -> solver := Z3SMT
+             | "eldarica" -> solver := Eldarica
+             | "parallel" -> solver := Parallel
+             | _ -> assert false), " Use solver backend <solver>. (default: spacer)")
+      ], (fun ?(comb=default) () ->
+        { comb with
+          check_trivial = !check_trivial;
+          solver = !solver;
+          dump_ir = !dump_ir;
+          relaxed_mode = oi_gen () || !omit_havoc;
+          omit_havoc = !omit_havoc;
+          null_checks = !null_checks
+        }))
 
   let solver_opt_gen () =
     let (l,g) = Solver.opt_gen () in
     let (l2,g2) = OwnershipSolver.ownership_arg_gen () in
     (l @ l2, (fun ?(comb=default) () ->
-       { comb with
-         solver_opts = g ~comb:comb.solver_opts ();
-         own_solv_opts = g2 ~comb:comb.own_solv_opts ();
-       }))
+         { comb with
+           solver_opts = g ~comb:comb.solver_opts ();
+           own_solv_opts = g2 ~comb:comb.own_solv_opts ();
+         }))
 end
 
 let infer_ownership opts intr simple_res ast =
@@ -269,8 +268,8 @@ let check_file ?(opts=Options.default) ?(intrinsic_defn=Intrinsics.empty) in_nam
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
     StringMap.iter (fun n a ->
-      Printf.fprintf stderr "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
-    ) program_types;
+        Printf.fprintf stderr "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
+      ) program_types;
     flush stderr
   end;
   let infer_opt = infer_ownership opts intr simple_res ast in
