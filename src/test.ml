@@ -7,10 +7,8 @@ let () =
     |> spec_seq intrinsics_arg_gen
     |> spec_seq test_arg_gen
   in
-  let return_status = ref false in
   let yaml_result = ref false in
   let spec = flags @ [
-      ("-exit-status", Arg.Set return_status, "Indicate successful verification with exit code");
       ("-yaml", Arg.Set yaml_result, "Print verification result in YAML format");
   ] in
   let target_name = ref None in
@@ -47,8 +45,7 @@ let () =
       else
         print_endline @@ Consort.result_to_string res;
     in
-    
-    if !return_status then
+    if opts.exit_status then
       match res with
       | Consort.Verified -> exit 0
       | Consort.Unverified _ -> exit 1
