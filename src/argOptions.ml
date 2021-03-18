@@ -118,6 +118,12 @@ let infr_opts_loader () =
      "Use alternative, relaxed maximization constraints")
   ] in
   (spec, (fun () -> !relaxed_max))
+let infr_arg_gen () =
+  let (spec, update) = infr_opts_loader () in
+  let update ?(opts=default) () = {
+    opts with relaxed_mode = update ()
+  } in
+  (spec, update)
 let opt_gen ?nm ?(solv_nm="solver") () =
   let open Arg in
   let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
@@ -147,7 +153,6 @@ let solver_arg_gen () =
   let dump_ir = ref default.dump_ir in
   let omit_havoc = ref default.omit_havoc in
   let null_checks = ref default.null_checks in
-  let oi_args,oi_gen = infr_opts_loader () in
   let open Arg in
   let spec = [
     ("-seq-solver", Unit (fun () ->
@@ -180,11 +185,11 @@ let solver_arg_gen () =
     check_trivial = !check_trivial;
     solver = !solver;
     dump_ir = !dump_ir;
-    relaxed_mode = oi_gen () || !omit_havoc;
+    relaxed_mode = !omit_havoc;
     omit_havoc = !omit_havoc;
     null_checks = !null_checks
   } in
-  (oi_args @ spec, update)
+  spec_seq infr_arg_gen (spec, update)
 let solver_opt_gen () =
   ownership_arg_gen () |> spec_seq opt_gen
 let intrinsics_arg_gen () =
