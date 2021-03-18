@@ -7,21 +7,21 @@ module Make(D: sig
       type st = string * string
       let dispose _ = ()
       open Solver
-      open ArgOptions.Solver
-      let prepare_out ~solver_opts:{ timeout; command; command_extra} save_cons =
+      let prepare_out ~opts =
+        let open ArgOptions in
         let (nm,chan) =
-          match save_cons with
+          match opts.save_cons with
           | Some s -> (s,open_out s)
           | None ->
             let (nm,chan) = Filename.open_temp_file (D.name ^ "Cons") ".smt" in
             at_exit (fun () ->
-              Sys.remove nm);
+                Sys.remove nm);
             (nm,chan)
         in
         let base_command =
           Printf.sprintf "%s %a"
-            (D.spawn ~command ~timeout)
-            add_extra_arg command_extra
+            (D.spawn ~command:opts.solver_opts.command ~timeout:opts.solver_opts.timeout)
+            add_extra_arg opts.solver_opts.command_extra
         in
         (base_command,nm),chan
 
@@ -32,7 +32,7 @@ module Make(D: sig
 
       let name = D.name
     end)
-      
+
   let solve = Ch.call ~strat:D.strat
   let solve_cont = Ch.call_cont ~strat:D.strat
 end

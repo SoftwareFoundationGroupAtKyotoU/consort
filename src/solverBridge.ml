@@ -20,7 +20,7 @@ end
 module Make(D: sig
       type st
       val spawn : st -> Process.t
-      val prepare_out : solver_opts:ArgOptions.Solver.options -> string option -> st * out_channel
+      val prepare_out : opts:ArgOptions.t -> st * out_channel
       val dispose : st -> unit
       val name : string
     end) : S = struct
@@ -58,7 +58,7 @@ module Make(D: sig
       Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
       flush stderr
     end;
-    let (s,o) = D.prepare_out ~solver_opts:opts.solver_opts opts.save_cons in
+    let (s,o) = D.prepare_out ~opts in
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
     let cmd = "\n" ^ strat ^ "\n" ^ (
