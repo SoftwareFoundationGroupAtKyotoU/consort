@@ -1,7 +1,7 @@
 open Ast
 
-let typecheck i_gen file =
-  let intr = i_gen () in
+let typecheck ~opts file =
+  let intr = opts.ArgOptions.intrinsics in
   let (fn,prog) = AstUtil.parse_file file in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
   let f_types,SimpleChecker.SideAnalysis.{let_types; _ } = SimpleChecker.typecheck_prog simple_op (fn,prog) in
@@ -40,5 +40,4 @@ let typecheck i_gen file =
 
 let () =
   let (spec,i_gen) = ArgOptions.intrinsics_arg_gen () in
-  let i_gen () = (i_gen ()).ArgOptions.intrinsics in
-  Files.run_with_file spec "Parse and (simple) typecheck <file>" @@ typecheck i_gen
+  Files.run_with_file spec "Parse and (simple) typecheck <file>" @@ typecheck ~opts:(i_gen ())
