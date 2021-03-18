@@ -33,6 +33,7 @@ type t = {
   omit_havoc : bool;
   null_checks : bool;
   solver_opts : Solver.options;
+  intrinsics : Intrinsics.interp_t;
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
 type arg_update = ?opts:t -> unit -> t
@@ -52,6 +53,7 @@ let default = {
   omit_havoc = false;
   null_checks = false;
   solver_opts = Solver.default;
+  intrinsics = Intrinsics.empty;
 }
 let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
