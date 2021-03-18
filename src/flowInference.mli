@@ -46,7 +46,6 @@ type res_t =
 
 val infer :
   opts:ArgOptions.t ->
-  null_checks:bool ->
   bif_types:(RefinementTypes.funtype StringMap.t) ->
   SimpleTypes.funtyp StringMap.t * SimpleChecker.SideAnalysis.results ->
   float OwnershipInference.ownership_ops ->

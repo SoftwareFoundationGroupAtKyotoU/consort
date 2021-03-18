@@ -233,7 +233,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     let open Intrinsics in
     let open ArgOptions in
     let intr = opts.intrinsics in
-    let rel,impl,snap,start,omit = FlowInference.infer ~opts ~null_checks:opts.null_checks ~bif_types:intr.op_interp simple_res o_hints ast in
+    let rel,impl,snap,start,omit = FlowInference.infer ~opts ~bif_types:intr.op_interp simple_res o_hints ast in
     let fgen =
       if not opts.relaxed_mode then
         (fun _ _ -> true)
