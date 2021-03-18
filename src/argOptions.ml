@@ -35,6 +35,7 @@ type t = {
   solver_opts : Solver.options;
   intrinsics : Intrinsics.interp_t;
   expect_typing : bool;
+  cfa : int;
   verbose : bool;
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
@@ -57,6 +58,7 @@ let default = {
   solver_opts = Solver.default;
   intrinsics = Intrinsics.empty;
   expect_typing = true;
+  cfa = 1;
   verbose = false;
 }
 let get_model opts = opts.print_model || opts.check_trivial
@@ -208,14 +210,17 @@ let test_suite_arg_gen () =
   let open Arg in
   let expect = ref true in
   let verbose = ref false in
+  let cfa = ref 1 in
   let spec = [
     ("-neg", Clear expect, "Expect typing failures");
     ("-pos", Set expect, "Expect typing success (default)");
+    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
     ("-verbose", Set verbose, "Provide more output");
   ] in
   let update ?(opts=default) () = {
     opts with
     expect_typing = !expect;
+    cfa = !cfa;
     verbose = !verbose
   } in
   (spec, update)
