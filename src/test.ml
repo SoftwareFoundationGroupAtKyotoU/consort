@@ -4,12 +4,11 @@ let () =
     debug_arg_gen ()
     |> spec_seq solver_arg_gen
     |> spec_seq solver_opt_gen
+    |> spec_seq intrinsics_arg_gen
   in
-  let (intr_fl,loader) = ArgOptions.intrinsics_arg_gen () in
-  let loader () = (loader ()).ArgOptions.intrinsics in
   let return_status = ref false in
   let yaml_result = ref false in
-  let spec = flags @ intr_fl @ [
+  let spec = flags @ [
       ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");
       ("-exit-status", Arg.Set return_status, "Indicate successful verification with exit code");
       ("-yaml", Arg.Set yaml_result, "Print verification result in YAML format");
@@ -19,7 +18,8 @@ let () =
   match !target_name with
   | None -> print_endline "No file provided"; exit 1
   | Some in_name -> 
-    let res = Consort.check_file ~opts:(to_opts()) ~intrinsic_defn:(loader ()) in_name in
+    let opts = to_opts () in
+    let res = Consort.check_file ~opts ~intrinsic_defn:opts.intrinsics in_name in
     let () = 
       if !yaml_result then
         let yaml_repr =
