@@ -39,5 +39,5 @@ let typecheck i_gen file =
   ) stdout (fn,prog)
 
 let () =
-  let (spec,i_gen) = Intrinsics.option_loader () in
+  let (spec,i_gen) = ArgOptions.option_loader () in
   Files.run_with_file spec "Parse and (simple) typecheck <file>" @@ typecheck i_gen

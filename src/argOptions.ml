@@ -185,3 +185,17 @@ let solver_arg_gen () =
   (oi_args @ spec, update)
 let solver_opt_gen () =
   ownership_arg_gen () |> spec_seq opt_gen
+let option_loader () =
+  let open Arg in
+  let f_name = ref None in
+  let spec = [
+    "-intrinsics", String (fun x -> f_name := Some x),
+    "Load definitions of standard operations from <file>"
+  ] in
+  let update () =
+    let open Intrinsics in
+    match !f_name with
+    | None -> empty
+    | Some s -> load s
+  in
+  (spec, update)

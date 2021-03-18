@@ -11,7 +11,7 @@
 (library
  (name options)
  (wrapped false)
- (libraries util)
+ (libraries lang util)
  (modules ArgOptions))
 
 (library
@@ -67,7 +67,7 @@
 (executable
  (name typecheck)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
- (libraries lang)
+ (libraries lang options)
  (modules Typecheck))
 
 (executable
