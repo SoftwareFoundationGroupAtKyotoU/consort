@@ -71,7 +71,7 @@ let pp_owner =
   | OConst o -> pf "%f" o
   | OVar v -> pf "$%d" v
 
-let ownership_infr ~opts debug file =
+let ownership_infr ~opts file =
   let intr = opts.ArgOptions.intrinsics in
   let ast = AstUtil.parse_file file in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
@@ -83,7 +83,7 @@ let ownership_infr ~opts debug file =
   print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
   let open PrettyPrint in
   let o_solve = OwnershipSolver.solve_ownership
-      ~opts:{opts with ArgOptions.save_cons = !debug}
+      ~opts
       (r.OwnershipInference.Result.ovars, r.OwnershipInference.Result.ocons, r.OwnershipInference.Result.max_vars) in
   match o_solve with
   | None -> print_endline "Could not solve ownership constraints"
@@ -97,10 +97,9 @@ let ownership_infr ~opts debug file =
 let () =
   let (spec, to_opts) =
     let open ArgOptions in
-    intrinsics_arg_gen ()
+    debug_arg_gen ()
+    |> spec_seq intrinsics_arg_gen
     |> spec_seq ownership_arg_gen
     |> spec_seq infr_arg_gen
   in
-  let debug = ref None in
-  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: spec in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ()) debug
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ())
