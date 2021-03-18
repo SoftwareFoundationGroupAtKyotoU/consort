@@ -1,5 +1,5 @@
 module type S = sig
-  val solve_cont : opts:ArgOptions.Solver.options -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont
+  val solve_cont : opts:ArgOptions.t -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont
 end
 
 let backends = [
@@ -16,7 +16,7 @@ let solve ~opts ~debug_cons:_ ?save_cons:_ ~get_model ~defn_file cons =
       D.solve_cont ~opts ~get_model ~defn_file cons
     ) backends
   in
-  Process.select_pool ~timeout:(opts.ArgOptions.Solver.timeout + 10) ~prock:(fun acc res ->
+  Process.select_pool ~timeout:(opts.ArgOptions.solver_opts.timeout + 10) ~prock:(fun acc res ->
     match res with
     | Solver.Sat _ | Solver.Unsat -> `Return res
     | _ -> `Continue (res::acc)

@@ -4,7 +4,7 @@ let load_defn = function
 
 module type S = sig
   val call :
-    opts:ArgOptions.Solver.options ->
+    opts:ArgOptions.t ->
     debug_cons:bool ->
     ?save_cons:string ->
     get_model:bool ->
@@ -13,7 +13,7 @@ module type S = sig
     SexpPrinter.t ->
     Solver.result
   val call_cont :
-    opts:ArgOptions.Solver.options ->
+    opts:ArgOptions.t ->
     get_model:bool ->
     defn_file:string option ->
     strat:string ->
@@ -77,10 +77,10 @@ module Make(D: sig
     (s,p)
     
   let call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
-    let (s,p) = prepare_call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons in
+    let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons in
     handle_return get_model s p
 
   let call_cont ~opts ~get_model ~defn_file ~strat cons =
-    let (s,p) = prepare_call ~opts ~debug_cons:false ?save_cons:None ~get_model ~defn_file ~strat cons in
+    let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons:false ?save_cons:None ~get_model ~defn_file ~strat cons in
     (p, (fun () -> handle_return get_model s p), (fun () -> D.dispose s))
 end

@@ -140,7 +140,7 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
     let module Backend = struct
       let solve =
         solver
-          ~opts:opts.solver_opts
+          ~opts
           ~debug_cons:opts.debug_cons
           ?save_cons:opts.save_cons
           ~get_model:(opts.print_model || opts.check_trivial)
