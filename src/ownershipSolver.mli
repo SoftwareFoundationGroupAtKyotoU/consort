@@ -13,7 +13,6 @@ type ocon =
   | Ge of ownership * ownership (** o1 >= o2 *)
 
 val solve_ownership :
-  opts:ArgOptions.Solver.options ->
-  ?save_cons:string ->
+  opts:ArgOptions.t ->
   (int list * ocon list * Std.IntSet.t) ->
   (int * float) list option

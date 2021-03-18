@@ -142,8 +142,8 @@ let rec interp_real sexp =
     let* e2 = interp_real v2 in
     Some (e1 /. e2)
   | _ -> None
-    
-let solve_ownership ~opts ?save_cons (ovars,ocons,max_vars) =
+
+let solve_ownership ~opts (ovars, ocons, max_vars) =
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;
@@ -151,13 +151,12 @@ let solve_ownership ~opts ?save_cons (ovars,ocons,max_vars) =
   let live_count =
     Std.IntSet.elements max_vars
     |> List.map (fun ov ->
-    pg "ite" [
-      pg ">" [ pl @@ ovar_name ov; pl "0." ];
-      pl "1";
-      pl "0"
-      ])
+        pg "ite" [
+          pg ">" [ pl @@ ovar_name ov; pl "0." ];
+          pl "1";
+          pl "0"
+        ])
   in
-
   List.iter (pp_wf o_buf) ovars;
   if (List.length live_count > 0) then begin
     pg "maximize" [
@@ -165,7 +164,14 @@ let solve_ownership ~opts ?save_cons (ovars,ocons,max_vars) =
     ] o_buf.printer
   end;
   finish o_buf;
-  let res = Z3Channel.call_z3_raw ~opts ?save_cons ~debug_cons:(Log.check_source None) ~defn_file:None ~strat:"(check-sat)" ~get_model:true o_buf in
+  let res = Z3Channel.call_z3_raw
+      ~opts:opts.ArgOptions.own_solv_opts
+      ?save_cons:opts.ArgOptions.save_cons
+      ~debug_cons:(Log.check_source None)
+      ~defn_file:None
+      ~strat:"(check-sat)"
+      ~get_model:true
+      o_buf in
   match res with
   | Solver.Sat Some m ->
     begin
@@ -185,11 +191,10 @@ let solve_ownership ~opts ?save_cons (ovars,ocons,max_vars) =
         in
         let open Std.OptionMonad in
         List.fold_left (fun oacc o_var ->
-          let* acc = oacc in
-          let* v = List.assoc_opt (ovar_name o_var) o_sigma in
-          Some ((o_var,v)::acc)
-        ) (Some []) ovars
+            let* acc = oacc in
+            let* v = List.assoc_opt (ovar_name o_var) o_sigma in
+            Some ((o_var,v)::acc)
+          ) (Some []) ovars
       | _ -> None
     end
   | _ -> None
-
