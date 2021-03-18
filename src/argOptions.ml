@@ -39,6 +39,7 @@ type t = {
   verbose : bool;
   file_list : Arg.usage_msg list;
   exit_status : bool;
+  yaml : bool;
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
 type arg_update = ?opts:t -> unit -> t
@@ -64,6 +65,7 @@ let default = {
   verbose = false;
   file_list = [];
   exit_status = false;
+  yaml = false;
 }
 let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
@@ -236,10 +238,12 @@ let test_arg_gen () =
   let open Arg in
   let cfa = ref default.cfa in
   let status = ref default.exit_status in
+  let yaml = ref default.yaml in
   let spec = [
     ("-cfa", Set_int cfa, "k to use for k-cfa inference");
     ("-exit-status", Set status,
      "Indicate successful verification with exit code");
+    ("-yaml", Set yaml, "Print verification result in YAML format");
   ] in
   let update ?(opts=default) () = {
     opts with
