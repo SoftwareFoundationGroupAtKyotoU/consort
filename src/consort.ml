@@ -146,7 +146,7 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
           ~get_model:(opts.print_model || opts.check_trivial)
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts:S.({relaxed = opts.relaxed_mode; null_checks = opts.null_checks}) ~dump_ir:opts.dump_ir ~annot_infr:opts.annot_infr ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~opts ~intr:intrinsic_defn simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->
