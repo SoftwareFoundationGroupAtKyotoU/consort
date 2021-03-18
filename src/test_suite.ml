@@ -5,10 +5,10 @@ exception OutOfMemory
 let spacer_error_p msg =
   msg = "tactic failed: Overflow encountered when expanding vector"
 
-let run_test v_opts intr expect file =
-  let res = Consort.check_file ~opts:v_opts ~intrinsic_defn:intr file in
+let run_test ~opts file =
+  let res = Consort.check_file ~opts ~intrinsic_defn:opts.intrinsics file in
   let open Consort in
-  match res,expect with
+  match res, opts.expect_typing with
   | Verified,true -> ()
   | Unverified (SolverError msg),_ when spacer_error_p msg -> raise InternalSpacerError
   | Unverified (SolverError "out of memory"), _ -> raise OutOfMemory
@@ -45,7 +45,7 @@ let () =
   Arg.parse spec (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let opts = update () in
   KCFA.cfa := opts.cfa;
-  let run = run_test opts opts.intrinsics opts.expect_typing in
+  let run = run_test ~opts in
   let maybe_print s = if opts.verbose then (print_string s; flush stdout) else () in
   maybe_print "Testing ";
   let n_tests = ref 0 in
