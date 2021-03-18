@@ -190,7 +190,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       break ff
     in
     SexpPrinter.finish ff;
-    C.solve ~defn_file:intr.def_file ff
+    C.solve ~opts ~defn_file:intr.def_file ff
 
   let pprint_annot =
     let open PrettyPrint in

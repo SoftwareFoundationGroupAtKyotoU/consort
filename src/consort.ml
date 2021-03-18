@@ -126,17 +126,14 @@ let check_file ?(opts=ArgOptions.default) in_name =
   match infer_opt with
   | None -> Unverified Aliasing
   | Some r ->
-    let solver =
-      match opts.solver with
-      | Spacer -> HornBackend.solve
-      | Z3SMT -> SmtBackend.solve
-      | Hoice -> HoiceBackend.solve
-      | Null -> NullSolver.solve
-      | Eldarica -> EldaricaBackend.solve
-      | Parallel -> ParallelBackend.solve
-    in
     let module Backend = struct
-      let solve = solver ~opts
+      let solve = match opts.solver with
+        | Spacer -> HornBackend.solve
+        | Z3SMT -> SmtBackend.solve
+        | Hoice -> HoiceBackend.solve
+        | Null -> NullSolver.solve
+        | Eldarica -> EldaricaBackend.solve
+        | Parallel -> ParallelBackend.solve
     end in
     let module S = FlowBackend.Make(Backend) in
     let (_,ans) = S.solve ~opts simple_res r ast in
