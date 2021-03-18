@@ -19,7 +19,7 @@ let () =
   | None -> print_endline "No file provided"; exit 1
   | Some in_name -> 
     let opts = to_opts () in
-    let res = Consort.check_file ~opts ~intrinsic_defn:opts.intrinsics in_name in
+    let res = Consort.check_file ~opts in_name in
     let () = 
       if !yaml_result then
         let yaml_repr =

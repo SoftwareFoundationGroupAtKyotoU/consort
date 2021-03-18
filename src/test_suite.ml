@@ -6,7 +6,7 @@ let spacer_error_p msg =
   msg = "tactic failed: Overflow encountered when expanding vector"
 
 let run_test ~opts file =
-  let res = Consort.check_file ~opts ~intrinsic_defn:opts.intrinsics file in
+  let res = Consort.check_file ~opts file in
   let open Consort in
   match res, opts.expect_typing with
   | Verified,true -> ()

@@ -111,9 +111,9 @@ let print_model t =
   else
     Option.iter (fun _ -> ())
 
-let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
+let check_file ?(opts=ArgOptions.default) in_name =
   let ast = AstUtil.parse_file in_name in
-  let intr = intrinsic_defn in
+  let intr = opts.intrinsics in
   let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
   let ((program_types,_) as simple_res)= SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
@@ -140,7 +140,7 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
       let solve = solver ~opts
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~opts ~intr simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->
