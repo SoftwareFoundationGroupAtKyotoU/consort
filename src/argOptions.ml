@@ -37,6 +37,7 @@ type t = {
   expect_typing : bool;
   cfa : int;
   verbose : bool;
+  file_list : Arg.usage_msg list;
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
 type arg_update = ?opts:t -> unit -> t
@@ -60,6 +61,7 @@ let default = {
   expect_typing = true;
   cfa = 1;
   verbose = false;
+  file_list = [];
 }
 let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
@@ -211,16 +213,20 @@ let test_suite_arg_gen () =
   let expect = ref true in
   let verbose = ref false in
   let cfa = ref 1 in
+  let file_list = ref [] in
   let spec = [
     ("-neg", Clear expect, "Expect typing failures");
     ("-pos", Set expect, "Expect typing success (default)");
     ("-cfa", Set_int cfa, "k to use for k-cfa inference");
     ("-verbose", Set verbose, "Provide more output");
+    ("-files", Rest (fun s -> file_list := s::!file_list),
+     "Interpret all remaining arguments as files to test")
   ] in
   let update ?(opts=default) () = {
     opts with
     expect_typing = !expect;
     cfa = !cfa;
-    verbose = !verbose
+    verbose = !verbose;
+    file_list = !file_list
   } in
   (spec, update)
