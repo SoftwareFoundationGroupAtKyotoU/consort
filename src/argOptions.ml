@@ -17,27 +17,6 @@ module Solver = struct
     command = None;
     command_extra = None
   }
-  let opt_gen ?nm ?(solv_nm="solver") () =
-    let open Arg in
-    let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
-    let timeout = ref default.timeout in
-    let command = ref None in
-    let extra = ref None in
-    let spec = [
-      ("-" ^ pref ^ "timeout", Set_int timeout,
-       Printf.sprintf "Timeout for %s in seconds" solv_nm);
-      ("-" ^ pref ^ "command", String (fun s -> command := Some s),
-       Printf.sprintf "Executable for %s" solv_nm);
-      ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s),
-       Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
-    ] in
-    let update ?(opts=default) () =
-      let _ = opts in {
-        timeout = !timeout;
-        command = !command;
-        command_extra = !extra
-      } in
-    (spec, update)
 end
 
 type t = {
@@ -136,19 +115,29 @@ let infr_opts_loader () =
      "Use alternative, relaxed maximization constraints")
   ] in
   (spec, (fun () -> !relaxed_max))
-let opt_gen () =
-  let (spec, update) = Solver.opt_gen () in
-  (spec, fun ?(opts=default) () -> {
-        opts with
-        solver_opts = update ~opts:opts.solver_opts ()
-      })
-let ownership_arg_gen () =
-  let (spec, update) =
-    Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver" () in
-  (spec, fun ?(opts=default) () -> {
-        opts with
-        solver_opts = update ~opts:opts.solver_opts ()
-      })
+let opt_gen ?nm ?(solv_nm="solver") () =
+  let open Arg in
+  let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
+  let timeout = ref default.solver_opts.timeout in
+  let command = ref None in
+  let extra = ref None in
+  let spec = [
+    ("-" ^ pref ^ "timeout", Set_int timeout,
+     Printf.sprintf "Timeout for %s in seconds" solv_nm);
+    ("-" ^ pref ^ "command", String (fun s -> command := Some s),
+     Printf.sprintf "Executable for %s" solv_nm);
+    ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s),
+     Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
+  ] in
+  let update ?(opts=default) () = {
+    opts with solver_opts = {
+      timeout = !timeout;
+      command = !command;
+      command_extra = !extra
+    }
+  } in
+  (spec, update)
+let ownership_arg_gen () = opt_gen ~nm:"o" ~solv_nm:"ownership solver" ()
 let solver_arg_gen () =
   let check_trivial = ref default.check_trivial in
   let solver = ref default.solver in
