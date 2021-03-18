@@ -22,9 +22,9 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
 
-let infer_ownership opts intr simple_res ast =
+let infer_ownership opts simple_res ast =
   let module OI = OwnershipInference in
-  let o_result = OI.infer ~opts simple_res intr.Intrinsics.op_interp ast in
+  let o_result = OI.infer ~opts simple_res opts.intrinsics.Intrinsics.op_interp ast in
   match OwnershipSolver.solve_ownership ~opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->
@@ -113,8 +113,7 @@ let print_model t =
 
 let check_file ?(opts=ArgOptions.default) in_name =
   let ast = AstUtil.parse_file in_name in
-  let intr = opts.intrinsics in
-  let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
+  let simple_typing = RefinementTypes.to_simple_funenv opts.intrinsics.Intrinsics.op_interp in
   let ((program_types,_) as simple_res)= SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
@@ -123,7 +122,7 @@ let check_file ?(opts=ArgOptions.default) in_name =
       ) program_types;
     flush stderr
   end;
-  let infer_opt = infer_ownership opts intr simple_res ast in
+  let infer_opt = infer_ownership opts simple_res ast in
   match infer_opt with
   | None -> Unverified Aliasing
   | Some r ->
