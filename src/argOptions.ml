@@ -193,9 +193,6 @@ let option_loader () =
     "Load definitions of standard operations from <file>"
   ] in
   let update () =
-    let open Intrinsics in
-    match !f_name with
-    | None -> empty
-    | Some s -> load s
+    Intrinsics.option_loader !f_name
   in
   (spec, update)
