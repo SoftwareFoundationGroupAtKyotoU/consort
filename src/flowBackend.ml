@@ -148,7 +148,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         ]
       ] ff.printer
 
-  let solve_constraints ~opts ~interp:(_,_) ~fgen rel impl start_relation =
+  let solve_constraints ~opts ~fgen rel impl start_relation =
     let intr = opts.ArgOptions.intrinsics in
     let ff = SexpPrinter.fresh () in
     let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
@@ -264,6 +264,5 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         )
       ) opts.dump_ir in
     (),
-    let intr = opts.intrinsics in
-    solve_constraints ~opts ~interp:(intr.rel_interp,intr.def_file) ~fgen rel impl start
+    solve_constraints ~opts ~fgen rel impl start
 end
