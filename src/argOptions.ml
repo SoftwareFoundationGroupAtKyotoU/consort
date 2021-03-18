@@ -54,7 +54,6 @@ type t = {
   omit_havoc : bool;
   null_checks : bool;
   solver_opts : Solver.options;
-  own_solv_opts : Solver.options
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
 type arg_update = ?opts:t -> unit -> t
@@ -74,7 +73,6 @@ let default = {
   omit_havoc = false;
   null_checks = false;
   solver_opts = Solver.default;
-  own_solv_opts = Solver.default;
 }
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let s1, f1 = g1 in
@@ -149,7 +147,7 @@ let ownership_arg_gen () =
     Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver" () in
   (spec, fun ?(opts=default) () -> {
         opts with
-        own_solv_opts = update ~opts:opts.own_solv_opts ()
+        solver_opts = update ~opts:opts.solver_opts ()
       })
 let solver_arg_gen () =
   let check_trivial = ref default.check_trivial in

@@ -165,7 +165,7 @@ let solve_ownership ~opts (ovars, ocons, max_vars) =
   end;
   finish o_buf;
   let res = Z3Channel.call_z3_raw
-      ~opts:opts.ArgOptions.own_solv_opts
+      ~opts:opts.ArgOptions.solver_opts
       ?save_cons:opts.ArgOptions.save_cons
       ~debug_cons:(Log.check_source None)
       ~defn_file:None
