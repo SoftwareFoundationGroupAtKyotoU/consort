@@ -22,11 +22,6 @@ let pred = "(define-fun ov-wf ((o Real)) Bool
 
 let ovar_name ovar = Printf.sprintf "ovar-%d" ovar
 
-type options = Solver.options
-let default = Solver.default
-
-let ownership_arg_gen = Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver"
-
 let pp_wf o_buf i =
   pg "assert" [
     pg "ov-wf" [

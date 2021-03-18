@@ -1,39 +1,3 @@
-module Options :
-  sig
-    type solver =
-      | Hoice
-      | Spacer
-      | Z3SMT
-      | Eldarica
-      | Parallel
-      | Null
-
-  
-    type t = {
-      debug_cons: bool;
-      debug_ast: bool;
-      save_cons: string option;
-      annot_infr: bool;
-      print_model: bool;
-      dry_run : bool;
-      check_trivial: bool;
-      solver: solver;
-      dump_ir : string option;
-      relaxed_mode : bool;
-      omit_havoc: bool;
-      null_checks: bool;
-      solver_opts: Solver.options;
-      own_solv_opts: OwnershipSolver.options
-    }
-
-    type arg_spec = (string * Arg.spec * string) list * (?comb:t -> unit -> t)
-    val debug_arg_gen : unit -> arg_spec
-    val solver_arg_gen : unit -> arg_spec
-    val solver_opt_gen : unit -> arg_spec
-    val seq : (unit -> arg_spec) -> arg_spec -> arg_spec
-    val default : t
-  end
-
 type reason =
   | Timeout
   | Unsafe
@@ -49,4 +13,4 @@ type check_result =
 val result_to_string : check_result -> string
 val reason_to_string : reason -> string
 
-val check_file : ?opts:Options.t -> ?intrinsic_defn:Intrinsics.interp_t -> string -> check_result
+val check_file : ?opts:ArgOptions.t -> ?intrinsic_defn:Intrinsics.interp_t -> string -> check_result

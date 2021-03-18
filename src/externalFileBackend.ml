@@ -7,6 +7,7 @@ module Make(D: sig
       type st = string * string
       let dispose _ = ()
       open Solver
+      open ArgOptions.Solver
       let prepare_out ~solver_opts:{ timeout; command; command_extra} save_cons =
         let (nm,chan) =
           match save_cons with
