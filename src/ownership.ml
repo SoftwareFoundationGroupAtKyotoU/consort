@@ -71,8 +71,8 @@ let pp_owner =
   | OConst o -> pf "%f" o
   | OVar v -> pf "$%d" v
 
-let ownership_infr debug i_gen o_gen inf file =
-  let intr = i_gen () in
+let ownership_infr ~opts debug o_gen inf file =
+  let intr = opts.ArgOptions.intrinsics in
   let ast = AstUtil.parse_file file in
   let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
   let ((_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
@@ -95,10 +95,12 @@ let ownership_infr debug i_gen o_gen inf file =
       ) ~o_printer:(pf "%f") r ast
 
 let () =
-  let (i_list, gen) = ArgOptions.intrinsics_arg_gen () in
-  let gen () = (gen ()).ArgOptions.intrinsics in
+  let (spec, to_opts) =
+    let open ArgOptions in
+    intrinsics_arg_gen ()
+  in
   let (o_list, o_gen) = ArgOptions.ownership_arg_gen () in
   let (inf_list, inf_gen) = ArgOptions.infr_opts_loader () in
   let debug = ref None in
-  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (i_list @ o_list @ inf_list) in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr debug gen o_gen inf_gen
+  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (spec @ o_list @ inf_list) in
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ()) debug o_gen inf_gen
