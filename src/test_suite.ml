@@ -44,19 +44,16 @@ let () =
     |> spec_seq intrinsics_arg_gen
   in
   let file_list = ref [] in
-  let args = [
-    ("-neg", Arg.Clear expect, "Expect typing failures");
-    ("-pos", Arg.Set expect, "Expect typing success (default)");
-    ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");
-    ("-verbose", Arg.Set verbose, "Provide more output");
-    ("-files", Arg.Rest (fun s ->
-       file_list := s::!file_list
-     ), "Interpret all remaining arguments as files to test"
-    )
-  ] @ a_list in
+  let (spec, update) = ArgOptions.test_suite_arg_gen () in
+  let args = spec @ a_list in
   let dir_list = ref [] in
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let v_opts = gen () in
+  let opts = update ~opts:v_opts () in
+  expect := opts.expect_typing;
+  KCFA.cfa := opts.cfa;
+  verbose := opts.verbose;
+  file_list := opts.file_list;
   let n_tests = ref 0 in
   let run = run_test v_opts v_opts.intrinsics !expect in
   maybe_print "Testing ";
