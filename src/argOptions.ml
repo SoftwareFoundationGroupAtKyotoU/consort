@@ -110,18 +110,15 @@ let debug_arg_gen () =
     dry_run = !dry_run
   } in
   (spec, update)
-let infr_opts_loader () =
+let infr_arg_gen () =
   let relaxed_max = ref false in
   let open Arg in
   let spec = [
     ("-relaxed-max", Unit (fun () -> relaxed_max := true),
      "Use alternative, relaxed maximization constraints")
   ] in
-  (spec, (fun () -> !relaxed_max))
-let infr_arg_gen () =
-  let (spec, update) = infr_opts_loader () in
   let update ?(opts=default) () = {
-    opts with relaxed_mode = update ()
+    opts with relaxed_mode = !relaxed_max
   } in
   (spec, update)
 let opt_gen ?nm ?(solv_nm="solver") () =

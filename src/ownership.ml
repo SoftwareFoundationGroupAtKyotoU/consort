@@ -100,7 +100,8 @@ let () =
     intrinsics_arg_gen ()
     |> spec_seq ownership_arg_gen
   in
-  let (inf_list, inf_gen) = ArgOptions.infr_opts_loader () in
+  let (inf_list, inf_gen) = ArgOptions.infr_arg_gen () in
+  let inf_gen () = (inf_gen ()).ArgOptions.relaxed_mode in
   let debug = ref None in
   let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (spec @ inf_list) in
   Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ()) debug inf_gen
