@@ -24,13 +24,13 @@ module Make(D: sig
       val dispose : st -> unit
       val name : string
     end) : S = struct
-  let handle_return get_model s p = 
+  let handle_return ~opts s p =
     let res = String.trim @@ input_line p.Process.proc_stdout in
     let return_and_close f = Process.dispose p; D.dispose s; f in
     match res with
     | "sat" ->
       let m =
-        if get_model then
+        if (ArgOptions.get_model opts) then
           let model = Files.string_of_channel p.Process.proc_stdout in
           Some model
         else
@@ -72,10 +72,10 @@ module Make(D: sig
     close_out o;
     let p = D.spawn s in
     (s,p)
-    
+
   let call ~opts ~defn_file ~strat cons =
     let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
-    handle_return (ArgOptions.get_model opts) s p
+    handle_return ~opts s p
 
   let call_cont ~opts ~defn_file ~strat cons =
     let opts =
@@ -85,5 +85,5 @@ module Make(D: sig
         save_cons = None
       } in
     let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
-    (p, (fun () -> handle_return (ArgOptions.get_model opts) s p), (fun () -> D.dispose s))
+    (p, (fun () -> handle_return ~opts s p), (fun () -> D.dispose s))
 end
