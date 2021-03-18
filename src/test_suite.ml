@@ -39,10 +39,10 @@ let () =
   let maybe_print s = if !verbose then (print_string s; flush stdout) else () in
   let (a_list,gen) =
     let open ArgOptions in
-    solver_arg_gen () |> spec_seq solver_opt_gen
+    solver_arg_gen ()
+    |> spec_seq solver_opt_gen
+    |> spec_seq intrinsics_arg_gen
   in
-  let (i_list,i_gen) = ArgOptions.intrinsics_arg_gen () in
-  let i_gen () = (i_gen ()).ArgOptions.intrinsics in
   let file_list = ref [] in
   let args = [
     ("-neg", Arg.Clear expect, "Expect typing failures");
@@ -53,13 +53,12 @@ let () =
        file_list := s::!file_list
      ), "Interpret all remaining arguments as files to test"
     )
-  ] @ i_list @ a_list in
+  ] @ a_list in
   let dir_list = ref [] in
   Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let v_opts = gen () in
-  let intr = i_gen () in
   let n_tests = ref 0 in
-  let run = run_test v_opts intr !expect in
+  let run = run_test v_opts v_opts.intrinsics !expect in
   maybe_print "Testing ";
   List.iter (fun dir ->
     maybe_print @@ dir ^ "... ";
