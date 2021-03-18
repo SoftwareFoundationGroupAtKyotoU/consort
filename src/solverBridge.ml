@@ -51,17 +51,18 @@ module Make(D: sig
       with
       | Failure _ -> return_and_close @@ Solver.Unhandled s
 
-  let prepare_call ~opts ~debug_cons ?save_cons ~get_model ~defn_file ~strat cons =
-    if debug_cons then begin
+  let prepare_call ~opts ~defn_file ~strat cons =
+    let open ArgOptions in
+    if opts.debug_cons then begin
       let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
       Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
       flush stderr
     end;
-    let (s,o) = D.prepare_out ~solver_opts:opts save_cons in
+    let (s,o) = D.prepare_out ~solver_opts:opts.solver_opts opts.save_cons in
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
     let cmd = "\n" ^ strat ^ "\n" ^ (
-        if get_model then
+        if (get_model opts) then
           "(get-model)\n"
         else
           ""
@@ -73,12 +74,16 @@ module Make(D: sig
     (s,p)
     
   let call ~opts ~defn_file ~strat cons =
-    let get_model = ArgOptions.get_model opts in
-    let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons:opts.ArgOptions.debug_cons ?save_cons:opts.ArgOptions.save_cons ~get_model ~defn_file ~strat cons in
-    handle_return get_model s p
+    let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
+    handle_return (ArgOptions.get_model opts) s p
 
   let call_cont ~opts ~defn_file ~strat cons =
-    let get_model = ArgOptions.get_model opts in
-    let (s,p) = prepare_call ~opts:opts.ArgOptions.solver_opts ~debug_cons:false ?save_cons:None ~get_model ~defn_file ~strat cons in
-    (p, (fun () -> handle_return get_model s p), (fun () -> D.dispose s))
+    let opts =
+      let open ArgOptions in {
+        opts with
+        debug_cons = false;
+        save_cons = None
+      } in
+    let (s,p) = prepare_call ~opts ~defn_file ~strat cons in
+    (p, (fun () -> handle_return (ArgOptions.get_model opts) s p), (fun () -> D.dispose s))
 end
