@@ -17,7 +17,6 @@ module Solver = struct
     command = None;
     command_extra = None
   }
-
   let opt_gen ?nm ?(solv_nm="solver") () =
     let open Arg in
     let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
@@ -32,8 +31,8 @@ module Solver = struct
       ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s),
        Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
     ] in
-    let update ?(comb=default) () =
-      let _ = comb in {
+    let update ?(opts=default) () =
+      let _ = opts in {
         timeout = !timeout;
         command = !command;
         command_extra = !extra
@@ -58,7 +57,7 @@ type t = {
   own_solv_opts : Solver.options
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
-type arg_update = ?comb:t -> unit -> t
+type arg_update = ?opts:t -> unit -> t
 type arg_gen = arg_spec list * arg_update
 
 let default = {
@@ -81,7 +80,7 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let s1, f1 = g1 in
   let s2, f2 = g2 () in
   let spec = s1 @ s2 in
-  let update ?(comb=default) () = f2 ~comb:(f1 ~comb ()) () in
+  let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
 let debug_arg_gen () =
   let open Arg in
@@ -121,8 +120,8 @@ let debug_arg_gen () =
        "Debug sources s1,s2,...");
       ("-debug-all", Unit Log.all, "Show all debug output")
     ] in
-  let update ?(comb=default) () = {
-    comb with
+  let update ?(opts=default) () = {
+    opts with
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
     save_cons = !save_cons;
@@ -141,16 +140,16 @@ let infr_opts_loader () =
   (spec, (fun () -> !relaxed_max))
 let opt_gen () =
   let (spec, update) = Solver.opt_gen () in
-  (spec, fun ?(comb=default) () -> {
-        comb with
-        solver_opts = update ~comb:comb.solver_opts ()
+  (spec, fun ?(opts=default) () -> {
+        opts with
+        solver_opts = update ~opts:opts.solver_opts ()
       })
 let ownership_arg_gen () =
   let (spec, update) =
     Solver.opt_gen ~nm:"o" ~solv_nm:"ownership solver" () in
-  (spec, fun ?(comb=default) () -> {
-        comb with
-        own_solv_opts = update ~comb:comb.own_solv_opts ()
+  (spec, fun ?(opts=default) () -> {
+        opts with
+        own_solv_opts = update ~opts:opts.own_solv_opts ()
       })
 let solver_arg_gen () =
   let check_trivial = ref default.check_trivial in
@@ -186,8 +185,8 @@ let solver_arg_gen () =
          | _ -> assert false),
      " Use solver backend <solver>. (default: spacer)")
   ] in
-  let update ?(comb=default) () = {
-    comb with
+  let update ?(opts=default) () = {
+    opts with
     check_trivial = !check_trivial;
     solver = !solver;
     dump_ir = !dump_ir;
