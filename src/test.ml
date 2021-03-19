@@ -13,7 +13,6 @@ let () =
   | None -> print_endline "No file provided"; exit 1
   | Some in_name ->
     let opts = to_opts () in
-    KCFA.cfa := opts.cfa;
     let res = Consort.check_file ~opts in_name in
     let () =
       if opts.yaml then

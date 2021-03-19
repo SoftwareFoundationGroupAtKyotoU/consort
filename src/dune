@@ -40,7 +40,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (wrapped false)
  (libraries sexplib util lang str solving ownership)
- (modules KCFA HornBackend SmtBackend
+ (modules HornBackend SmtBackend
           Z3BasedBackend Consort
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
