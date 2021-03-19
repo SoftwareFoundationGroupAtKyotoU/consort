@@ -39,7 +39,8 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       pl @@ string_of_int i
      
 
-  let close_and_print ~fgen rel_op clause =
+  let close_and_print ~opts ~fgen clause =
+    let rel_op = opts.ArgOptions.intrinsics.rel_interp in
     let rec pp_arg ty = function
       | Ap p -> add_ident p ty >> return @@ pp_ap p
       | IConst i -> return @@ pp_int i
@@ -115,18 +116,18 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       else
         return @@ pl name
 
-  let close_impl ~fgen relops ante conseq =
+  let close_impl ~opts ~fgen ante conseq =
     let path_types = Paths.PathMap.empty in
-    let path_types,ante_k = mmap (close_and_print ~fgen relops) ante path_types in
+    let path_types,ante_k = mmap (close_and_print ~opts ~fgen) ante path_types in
     let ante_k = match ante_k with
       | [] -> pl "true"
       | _ -> pg "and" ante_k
     in
-    let path_types,conseq_k = close_and_print ~fgen relops conseq path_types in
+    let path_types,conseq_k = close_and_print ~opts ~fgen conseq path_types in
     (path_types,ante_k,conseq_k)
 
-  let pp_impl ~fgen relops (ante,conseq) ff =
-    let (args,ante_k,conseq_k) = close_impl ~fgen relops ante conseq in
+  let pp_impl ~opts ~fgen (ante,conseq) ff =
+    let (args,ante_k,conseq_k) = close_impl ~opts ~fgen ante conseq in
     let quantif = Paths.PathMap.bindings args |> List.map (fun (s,t) ->
         ll [ pp_ap s; pp_ztype t ]
         ) in
@@ -175,7 +176,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         break ff
       ) rel;
       List.iter (fun imp ->
-        pp_impl ~fgen opts.ArgOptions.intrinsics.rel_interp imp ff;
+        pp_impl ~opts ~fgen imp ff;
         break ff
       ) impl;
 
