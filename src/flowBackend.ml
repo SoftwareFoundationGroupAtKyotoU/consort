@@ -99,11 +99,11 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       in
       let val_args = List.filter_map Fun.id val_args in
       let%bind ctxt_args =
-        if !KCFA.cfa = 0 then
+        if opts.cfa = 0 then
           return []
         else
           let tl_adj = Option.fold ~none:0 ~some:(Fun.const 1) ctxt_shift in
-          let%bind tail = List.init (!KCFA.cfa - tl_adj) context_at |> List.map P.var |> mmap (fun ap ->
+          let%bind tail = List.init (opts.cfa - tl_adj) context_at |> List.map P.var |> mmap (fun ap ->
                 add_ident ap ZInt >> return @@ pp_ap ap
               ) in
           match ctxt_shift with
@@ -151,12 +151,13 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
 
   let solve_constraints ~opts ~fgen rel impl start_relation =
     let ff = SexpPrinter.fresh () in
-    let ctxt_args = List.init !KCFA.cfa (fun _ -> pp_ztype ZInt) in
+    let cfa = opts.ArgOptions.cfa in
+    let ctxt_args = List.init cfa (fun _ -> pp_ztype ZInt) in
     let grounded =
-      if !KCFA.cfa = 0 then
+      if cfa = 0 then
         pl start_relation
       else
-        pg start_relation @@ List.init !KCFA.cfa (fun _ -> pl "0")
+        pg start_relation @@ List.init cfa (fun _ -> pl "0")
     in
     let () =
       List.iter (fun (nm,args,_) ->
