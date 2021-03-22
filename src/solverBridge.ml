@@ -28,7 +28,7 @@ module Make(D: sig
     match res with
     | "sat" ->
       let m =
-        if (ArgOptions.get_model opts) then
+        if (opts.ArgOptions.print_model) then
           let model = Files.string_of_channel p.Process.proc_stdout in
           Some model
         else
@@ -61,7 +61,7 @@ module Make(D: sig
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
     let cmd = "\n" ^ strat ^ "\n" ^ (
-        if (get_model opts) then
+        if opts.print_model then
           "(get-model)\n"
         else
           ""

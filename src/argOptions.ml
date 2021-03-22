@@ -65,7 +65,6 @@ let default = {
   exit_status = false;
   yaml = false;
 }
-let get_model opts = opts.print_model
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let s1, f1 = g1 in
   let s2, f2 = g2 () in
