@@ -252,3 +252,10 @@ let test_arg_gen () =
     yaml = !yaml;
   } in
   (spec, update)
+let arg_gen () =
+  debug_arg_gen ()
+  |> spec_seq solver_arg_gen
+  |> spec_seq solver_opt_gen
+  |> spec_seq intrinsics_arg_gen
+  |> spec_seq test_arg_gen
+  |> spec_seq test_suite_arg_gen

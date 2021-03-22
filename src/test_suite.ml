@@ -34,13 +34,7 @@ let test_file run n_tests f_name =
   else ()
 
 let () =
-  let (spec, update) =
-    let open ArgOptions in
-    solver_arg_gen ()
-    |> spec_seq solver_opt_gen
-    |> spec_seq intrinsics_arg_gen
-    |> spec_seq test_suite_arg_gen
-  in
+  let (spec, update) = ArgOptions.arg_gen () in
   let dir_list = ref [] in
   Arg.parse spec (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
   let opts = update () in

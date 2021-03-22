@@ -94,11 +94,5 @@ let ownership_infr ~opts file =
       ) ~o_printer:(pf "%f") r ast
 
 let () =
-  let (spec, to_opts) =
-    let open ArgOptions in
-    debug_arg_gen ()
-    |> spec_seq intrinsics_arg_gen
-    |> spec_seq ownership_arg_gen
-    |> spec_seq infr_arg_gen
-  in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ())
+  let (spec, update) = ArgOptions.arg_gen () in
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(update ())
