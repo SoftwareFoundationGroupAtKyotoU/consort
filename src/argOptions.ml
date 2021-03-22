@@ -74,19 +74,16 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let opt_gen ?nm ?(solv_nm="solver") () =
+let opt_gen () =
   let open Arg in
-  let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
   let timeout = ref default.solver_opts.timeout in
   let command = ref default.solver_opts.command in
   let extra = ref default.solver_opts.command_extra in
   let spec = [
-    ("-" ^ pref ^ "timeout", Set_int timeout,
-     Printf.sprintf "Timeout for %s in seconds" solv_nm);
-    ("-" ^ pref ^ "command", String (fun s -> command := Some s),
-     Printf.sprintf "Executable for %s" solv_nm);
-    ("-" ^ pref ^ "solver-args", String (fun s -> extra := Some s),
-     Printf.sprintf "Extra arguments to pass wholesale to %s" solv_nm)
+    ("-timeout", Set_int timeout, "Timeout for solver in seconds");
+    ("-command", String (fun s -> command := Some s), "Executable for solver");
+    ("-solver-args", String (fun s -> extra := Some s),
+     "Extra arguments to pass wholesale to solver")
   ] in
   let update ?(opts=default) () = {
     opts with solver_opts = {
@@ -96,7 +93,6 @@ let opt_gen ?nm ?(solv_nm="solver") () =
     }
   } in
   (spec, update)
-let ownership_arg_gen () = opt_gen ~nm:"o" ~solv_nm:"ownership solver" ()
 let solver_arg_gen () =
   let check_trivial = ref default.check_trivial in
   let solver = ref default.solver in
@@ -140,8 +136,6 @@ let solver_arg_gen () =
     null_checks = !null_checks
   } in
   (spec, update)
-let solver_opt_gen () =
-  ownership_arg_gen () |> spec_seq opt_gen
 let intrinsics_arg_gen () =
   let open Arg in
   let f_name = ref None in
@@ -246,7 +240,7 @@ let arg_gen () =
   } in
   (spec, update)
   |> spec_seq solver_arg_gen
-  |> spec_seq solver_opt_gen
+  |> spec_seq opt_gen
   |> spec_seq intrinsics_arg_gen
   |> spec_seq test_arg_gen
   |> spec_seq test_suite_arg_gen
