@@ -26,7 +26,6 @@ type t = {
   annot_infr : bool;
   print_model : bool;
   dry_run : bool;
-  check_trivial : bool;
   solver : Solver.choice;
   dump_ir : string option;
   relaxed_mode : bool;
@@ -52,7 +51,6 @@ let default = {
   annot_infr = false;
   print_model = false;
   dry_run = false;
-  check_trivial = false;
   solver = Spacer;
   dump_ir = None;
   relaxed_mode = false;
@@ -67,7 +65,7 @@ let default = {
   exit_status = false;
   yaml = false;
 }
-let get_model opts = opts.print_model || opts.check_trivial
+let get_model opts = opts.print_model
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let s1, f1 = g1 in
   let s2, f2 = g2 () in
@@ -81,7 +79,6 @@ let arg_gen () =
   let annot_infr = ref default.annot_infr in
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
-  let check_trivial = ref default.check_trivial in
   let solver = ref default.solver in
   let dump_ir = ref default.dump_ir in
   let relaxed_mode = ref default.relaxed_mode in
@@ -117,8 +114,6 @@ let arg_gen () =
          Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
      "Debug sources s1,s2,...");
     ("-debug-all", Unit Log.all, "Show all debug output");
-    ("-check-triviality", Set check_trivial,
-     "Check if produced model is trivial");
     ("-solver",
      Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
          | "spacer" -> solver := Spacer
@@ -160,7 +155,6 @@ let arg_gen () =
     annot_infr = !annot_infr;
     print_model = !print_model;
     dry_run = !dry_run;
-    check_trivial = !check_trivial;
     solver = !solver;
     dump_ir = !dump_ir;
     relaxed_mode = !relaxed_mode || !omit_havoc;

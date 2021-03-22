@@ -39,72 +39,6 @@ let infer_ownership opts simple_res ast =
       OI.gen = OI.GenMap.map map_ownership o_result.OI.Result.op_record.gen
     } in
     Some o_hints
-(*
-let check_triviality res ast t =
-  let rec is_trivial_refinemnt ss =
-    let open RefinementTypes in
-    function
-    | Pred (nm,_)
-    | CtxtPred(_,nm,_) ->
-      StringSet.mem nm ss
-    | And (r1,r2) -> (is_trivial_refinemnt ss r1) && (is_trivial_refinemnt ss r2)
-    | _ -> false
-  in
-  let has_trivial_ref ss =
-    let open RefinementTypes in
-    fold_refinements (fun acc r ->
-      acc || (is_trivial_refinemnt ss r)
-    ) false
-  in
-  let env_is_trivial ss =
-    StringMap.exists (fun _ t ->
-      has_trivial_ref ss t
-    )
-  in
-  let check_model m_raw =
-    let open Sexplib.Sexp in
-    let m = of_string m_raw in
-    match m with
-    | List (Atom "model"::l) ->
-      let triv_preds = List.fold_left (fun acc sexp ->
-          match sexp with
-          | List (Atom "define-fun"::Atom nm::rem) -> begin
-            let rem_len = List.length rem in
-            let final = List.nth rem @@ rem_len - 1 in
-            match final with
-            | Atom "false" -> nm::acc
-            | _ -> acc
-            end
-          | _ -> acc
-        ) [] l
-      in
-      if List.length triv_preds = 0 then
-        ()
-      else begin
-        let pred_set = StringSet.of_list triv_preds in
-        Printf.fprintf stderr "!!!! Inferred trivial solution (check grounding?) !!!!\n";
-        AstPrinter.pretty_print_program ~with_labels:true ~annot:(fun (id,_) _ ->
-          let envs = res.Inference.Result.ty_envs in
-          Hashtbl.find_opt envs id
-          |> Option.map @@ env_is_trivial pred_set
-          |> Fun.flip Option.bind @@ (fun flg ->
-              let open PrettyPrint in
-              if flg then
-                Some (pl [ ps "// TRIVIAL"; newline ])
-              else
-                None
-            )
-          |> Option.value ~default:(PrettyPrint.null)
-        ) stderr ast;
-        let bad_preds = String.concat ", " triv_preds in
-        failwith @@ Printf.sprintf "Solution contains trivial solutions for %s" bad_preds
-      end
-    | _ -> ()
-  in
-  if (not t) then Option.iter (fun _ -> ())
-  else
-    Option.iter check_model
-*)
 let print_model t =
   if t then
     Option.iter (fun s -> prerr_endline s; flush stderr)
@@ -140,7 +74,6 @@ let check_file ?(opts=ArgOptions.default) in_name =
     let open Solver in
     match ans with
     | Sat m ->
-      (*      check_triviality state ast opts.check_trivial m;*)
       print_model opts.print_model m;
       Verified
     | Unsat -> Unverified Unsafe
