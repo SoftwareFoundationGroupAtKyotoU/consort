@@ -74,25 +74,6 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let opt_gen () =
-  let open Arg in
-  let timeout = ref default.solver_opts.timeout in
-  let command = ref default.solver_opts.command in
-  let extra = ref default.solver_opts.command_extra in
-  let spec = [
-    ("-timeout", Set_int timeout, "Timeout for solver in seconds");
-    ("-command", String (fun s -> command := Some s), "Executable for solver");
-    ("-solver-args", String (fun s -> extra := Some s),
-     "Extra arguments to pass wholesale to solver")
-  ] in
-  let update ?(opts=default) () = {
-    opts with solver_opts = {
-      timeout = !timeout;
-      command = !command;
-      command_extra = !extra
-    }
-  } in
-  (spec, update)
 let solver_arg_gen () =
   let check_trivial = ref default.check_trivial in
   let solver = ref default.solver in
@@ -195,6 +176,9 @@ let arg_gen () =
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
   let relaxed_mode = ref default.relaxed_mode in
+  let timeout = ref default.solver_opts.timeout in
+  let command = ref default.solver_opts.command in
+  let extra = ref default.solver_opts.command_extra in
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
   let mk_arg key flg what = [
@@ -227,6 +211,10 @@ let arg_gen () =
       ("-debug-all", Unit Log.all, "Show all debug output");
       ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
        "Use alternative, relaxed maximization constraints");
+      ("-timeout", Set_int timeout, "Timeout for solver in seconds");
+      ("-command", String (fun s -> command := Some s), "Executable for solver");
+      ("-solver-args", String (fun s -> extra := Some s),
+       "Extra arguments to pass wholesale to solver");
     ] in
   let update ?(opts=default) () = {
     opts with
@@ -237,10 +225,14 @@ let arg_gen () =
     print_model = !print_model;
     dry_run = !dry_run;
     relaxed_mode = !relaxed_mode;
+    solver_opts = {
+      timeout = !timeout;
+      command = !command;
+      command_extra = !extra
+    };
   } in
   (spec, update)
   |> spec_seq solver_arg_gen
-  |> spec_seq opt_gen
   |> spec_seq intrinsics_arg_gen
   |> spec_seq test_arg_gen
   |> spec_seq test_suite_arg_gen
