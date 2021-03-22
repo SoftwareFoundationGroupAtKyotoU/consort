@@ -111,8 +111,6 @@ let arg_gen () =
        "Print an annotated AST program with the inferred types on stderr");
       ("-dry-run", Set dry_run,
        "Parse, typecheck, and run inference, but do not actually run Z3");
-      ("-sigh", Unit (fun () -> save_cons := Some "sigh.smt"),
-       "Here we go again...");
       ("-save-cons", String (fun s -> save_cons := Some s),
        "Save constraints in <file>");
       ("-show-all", Unit (fun () ->
@@ -127,9 +125,6 @@ let arg_gen () =
            Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
        "Debug sources s1,s2,...");
       ("-debug-all", Unit Log.all, "Show all debug output");
-      ("-seq-solver", Unit (fun () ->
-           prerr_endline "WARNING: seq solver option is deprecated and does nothing"),
-       "(DEPRECATED) No effect");
       ("-check-triviality", Set check_trivial,
        "Check if produced model is trivial");
       ("-solver",
@@ -142,11 +137,8 @@ let arg_gen () =
            | "parallel" -> solver := Parallel
            | _ -> assert false),
        " Use solver backend <solver>. (default: spacer)");
-      ("-mode", Symbol (["refinement"; "unified"], fun _ ->
-           prerr_endline "WARNING: the mode option is deprecated and does nothing"),
-       " (DEPRECATED) No effect");
       ("-dump-ir", String (fun s -> dump_ir := Some s),
-       "Dump intermediate relations and debugging information (only implemented in unified)");
+       "Dump intermediate relations and debugging information");
       ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
        "Use alternative, relaxed maximization constraints");
       ("-omit-havoc", Set omit_havoc,
