@@ -248,5 +248,7 @@ let test_arg_gen () =
   let update ?(opts=default) () = {
     opts with
     cfa = !cfa;
+    exit_status = !status;
+    yaml = !yaml;
   } in
   (spec, update)
