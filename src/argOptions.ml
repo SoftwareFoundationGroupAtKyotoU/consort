@@ -99,68 +99,60 @@ let arg_gen () =
   let yaml = ref default.yaml in
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
-  let mk_arg key flg what = [
-    ("-no-" ^ key, Clear flg, Printf.sprintf "Do not print %s" what);
-    ("-show-" ^ key, Set flg, Printf.sprintf "Print %s on stderr" what)
+  let spec = [
+    ("-show-cons", Set debug_cons, "Print constraints sent to Z3 on stderr");
+    ("-show-ast", Set debug_ast, "Print (low-level) AST on stderr");
+    ("-show-model", Set print_model, "Print inferred model produced from successful verification on stderr");
+    ("-annot-infer", Set annot_infr,
+     "Print an annotated AST program with the inferred types on stderr");
+    ("-dry-run", Set dry_run,
+     "Parse, typecheck, and run inference, but do not actually run Z3");
+    ("-save-cons", String (fun s -> save_cons := Some s),
+     "Save constraints in <file>");
+    ("-show-all", Unit (fun () ->
+         List.iter (fun r -> r := true) all_debug_flags;
+         Log.all ()),
+     "Show all debug output");
+    ("-debug", String (fun s ->
+         Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
+     "Debug sources s1,s2,...");
+    ("-debug-all", Unit Log.all, "Show all debug output");
+    ("-check-triviality", Set check_trivial,
+     "Check if produced model is trivial");
+    ("-solver",
+     Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
+         | "spacer" -> solver := Spacer
+         | "hoice" -> solver := Hoice
+         | "null" -> solver := Null
+         | "z3" -> solver := Z3SMT
+         | "eldarica" -> solver := Eldarica
+         | "parallel" -> solver := Parallel
+         | _ -> assert false),
+     " Use solver backend <solver>. (default: spacer)");
+    ("-dump-ir", String (fun s -> dump_ir := Some s),
+     "Dump intermediate relations and debugging information");
+    ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
+     "Use alternative, relaxed maximization constraints");
+    ("-omit-havoc", Set omit_havoc,
+     "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
+    ("-check-null", Set null_checks,
+     "For freedom of null pointer exceptions");
+    ("-timeout", Set_int timeout, "Timeout for solver in seconds");
+    ("-command", String (fun s -> command := Some s), "Executable for solver");
+    ("-solver-args", String (fun s -> extra := Some s),
+     "Extra arguments to pass wholesale to solver");
+    ("-intrinsics", String (fun x -> f_name := Some x),
+     "Load definitions of standard operations from <file>");
+    ("-neg", Clear expect, "Expect typing failures");
+    ("-pos", Set expect, "Expect typing success (default)");
+    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
+    ("-verbose", Set verbose, "Provide more output");
+    ("-files", Rest (fun s -> file_list := s::!file_list),
+     "Interpret all remaining arguments as files to test");
+    ("-exit-status", Set status,
+     "Indicate successful verification with exit code");
+    ("-yaml", Set yaml, "Print verification result in YAML format");
   ] in
-  let spec =
-    (mk_arg "cons" debug_cons "constraints sent to Z3") @
-    (mk_arg "ast" debug_ast "(low-level) AST") @
-    (mk_arg "model" print_model "inferred model produced from successful verification") @ [
-      ("-annot-infer", Set annot_infr,
-       "Print an annotated AST program with the inferred types on stderr");
-      ("-dry-run", Set dry_run,
-       "Parse, typecheck, and run inference, but do not actually run Z3");
-      ("-save-cons", String (fun s -> save_cons := Some s),
-       "Save constraints in <file>");
-      ("-show-all", Unit (fun () ->
-           List.iter (fun r -> r := true) all_debug_flags;
-           Log.all ()),
-       "Show all debug output");
-      ("-none", Unit (fun () ->
-           List.iter (fun r -> r:= false) all_debug_flags;
-           Log.disable ()),
-       "Suppress all debug output");
-      ("-debug", String (fun s ->
-           Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
-       "Debug sources s1,s2,...");
-      ("-debug-all", Unit Log.all, "Show all debug output");
-      ("-check-triviality", Set check_trivial,
-       "Check if produced model is trivial");
-      ("-solver",
-       Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
-           | "spacer" -> solver := Spacer
-           | "hoice" -> solver := Hoice
-           | "null" -> solver := Null
-           | "z3" -> solver := Z3SMT
-           | "eldarica" -> solver := Eldarica
-           | "parallel" -> solver := Parallel
-           | _ -> assert false),
-       " Use solver backend <solver>. (default: spacer)");
-      ("-dump-ir", String (fun s -> dump_ir := Some s),
-       "Dump intermediate relations and debugging information");
-      ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
-       "Use alternative, relaxed maximization constraints");
-      ("-omit-havoc", Set omit_havoc,
-       "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
-      ("-check-null", Set null_checks,
-       "For freedom of null pointer exceptions");
-      ("-timeout", Set_int timeout, "Timeout for solver in seconds");
-      ("-command", String (fun s -> command := Some s), "Executable for solver");
-      ("-solver-args", String (fun s -> extra := Some s),
-       "Extra arguments to pass wholesale to solver");
-      ("-intrinsics", String (fun x -> f_name := Some x),
-       "Load definitions of standard operations from <file>");
-      ("-neg", Clear expect, "Expect typing failures");
-      ("-pos", Set expect, "Expect typing success (default)");
-      ("-cfa", Set_int cfa, "k to use for k-cfa inference");
-      ("-verbose", Set verbose, "Provide more output");
-      ("-files", Rest (fun s -> file_list := s::!file_list),
-       "Interpret all remaining arguments as files to test");
-      ("-exit-status", Set status,
-       "Indicate successful verification with exit code");
-      ("-yaml", Set yaml, "Print verification result in YAML format");
-    ] in
   let update () = {
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
