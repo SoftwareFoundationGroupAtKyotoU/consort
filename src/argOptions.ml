@@ -74,17 +74,6 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let infr_arg_gen () =
-  let relaxed_mode = ref default.relaxed_mode in
-  let open Arg in
-  let spec = [
-    ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
-     "Use alternative, relaxed maximization constraints")
-  ] in
-  let update ?(opts=default) () = {
-    opts with relaxed_mode = !relaxed_mode
-  } in
-  (spec, update)
 let opt_gen ?nm ?(solv_nm="solver") () =
   let open Arg in
   let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
@@ -150,7 +139,7 @@ let solver_arg_gen () =
     omit_havoc = !omit_havoc;
     null_checks = !null_checks
   } in
-  spec_seq infr_arg_gen (spec, update)
+  (spec, update)
 let solver_opt_gen () =
   ownership_arg_gen () |> spec_seq opt_gen
 let intrinsics_arg_gen () =
@@ -211,6 +200,7 @@ let arg_gen () =
   let annot_infr = ref default.annot_infr in
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
+  let relaxed_mode = ref default.relaxed_mode in
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
   let mk_arg key flg what = [
@@ -241,6 +231,8 @@ let arg_gen () =
            Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
        "Debug sources s1,s2,...");
       ("-debug-all", Unit Log.all, "Show all debug output");
+      ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
+       "Use alternative, relaxed maximization constraints");
     ] in
   let update ?(opts=default) () = {
     opts with
@@ -250,6 +242,7 @@ let arg_gen () =
     annot_infr = !annot_infr;
     print_model = !print_model;
     dry_run = !dry_run;
+    relaxed_mode = !relaxed_mode;
   } in
   (spec, update)
   |> spec_seq solver_arg_gen
