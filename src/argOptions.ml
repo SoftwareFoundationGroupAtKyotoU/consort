@@ -74,28 +74,6 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let test_suite_arg_gen () =
-  let open Arg in
-  let expect = ref default.expect_typing in
-  let verbose = ref default.verbose in
-  let cfa = ref default.cfa in
-  let file_list = ref default.file_list in
-  let spec = [
-    ("-neg", Clear expect, "Expect typing failures");
-    ("-pos", Set expect, "Expect typing success (default)");
-    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
-    ("-verbose", Set verbose, "Provide more output");
-    ("-files", Rest (fun s -> file_list := s::!file_list),
-     "Interpret all remaining arguments as files to test")
-  ] in
-  let update ?(opts=default) () = {
-    opts with
-    expect_typing = !expect;
-    cfa = !cfa;
-    verbose = !verbose;
-    file_list = !file_list
-  } in
-  (spec, update)
 let test_arg_gen () =
   let open Arg in
   let cfa = ref default.cfa in
@@ -131,6 +109,10 @@ let arg_gen () =
   let command = ref default.solver_opts.command in
   let extra = ref default.solver_opts.command_extra in
   let f_name = ref None in
+  let expect = ref default.expect_typing in
+  let cfa = ref default.cfa in
+  let verbose = ref default.verbose in
+  let file_list = ref default.file_list in
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
   let mk_arg key flg what = [
@@ -193,6 +175,12 @@ let arg_gen () =
        "Extra arguments to pass wholesale to solver");
       ("-intrinsics", String (fun x -> f_name := Some x),
        "Load definitions of standard operations from <file>");
+      ("-neg", Clear expect, "Expect typing failures");
+      ("-pos", Set expect, "Expect typing success (default)");
+      ("-cfa", Set_int cfa, "k to use for k-cfa inference");
+      ("-verbose", Set verbose, "Provide more output");
+      ("-files", Rest (fun s -> file_list := s::!file_list),
+       "Interpret all remaining arguments as files to test");
     ] in
   let update ?(opts=default) () = {
     opts with
@@ -214,7 +202,10 @@ let arg_gen () =
       command_extra = !extra
     };
     intrinsics = Intrinsics.option_loader !f_name;
+    expect_typing = !expect;
+    cfa = !cfa;
+    verbose = !verbose;
+    file_list = !file_list;
   } in
   (spec, update)
   |> spec_seq test_arg_gen
-  |> spec_seq test_suite_arg_gen
