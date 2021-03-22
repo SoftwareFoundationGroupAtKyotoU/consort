@@ -74,24 +74,6 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let test_arg_gen () =
-  let open Arg in
-  let cfa = ref default.cfa in
-  let status = ref default.exit_status in
-  let yaml = ref default.yaml in
-  let spec = [
-    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
-    ("-exit-status", Set status,
-     "Indicate successful verification with exit code");
-    ("-yaml", Set yaml, "Print verification result in YAML format");
-  ] in
-  let update ?(opts=default) () = {
-    opts with
-    cfa = !cfa;
-    exit_status = !status;
-    yaml = !yaml;
-  } in
-  (spec, update)
 let arg_gen () =
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in
@@ -113,6 +95,8 @@ let arg_gen () =
   let cfa = ref default.cfa in
   let verbose = ref default.verbose in
   let file_list = ref default.file_list in
+  let status = ref default.exit_status in
+  let yaml = ref default.yaml in
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
   let mk_arg key flg what = [
@@ -181,9 +165,11 @@ let arg_gen () =
       ("-verbose", Set verbose, "Provide more output");
       ("-files", Rest (fun s -> file_list := s::!file_list),
        "Interpret all remaining arguments as files to test");
+      ("-exit-status", Set status,
+       "Indicate successful verification with exit code");
+      ("-yaml", Set yaml, "Print verification result in YAML format");
     ] in
-  let update ?(opts=default) () = {
-    opts with
+  let update () = {
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
     save_cons = !save_cons;
@@ -206,6 +192,7 @@ let arg_gen () =
     cfa = !cfa;
     verbose = !verbose;
     file_list = !file_list;
+    exit_status = !status;
+    yaml = !yaml;
   } in
   (spec, update)
-  |> spec_seq test_arg_gen
