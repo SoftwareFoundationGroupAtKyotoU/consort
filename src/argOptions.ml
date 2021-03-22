@@ -74,17 +74,6 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let intrinsics_arg_gen () =
-  let open Arg in
-  let f_name = ref None in
-  let spec = [
-    "-intrinsics", String (fun x -> f_name := Some x),
-    "Load definitions of standard operations from <file>"
-  ] in
-  let update ?(opts=default) () = {
-    opts with intrinsics = Intrinsics.option_loader !f_name
-  } in
-  (spec, update)
 let test_suite_arg_gen () =
   let open Arg in
   let expect = ref default.expect_typing in
@@ -141,6 +130,7 @@ let arg_gen () =
   let timeout = ref default.solver_opts.timeout in
   let command = ref default.solver_opts.command in
   let extra = ref default.solver_opts.command_extra in
+  let f_name = ref None in
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
   let mk_arg key flg what = [
@@ -201,6 +191,8 @@ let arg_gen () =
       ("-command", String (fun s -> command := Some s), "Executable for solver");
       ("-solver-args", String (fun s -> extra := Some s),
        "Extra arguments to pass wholesale to solver");
+      ("-intrinsics", String (fun x -> f_name := Some x),
+       "Load definitions of standard operations from <file>");
     ] in
   let update ?(opts=default) () = {
     opts with
@@ -221,8 +213,8 @@ let arg_gen () =
       command = !command;
       command_extra = !extra
     };
+    intrinsics = Intrinsics.option_loader !f_name;
   } in
   (spec, update)
-  |> spec_seq intrinsics_arg_gen
   |> spec_seq test_arg_gen
   |> spec_seq test_suite_arg_gen
