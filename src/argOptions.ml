@@ -74,49 +74,6 @@ let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
   let spec = s1 @ s2 in
   let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
   (spec, update)
-let solver_arg_gen () =
-  let check_trivial = ref default.check_trivial in
-  let solver = ref default.solver in
-  let dump_ir = ref default.dump_ir in
-  let omit_havoc = ref default.omit_havoc in
-  let null_checks = ref default.null_checks in
-  let open Arg in
-  let spec = [
-    ("-seq-solver", Unit (fun () ->
-         prerr_endline "WARNING: seq solver option is deprecated and does nothing"),
-     "(DEPRECATED) No effect");
-    ("-check-triviality", Set check_trivial,
-     "Check if produced model is trivial");
-    ("-mode", Symbol (["refinement"; "unified"], fun _ ->
-         prerr_endline "WARNING: the mode option is deprecated and does nothing"),
-     " (DEPRECATED) No effect");
-    ("-dump-ir", String (fun s -> dump_ir := Some s),
-     "Dump intermediate relations and debugging information (only implemented in unified)");
-    ("-omit-havoc", Set omit_havoc,
-     "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
-    ("-check-null", Set null_checks,
-     "For freedom of null pointer exceptions");
-    ("-solver",
-     Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
-         | "spacer" -> solver := Spacer
-         | "hoice" -> solver := Hoice
-         | "null" -> solver := Null
-         | "z3" -> solver := Z3SMT
-         | "eldarica" -> solver := Eldarica
-         | "parallel" -> solver := Parallel
-         | _ -> assert false),
-     " Use solver backend <solver>. (default: spacer)")
-  ] in
-  let update ?(opts=default) () = {
-    opts with
-    check_trivial = !check_trivial;
-    solver = !solver;
-    dump_ir = !dump_ir;
-    relaxed_mode = !omit_havoc;
-    omit_havoc = !omit_havoc;
-    null_checks = !null_checks
-  } in
-  (spec, update)
 let intrinsics_arg_gen () =
   let open Arg in
   let f_name = ref None in
@@ -175,7 +132,12 @@ let arg_gen () =
   let annot_infr = ref default.annot_infr in
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
+  let check_trivial = ref default.check_trivial in
+  let solver = ref default.solver in
+  let dump_ir = ref default.dump_ir in
   let relaxed_mode = ref default.relaxed_mode in
+  let omit_havoc = ref default.omit_havoc in
+  let null_checks = ref default.null_checks in
   let timeout = ref default.solver_opts.timeout in
   let command = ref default.solver_opts.command in
   let extra = ref default.solver_opts.command_extra in
@@ -209,8 +171,32 @@ let arg_gen () =
            Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
        "Debug sources s1,s2,...");
       ("-debug-all", Unit Log.all, "Show all debug output");
+      ("-seq-solver", Unit (fun () ->
+           prerr_endline "WARNING: seq solver option is deprecated and does nothing"),
+       "(DEPRECATED) No effect");
+      ("-check-triviality", Set check_trivial,
+       "Check if produced model is trivial");
+      ("-solver",
+       Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
+           | "spacer" -> solver := Spacer
+           | "hoice" -> solver := Hoice
+           | "null" -> solver := Null
+           | "z3" -> solver := Z3SMT
+           | "eldarica" -> solver := Eldarica
+           | "parallel" -> solver := Parallel
+           | _ -> assert false),
+       " Use solver backend <solver>. (default: spacer)");
+      ("-mode", Symbol (["refinement"; "unified"], fun _ ->
+           prerr_endline "WARNING: the mode option is deprecated and does nothing"),
+       " (DEPRECATED) No effect");
+      ("-dump-ir", String (fun s -> dump_ir := Some s),
+       "Dump intermediate relations and debugging information (only implemented in unified)");
       ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
        "Use alternative, relaxed maximization constraints");
+      ("-omit-havoc", Set omit_havoc,
+       "Omit havoced access paths from the generated CHC (implies relaxed-max) (EXPERIMENTAL)");
+      ("-check-null", Set null_checks,
+       "For freedom of null pointer exceptions");
       ("-timeout", Set_int timeout, "Timeout for solver in seconds");
       ("-command", String (fun s -> command := Some s), "Executable for solver");
       ("-solver-args", String (fun s -> extra := Some s),
@@ -224,7 +210,12 @@ let arg_gen () =
     annot_infr = !annot_infr;
     print_model = !print_model;
     dry_run = !dry_run;
-    relaxed_mode = !relaxed_mode;
+    check_trivial = !check_trivial;
+    solver = !solver;
+    dump_ir = !dump_ir;
+    relaxed_mode = !relaxed_mode || !omit_havoc;
+    omit_havoc = !omit_havoc;
+    null_checks = !null_checks;
     solver_opts = {
       timeout = !timeout;
       command = !command;
@@ -232,7 +223,6 @@ let arg_gen () =
     };
   } in
   (spec, update)
-  |> spec_seq solver_arg_gen
   |> spec_seq intrinsics_arg_gen
   |> spec_seq test_arg_gen
   |> spec_seq test_suite_arg_gen
