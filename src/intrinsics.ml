@@ -86,13 +86,7 @@ let empty = {
   def_file = None
 }
 
-let option_loader () =
-  let open Arg in
-  let f_name = ref None in
-  [
-    "-intrinsics", String (fun x -> f_name := Some x), "Load definitions of standard operations from <file>"
-  ], (fun () ->
-    match !f_name with
-    | None -> empty
-    | Some s -> load s
-  )
+let option_loader f =
+  match f with
+  | None -> empty
+  | Some s -> load s

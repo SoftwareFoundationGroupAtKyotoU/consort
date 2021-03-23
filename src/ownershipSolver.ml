@@ -165,14 +165,15 @@ let solve_ownership ~opts (ovars, ocons, max_vars) =
   end;
   finish o_buf;
   let res =
-    let opts = {
+    let opts =
+      let open ArgOptions in {
       opts with
-      ArgOptions.print_model = true;
-      ArgOptions.debug_cons = Log.check_source None
+      print_model = true;
+      debug_cons = Log.check_source None;
+      intrinsics = {opts.intrinsics with def_file = None}
     } in
     Z3Channel.call_z3_raw
       ~opts
-      ~defn_file:None
       ~strat:"(check-sat)"
       o_buf in
   match res with

@@ -5,10 +5,10 @@ exception OutOfMemory
 let spacer_error_p msg =
   msg = "tactic failed: Overflow encountered when expanding vector"
 
-let run_test v_opts intr expect file =
-  let res = Consort.check_file ~opts:v_opts ~intrinsic_defn:intr file in
+let run_test ~opts file =
+  let res = Consort.check_file ~opts file in
   let open Consort in
-  match res,expect with
+  match res, opts.expect_typing with
   | Verified,true -> ()
   | Unverified (SolverError msg),_ when spacer_error_p msg -> raise InternalSpacerError
   | Unverified (SolverError "out of memory"), _ -> raise OutOfMemory
@@ -34,32 +34,20 @@ let test_file run n_tests f_name =
   else ()
 
 let () =
-  let expect = ref true in
-  let verbose = ref false in
-  let maybe_print s = if !verbose then (print_string s; flush stdout) else () in
-  let (a_list,gen) =
+  let (spec, update) =
     let open ArgOptions in
-    solver_arg_gen () |> spec_seq solver_opt_gen
+    solver_arg_gen ()
+    |> spec_seq solver_opt_gen
+    |> spec_seq intrinsics_arg_gen
+    |> spec_seq test_suite_arg_gen
   in
-  let (i_list,i_gen) = Intrinsics.option_loader () in
-  let file_list = ref [] in
-  let args = [
-    ("-neg", Arg.Clear expect, "Expect typing failures");
-    ("-pos", Arg.Set expect, "Expect typing success (default)");
-    ("-cfa", Arg.Set_int KCFA.cfa, "k to use for k-cfa inference");
-    ("-verbose", Arg.Set verbose, "Provide more output");
-    ("-files", Arg.Rest (fun s ->
-       file_list := s::!file_list
-     ), "Interpret all remaining arguments as files to test"
-    )
-  ] @ i_list @ a_list in
   let dir_list = ref [] in
-  Arg.parse args (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
-  let v_opts = gen () in
-  let intr = i_gen () in
-  let n_tests = ref 0 in
-  let run = run_test v_opts intr !expect in
+  Arg.parse spec (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
+  let opts = update () in
+  let run = run_test ~opts in
+  let maybe_print s = if opts.verbose then (print_string s; flush stdout) else () in
   maybe_print "Testing ";
+  let n_tests = ref 0 in
   List.iter (fun dir ->
     maybe_print @@ dir ^ "... ";
     let test_files = Sys.readdir dir in
@@ -67,5 +55,5 @@ let () =
       test_file run n_tests @@ Filename.concat dir f_name
     ) test_files;
   ) !dir_list;
-  List.iter (test_file run n_tests) !file_list; 
+  List.iter (test_file run n_tests) opts.file_list;
   Printf.printf "PASSED (%d tests)\n" @@ !n_tests

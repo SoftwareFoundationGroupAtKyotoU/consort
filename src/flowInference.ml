@@ -2917,7 +2917,7 @@ let analyze_main start_rel main ctxt =
   let ctxt,_ = process_expr (start_rel,[]) ~output:None None main ctxt in
   ctxt
 
-let infer ~null_checks ~bif_types (simple_theta,side_results) o_hints (fns,main) =
+let infer ~opts (simple_theta,side_results) o_hints (fns,main) =
   let lift_and_unfold = (fun p -> deep_type_normalization @@ simple_to_fltype p) in
   let simple_theta = StringMap.map (fun ft ->
       {
@@ -3020,12 +3020,12 @@ let infer ~null_checks ~bif_types (simple_theta,side_results) o_hints (fns,main)
   let entry_relation = (start_name, [], Start) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
-    null_checks;
+    null_checks = opts.ArgOptions.null_checks;
     relations;
     o_hints;
     curr_fun = None;
     let_types = IntMap.map lift_and_unfold (side_results.SimpleChecker.SideAnalysis.let_types);
-    bif_types;
+    bif_types = opts.ArgOptions.intrinsics.op_interp;
     fenv;
     impl = [];
     havoc_set = P.PathSet.empty;

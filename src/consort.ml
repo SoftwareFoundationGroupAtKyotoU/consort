@@ -22,10 +22,9 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
 
-let infer_ownership opts intr simple_res ast =
-  let open ArgOptions in
+let infer_ownership opts simple_res ast =
   let module OI = OwnershipInference in
-  let o_result = OI.infer ~opts:opts.relaxed_mode simple_res intr.Intrinsics.op_interp ast in
+  let o_result = OI.infer ~opts simple_res ast in
   match OwnershipSolver.solve_ownership ~opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
   | None -> None
   | Some o_soln ->
@@ -112,10 +111,9 @@ let print_model t =
   else
     Option.iter (fun _ -> ())
 
-let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_name =
+let check_file ?(opts=ArgOptions.default) in_name =
   let ast = AstUtil.parse_file in_name in
-  let intr = intrinsic_defn in
-  let simple_typing = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
+  let simple_typing = RefinementTypes.to_simple_funenv opts.intrinsics.Intrinsics.op_interp in
   let ((program_types,_) as simple_res)= SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;
@@ -124,24 +122,21 @@ let check_file ?(opts=ArgOptions.default) ?(intrinsic_defn=Intrinsics.empty) in_
       ) program_types;
     flush stderr
   end;
-  let infer_opt = infer_ownership opts intr simple_res ast in
+  let infer_opt = infer_ownership opts simple_res ast in
   match infer_opt with
   | None -> Unverified Aliasing
   | Some r ->
-    let solver =
-      match opts.solver with
-      | Spacer -> HornBackend.solve
-      | Z3SMT -> SmtBackend.solve
-      | Hoice -> HoiceBackend.solve
-      | Null -> NullSolver.solve
-      | Eldarica -> EldaricaBackend.solve
-      | Parallel -> ParallelBackend.solve
-    in
     let module Backend = struct
-      let solve = solver ~opts
+      let solve = match opts.solver with
+        | Spacer -> HornBackend.solve
+        | Z3SMT -> SmtBackend.solve
+        | Hoice -> HoiceBackend.solve
+        | Null -> NullSolver.solve
+        | Eldarica -> EldaricaBackend.solve
+        | Parallel -> ParallelBackend.solve
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts ~intr:intrinsic_defn simple_res r ast in
+    let (_,ans) = S.solve ~opts simple_res r ast in
     let open Solver in
     match ans with
     | Sat m ->

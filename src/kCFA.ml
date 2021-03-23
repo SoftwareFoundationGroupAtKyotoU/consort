@@ -1,2 +1,0 @@
-(* ALERT ALERT GLOBAL STATE ALERT ALERT *)
-let cfa = ref 1;;

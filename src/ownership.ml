@@ -71,19 +71,18 @@ let pp_owner =
   | OConst o -> pf "%f" o
   | OVar v -> pf "$%d" v
 
-let ownership_infr debug i_gen o_gen inf file =
-  let intr = i_gen () in
+let ownership_infr ~opts file =
   let ast = AstUtil.parse_file file in
-  let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv opts.ArgOptions.intrinsics.op_interp in
   let ((_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
   print_endline "FOLD LOCATIONS>>>";
   Std.IntSet.iter (Printf.printf "* %d\n") fl;
   print_endline "<<";
-  let r = OwnershipInference.infer ~opts:(inf ()) simple_res intr.Intrinsics.op_interp ast in
+  let r = OwnershipInference.infer ~opts simple_res ast in
   print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
   let open PrettyPrint in
   let o_solve = OwnershipSolver.solve_ownership
-      ~opts:{(o_gen ()) with ArgOptions.save_cons = !debug}
+      ~opts
       (r.OwnershipInference.Result.ovars, r.OwnershipInference.Result.ocons, r.OwnershipInference.Result.max_vars) in
   match o_solve with
   | None -> print_endline "Could not solve ownership constraints"
@@ -95,9 +94,11 @@ let ownership_infr debug i_gen o_gen inf file =
       ) ~o_printer:(pf "%f") r ast
 
 let () =
-  let (i_list, gen) = Intrinsics.option_loader () in
-  let (o_list, o_gen) = ArgOptions.ownership_arg_gen () in
-  let (inf_list, inf_gen) = ArgOptions.infr_opts_loader () in
-  let debug = ref None in
-  let spec = ("-save-cons", Arg.String (fun s -> debug := Some s), "Save constraints to <file>") :: (i_list @ o_list @ inf_list) in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr debug gen o_gen inf_gen
+  let (spec, to_opts) =
+    let open ArgOptions in
+    debug_arg_gen ()
+    |> spec_seq intrinsics_arg_gen
+    |> spec_seq ownership_arg_gen
+    |> spec_seq infr_arg_gen
+  in
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ())
