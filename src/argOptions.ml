@@ -1,13 +1,10 @@
-module Solver = struct
-  type choice =
-    | Hoice
-    | Spacer
-    | Z3SMT
-    | Eldarica
-    | Parallel
-    | Null
-end
-
+type solver =
+  | Hoice
+  | Spacer
+  | Z3SMT
+  | Eldarica
+  | Parallel
+  | Null
 type t = {
   debug_cons : bool;
   debug_ast : bool;
@@ -15,7 +12,7 @@ type t = {
   annot_infr : bool;
   print_model : bool;
   dry_run : bool;
-  solver : Solver.choice;
+  solver : solver;
   timeout : int;
   command : string option;
   command_extra : string option;
