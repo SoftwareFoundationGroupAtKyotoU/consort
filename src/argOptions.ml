@@ -6,17 +6,6 @@ module Solver = struct
     | Eldarica
     | Parallel
     | Null
-  type options = {
-    timeout : int;
-    command : string option;
-    command_extra : string option;
-  }
-
-  let default = {
-    timeout = 30;
-    command = None;
-    command_extra = None
-  }
 end
 
 type t = {
@@ -27,10 +16,12 @@ type t = {
   print_model : bool;
   dry_run : bool;
   solver : Solver.choice;
+  timeout : int;
+  command : string option;
+  command_extra : string option;
   dump_ir : string option;
   relaxed_mode : bool;
   null_checks : bool;
-  solver_opts : Solver.options;
   intrinsics : Intrinsics.interp_t;
   expect_typing : bool;
   cfa : int;
@@ -44,7 +35,6 @@ type arg_update = ?opts:t -> unit -> t
 type arg_gen = arg_spec list * arg_update
 
 let default = {
-  input = Input.default;
   debug_cons = false;
   debug_ast = false;
   save_cons = None;
@@ -52,10 +42,12 @@ let default = {
   print_model = false;
   dry_run = false;
   solver = Spacer;
+  timeout = 30;
+  command = None;
+  command_extra = None;
   dump_ir = None;
   relaxed_mode = false;
   null_checks = false;
-  solver_opts = Solver.default;
   intrinsics = Intrinsics.empty;
   expect_typing = true;
   cfa = 1;
@@ -78,12 +70,12 @@ let arg_gen () =
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
   let solver = ref default.solver in
+  let timeout = ref default.timeout in
+  let command = ref default.command in
+  let extra = ref default.command_extra in
   let dump_ir = ref default.dump_ir in
   let relaxed_mode = ref default.relaxed_mode in
   let null_checks = ref default.null_checks in
-  let timeout = ref default.solver_opts.timeout in
-  let command = ref default.solver_opts.command in
-  let extra = ref default.solver_opts.command_extra in
   let f_name = ref None in
   let expect = ref default.expect_typing in
   let cfa = ref default.cfa in
@@ -151,14 +143,12 @@ let arg_gen () =
     print_model = !print_model;
     dry_run = !dry_run;
     solver = !solver;
+    timeout = !timeout;
+    command = !command;
+    command_extra = !extra;
     dump_ir = !dump_ir;
     relaxed_mode = !relaxed_mode;
     null_checks = !null_checks;
-    solver_opts = {
-      timeout = !timeout;
-      command = !command;
-      command_extra = !extra
-    };
     intrinsics = Intrinsics.option_loader !f_name;
     expect_typing = !expect;
     cfa = !cfa;
