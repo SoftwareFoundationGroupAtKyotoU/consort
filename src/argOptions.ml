@@ -53,12 +53,6 @@ let default = {
   exit_status = false;
   yaml = false;
 }
-let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
-  let s1, f1 = g1 in
-  let s2, f2 = g2 () in
-  let spec = s1 @ s2 in
-  let update ?(opts=default) () = f2 ~opts:(f1 ~opts ()) () in
-  (spec, update)
 let arg_gen () =
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in
