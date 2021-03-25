@@ -16,6 +16,17 @@ module Solver = struct
     | Parallel
     | Spacer
     | Z3SMT
+
+  let pairs = [
+    ("eldarica", Eldarica);
+    ("hoice", Hoice);
+    ("null", Null);
+    ("parallel", Parallel);
+    ("spacer", Spacer);
+    ("z3smt", Z3SMT)
+  ]
+  let candidates = List.map (fun (s, _) -> s) pairs
+  let update solver cand = solver := List.assoc cand pairs
 end
 
 type t = {
@@ -116,14 +127,7 @@ let arg_gen () =
      "Debug sources s1,s2,...");
     ("-debug-all", Unit Log.all, "Show all debug output");
     ("-solver",
-     Symbol (["spacer";"hoice";"z3";"null";"eldarica";"parallel"], function
-         | "spacer" -> solver := Spacer
-         | "hoice" -> solver := Hoice
-         | "null" -> solver := Null
-         | "z3" -> solver := Z3SMT
-         | "eldarica" -> solver := Eldarica
-         | "parallel" -> solver := Parallel
-         | _ -> assert false),
+     Symbol (Solver.candidates, Solver.update solver),
      " Use solver backend <solver>. (default: spacer)");
     ("-dump-ir", String (fun s -> dump_ir := Some s),
      "Dump intermediate relations and debugging information");
