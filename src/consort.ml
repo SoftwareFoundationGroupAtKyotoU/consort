@@ -47,7 +47,7 @@ let print_model t =
 
 let check_file ?(opts=ArgOptions.default) in_name =
   let ast = AstUtil.parse_file in_name in
-  let simple_typing = RefinementTypes.to_simple_funenv opts.intrinsics.Intrinsics.op_interp in
+  let simple_typing = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
   let ((program_types,_) as simple_res)= SimpleChecker.typecheck_prog simple_typing ast in
   if opts.debug_ast then begin
     AstPrinter.pretty_print_program stderr ast;

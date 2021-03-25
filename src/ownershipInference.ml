@@ -822,7 +822,7 @@ let infer ~opts (simple_types,iso) (fn,prog) =
     |> SM.fold (fun nm it acc ->
         let (acc,ft) = lift_intrinsic_type nm it acc in
         { acc with theta = SM.add nm ft acc.theta }
-      ) opts.intrinsics.op_interp
+      ) (ArgOptions.get_intr opts).op_interp
   in
   let ctxt = List.fold_left analyze_fn ctxt fn in
   let (ctxt,_) = process_expr ~output:None prog ctxt in

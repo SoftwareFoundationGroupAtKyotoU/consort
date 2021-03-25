@@ -55,6 +55,7 @@ let default = {
   exit_status = false;
   yaml = false;
 }
+let get_intr opts = opts.intrinsics
 let arg_gen () =
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in

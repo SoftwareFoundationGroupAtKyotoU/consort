@@ -1,9 +1,8 @@
 open Ast
 
 let typecheck ~opts file =
-  let intr = opts.ArgOptions.intrinsics in
   let (fn,prog) = AstUtil.parse_file file in
-  let simple_op = RefinementTypes.to_simple_funenv intr.Intrinsics.op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
   let f_types,SimpleChecker.SideAnalysis.{let_types; _ } = SimpleChecker.typecheck_prog simple_op (fn,prog) in
   let open PrettyPrint in
   AstPrinter.pretty_print_program ~with_labels:true ~annot_fn:(fun f_name ff ->

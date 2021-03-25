@@ -73,7 +73,7 @@ let pp_owner =
 
 let ownership_infr ~opts file =
   let ast = AstUtil.parse_file file in
-  let simple_op = RefinementTypes.to_simple_funenv opts.ArgOptions.intrinsics.op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
   let ((_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
   print_endline "FOLD LOCATIONS>>>";
   Std.IntSet.iter (Printf.printf "* %d\n") fl;

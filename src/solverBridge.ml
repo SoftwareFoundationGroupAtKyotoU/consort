@@ -50,8 +50,7 @@ module Make(D: sig
       | Failure _ -> return_and_close @@ Solver.Unhandled s
 
   let prepare_call ~opts ~strat cons =
-    let open ArgOptions in
-    let defn_file = opts.intrinsics.def_file in
+    let defn_file = (ArgOptions.get_intr opts).def_file in
     if opts.debug_cons then begin
       let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
       Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
