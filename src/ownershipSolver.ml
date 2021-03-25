@@ -170,7 +170,6 @@ let solve_ownership ~opts (ovars, ocons, max_vars) =
       print_model = true;
       debug_cons = Log.check_source None;
       intrinsics_file = None;
-      intrinsics = Intrinsics.empty;
     } in
     Z3Channel.call_z3_raw
       ~opts
