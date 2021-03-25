@@ -19,6 +19,7 @@ type t = {
   dump_ir : string option;
   relaxed_mode : bool;
   null_checks : bool;
+  intrinsics_file : string option;
   intrinsics : Intrinsics.interp_t;
   expect_typing : bool;
   cfa : int;
@@ -45,6 +46,7 @@ let default = {
   dump_ir = None;
   relaxed_mode = false;
   null_checks = false;
+  intrinsics_file = None;
   intrinsics = Intrinsics.empty;
   expect_typing = true;
   cfa = 1;
@@ -140,6 +142,7 @@ let arg_gen () =
     dump_ir = !dump_ir;
     relaxed_mode = !relaxed_mode;
     null_checks = !null_checks;
+    intrinsics_file = !f_name;
     intrinsics = Intrinsics.option_loader !f_name;
     expect_typing = !expect;
     cfa = !cfa;
