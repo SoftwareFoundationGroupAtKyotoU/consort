@@ -65,8 +65,11 @@ let default = {
   yaml = false;
 }
 let get_intr opts =
-  Cache.get opts.intrinsics
-    (fun () -> Intrinsics.option_loader opts.intrinsics_file)
+  let option_loader () =
+    match opts.intrinsics_file with
+    | None -> Intrinsics.empty
+    | Some f -> Intrinsics.load f in
+  Cache.get opts.intrinsics option_loader
 let arg_gen () =
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in
