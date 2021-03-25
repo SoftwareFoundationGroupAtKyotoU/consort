@@ -1,3 +1,12 @@
+module Cache = struct
+  type 'a t = 'a option ref
+
+  let init = ref None
+  let get c f =
+    match !c with
+    | None -> let v = f() in c := Some v; v
+    | Some v -> v
+end
 type solver =
   | Hoice
   | Spacer
