@@ -7,13 +7,17 @@ module Cache = struct
     | None -> let v = f() in c := Some v; v
     | Some v -> v
 end
-type solver =
-  | Hoice
-  | Spacer
-  | Z3SMT
-  | Eldarica
-  | Parallel
-  | Null
+
+module Solver = struct
+  type t =
+    | Eldarica
+    | Hoice
+    | Null
+    | Parallel
+    | Spacer
+    | Z3SMT
+end
+
 type t = {
   debug_cons : bool;
   debug_ast : bool;
@@ -21,7 +25,7 @@ type t = {
   annot_infr : bool;
   print_model : bool;
   dry_run : bool;
-  solver : solver;
+  solver : Solver.t;
   timeout : int;
   command : string option;
   command_extra : string option;
