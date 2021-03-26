@@ -45,13 +45,13 @@ type t = {
   relaxed_mode : bool;
   null_checks : bool;
   intrinsics_file : string option;
-  intrinsics : Intrinsics.interp_t Cache.t;
   expect_typing : bool;
   cfa : int;
   verbose : bool;
   file_list : Arg.usage_msg list;
   exit_status : bool;
   yaml : bool;
+  intrinsics : Intrinsics.interp_t Cache.t;
 }
 
 let default = {
@@ -70,13 +70,13 @@ let default = {
   relaxed_mode = false;
   null_checks = false;
   intrinsics_file = None;
-  intrinsics = Cache.init;
   expect_typing = true;
   cfa = 1;
   verbose = false;
   file_list = [];
   exit_status = false;
   yaml = false;
+  intrinsics = Cache.init;
 }
 let get_intr opts =
   let option_loader () =
@@ -154,7 +154,7 @@ let arg_gen () =
     ("-yaml", Set yaml, "Print verification result in YAML format");
   ] in
   let update () = {
-    default with
+    output_file = !output_file;
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
     save_cons = !save_cons;
@@ -175,5 +175,6 @@ let arg_gen () =
     file_list = !file_list;
     exit_status = !status;
     yaml = !yaml;
+    intrinsics = default.intrinsics;
   } in
   (spec, update)
