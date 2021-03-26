@@ -30,6 +30,7 @@ module Solver = struct
 end
 
 type t = {
+  output_file : string option;
   debug_cons : bool;
   debug_ast : bool;
   save_cons : string option;
@@ -54,6 +55,7 @@ type t = {
 }
 
 let default = {
+  output_file = None;
   debug_cons = false;
   debug_ast = false;
   save_cons = None;
@@ -83,6 +85,7 @@ let get_intr opts =
     | Some f -> Intrinsics.load f in
   Cache.get opts.intrinsics option_loader
 let arg_gen () =
+  let output_file = ref default.output_file in
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in
   let save_cons = ref default.save_cons in
@@ -106,6 +109,8 @@ let arg_gen () =
   let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
   let open Arg in
   let spec = [
+    ("-output-file", String (fun s -> output_file := Some s),
+     "Alternative output target other than stderr for -show-<something> options");
     ("-show-cons", Set debug_cons, "Print constraints sent to Z3 on stderr");
     ("-show-ast", Set debug_ast, "Print (low-level) AST on stderr");
     ("-show-model", Set print_model, "Print inferred model produced from successful verification on stderr");
