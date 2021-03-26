@@ -1,7 +1,6 @@
 module Cache = struct
   type 'a t = 'a option ref
 
-  let init = ref None
   let get c f =
     match !c with
     | None -> let v = f() in c := Some v; v
@@ -76,7 +75,7 @@ let default = {
   file_list = [];
   exit_status = false;
   yaml = false;
-  intrinsics = Cache.init;
+  intrinsics = ref None;
 }
 let get_intr opts =
   let option_loader () =
