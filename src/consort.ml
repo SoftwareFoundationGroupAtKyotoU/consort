@@ -45,6 +45,15 @@ let print_model t =
   else
     Option.iter (fun _ -> ())
 
+let choose_solver opts =
+  match opts.ArgOptions.solver with
+  | Eldarica -> EldaricaBackend.solve
+  | Hoice -> HoiceBackend.solve
+  | Null -> NullSolver.solve
+  | Parallel -> ParallelBackend.solve
+  | Spacer -> HornBackend.solve
+  | Z3SMT -> SmtBackend.solve
+
 let check_file ?(opts=ArgOptions.default) in_name =
   let ast = AstUtil.parse_file in_name in
   let simple_typing = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
@@ -61,17 +70,10 @@ let check_file ?(opts=ArgOptions.default) in_name =
   | None -> Unverified Aliasing
   | Some r ->
     let module Backend = struct
-      let solve = match opts.solver with
-        | Spacer -> HornBackend.solve
-        | Z3SMT -> SmtBackend.solve
-        | Hoice -> HoiceBackend.solve
-        | Null -> NullSolver.solve
-        | Eldarica -> EldaricaBackend.solve
-        | Parallel -> ParallelBackend.solve
+      let solve = choose_solver opts
     end in
     let module S = FlowBackend.Make(Backend) in
     let (_,ans) = S.solve ~opts simple_res r ast in
-    let open Solver in
     match ans with
     | Sat m ->
       print_model opts.print_model m;
