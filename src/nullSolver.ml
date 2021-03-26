@@ -1,7 +1,7 @@
 let solve ~opts cons =
   let cons = SexpPrinter.to_string cons in
   let cons' =
-    Option.map Files.string_of_file opts.ArgOptions.intrinsics.def_file
+    Option.map Files.string_of_file (ArgOptions.get_intr opts).def_file
     |> Option.fold ~some:(fun v ->
         v ^ cons
       ) ~none:cons

@@ -61,8 +61,8 @@ The necessary S-Expressions are generated using the `SexpPrinter` module, found 
 # Flow of Verification
 
 The entry point of the test driver is `test.ml`. It parses all command line arguments, using the argument
-generators provided by the Consort module (see the code for details) and the inrinsics module.
-The resulting option structure, intrinsic definitions, and provided `.imp` file are then passed to the `Consort.check_file` function.
+generators provided by the `ArgOptions` module (see the code for details).
+The resulting option structure and provided `.imp` file are then passed to the `Consort.check_file` function.
 
 `check_file` then executes the following sequence:
 
@@ -100,15 +100,15 @@ If you want to add a new solver backend, you must make the following changes:
 1. Implement the solver in a new OCaml module; update the `consort` dune module as necessary.
   * At the very least, your new module should provide a function (preferably called `solve`) which has the following type:
   ```
-  opts:Solver.options ->
-  debug_cons:bool ->
-  ?save_cons:string ->
-  get_model:bool -> defn_file:string option -> SexpPrinter.t -> Solver.result
+  opts:ArgOptions.t -> SexpPrinter.t -> Solver.result
   ```
-  
-  * If you want your solver to be run with the parallel backend, you must also provide a function called `solve_cont` with the following type `opts:Solver.options -> get_model:bool -> defn_file:(string option) -> SexpPrinter.t -> Solver.cont`
-2. Add an argument flag for selecting the new solver. Extend the `solver` type defined in the `Consort.Options` with a descriptive variant, and extend the definition of `solver_arg_gen` in the same module.
-3. Extend the pattern match in `check_file` to handle your new variant, returning a reference to the `solve` function you wrote in 1.
+
+  * If you want your solver to be run with the parallel backend, you must also provide a function called `solve_cont` with the following type:
+  ```
+  opts:ArgOptions.t -> SexpPrinter.t -> Solver.cont
+  ```
+2. Add an argument flag for selecting the new solver. Extend the `Solver.t` type defined in the `ArgOptions` with a descriptive variant, and extend the definition of `pairs` in the same module.
+3. Extend the pattern match in `choose_solver` to handle your new variant, returning a reference to the `solve` function you wrote in 1.
 4. (Optional) If your solver is to be used with the parallel backend, extend the `backends` list in `parallelBackend.ml`, placing your packed module into the list.
 
 # Syntax Extensions

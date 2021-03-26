@@ -20,8 +20,8 @@ module Make(D: sig
         in
         let base_command =
           Printf.sprintf "%s %a"
-            (D.spawn ~command:opts.solver_opts.command ~timeout:opts.solver_opts.timeout)
-            add_extra_arg opts.solver_opts.command_extra
+            (D.spawn ~command:opts.command ~timeout:opts.timeout)
+            add_extra_arg opts.command_extra
         in
         (base_command,nm),chan
 

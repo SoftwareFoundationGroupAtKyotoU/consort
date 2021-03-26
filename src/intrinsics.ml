@@ -85,8 +85,3 @@ let empty = {
   rel_interp = StringMap.empty;
   def_file = None
 }
-
-let option_loader f =
-  match f with
-  | None -> empty
-  | Some s -> load s
