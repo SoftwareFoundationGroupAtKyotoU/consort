@@ -52,9 +52,6 @@ type t = {
   exit_status : bool;
   yaml : bool;
 }
-type arg_spec = Arg.key * Arg.spec * Arg.doc
-type arg_update = ?opts:t -> unit -> t
-type arg_gen = arg_spec list * arg_update
 
 let default = {
   debug_cons = false;
