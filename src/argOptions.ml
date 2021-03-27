@@ -85,6 +85,10 @@ let show flag opts print =
         Option.fold ~none:stderr ~some:open_out opts.output_file) in
     print out; flush out
   else ()
+let show_annotated opts = show opts.annot_infr opts
+let show_ast opts = show opts.debug_ast opts
+let show_cons opts = show opts.debug_cons opts
+let show_model opts = show opts.print_model opts
 let get_intr opts =
   let option_loader () =
     match opts.intrinsics_file with
