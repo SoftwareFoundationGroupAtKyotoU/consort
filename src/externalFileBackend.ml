@@ -6,17 +6,15 @@ module Make(D: sig
   module Ch = SolverBridge.Make(struct
       type st = string * string
       let dispose _ = ()
-      open Solver
       let prepare_out ~opts =
         let (nm,chan) = Filename.open_temp_file (D.name ^ "Cons") ".smt" in
-        at_exit (fun () ->
-            Sys.remove nm);
+        at_exit (fun () -> Sys.remove nm);
         let base_command =
+          let open Solver in
           let open ArgOptions in
           Printf.sprintf "%s %a"
             (D.spawn ~command:opts.command ~timeout:opts.timeout)
-            add_extra_arg opts.command_extra
-        in
+            add_extra_arg opts.command_extra in
         (base_command,nm),chan
 
       let spawn (base_command,nm) =
