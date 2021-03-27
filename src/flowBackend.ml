@@ -191,7 +191,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       break ff
     in
     SexpPrinter.finish ff;
-    ArgOptions.show_cons opts (fun out ->
+    ArgOptions.show ~opts opts.show_cons (fun out ->
         let def_file = (ArgOptions.get_intr opts).def_file in
         let output_endline s = output_string out (s ^ "\n") in
         output_endline @@ "; Sending constraints >>>";
@@ -252,16 +252,16 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
            |> Option.value ~default:(fun _ -> true))
       else (fun _ _ -> true) in
     let ans = solve_constraints ~opts ~fgen rel impl start in
-    ArgOptions.show_annot opts (fun out ->
+    ArgOptions.show ~opts opts.show_annot (fun out ->
         AstPrinter.pretty_print_program
           ~with_labels:true ~annot:(pprint_annot snap) out ast);
-    ArgOptions.show_ast opts (fun out ->
+    ArgOptions.show ~opts opts.show_ast (fun out ->
         let (program_types,_) = simple_res in
         AstPrinter.pretty_print_program out ast;
         StringMap.iter (fun n a ->
             Printf.fprintf out "%s: %s\n" n @@ SimpleTypes.fntype_to_string a)
           program_types);
-    ArgOptions.show_ir opts (fun out ->
+    ArgOptions.show ~opts opts.show_ir (fun out ->
         let open Std in
         let open Sexplib.Std in
         let mu_bind =
@@ -274,7 +274,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
                               (int * P.concr_ap * relation) list
         ] (ast,rel,mu_bind) in
         Sexplib.Sexp.output_hum out sexp);
-    ArgOptions.show_model opts (fun out ->
+    ArgOptions.show ~opts opts.show_model (fun out ->
         match ans with
         | Sat Some m -> output_string out (m ^ "\n")
         | _ -> ());
