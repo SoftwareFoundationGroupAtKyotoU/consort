@@ -259,5 +259,9 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
                               (int * P.concr_ap * relation) list
         ] (ast,rel,mu_bind) in
         Sexplib.Sexp.output_hum out sexp);
+    ArgOptions.show_model opts (fun out ->
+        match ans with
+        | Sat Some m -> output_string out (m ^ "\n")
+        | _ -> ());
     ans
 end

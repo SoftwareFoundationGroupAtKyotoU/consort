@@ -39,11 +39,6 @@ let infer_ownership opts simple_res ast =
       OI.gen = OI.GenMap.map map_ownership o_result.OI.Result.op_record.gen
     } in
     Some o_hints
-let print_model t =
-  if t then
-    Option.iter (fun s -> prerr_endline s; flush stderr)
-  else
-    Option.iter (fun _ -> ())
 
 let choose_solver opts =
   match opts.ArgOptions.solver with
@@ -75,9 +70,7 @@ let check_file ?(opts=ArgOptions.default) in_name =
     let module S = FlowBackend.Make(Backend) in
     let ans = S.solve ~opts simple_res r ast in
     match ans with
-    | Sat m ->
-      print_model opts.print_model m;
-      Verified
+    | Sat _ -> Verified
     | Unsat -> Unverified Unsafe
     | Timeout -> Unverified Timeout
     | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
