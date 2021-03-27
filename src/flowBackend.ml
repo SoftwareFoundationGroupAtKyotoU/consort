@@ -232,18 +232,17 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
   let solve ~opts simple_res o_hints ast =
-    let rel,impl,snap,start,omit = FlowInference.infer ~opts simple_res o_hints ast in
+    let rel,impl,snap,start,omit =
+      FlowInference.infer ~opts simple_res o_hints ast in
     let fgen =
-      if not opts.relaxed_mode then
-        (fun _ _ -> true)
-      else
+      if opts.relaxed_mode then
         (fun s ->
-          StringMap.find_opt s omit
-          |> Option.map (fun s ->
-              (fun p -> not @@ P.PathSet.mem p s))
-          |> Option.value ~default:(fun _ -> true)
-        )
-    in
+           StringMap.find_opt s omit
+           |> Option.map (fun s ->
+               (fun p -> not @@ P.PathSet.mem p s))
+           |> Option.value ~default:(fun _ -> true))
+      else (fun _ _ -> true) in
+    let ans = solve_constraints ~opts ~fgen rel impl start in
     ArgOptions.show_annotated opts (fun out ->
         AstPrinter.pretty_print_program
           ~with_labels:true ~annot:(pprint_annot snap) out ast);
@@ -257,8 +256,8 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
               |> List.map (fun (p,rel) -> (i,p,rel))) in
         let sexp = [%sexp_of: Ast.prog *
                               FlowInference.relation list *
-                              (int * P.concr_ap * relation) list] (ast,rel,mu_bind) in
+                              (int * P.concr_ap * relation) list
+        ] (ast,rel,mu_bind) in
         Sexplib.Sexp.output_hum out sexp);
-    (),
-    solve_constraints ~opts ~fgen rel impl start
+    ans
 end

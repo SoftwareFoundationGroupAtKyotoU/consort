@@ -73,7 +73,7 @@ let check_file ?(opts=ArgOptions.default) in_name =
       let solve = choose_solver opts
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts simple_res r ast in
+    let ans = S.solve ~opts simple_res r ast in
     match ans with
     | Sat m ->
       print_model opts.print_model m;
