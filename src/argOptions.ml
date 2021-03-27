@@ -31,9 +31,9 @@ end
 type t = {
   output_file : string option;
   show_annot : bool;
+  show_ast : bool;
   show_ir : bool;
   debug_cons : bool;
-  debug_ast : bool;
   print_model : bool;
   dry_run : bool;
   solver : Solver.t;
@@ -57,9 +57,9 @@ type t = {
 let default = {
   output_file = None;
   show_annot = false;
+  show_ast = false;
   show_ir = false;
   debug_cons = false;
-  debug_ast = false;
   print_model = false;
   dry_run = false;
   solver = Spacer;
@@ -86,7 +86,7 @@ let show flag opts print =
     print out; flush out
   else ()
 let show_annot opts = show opts.show_annot opts
-let show_ast opts = show opts.debug_ast opts
+let show_ast opts = show opts.show_ast opts
 let show_cons opts = show opts.debug_cons opts
 let show_ir opts = show opts.show_ir opts
 let show_model opts = show opts.print_model opts
@@ -99,9 +99,9 @@ let get_intr opts =
 let arg_gen () =
   let output_file = ref default.output_file in
   let show_annot = ref default.show_annot in
+  let show_ast = ref default.show_ast in
   let show_ir = ref default.show_ir in
   let debug_cons = ref default.debug_cons in
-  let debug_ast = ref default.debug_ast in
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
   let solver = ref default.solver in
@@ -118,17 +118,17 @@ let arg_gen () =
   let file_list = ref default.file_list in
   let status = ref default.exit_status in
   let yaml = ref default.yaml in
-  let all_debug_flags = [ show_annot; debug_cons; debug_ast; print_model ] in
+  let all_debug_flags = [ show_annot; show_ast; debug_cons; print_model ] in
   let open Arg in
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
      "Alternative output target other than stderr for -show-<something> options");
     ("-show-annot", Set show_annot,
      "Print an annotated AST program with the inferred types on stderr");
+    ("-show-ast", Set show_ast, "Print (low-level) AST on stderr");
     ("-show-ir", Set show_ir,
      "Print intermediate relations and debugging information");
     ("-show-cons", Set debug_cons, "Print constraints sent to Z3 on stderr");
-    ("-show-ast", Set debug_ast, "Print (low-level) AST on stderr");
     ("-show-model", Set print_model, "Print inferred model produced from successful verification on stderr");
     ("-dry-run", Set dry_run,
      "Parse, typecheck, and run inference, but do not actually run Z3");
@@ -168,9 +168,9 @@ let arg_gen () =
   let update () = {
     output_file = !output_file;
     show_annot = !show_annot;
+    show_ast = !show_ast;
     show_ir = !show_ir;
     debug_cons = !debug_cons;
-    debug_ast = !debug_ast;
     print_model = !print_model;
     dry_run = !dry_run;
     solver = !solver;
