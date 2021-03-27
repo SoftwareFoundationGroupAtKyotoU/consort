@@ -246,6 +246,12 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     ArgOptions.show_annotated opts (fun out ->
         AstPrinter.pretty_print_program
           ~with_labels:true ~annot:(pprint_annot snap) out ast);
+    ArgOptions.show_ast opts (fun out ->
+        let (program_types,_) = simple_res in
+        AstPrinter.pretty_print_program out ast;
+        StringMap.iter (fun n a ->
+            Printf.fprintf out "%s: %s\n" n @@ SimpleTypes.fntype_to_string a)
+          program_types);
     ArgOptions.show_ir opts (fun out ->
         let open Std in
         let open Sexplib.Std in
