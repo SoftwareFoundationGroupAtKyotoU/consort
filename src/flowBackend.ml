@@ -249,21 +249,18 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
       flush stderr
     in
-    let () = Option.iter (fun out_f ->
-        let f = open_out out_f in
-        Fun.protect ~finally:(fun () -> close_out f) (fun () ->
-          let open Std in
-          let open FlowInference in
-          let open Sexplib.Std in
-          let module P = Paths in
-          let mu_bind = IntMap.bindings snap |> ListMonad.bind (fun (i,pmap) ->
-                P.PathMap.bindings pmap.mu_relations |> List.map (fun (p,rel) -> (i,p,rel))
-              )
-          in
-          Sexplib.Sexp.output_hum f @@ [%sexp_of: Ast.prog * FlowInference.relation list * (int * P.concr_ap * relation) list] (ast,rel,mu_bind);
-          flush f;
-        )
-      ) opts.dump_ir in
+    ArgOptions.show_ir opts (fun out ->
+        let open Std in
+        let open Sexplib.Std in
+        let mu_bind =
+          IntMap.bindings snap
+          |> ListMonad.bind (fun (i,pmap) ->
+              P.PathMap.bindings pmap.mu_relations
+              |> List.map (fun (p,rel) -> (i,p,rel))) in
+        let sexp = [%sexp_of: Ast.prog *
+                              FlowInference.relation list *
+                              (int * P.concr_ap * relation) list] (ast,rel,mu_bind) in
+        Sexplib.Sexp.output_hum out sexp);
     (),
     solve_constraints ~opts ~fgen rel impl start
 end
