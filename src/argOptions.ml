@@ -50,6 +50,7 @@ type t = {
   file_list : Arg.usage_msg list;
   exit_status : bool;
   yaml : bool;
+  output_channel : out_channel Cache.t;
   intrinsics : Intrinsics.interp_t Cache.t;
 }
 
@@ -75,6 +76,7 @@ let default = {
   file_list = [];
   exit_status = false;
   yaml = false;
+  output_channel = ref None;
   intrinsics = ref None;
 }
 let get_intr opts =
@@ -174,6 +176,7 @@ let arg_gen () =
     file_list = !file_list;
     exit_status = !status;
     yaml = !yaml;
+    output_channel = default.output_channel;
     intrinsics = default.intrinsics;
   } in
   (spec, update)
