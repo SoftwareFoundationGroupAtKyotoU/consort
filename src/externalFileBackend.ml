@@ -8,17 +8,11 @@ module Make(D: sig
       let dispose _ = ()
       open Solver
       let prepare_out ~opts =
-        let open ArgOptions in
-        let (nm,chan) =
-          match opts.save_cons with
-          | Some s -> (s,open_out s)
-          | None ->
-            let (nm,chan) = Filename.open_temp_file (D.name ^ "Cons") ".smt" in
-            at_exit (fun () ->
-                Sys.remove nm);
-            (nm,chan)
-        in
+        let (nm,chan) = Filename.open_temp_file (D.name ^ "Cons") ".smt" in
+        at_exit (fun () ->
+            Sys.remove nm);
         let base_command =
+          let open ArgOptions in
           Printf.sprintf "%s %a"
             (D.spawn ~command:opts.command ~timeout:opts.timeout)
             add_extra_arg opts.command_extra

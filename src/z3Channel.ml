@@ -2,19 +2,14 @@ module Ch = SolverBridge.Make(struct
     type st = Process.t
     let name = "z3"
     let spawn i = i
-    open Solver
     let prepare_out ~opts =
-      let open ArgOptions in
-      let base_command = Printf.sprintf "%s -in -T:%d%a 2>&1"
+      let cmd =
+        let open Solver in
+        let open ArgOptions in
+        Printf.sprintf "%s -in -T:%d%a 2>&1"
           (Option.value ~default:"z3" opts.command)
           opts.timeout
-          add_extra_arg opts.command_extra
-      in
-      let cmd =
-        match opts.save_cons with
-        | Some f_name -> Printf.sprintf "tee %s | %s" f_name base_command
-        | None -> base_command
-      in
+          add_extra_arg opts.command_extra in
       let proc = Process.spawn cmd in
       (proc,proc.Process.proc_stdin)
     let dispose _ = ()

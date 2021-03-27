@@ -73,11 +73,6 @@ module Make(D: sig
     handle_return ~opts s p
 
   let call_cont ~opts ~strat cons =
-    let opts =
-      let open ArgOptions in {
-        opts with
-        save_cons = None
-      } in
     let (s,p) = prepare_call ~opts ~strat cons in
     (p, (fun () -> handle_return ~opts s p), (fun () -> D.dispose s))
 end
