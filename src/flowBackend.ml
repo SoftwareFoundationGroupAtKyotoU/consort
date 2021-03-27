@@ -252,7 +252,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
            |> Option.value ~default:(fun _ -> true))
       else (fun _ _ -> true) in
     let ans = solve_constraints ~opts ~fgen rel impl start in
-    ArgOptions.show_annotated opts (fun out ->
+    ArgOptions.show_annot opts (fun out ->
         AstPrinter.pretty_print_program
           ~with_labels:true ~annot:(pprint_annot snap) out ast);
     ArgOptions.show_ast opts (fun out ->
