@@ -118,7 +118,9 @@ let arg_gen () =
   let file_list = ref default.file_list in
   let status = ref default.exit_status in
   let yaml = ref default.yaml in
-  let all_debug_flags = [ show_annot; show_ast; show_cons; show_ir; show_model ] in
+  let show_all () =
+    let all = [show_annot; show_ast; show_cons; show_ir; show_model] in
+    List.iter (fun r -> r := true) all; Log.all () in
   let open Arg in
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
@@ -131,12 +133,9 @@ let arg_gen () =
      "Print intermediate relations and debugging information");
     ("-show-model", Set show_model,
      "Print inferred model produced from successful verification on stderr");
+    ("-show-all", Unit show_all, "Print all debug output");
     ("-dry-run", Set dry_run,
      "Parse, typecheck, and run inference, but do not actually run Z3");
-    ("-show-all", Unit (fun () ->
-         List.iter (fun r -> r := true) all_debug_flags;
-         Log.all ()),
-     "Show all debug output");
     ("-debug", String (fun s ->
          Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
      "Debug sources s1,s2,...");
