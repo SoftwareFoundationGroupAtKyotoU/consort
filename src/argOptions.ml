@@ -40,7 +40,6 @@ type t = {
   timeout : int;
   command : string option;
   command_extra : string option;
-  dump_ir : string option;
   relaxed_mode : bool;
   null_checks : bool;
   intrinsics_file : string option;
@@ -66,7 +65,6 @@ let default = {
   timeout = 30;
   command = None;
   command_extra = None;
-  dump_ir = None;
   relaxed_mode = false;
   null_checks = false;
   intrinsics_file = None;
@@ -108,7 +106,6 @@ let arg_gen () =
   let timeout = ref default.timeout in
   let command = ref default.command in
   let extra = ref default.command_extra in
-  let dump_ir = ref default.dump_ir in
   let relaxed_mode = ref default.relaxed_mode in
   let null_checks = ref default.null_checks in
   let f_name = ref None in
@@ -143,8 +140,6 @@ let arg_gen () =
     ("-solver",
      Symbol (Solver.candidates, Solver.update solver),
      " Use solver backend <solver>. (default: spacer)");
-    ("-dump-ir", String (fun s -> dump_ir := Some s),
-     "Dump intermediate relations and debugging information");
     ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
      "Use alternative, relaxed maximization constraints");
     ("-check-null", Set null_checks,
@@ -177,7 +172,6 @@ let arg_gen () =
     timeout = !timeout;
     command = !command;
     command_extra = !extra;
-    dump_ir = !dump_ir;
     relaxed_mode = !relaxed_mode;
     null_checks = !null_checks;
     intrinsics_file = !f_name;
