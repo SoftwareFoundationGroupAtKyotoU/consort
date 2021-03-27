@@ -168,7 +168,6 @@ let solve_ownership ~opts (ovars, ocons, max_vars) =
     let opts : ArgOptions.t = {
       opts with
       print_model = true;
-      debug_cons = Log.check_source None;
       intrinsics_file = None;
     } in
     Z3Channel.call_z3_raw

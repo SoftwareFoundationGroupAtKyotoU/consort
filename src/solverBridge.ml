@@ -22,6 +22,8 @@ module Make(D: sig
       val dispose : st -> unit
       val name : string
     end) : S = struct
+  let _ = D.name
+
   let handle_return ~opts s p =
     let res = String.trim @@ input_line p.Process.proc_stdout in
     let return_and_close f = Process.dispose p; D.dispose s; f in
@@ -51,11 +53,6 @@ module Make(D: sig
 
   let prepare_call ~opts ~strat cons =
     let defn_file = (ArgOptions.get_intr opts).def_file in
-    if opts.debug_cons then begin
-      let cons_string = (load_defn defn_file) ^ (SexpPrinter.to_string cons) in
-      Printf.fprintf stderr "Sending constraints >>>\n%s\n<<<<\nto %s\n" cons_string D.name;
-      flush stderr
-    end;
     let (s,o) = D.prepare_out ~opts in
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
@@ -79,7 +76,6 @@ module Make(D: sig
     let opts =
       let open ArgOptions in {
         opts with
-        debug_cons = false;
         save_cons = None
       } in
     let (s,p) = prepare_call ~opts ~strat cons in

@@ -6,10 +6,6 @@ let solve ~opts cons =
         v ^ cons
       ) ~none:cons
   in
-  (if opts.ArgOptions.debug_cons then
-     Printf.fprintf stderr "Generated constraints >>>\n%s\n<<<" cons';
-  );
-  flush stderr;
   Option.map open_out opts.ArgOptions.save_cons
   |> Option.map output_string
   |> Option.iter (fun f -> f cons');

@@ -191,6 +191,15 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       break ff
     in
     SexpPrinter.finish ff;
+    ArgOptions.show_cons opts (fun out ->
+        let def_file = (ArgOptions.get_intr opts).def_file in
+        let output_endline s = output_string out (s ^ "\n") in
+        output_endline @@ "; Sending constraints >>>";
+        output_endline @@ "; Intrinsic definitions";
+        output_endline @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
+        output_endline @@ "; Constraints";
+        output_endline @@ SexpPrinter.to_string ff;
+        output_endline @@ "; <<<");
     C.solve ~opts ff
 
   let pprint_annot =
