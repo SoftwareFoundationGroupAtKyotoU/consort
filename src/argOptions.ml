@@ -33,7 +33,6 @@ type t = {
   show_ir : bool;
   debug_cons : bool;
   debug_ast : bool;
-  save_cons : string option;
   annot_infr : bool;
   print_model : bool;
   dry_run : bool;
@@ -60,7 +59,6 @@ let default = {
   show_ir = false;
   debug_cons = false;
   debug_ast = false;
-  save_cons = None;
   annot_infr = false;
   print_model = false;
   dry_run = false;
@@ -103,7 +101,6 @@ let arg_gen () =
   let show_ir = ref default.show_ir in
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in
-  let save_cons = ref default.save_cons in
   let annot_infr = ref default.annot_infr in
   let print_model = ref default.print_model in
   let dry_run = ref default.dry_run in
@@ -135,8 +132,6 @@ let arg_gen () =
      "Print an annotated AST program with the inferred types on stderr");
     ("-dry-run", Set dry_run,
      "Parse, typecheck, and run inference, but do not actually run Z3");
-    ("-save-cons", String (fun s -> save_cons := Some s),
-     "Save constraints in <file>");
     ("-show-all", Unit (fun () ->
          List.iter (fun r -> r := true) all_debug_flags;
          Log.all ()),
@@ -175,7 +170,6 @@ let arg_gen () =
     show_ir = !show_ir;
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
-    save_cons = !save_cons;
     annot_infr = !annot_infr;
     print_model = !print_model;
     dry_run = !dry_run;
