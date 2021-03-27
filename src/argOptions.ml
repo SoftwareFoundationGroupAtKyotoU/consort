@@ -30,6 +30,7 @@ end
 
 type t = {
   output_file : string option;
+  show_ir : bool;
   debug_cons : bool;
   debug_ast : bool;
   save_cons : string option;
@@ -56,6 +57,7 @@ type t = {
 
 let default = {
   output_file = None;
+  show_ir = false;
   debug_cons = false;
   debug_ast = false;
   save_cons = None;
@@ -88,6 +90,7 @@ let show flag opts print =
 let show_annotated opts = show opts.annot_infr opts
 let show_ast opts = show opts.debug_ast opts
 let show_cons opts = show opts.debug_cons opts
+let show_ir opts = show opts.show_ir opts
 let show_model opts = show opts.print_model opts
 let get_intr opts =
   let option_loader () =
@@ -97,6 +100,7 @@ let get_intr opts =
   Cache.get opts.intrinsics option_loader
 let arg_gen () =
   let output_file = ref default.output_file in
+  let show_ir = ref default.show_ir in
   let debug_cons = ref default.debug_cons in
   let debug_ast = ref default.debug_ast in
   let save_cons = ref default.save_cons in
@@ -122,6 +126,8 @@ let arg_gen () =
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
      "Alternative output target other than stderr for -show-<something> options");
+    ("-show-ir", Set show_ir,
+     "Print intermediate relations and debugging information");
     ("-show-cons", Set debug_cons, "Print constraints sent to Z3 on stderr");
     ("-show-ast", Set debug_ast, "Print (low-level) AST on stderr");
     ("-show-model", Set print_model, "Print inferred model produced from successful verification on stderr");
@@ -166,6 +172,7 @@ let arg_gen () =
   ] in
   let update () = {
     output_file = !output_file;
+    show_ir = !show_ir;
     debug_cons = !debug_cons;
     debug_ast = !debug_ast;
     save_cons = !save_cons;
