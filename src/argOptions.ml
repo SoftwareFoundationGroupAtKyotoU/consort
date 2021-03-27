@@ -79,6 +79,12 @@ let default = {
   output_channel = ref None;
   intrinsics = ref None;
 }
+let show flag opts print =
+  if flag then
+    let out = Cache.get opts.output_channel (fun () ->
+        Option.fold ~none:stderr ~some:open_out opts.output_file) in
+    print out; flush out
+  else ()
 let get_intr opts =
   let option_loader () =
     match opts.intrinsics_file with
