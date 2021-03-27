@@ -1,7 +1,3 @@
-let load_defn = function
-  | Some f -> Files.string_of_file f
-  | None -> ""
-
 module type S = sig
   val call :
     opts:ArgOptions.t ->
@@ -50,13 +46,13 @@ module Make(D: sig
       | Failure _ -> return_and_close @@ Solver.Unhandled s
 
   let prepare_call ~opts ~strat cons =
-    let defn_file = (ArgOptions.get_intr opts).def_file in
+    let def_file = (ArgOptions.get_intr opts).def_file in
     let (s,o) = D.prepare_out ~opts in
-    output_string o @@ load_defn defn_file;
-    SexpPrinter.to_channel cons o;
-    let cmd = "\n" ^ strat ^ "\n" ^ (
-        if opts.show_model then "(get-model)\n" else "") in
-    output_string o cmd;
+    let output_endline s = output_string o (s ^ "\n") in
+    output_endline @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
+    output_endline @@ SexpPrinter.to_string cons;
+    output_endline @@ strat;
+    output_endline @@ if opts.show_model then "(get-model)" else "";
     close_out o;
     let p = D.spawn s in
     (s,p)
