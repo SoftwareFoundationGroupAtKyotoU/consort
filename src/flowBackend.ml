@@ -244,11 +244,9 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
           |> Option.value ~default:(fun _ -> true)
         )
     in
-    let () =
-      if opts.annot_infr then
-        AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
-      flush stderr
-    in
+    ArgOptions.show_annotated opts (fun out ->
+        AstPrinter.pretty_print_program
+          ~with_labels:true ~annot:(pprint_annot snap) out ast);
     ArgOptions.show_ir opts (fun out ->
         let open Std in
         let open Sexplib.Std in
