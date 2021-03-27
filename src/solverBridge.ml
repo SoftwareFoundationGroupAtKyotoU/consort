@@ -30,12 +30,10 @@ module Make(D: sig
     match res with
     | "sat" ->
       let m =
-        if (opts.ArgOptions.print_model) then
-          let model = Files.string_of_channel p.Process.proc_stdout in
-          Some model
+        if opts.ArgOptions.show_model then
+          Some (Files.string_of_channel p.Process.proc_stdout)
         else
-          None
-      in
+          None in
       return_and_close @@ Solver.Sat m
     | "unsat" -> return_and_close Solver.Unsat
     | "timeout" -> return_and_close Solver.Timeout
@@ -57,12 +55,7 @@ module Make(D: sig
     output_string o @@ load_defn defn_file;
     SexpPrinter.to_channel cons o;
     let cmd = "\n" ^ strat ^ "\n" ^ (
-        if opts.print_model then
-          "(get-model)\n"
-        else
-          ""
-      )
-    in
+        if opts.show_model then "(get-model)\n" else "") in
     output_string o cmd;
     close_out o;
     let p = D.spawn s in

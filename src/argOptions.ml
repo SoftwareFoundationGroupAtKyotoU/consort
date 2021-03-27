@@ -34,7 +34,7 @@ type t = {
   show_ast : bool;
   show_cons : bool;
   show_ir : bool;
-  print_model : bool;
+  show_model : bool;
   dry_run : bool;
   solver : Solver.t;
   timeout : int;
@@ -60,7 +60,7 @@ let default = {
   show_ast = false;
   show_cons = false;
   show_ir = false;
-  print_model = false;
+  show_model = false;
   dry_run = false;
   solver = Spacer;
   timeout = 30;
@@ -89,7 +89,7 @@ let show_annot opts = show opts.show_annot opts
 let show_ast opts = show opts.show_ast opts
 let show_cons opts = show opts.show_cons opts
 let show_ir opts = show opts.show_ir opts
-let show_model opts = show opts.print_model opts
+let show_model opts = show opts.show_model opts
 let get_intr opts =
   let option_loader () =
     match opts.intrinsics_file with
@@ -102,7 +102,7 @@ let arg_gen () =
   let show_ast = ref default.show_ast in
   let show_cons = ref default.show_cons in
   let show_ir = ref default.show_ir in
-  let print_model = ref default.print_model in
+  let show_model = ref default.show_model in
   let dry_run = ref default.dry_run in
   let solver = ref default.solver in
   let timeout = ref default.timeout in
@@ -118,7 +118,7 @@ let arg_gen () =
   let file_list = ref default.file_list in
   let status = ref default.exit_status in
   let yaml = ref default.yaml in
-  let all_debug_flags = [ show_annot; show_ast; show_cons; print_model ] in
+  let all_debug_flags = [ show_annot; show_ast; show_cons; show_ir; show_model ] in
   let open Arg in
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
@@ -129,7 +129,8 @@ let arg_gen () =
     ("-show-cons", Set show_cons, "Print constraints sent to solver on stderr");
     ("-show-ir", Set show_ir,
      "Print intermediate relations and debugging information");
-    ("-show-model", Set print_model, "Print inferred model produced from successful verification on stderr");
+    ("-show-model", Set show_model,
+     "Print inferred model produced from successful verification on stderr");
     ("-dry-run", Set dry_run,
      "Parse, typecheck, and run inference, but do not actually run Z3");
     ("-show-all", Unit (fun () ->
@@ -171,7 +172,7 @@ let arg_gen () =
     show_ast = !show_ast;
     show_cons = !show_cons;
     show_ir = !show_ir;
-    print_model = !print_model;
+    show_model = !show_model;
     dry_run = !dry_run;
     solver = !solver;
     timeout = !timeout;
