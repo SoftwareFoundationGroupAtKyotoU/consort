@@ -91,7 +91,7 @@ let get_intr opts =
   let open Intrinsics in
   let set f = Cache.get opts.intrinsics (fun () -> load f) in
   Option.fold ~none:empty ~some:set opts.intrinsics_file
-let arg_gen () =
+let parse anon_fun usage_msg =
   let output_file = ref default.output_file in
   let show_annot = ref default.show_annot in
   let show_ast = ref default.show_ast in
@@ -170,7 +170,8 @@ let arg_gen () =
     ("-files", Rest (fun s -> file_list := s::!file_list),
      " Interpret all remaining arguments as files to test");
   ] in
-  let update () = {
+  Arg.parse spec anon_fun usage_msg;
+  {
     output_file = !output_file;
     show_annot = !show_annot;
     show_ast = !show_ast;
@@ -193,5 +194,4 @@ let arg_gen () =
     file_list = !file_list;
     output_channel = default.output_channel;
     intrinsics = default.intrinsics;
-  } in
-  (spec, update)
+  }

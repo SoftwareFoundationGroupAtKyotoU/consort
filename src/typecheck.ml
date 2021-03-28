@@ -38,5 +38,8 @@ let typecheck ~opts file =
   ) stdout (fn,prog)
 
 let () =
-  let (spec, update) = ArgOptions.arg_gen () in
-  Files.run_with_file spec "Parse and (simple) typecheck <file>" @@ typecheck ~opts:(update ())
+  let n = ref None in
+  let opts = ArgOptions.parse (fun s -> n := Some s) "Parse and (simple) typecheck <file>" in
+  match !n with
+  | None -> print_endline "No file provided"
+  | Some f -> typecheck ~opts f
