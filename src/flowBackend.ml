@@ -231,6 +231,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
+  let output_endline out s = output_string out (s ^ "\n")
   let show_annot ~opts snap ast =
     let print out =
       AstPrinter.pretty_print_program
@@ -240,19 +241,20 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     let print out =
       AstPrinter.pretty_print_program out ast;
       StringMap.iter (fun n a ->
-          Printf.fprintf out "%s: %s\n" n @@ SimpleTypes.fntype_to_string a)
-        program_types in
+          output_endline out
+          @@ Printf.sprintf "%s: %s" n @@ SimpleTypes.fntype_to_string a
+        ) program_types in
     ArgOptions.show ~opts opts.show_ast print
   let show_cons ~opts cons =
     let print out =
       let def_file = (ArgOptions.get_intr opts).def_file in
-      let output_endline s = output_string out (s ^ "\n") in
-      output_endline @@ "; Sending constraints >>>";
-      output_endline @@ "; Intrinsic definitions";
-      output_endline @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
-      output_endline @@ "; Constraints";
-      output_endline @@ SexpPrinter.to_string cons;
-      output_endline @@ "; <<<" in
+      output_endline out @@ "; Sending constraints >>>";
+      output_endline out @@ "; Intrinsic definitions";
+      output_endline out
+      @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
+      output_endline out @@ "; Constraints";
+      output_endline out @@ SexpPrinter.to_string cons;
+      output_endline out @@ "; <<<" in
     ArgOptions.show ~opts opts.show_cons print
   let show_ir ~opts snap ast rel =
     let print out =
@@ -272,7 +274,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
   let show_model ~opts ans =
     let print out =
       match ans with
-      | Solver.Sat Some m -> output_string out (m ^ "\n")
+      | Solver.Sat Some m -> output_endline out m
       | _ -> () in
     ArgOptions.show ~opts opts.show_model print
 
