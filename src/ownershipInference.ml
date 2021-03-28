@@ -800,7 +800,7 @@ let infer ~opts (simple_types,iso) (fn,prog) =
     }
   in
   let init_context = {
-    relaxed = opts.ArgOptions.relaxed_mode;
+    relaxed = opts.ArgOptions.relaxed_max;
     ovars = [];
     v_counter = 0;
     iso;

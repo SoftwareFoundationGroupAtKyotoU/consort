@@ -39,11 +39,6 @@ let infer_ownership opts simple_res ast =
       OI.gen = OI.GenMap.map map_ownership o_result.OI.Result.op_record.gen
     } in
     Some o_hints
-let print_model t =
-  if t then
-    Option.iter (fun s -> prerr_endline s; flush stderr)
-  else
-    Option.iter (fun _ -> ())
 
 let choose_solver opts =
   match opts.ArgOptions.solver with
@@ -57,14 +52,7 @@ let choose_solver opts =
 let check_file ?(opts=ArgOptions.default) in_name =
   let ast = AstUtil.parse_file in_name in
   let simple_typing = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
-  let ((program_types,_) as simple_res)= SimpleChecker.typecheck_prog simple_typing ast in
-  if opts.debug_ast then begin
-    AstPrinter.pretty_print_program stderr ast;
-    StringMap.iter (fun n a ->
-        Printf.fprintf stderr "%s: %s\n" n @@ SimpleTypes.fntype_to_string a
-      ) program_types;
-    flush stderr
-  end;
+  let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
   let infer_opt = infer_ownership opts simple_res ast in
   match infer_opt with
   | None -> Unverified Aliasing
@@ -73,11 +61,9 @@ let check_file ?(opts=ArgOptions.default) in_name =
       let solve = choose_solver opts
     end in
     let module S = FlowBackend.Make(Backend) in
-    let (_,ans) = S.solve ~opts simple_res r ast in
+    let ans = S.solve ~opts simple_res r ast in
     match ans with
-    | Sat m ->
-      print_model opts.print_model m;
-      Verified
+    | Sat _ -> Verified
     | Unsat -> Unverified Unsafe
     | Timeout -> Unverified Timeout
     | Unhandled msg -> Unverified (UnhandledSolverOutput msg)

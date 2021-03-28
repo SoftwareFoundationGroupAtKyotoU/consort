@@ -1,11 +1,9 @@
 let () =
-  let (spec, update) = ArgOptions.arg_gen () in
   let target_name = ref None in
-  Arg.parse spec (fun s -> target_name := Some s) "Verify imp file";
+  let opts = ArgOptions.parse (fun s -> target_name := Some s) "Verify imp file" in
   match !target_name with
   | None -> print_endline "No file provided"; exit 1
   | Some in_name ->
-    let opts = update () in
     let res = Consort.check_file ~opts in_name in
     let () =
       if opts.yaml then
