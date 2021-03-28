@@ -191,16 +191,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       break ff
     in
     SexpPrinter.finish ff;
-    ArgOptions.show ~opts opts.show_cons (fun out ->
-        let def_file = (ArgOptions.get_intr opts).def_file in
-        let output_endline s = output_string out (s ^ "\n") in
-        output_endline @@ "; Sending constraints >>>";
-        output_endline @@ "; Intrinsic definitions";
-        output_endline @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
-        output_endline @@ "; Constraints";
-        output_endline @@ SexpPrinter.to_string ff;
-        output_endline @@ "; <<<");
-    C.solve ~opts ff
+    ff
 
   let pprint_annot =
     let open PrettyPrint in
@@ -251,7 +242,8 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
                (fun p -> not @@ P.PathSet.mem p s))
            |> Option.value ~default:(fun _ -> true))
       else (fun _ _ -> true) in
-    let ans = solve_constraints ~opts ~fgen rel impl start in
+    let cons = solve_constraints ~opts ~fgen rel impl start in
+    let ans = C.solve ~opts cons in
     ArgOptions.show ~opts opts.show_annot (fun out ->
         AstPrinter.pretty_print_program
           ~with_labels:true ~annot:(pprint_annot snap) out ast);
@@ -261,6 +253,15 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
         StringMap.iter (fun n a ->
             Printf.fprintf out "%s: %s\n" n @@ SimpleTypes.fntype_to_string a)
           program_types);
+    ArgOptions.show ~opts opts.show_cons (fun out ->
+        let def_file = (ArgOptions.get_intr opts).def_file in
+        let output_endline s = output_string out (s ^ "\n") in
+        output_endline @@ "; Sending constraints >>>";
+        output_endline @@ "; Intrinsic definitions";
+        output_endline @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
+        output_endline @@ "; Constraints";
+        output_endline @@ SexpPrinter.to_string cons;
+        output_endline @@ "; <<<");
     ArgOptions.show ~opts opts.show_ir (fun out ->
         let open Std in
         let open Sexplib.Std in
