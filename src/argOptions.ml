@@ -121,53 +121,53 @@ let arg_gen () =
   let open Arg in
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
-     "Alternative output target other than stderr for -show-<something> options");
+     " Alternative output target other than stderr for -show-<something> options");
     ("-show-annot", Set show_annot,
-     "Print an annotated AST program with the inferred types on stderr");
+     " Print an annotated AST program with the inferred types on stderr");
     ("-show-ast", Set show_ast,
-     "Print (low-level) AST on stderr");
+     " Print (low-level) AST on stderr");
     ("-show-cons", Set show_cons,
-     "Print constraints sent to solver on stderr");
+     " Print constraints sent to solver on stderr");
     ("-show-ir", Set show_ir,
-     "Print intermediate relations and debugging information");
+     " Print intermediate relations and debugging information");
     ("-show-model", Set show_model,
-     "Print inferred model produced from successful verification on stderr");
+     " Print inferred model produced from successful verification on stderr");
     ("-show-all", Unit show_all,
-     "Print all debug output");
+     " Print all debug output");
     ("-debug", String debug,
-     "Debug sources s1,s2,...");
+     " Debug sources s1,s2,...");
     ("-debug-all", Unit Log.all,
-     "Show all debug output");
+     " Show all debug output");
     ("-dry-run", Set dry_run,
-     "Parse, typecheck, and run inference, but do not actually run Z3");
+     " Parse, typecheck, and run inference, but do not actually run Z3");
     ("-relaxed-max", Set relaxed_max,
-     "Use alternative, relaxed maximization constraints");
+     " Use alternative, relaxed maximization constraints");
     ("-check-null", Set check_null,
-     "For freedom of null pointer exceptions");
+     " For freedom of null pointer exceptions");
     ("-pos", Set expect_typing,
-     "Expect typing success (default)");
+     " Expect typing success (default)");
     ("-neg", Clear expect_typing,
-     "Expect typing failures");
+     " Expect typing failures");
     ("-exit-status", Set exit_status,
-     "Indicate successful verification with exit code");
+     " Indicate successful verification with exit code");
     ("-yaml", Set yaml,
-     "Print verification result in YAML format");
+     " Print verification result in YAML format");
     ("-verbose", Set verbose,
-     "Provide more output");
+     " Provide more output");
     ("-solver", Symbol (Solver.candidates, set_solver),
-     Printf.sprintf "Use solver backend <solver>. (default: %s)" Solver.default);
+     Printf.sprintf " Use solver backend <solver>. (default: %s)" Solver.default);
     ("-timeout", Set_int timeout,
-     "Timeout for solver in seconds");
+     " Timeout for solver in seconds");
     ("-command", set_string command,
-     "Executable for solver");
+     " Executable for solver");
     ("-solver-args", set_string solver_args,
-     "Extra arguments to pass wholesale to solver");
+     " Extra arguments to pass wholesale to solver");
     ("-cfa", Set_int cfa,
-     "k to use for k-cfa inference");
+     " k to use for k-cfa inference");
     ("-intrinsics", set_string intrinsics_file,
-     "Load definitions of standard operations from <file>");
+     " Load definitions of standard operations from <file>");
     ("-files", Rest (fun s -> file_list := s::!file_list),
-     "Interpret all remaining arguments as files to test");
+     " Interpret all remaining arguments as files to test");
   ] in
   let update () = {
     output_file = !output_file;
