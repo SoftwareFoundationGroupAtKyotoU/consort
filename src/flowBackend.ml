@@ -282,7 +282,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     let rel,impl,snap,start,omit =
       FlowInference.infer ~opts simple_res o_hints ast in
     let fgen =
-      if opts.relaxed_mode then
+      if opts.relaxed_max then
         (fun s ->
            StringMap.find_opt s omit
            |> Option.map (fun s ->

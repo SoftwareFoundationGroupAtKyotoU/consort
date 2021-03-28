@@ -9,7 +9,7 @@ module Ch = SolverBridge.Make(struct
         Printf.sprintf "%s -in -T:%d%a 2>&1"
           (Option.value ~default:"z3" opts.command)
           opts.timeout
-          add_extra_arg opts.command_extra in
+          add_extra_arg opts.solver_args in
       let proc = Process.spawn cmd in
       (proc,proc.Process.proc_stdin)
     let dispose _ = ()

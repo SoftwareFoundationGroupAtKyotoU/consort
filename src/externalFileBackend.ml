@@ -14,7 +14,7 @@ module Make(D: sig
           let open ArgOptions in
           Printf.sprintf "%s %a"
             (D.spawn ~command:opts.command ~timeout:opts.timeout)
-            add_extra_arg opts.command_extra in
+            add_extra_arg opts.solver_args in
         (base_command,nm),chan
 
       let spawn (base_command,nm) =

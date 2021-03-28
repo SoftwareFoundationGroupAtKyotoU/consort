@@ -36,8 +36,8 @@ type t = {
   show_ir : bool;
   show_model : bool;
   dry_run : bool;
-  relaxed_mode : bool;
-  null_checks : bool;
+  relaxed_max : bool;
+  check_null : bool;
   expect_typing : bool;
   exit_status : bool;
   yaml : bool;
@@ -45,7 +45,7 @@ type t = {
   solver : Solver.t;
   timeout : int;
   command : string option;
-  command_extra : string option;
+  solver_args : string option;
   cfa : int;
   intrinsics_file : string option;
   file_list : Arg.usage_msg list;
@@ -61,8 +61,8 @@ let default = {
   show_ir = false;
   show_model = false;
   dry_run = false;
-  relaxed_mode = false;
-  null_checks = false;
+  relaxed_max = false;
+  check_null = false;
   expect_typing = true;
   exit_status = false;
   yaml = false;
@@ -70,7 +70,7 @@ let default = {
   solver = Spacer;
   timeout = 30;
   command = None;
-  command_extra = None;
+  solver_args = None;
   cfa = 1;
   intrinsics_file = None;
   file_list = [];
@@ -97,18 +97,18 @@ let arg_gen () =
   let show_ir = ref default.show_ir in
   let show_model = ref default.show_model in
   let dry_run = ref default.dry_run in
-  let relaxed_mode = ref default.relaxed_mode in
-  let null_checks = ref default.null_checks in
-  let expect = ref default.expect_typing in
-  let status = ref default.exit_status in
+  let relaxed_max = ref default.relaxed_max in
+  let check_null = ref default.check_null in
+  let expect_typing = ref default.expect_typing in
+  let exit_status = ref default.exit_status in
   let yaml = ref default.yaml in
   let verbose = ref default.verbose in
   let solver = ref default.solver in
   let timeout = ref default.timeout in
   let command = ref default.command in
-  let extra = ref default.command_extra in
+  let solver_args = ref default.solver_args in
   let cfa = ref default.cfa in
-  let f_name = ref None in
+  let intrinsics_file = ref None in
   let file_list = ref default.file_list in
   let show_all () =
     let all = [show_annot; show_ast; show_cons; show_ir; show_model] in
@@ -139,15 +139,15 @@ let arg_gen () =
      "Show all debug output");
     ("-dry-run", Set dry_run,
      "Parse, typecheck, and run inference, but do not actually run Z3");
-    ("-relaxed-max", Set relaxed_mode,
+    ("-relaxed-max", Set relaxed_max,
      "Use alternative, relaxed maximization constraints");
-    ("-check-null", Set null_checks,
+    ("-check-null", Set check_null,
      "For freedom of null pointer exceptions");
-    ("-pos", Set expect,
+    ("-pos", Set expect_typing,
      "Expect typing success (default)");
-    ("-neg", Clear expect,
+    ("-neg", Clear expect_typing,
      "Expect typing failures");
-    ("-exit-status", Set status,
+    ("-exit-status", Set exit_status,
      "Indicate successful verification with exit code");
     ("-yaml", Set yaml,
      "Print verification result in YAML format");
@@ -159,11 +159,11 @@ let arg_gen () =
      "Timeout for solver in seconds");
     ("-command", set_string command,
      "Executable for solver");
-    ("-solver-args", set_string extra,
+    ("-solver-args", set_string solver_args,
      "Extra arguments to pass wholesale to solver");
     ("-cfa", Set_int cfa,
      "k to use for k-cfa inference");
-    ("-intrinsics", set_string f_name,
+    ("-intrinsics", set_string intrinsics_file,
      "Load definitions of standard operations from <file>");
     ("-files", Rest (fun s -> file_list := s::!file_list),
      "Interpret all remaining arguments as files to test");
@@ -176,18 +176,18 @@ let arg_gen () =
     show_ir = !show_ir;
     show_model = !show_model;
     dry_run = !dry_run;
-    relaxed_mode = !relaxed_mode;
-    null_checks = !null_checks;
-    expect_typing = !expect;
-    exit_status = !status;
+    relaxed_max = !relaxed_max;
+    check_null = !check_null;
+    expect_typing = !expect_typing;
+    exit_status = !exit_status;
     yaml = !yaml;
     verbose = !verbose;
     solver = !solver;
     timeout = !timeout;
     command = !command;
-    command_extra = !extra;
+    solver_args = !solver_args;
     cfa = !cfa;
-    intrinsics_file = !f_name;
+    intrinsics_file = !intrinsics_file;
     file_list = !file_list;
     output_channel = default.output_channel;
     intrinsics = default.intrinsics;
