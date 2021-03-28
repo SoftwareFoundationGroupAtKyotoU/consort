@@ -296,5 +296,6 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     show_cons ~opts cons;
     show_ir ~opts snap ast rel;
     show_model ~opts ans;
+    ArgOptions.close_output ~opts;
     ans
 end

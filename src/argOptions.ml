@@ -78,10 +78,13 @@ let default = {
   output_channel = ref None;
   intrinsics = ref None;
 }
+let close_output ~opts =
+  Option.iter close_out !(opts.output_channel);
+  opts.output_channel := None
 let show ~opts flag print =
   if flag then
-    let out = Cache.get opts.output_channel (fun () ->
-        Option.fold ~none:stderr ~some:open_out opts.output_file) in
+    let set f = Cache.get opts.output_channel (fun () -> open_out f) in
+    let out = Option.fold ~none:stderr ~some:set opts.output_file in
     print out; flush out
   else ()
 let get_intr opts =
