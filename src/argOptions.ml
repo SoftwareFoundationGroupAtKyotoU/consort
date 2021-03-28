@@ -98,6 +98,7 @@ let parse anon_fun usage_msg =
   let show_cons = ref default.show_cons in
   let show_ir = ref default.show_ir in
   let show_model = ref default.show_model in
+  let show_all_flags = [show_annot; show_ast; show_cons; show_ir; show_model] in
   let dry_run = ref default.dry_run in
   let relaxed_max = ref default.relaxed_max in
   let check_null = ref default.check_null in
@@ -113,8 +114,7 @@ let parse anon_fun usage_msg =
   let intrinsics_file = ref None in
   let file_list = ref default.file_list in
   let show_all () =
-    let all = [show_annot; show_ast; show_cons; show_ir; show_model] in
-    List.iter (fun r -> r := true) all; Log.all () in
+    List.iter (fun r -> r := true) show_all_flags; Log.all () in
   let debug s =
     Log.filter @@ List.map String.trim @@ String.split_on_char ',' s in
   let set_string r = Arg.String (fun s -> r := Some s) in
@@ -122,53 +122,53 @@ let parse anon_fun usage_msg =
   let open Arg in
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
-     " Alternative output target other than stderr for -show-<something> options");
+     "<file>\t Output target of -show-* options instead of stderr");
     ("-show-annot", Set show_annot,
-     " Print an annotated AST program with the inferred types on stderr");
+     "\t Print an annotated AST program with the inferred types");
     ("-show-ast", Set show_ast,
-     " Print (low-level) AST on stderr");
+     "\t Print (low-level) AST");
     ("-show-cons", Set show_cons,
-     " Print constraints sent to solver on stderr");
+     "\t Print constraints sent to solver");
     ("-show-ir", Set show_ir,
-     " Print intermediate relations and debugging information");
+     "\t Print intermediate relations and debugging information");
     ("-show-model", Set show_model,
-     " Print inferred model produced from successful verification on stderr");
+     "\t Print inferred model produced from successful verification");
     ("-show-all", Unit show_all,
-     " Print all debug output");
+     "\t Print all debug output");
     ("-debug", String debug,
-     " Debug sources s1,s2,...");
+     "<s1>,<s2>,...\t Debug sources");
     ("-debug-all", Unit Log.all,
-     " Show all debug output");
+     "\t Show all debug output");
     ("-dry-run", Set dry_run,
-     " Parse, typecheck, and run inference, but do not actually run Z3");
+     "\t Parse, typecheck, and run inference, but do not actually run solver (not implemented)");
     ("-relaxed-max", Set relaxed_max,
-     " Use alternative, relaxed maximization constraints");
+     "\t Use alternative, relaxed maximization constraints");
     ("-check-null", Set check_null,
-     " For freedom of null pointer exceptions");
+     "\t For freedom of null pointer exceptions");
     ("-pos", Set expect_typing,
-     " Expect typing success (default)");
+     "\t\t Expect typing success (default)");
     ("-neg", Clear expect_typing,
-     " Expect typing failures");
+     "\t\t Expect typing failures");
     ("-exit-status", Set exit_status,
-     " Indicate successful verification with exit code");
+     "\t Indicate successful verification with exit code");
     ("-yaml", Set yaml,
-     " Print verification result in YAML format");
+     "\t Print verification result in YAML format");
     ("-verbose", Set verbose,
-     " Provide more output");
+     "\t Provide more output");
     ("-solver", Symbol (Solver.candidates, set_solver),
-     Printf.sprintf " Use solver backend <solver>. (default: %s)" Solver.default);
+     Printf.sprintf "\t Choose solver backend (default: %s)" Solver.default);
     ("-timeout", Set_int timeout,
-     " Timeout for solver in seconds");
+     "<integer>\t Timeout for solver in seconds");
     ("-command", set_string command,
-     " Executable for solver");
+     "<string>\t Executable for solver");
     ("-solver-args", set_string solver_args,
-     " Extra arguments to pass wholesale to solver");
+     "<string>  Extra arguments to pass wholesale to solver");
     ("-cfa", Set_int cfa,
-     " k to use for k-cfa inference");
+     "<integer>\t k to use for k-cfa inference");
     ("-intrinsics", set_string intrinsics_file,
-     " Load definitions of standard operations from <file>");
+     "<file>\t Load definitions of standard operations from <file>");
     ("-files", Rest (fun s -> file_list := s::!file_list),
-     " Interpret all remaining arguments as files to test");
+     "<file> ...\t Interpret all remaining arguments as files to test");
   ] in
   Arg.parse spec anon_fun usage_msg;
   {
