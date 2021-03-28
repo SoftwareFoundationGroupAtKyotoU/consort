@@ -88,11 +88,9 @@ let show ~opts flag print =
     print out; flush out
   else ()
 let get_intr opts =
-  let option_loader () =
-    match opts.intrinsics_file with
-    | None -> Intrinsics.empty
-    | Some f -> Intrinsics.load f in
-  Cache.get opts.intrinsics option_loader
+  let open Intrinsics in
+  let set f = Cache.get opts.intrinsics (fun () -> load f) in
+  Option.fold ~none:empty ~some:set opts.intrinsics_file
 let arg_gen () =
   let output_file = ref default.output_file in
   let show_annot = ref default.show_annot in
