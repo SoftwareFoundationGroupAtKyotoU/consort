@@ -24,8 +24,9 @@ module Solver = struct
     ("spacer", Spacer);
     ("z3smt", Z3SMT)
   ]
+  let default = "spacer"
   let candidates = List.map (fun (s, _) -> s) pairs
-  let update solver cand = solver := List.assoc cand pairs
+  let from_string s = List.assoc s pairs
 end
 
 type t = {
@@ -67,7 +68,7 @@ let default = {
   exit_status = false;
   yaml = false;
   verbose = false;
-  solver = Spacer;
+  solver = Solver.from_string Solver.default;
   timeout = 30;
   command = None;
   solver_args = None;
@@ -115,8 +116,8 @@ let arg_gen () =
     List.iter (fun r -> r := true) all; Log.all () in
   let debug s =
     Log.filter @@ List.map String.trim @@ String.split_on_char ',' s in
-  let set_string r =
-    Arg.String (fun s -> r := Some s) in
+  let set_string r = Arg.String (fun s -> r := Some s) in
+  let set_solver s = solver := Solver.from_string s in
   let open Arg in
   let spec = [
     ("-output-file", String (fun s -> output_file := Some s),
@@ -153,8 +154,8 @@ let arg_gen () =
      "Print verification result in YAML format");
     ("-verbose", Set verbose,
      "Provide more output");
-    ("-solver", Symbol (Solver.candidates, Solver.update solver),
-     " Use solver backend <solver>. (default: spacer)");
+    ("-solver", Symbol (Solver.candidates, set_solver),
+     Printf.sprintf "Use solver backend <solver>. (default: %s)" Solver.default);
     ("-timeout", Set_int timeout,
      "Timeout for solver in seconds");
     ("-command", set_string command,
