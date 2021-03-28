@@ -113,27 +113,31 @@ let arg_gen () =
   let show_all () =
     let all = [show_annot; show_ast; show_cons; show_ir; show_model] in
     List.iter (fun r -> r := true) all; Log.all () in
-  let open Arg in
-  let spec = [
+  let debug s =
+    Log.filter @@ List.map String.trim @@ String.split_on_char ',' s in
+  let spec =
+    let open Arg in [
     ("-output-file", String (fun s -> output_file := Some s),
      "Alternative output target other than stderr for -show-<something> options");
     ("-show-annot", Set show_annot,
      "Print an annotated AST program with the inferred types on stderr");
-    ("-show-ast", Set show_ast, "Print (low-level) AST on stderr");
-    ("-show-cons", Set show_cons, "Print constraints sent to solver on stderr");
+    ("-show-ast", Set show_ast,
+     "Print (low-level) AST on stderr");
+    ("-show-cons", Set show_cons,
+     "Print constraints sent to solver on stderr");
     ("-show-ir", Set show_ir,
      "Print intermediate relations and debugging information");
     ("-show-model", Set show_model,
      "Print inferred model produced from successful verification on stderr");
-    ("-show-all", Unit show_all, "Print all debug output");
+    ("-show-all", Unit show_all,
+     "Print all debug output");
     ("-dry-run", Set dry_run,
      "Parse, typecheck, and run inference, but do not actually run Z3");
-    ("-debug", String (fun s ->
-         Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
+    ("-debug", String debug,
      "Debug sources s1,s2,...");
-    ("-debug-all", Unit Log.all, "Show all debug output");
-    ("-solver",
-     Symbol (Solver.candidates, Solver.update solver),
+    ("-debug-all", Unit Log.all,
+     "Show all debug output");
+    ("-solver", Symbol (Solver.candidates, Solver.update solver),
      " Use solver backend <solver>. (default: spacer)");
     ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
      "Use alternative, relaxed maximization constraints");
