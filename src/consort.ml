@@ -29,6 +29,16 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r true
 
+let solver_result_to_check_result =
+  let open Solver in
+  function
+  | Unsat -> Unverified Unsafe
+  | Sat _ -> Verified
+  | Timeout -> Unverified Timeout
+  | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
+  | Error msg -> Unverified (SolverError msg)
+  | Unknown -> Unverified Unknown
+
 let choose_solver =
   let open ArgOptions.Solver in
   function
@@ -73,10 +83,4 @@ let consort ~opts file =
     let o_hint = to_hint o_res infer_res.op_record in
     let solve = get_solve ~opts in
     let ans = solve ~opts simple_res o_hint ast in
-    match ans with
-    | Sat _ -> Verified
-    | Unsat -> Unverified Unsafe
-    | Timeout -> Unverified Timeout
-    | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
-    | Error s -> Unverified (SolverError s)
-    | Unknown -> Unverified Unknown
+    solver_result_to_check_result ans
