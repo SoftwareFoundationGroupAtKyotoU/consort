@@ -25,8 +25,8 @@ let () =
   let opts = ArgOptions.parse (fun s -> target_name := Some s) "Verify imp file" in
   match !target_name with
   | None -> print_endline "No file provided"; exit 1
-  | Some in_name ->
-    let res = Consort.check_file ~opts in_name in
+  | Some file ->
+    let res = Consort.consort ~opts file in
     if opts.yaml then
       print_endline @@ result_to_yaml res
     else

@@ -13,4 +13,4 @@ type check_result =
 val reason_to_string : reason -> bool -> string
 val result_to_string : check_result -> string
 
-val check_file : ?opts:ArgOptions.t -> string -> check_result
+val consort : opts:ArgOptions.t -> string -> check_result

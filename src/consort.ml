@@ -56,9 +56,10 @@ let choose_solver opts =
   | Spacer -> HornBackend.solve
   | Z3SMT -> SmtBackend.solve
 
-let check_file ?(opts=ArgOptions.default) in_name =
-  let ast = AstUtil.parse_file in_name in
-  let simple_typing = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
+let consort ~opts file =
+  let ast = AstUtil.parse_file file in
+  let intr_op = (ArgOptions.get_intr opts).op_interp in
+  let simple_typing = RefinementTypes.to_simple_funenv intr_op in
   let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
   let infer_opt = infer_ownership opts simple_res ast in
   match infer_opt with
