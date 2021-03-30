@@ -29,6 +29,7 @@ let () =
     let res =
       match opts.exec_mode with
       | Consort -> Consort.consort ~opts file
+      | Ownership -> Consort.ownership ~opts file
       | Typecheck -> Consort.typecheck ~opts file
     in
     if opts.yaml then

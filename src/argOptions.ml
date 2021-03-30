@@ -10,10 +10,12 @@ end
 module ExecMode = struct
   type t =
     | Consort
+    | Ownership
     | Typecheck
 
   let pairs = [
     ("consort", Consort);
+    ("ownership", Ownership);
     ("typecheck", Typecheck)
   ]
   let default = "consort"
