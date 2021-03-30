@@ -49,6 +49,10 @@ let choose_solver =
   | Spacer -> HornBackend.solve
   | Z3SMT -> SmtBackend.solve
 
+let pcomment ~body =
+  let open PrettyPrint in
+  pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
+
 let print_program ~o_map ~o_printer r ast =
   let open PrettyPrint in
   let open OwnershipInference.Result in
@@ -83,14 +87,14 @@ let print_program ~o_map ~o_printer r ast =
   let print_type_sep t = List.map print_type t |> psep_gen (pf ",@ ") in
   let pp_ty_env (i, _) _ =
     let ty_env = Std.IntMap.find i r.ty_envs in
-    let pp_env =
-      StringMap.bindings ty_env
-      |> List.map print_type_binding
-      |> psep_gen newline in
     if (StringMap.cardinal ty_env) = 0 then
       pl [ps "/* empty */"; newline]
     else
-      pblock ~nl:true ~op:(ps "/*") ~body:pp_env ~close:(ps "*/")
+      let pp_env =
+        StringMap.bindings ty_env
+        |> List.map print_type_binding
+        |> psep_gen newline in
+      pcomment ~body:pp_env
   in
   let pp_f_type f =
     let theta = StringMap.find f r.theta in
@@ -208,11 +212,7 @@ let typecheck ~opts file =
     match List.length ty_list with
     | 0 -> pl [ps "/* (no bindings) */"; newline]
     | 1 -> pl [ps "/* "; pl ty_list; ps " */"; newline]
-    | _ -> pblock
-             ~nl:true
-             ~op:(ps "/*")
-             ~body:(psep_gen newline ty_list)
-             ~close:(ps "*/") in
+    | _ -> pcomment ~body:(psep_gen newline ty_list) in
   let annot (id, _) e =
     match Std.IntMap.find_opt id side.let_types, e with
     | Some ty, Let (patt, _, _) -> from_ty_patt ty patt
