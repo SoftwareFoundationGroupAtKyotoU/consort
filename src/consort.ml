@@ -29,24 +29,6 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r true
 
-let infer_ownership opts simple_res ast =
-  let module OI = OwnershipInference in
-  let o_result = OI.infer ~opts simple_res ast in
-  match OwnershipSolver.solve_ownership ~opts (o_result.OI.Result.ovars,o_result.OI.Result.ocons,o_result.OI.Result.max_vars) with
-  | None -> None
-  | Some o_soln ->
-    let map_ownership = function
-      | OwnershipSolver.OVar v -> List.assoc v o_soln
-      | OwnershipSolver.OConst c -> c
-    in
-    let o_hints = {
-      OI.splits = OI.SplitMap.map (fun (a,b) ->
-          (map_ownership a,map_ownership b)
-        ) o_result.OI.Result.op_record.OI.splits;
-      OI.gen = OI.GenMap.map map_ownership o_result.OI.Result.op_record.gen
-    } in
-    Some o_hints
-
 let choose_solver opts =
   match opts.ArgOptions.solver with
   | Eldarica -> EldaricaBackend.solve
@@ -56,20 +38,35 @@ let choose_solver opts =
   | Spacer -> HornBackend.solve
   | Z3SMT -> SmtBackend.solve
 
+let to_hint o_res record =
+  let open OwnershipSolver in
+  let open OwnershipInference in
+  let o_map = function
+    | OVar v -> List.assoc v o_res
+    | OConst c -> c in
+  let s_map (a, b) = o_map a, o_map b in
+  {
+    splits = SplitMap.map s_map record.splits;
+    gen = GenMap.map o_map record.gen
+  }
+
 let consort ~opts file =
   let ast = AstUtil.parse_file file in
   let intr_op = (ArgOptions.get_intr opts).op_interp in
   let simple_typing = RefinementTypes.to_simple_funenv intr_op in
   let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
-  let infer_opt = infer_ownership opts simple_res ast in
-  match infer_opt with
+  let infer_res = OwnershipInference.infer ~opts simple_res ast in
+  let ownership_res = OwnershipSolver.solve_ownership ~opts (
+      infer_res.ovars, infer_res.ocons, infer_res.max_vars) in
+  match ownership_res with
   | None -> Unverified Aliasing
-  | Some r ->
+  | Some o_res ->
+    let o_hint = to_hint o_res infer_res.op_record in
     let module Backend = struct
       let solve = choose_solver opts
     end in
     let module S = FlowBackend.Make(Backend) in
-    let ans = S.solve ~opts simple_res r ast in
+    let ans = S.solve ~opts simple_res o_hint ast in
     match ans with
     | Sat _ -> Verified
     | Unsat -> Unverified Unsafe
