@@ -28,7 +28,9 @@ let () =
   | Some file ->
     let res =
       match opts.exec_mode with
-      | Consort -> Consort.consort ~opts file in
+      | Consort -> Consort.consort ~opts file
+      | Typecheck -> Consort.typecheck ~opts file
+    in
     if opts.yaml then
       print_endline @@ result_to_yaml res
     else

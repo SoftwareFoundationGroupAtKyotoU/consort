@@ -10,9 +10,11 @@ end
 module ExecMode = struct
   type t =
     | Consort
+    | Typecheck
 
   let pairs = [
-    ("consort", Consort)
+    ("consort", Consort);
+    ("typecheck", Typecheck)
   ]
   let default = "consort"
   let candidates = List.map (fun (s, _) -> s) pairs
