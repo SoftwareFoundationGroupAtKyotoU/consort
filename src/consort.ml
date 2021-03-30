@@ -74,8 +74,7 @@ let consort ~opts file =
   let simple_typing = RefinementTypes.to_simple_funenv intr_op in
   let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
   let infer_res = OwnershipInference.infer ~opts simple_res ast in
-  let ownership_res = OwnershipSolver.solve_ownership ~opts (
-      infer_res.ovars, infer_res.ocons, infer_res.max_vars) in
+  let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
   match ownership_res with
   | None -> Unverified Aliasing
   | Some o_res ->

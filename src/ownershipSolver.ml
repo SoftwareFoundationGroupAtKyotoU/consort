@@ -129,7 +129,11 @@ let rec interp_real sexp =
     Some (e1 /. e2)
   | _ -> None
 
-let solve_ownership ~opts (ovars, ocons, max_vars) =
+let solve_ownership ~opts result =
+  let open OwnershipInference.Result in
+  let ovars = result.ovars in
+  let ocons = result.ocons in
+  let max_vars = result.max_vars in
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;

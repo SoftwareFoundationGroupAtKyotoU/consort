@@ -81,9 +81,7 @@ let ownership_infr ~opts file =
   let r = OwnershipInference.infer ~opts simple_res ast in
   print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
   let open PrettyPrint in
-  let o_solve = OwnershipSolver.solve_ownership
-      ~opts
-      (r.OwnershipInference.Result.ovars, r.OwnershipInference.Result.ocons, r.OwnershipInference.Result.max_vars) in
+  let o_solve = OwnershipSolver.solve_ownership ~opts r in
   match o_solve with
   | None -> print_endline "Could not solve ownership constraints"
   | Some soln ->
