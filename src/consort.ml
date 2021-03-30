@@ -10,17 +10,24 @@ type check_result =
   | Verified
   | Unverified of reason
 
-let reason_to_string = function
-  | Aliasing -> "ownership"
+let reason_to_string reason with_msg =
+  match reason with
   | Timeout -> "timeout"
   | Unsafe -> "unsafe"
+  | UnhandledSolverOutput s ->
+    if with_msg then
+      Printf.sprintf "unhandled solver output: \"%s\"" s
+    else "unhandled"
+  | SolverError s ->
+    if with_msg then
+      Printf.sprintf "solver: \"%s\"" s
+    else "solver-error"
+  | Aliasing -> "ownership"
   | Unknown -> "unknown"
-  | SolverError s ->  "solver: \"" ^ s ^ "\""
-  | UnhandledSolverOutput s -> "unexpected solver output: \"" ^ s ^ "\""
 
 let result_to_string = function
   | Verified -> "VERIFIED"
-  | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r
+  | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r true
 
 let infer_ownership opts simple_res ast =
   let module OI = OwnershipInference in
