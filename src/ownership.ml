@@ -58,36 +58,52 @@ let print_program ~o_map ~o_printer r ast =
   in
   AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast
 
-let pp_owner =
-  let open OwnershipInference in
+let print_fold_locations simple_res =
+  let open SimpleChecker.SideAnalysis in
+  let _, side = simple_res in
+  print_endline "FOLD LOCATIONS >>>";
+  Std.IntSet.iter (Printf.printf "* %d\n") side.fold_locs;
+  print_endline "<<<"
+
+let print_inference infer_res ast =
   let open PrettyPrint in
-  function
-  | OConst o -> pf "%f" o
-  | OVar v -> pf "$%d" v
+  let open OwnershipInference in
+  let o_map o = o in
+  let o_printer = function
+    | OConst o -> pf "%f" o
+    | OVar v -> pf "$%d" v in
+  print_program ~o_map ~o_printer infer_res ast
+
+let print_ownership ownership_res infer_res ast =
+  let open PrettyPrint in
+  let open OwnershipInference in
+  match ownership_res with
+  | None -> print_endline "Could not solve ownership constraints"
+  | Some o_res ->
+    let o_map = function
+      | OConst o -> o
+      | OVar o -> List.assoc o o_res in
+    let o_printer = pf "%f" in
+    print_program ~o_map ~o_printer infer_res ast
 
 let ownership_infr ~opts file =
   let ast = AstUtil.parse_file file in
-  let simple_op = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
-  let ((_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
-  print_endline "FOLD LOCATIONS>>>";
-  Std.IntSet.iter (Printf.printf "* %d\n") fl;
-  print_endline "<<";
-  let r = OwnershipInference.infer ~opts simple_res ast in
-  print_program ~o_map:(fun o -> o) ~o_printer:pp_owner r ast;
-  let open PrettyPrint in
-  let o_solve = OwnershipSolver.solve_ownership ~opts r in
-  match o_solve with
-  | None -> print_endline "Could not solve ownership constraints"
-  | Some soln ->
-    print_program ~o_map:(fun o ->
-        match o with
-        | OConst o -> o
-        | OVar o -> List.assoc o soln
-      ) ~o_printer:(pf "%f") r ast
+  let intr_op = (ArgOptions.get_intr opts).op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv intr_op in
+  let simple_res = SimpleChecker.typecheck_prog simple_op ast in
+  print_fold_locations simple_res;
+  let infer_res = OwnershipInference.infer ~opts simple_res ast in
+  print_inference infer_res ast;
+  let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
+  print_ownership ownership_res infer_res ast;
+  let open Consort in
+  match ownership_res with
+  | None -> Unverified Aliasing
+  | Some _ -> Verified
 
 let () =
   let n = ref None in
   let opts = ArgOptions.parse (fun s -> n := Some s) "Run ownership inference on <file>" in
   match !n with
   | None -> print_endline "No file provided"
-  | Some f -> ownership_infr ~opts f
+  | Some f -> let _ = ownership_infr ~opts f in ()
