@@ -1,14 +1,17 @@
 let print_program ~o_map ~o_printer r ast =
   let open PrettyPrint in
-  let open OwnershipInference in
-  let rec print_type = function
-    | Int -> ps "int"
+  let open OwnershipInference.Result in
+  let rec print_type =
+    let open OwnershipInference in
+    function
+    | Int ->
+      ps "int"
     | Tuple tl ->
       pl [
-          ps "(";
-          psep_gen (pf ",@ ") @@ List.map print_type tl;
-          ps ")"
-        ]
+        ps "(";
+        psep_gen (pf ",@ ") @@ List.map print_type tl;
+        ps ")"
+      ]
     | Ref (t,o) ->
       pf "%a@ ref@ %a"
         (ul print_type) t
@@ -22,42 +25,33 @@ let print_program ~o_map ~o_printer r ast =
         Greek.mu
         id
         (ul print_type) t
-    | TVar id -> pf "'%d" id
+    | TVar id ->
+      pf "'%d" id
   in
-  let print_type_binding (k,t) =
-    let open PrettyPrint in
-    pb [
-      pf "%s: " k;
-      print_type t
-    ]
-  in
-  let pp_ty_env (i,_) _ =
-    let ty_env = Std.IntMap.find i r.Result.ty_envs in
+  let print_type_binding (k, t) = pb [pf "%s: " k; print_type t] in
+  let print_type_sep t = List.map print_type t |> psep_gen (pf ",@ ") in
+  let pp_ty_env (i, _) _ =
+    let ty_env = Std.IntMap.find i r.ty_envs in
+    let pp_env =
+      StringMap.bindings ty_env
+      |> List.map print_type_binding
+      |> psep_gen newline in
     if (StringMap.cardinal ty_env) = 0 then
-      pl [ ps "/* empty */"; newline ]
+      pl [ps "/* empty */"; newline]
     else
-      let pp_env = StringMap.bindings ty_env
-        |> List.map print_type_binding
-        |> psep_gen newline
-      in
       pblock ~nl:true ~op:(ps "/*") ~body:pp_env ~close:(ps "*/")
   in
   let pp_f_type f =
-    let open RefinementTypes in
-    let { arg_types; output_types; result_type } = StringMap.find f r.Result.theta in
-    let in_types =
-      List.map print_type arg_types
-      |> psep_gen (pf ",@ ")
-    in
-    let out_types =
-      List.map print_type output_types
-      |> psep_gen (pf ",@ ")
-    in
+    let theta = StringMap.find f r.theta in
     pl [
       pb [
-        ps "/* ("; in_types; ps ")";
+        ps "/* ("; print_type_sep theta.arg_types; ps ")";
         pf "@ ->@ ";
-        ps "("; out_types; pf "@ |@ "; print_type result_type; ps ") */";
+        ps "(";
+        print_type_sep theta.output_types;
+        pf "@ |@ ";
+        print_type theta.result_type;
+        ps ") */";
       ];
       newline
     ]
