@@ -29,8 +29,9 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r true
 
-let choose_solver opts =
-  match opts.ArgOptions.solver with
+let choose_solver =
+  let open ArgOptions.Solver in
+  function
   | Eldarica -> EldaricaBackend.solve
   | Hoice -> HoiceBackend.solve
   | Null -> NullSolver.solve
@@ -50,6 +51,14 @@ let to_hint o_res record =
     gen = GenMap.map o_map record.gen
   }
 
+let get_solve ~opts =
+  let open ArgOptions in
+  let module Backend = struct
+    let solve = choose_solver opts.solver
+  end in
+  let module S = FlowBackend.Make(Backend) in
+  S.solve
+
 let consort ~opts file =
   let ast = AstUtil.parse_file file in
   let intr_op = (ArgOptions.get_intr opts).op_interp in
@@ -62,11 +71,8 @@ let consort ~opts file =
   | None -> Unverified Aliasing
   | Some o_res ->
     let o_hint = to_hint o_res infer_res.op_record in
-    let module Backend = struct
-      let solve = choose_solver opts
-    end in
-    let module S = FlowBackend.Make(Backend) in
-    let ans = S.solve ~opts simple_res o_hint ast in
+    let solve = get_solve ~opts in
+    let ans = solve ~opts simple_res o_hint ast in
     match ans with
     | Sat _ -> Verified
     | Unsat -> Unverified Unsafe
