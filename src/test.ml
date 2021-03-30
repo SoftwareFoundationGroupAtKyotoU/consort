@@ -1,22 +1,18 @@
 let result_to_yaml =
+  let (<<) f g x = f (g x) in
   let open Consort in
+  Yaml.to_string_exn <<
   function
-  | Verified -> `O [("result", `Bool true)]
+  | Verified -> `O ["result", `Bool true]
   | Unverified r ->
-    let expl = match r with
-      | Timeout ->
-        [("reason", `String "timeout")]
-      | Unsafe ->
-        [("reason", `String "unsafe")]
-      | UnhandledSolverOutput s ->
-        [("reason", `String "unhandled"); ("msg", `String s)]
-      | SolverError s ->
-        [("reason", `String "solver-error"); ("msg", `String s)]
-      | Aliasing ->
-        [("reason", `String "ownership")]
-      | Unknown ->
-        [("reason", `String "unknown")] in
-    `O ([("result", `Bool false)] @ expl)
+    let result = ["result", `Bool false] in
+    let reason = ["reason", `String (reason_to_string r false)] in
+    let msg = match r with
+      | UnhandledSolverOutput s
+      | SolverError s -> [("msg", `String s)]
+      | _ -> []
+    in
+    `O (result @ reason @ msg)
 
 let result_to_exit =
   let open Consort in
@@ -31,12 +27,10 @@ let () =
   | None -> print_endline "No file provided"; exit 1
   | Some in_name ->
     let res = Consort.check_file ~opts in_name in
-    let () =
-      if opts.yaml then
-        print_endline @@ Yaml.to_string_exn @@ result_to_yaml res
-      else
-        print_endline @@ Consort.result_to_string res;
-    in
+    if opts.yaml then
+      print_endline @@ result_to_yaml res
+    else
+      print_endline @@ Consort.result_to_string res;
     if opts.exit_status then
       result_to_exit res
     else
