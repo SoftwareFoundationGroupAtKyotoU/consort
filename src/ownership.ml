@@ -65,7 +65,7 @@ let print_program ~o_map ~o_printer r ast =
   AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast
 
 let pp_owner =
-  let open OwnershipSolver in
+  let open OwnershipInference in
   let open PrettyPrint in
   function
   | OConst o -> pf "%f" o
@@ -89,8 +89,8 @@ let ownership_infr ~opts file =
   | Some soln ->
     print_program ~o_map:(fun o ->
         match o with
-        | OwnershipSolver.OConst o -> o
-        | OwnershipSolver.OVar o -> List.assoc o soln
+        | OConst o -> o
+        | OVar o -> List.assoc o soln
       ) ~o_printer:(pf "%f") r ast
 
 let () =

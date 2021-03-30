@@ -13,7 +13,20 @@ open Sexplib.Std
 
 module SM = StringMap
 module P = Paths
-module OS = OwnershipSolver
+
+(** An ownership is either a variable, or a constant (between 0.0 and 1.0, incl) *)
+type ownership =
+    OVar of int (** A variable with id int *)
+  | OConst of float (** a constant ownership with the given rational number *)
+
+type ocon =
+  | Live of ownership (** The ownership must be greater than 0 (only emitted in relaxed mode) *)
+  | Write of ownership (** Constraint ownership variable n to be 1 *)
+  | Shuff of (ownership * ownership) * (ownership * ownership) (** ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
+  | Split of ownership * (ownership * ownership) (** Split (o,(s,t)) is the constraint that o = s + t *)
+  | Eq of ownership * ownership (** o1 = o2 *)
+  | Wf of ownership * ownership (** For well-formedness: if o1 = 0, then o2 = 0 *)
+  | Ge of ownership * ownership (** o1 >= o2 *)
 
 type 'a otype_ =
   | Array of 'a otype_ * 'a
@@ -23,7 +36,7 @@ type 'a otype_ =
   | TVar of int
   | Mu of int * 'a otype_
 
-type otype = OS.ownership otype_
+type otype = ownership otype_
 
 (** For the most part, the ownership and refinement inference passes may be run independently. The only intersection is
 handling 0 ownership references; when a reference drops to 0 ownership, all refinements must go to top (although we use
@@ -107,10 +120,10 @@ type context = {
                              variables. *)
   v_counter: int;
   iso: SimpleChecker.SideAnalysis.results;
-  ocons: OS.ocon list;
+  ocons: ocon list;
   gamma: otype StringMap.t;
   theta: (otype RefinementTypes._funtype) StringMap.t;
-  op_record: OS.ownership ownership_ops;
+  op_record: ownership ownership_ops;
   save_env: otype StringMap.t IntMap.t (** Save the ownership types at
                                           each point in the program;
                                           only used for debugging *)
@@ -285,7 +298,7 @@ let alloc_split,alloc_ovar =
     in
     { ctxt with
       ovars = new_ovar::ctxt.ovars;
-      v_counter = ctxt.v_counter + 1; max_vars },OS.OVar ctxt.v_counter
+      v_counter = ctxt.v_counter + 1; max_vars },OVar ctxt.v_counter
   in
   let alloc_split loc p o =
     let%bind o1 = alloc_ovar_inner
@@ -399,7 +412,7 @@ let fresh_ap e_id (p: P.concr_ap) =
     | Var v,`None -> v
     | _ -> assert false
   in
-  let rec loop (k: ?o:OS.ownership -> _) st =
+  let rec loop (k: ?o:ownership -> _) st =
     match st with
     | [] -> map_type (fun t -> k t) v
     | `Deref::l ->
@@ -534,7 +547,7 @@ let%lm sum_types t1 t2 out ctxt =
 
 let%lm max_ovar ov ctxt =
   match ov with
-  | OS.OVar i -> { ctxt with max_vars = IntSet.add i ctxt.max_vars }
+  | OVar i -> { ctxt with max_vars = IntSet.add i ctxt.max_vars }
   | _ -> ctxt
 
 let rec max_type = function
@@ -691,7 +704,7 @@ let rec process_expr ~output ((e_id,_),expr) =
       (* this should not be possible *)
         assert false
       | Mkref (RNone | RInt _) ->
-        return @@ Ref (Int, OS.OConst 1.0)
+        return @@ Ref (Int, OConst 1.0)
       | Tuple t_init ->
         let%bind tl = mmap (fun k ->
             match k with
@@ -738,9 +751,9 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
 
 module Result = struct
   type t = {
-    ocons: OS.ocon list;
+    ocons: ocon list;
     ovars: int list;
-    op_record: OS.ownership ownership_ops;
+    op_record: ownership ownership_ops;
     ty_envs: otype StringMap.t IntMap.t;
     theta : (otype RefinementTypes._funtype) StringMap.t;
     max_vars: IntSet.t
@@ -777,7 +790,7 @@ let infer ~opts (simple_types,iso) (fn,prog) =
       return @@ Tuple tl'
     | R.Ref (t,o,_) ->
       let%bind t' = lift_reft loc p t in
-      return @@ Ref (t', OS.OConst o)
+      return @@ Ref (t', OConst o)
     | R.Array (_,o,t) ->
       let%bind t' = lift_reft loc p t in
       return @@ Array (t', OConst o)

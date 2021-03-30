@@ -50,7 +50,6 @@ let choose_solver =
   | Z3SMT -> SmtBackend.solve
 
 let to_hint o_res record =
-  let open OwnershipSolver in
   let open OwnershipInference in
   let o_map = function
     | OVar v -> List.assoc v o_res
