@@ -65,12 +65,6 @@
  (modules genLin))
 
 (executable
- (name typecheck)
- (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
- (libraries lang options consort)
- (modules Typecheck))
-
-(executable
  (name ownership)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (libraries ownership)
