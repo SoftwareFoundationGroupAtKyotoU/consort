@@ -1,3 +1,11 @@
+let choose_exec =
+  let open ArgOptions.ExecMode in
+  let open Consort in
+  function
+  | Consort -> consort
+  | Ownership -> ownership
+  | Typecheck -> typecheck
+
 let result_to_yaml =
   let (<<) f g x = f (g x) in
   let open Consort in
@@ -26,12 +34,7 @@ let () =
   match !target_name with
   | None -> print_endline "No file provided"; exit 1
   | Some file ->
-    let res =
-      match opts.exec_mode with
-      | Consort -> Consort.consort ~opts file
-      | Ownership -> Consort.ownership ~opts file
-      | Typecheck -> Consort.typecheck ~opts file
-    in
+    let res = choose_exec opts.exec_mode ~opts file in
     if opts.yaml then
       print_endline @@ result_to_yaml res
     else
