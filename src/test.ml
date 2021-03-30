@@ -26,7 +26,9 @@ let () =
   match !target_name with
   | None -> print_endline "No file provided"; exit 1
   | Some file ->
-    let res = Consort.consort ~opts file in
+    let res =
+      match opts.exec_mode with
+      | Consort -> Consort.consort ~opts file in
     if opts.yaml then
       print_endline @@ result_to_yaml res
     else

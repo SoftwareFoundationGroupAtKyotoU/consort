@@ -7,6 +7,18 @@ module Cache = struct
     | Some v -> v
 end
 
+module ExecMode = struct
+  type t =
+    | Consort
+
+  let pairs = [
+    ("consort", Consort)
+  ]
+  let default = "consort"
+  let candidates = List.map (fun (s, _) -> s) pairs
+  let from_string s = List.assoc s pairs
+end
+
 module Solver = struct
   type t =
     | Eldarica
@@ -30,6 +42,7 @@ module Solver = struct
 end
 
 type t = {
+  exec_mode : ExecMode.t;
   output_file : string option;
   show_annot : bool;
   show_ast : bool;
@@ -55,6 +68,7 @@ type t = {
 }
 
 let default = {
+  exec_mode = ExecMode.from_string ExecMode.default;
   output_file = None;
   show_annot = false;
   show_ast = false;
@@ -92,6 +106,7 @@ let get_intr opts =
   let set f = Cache.get opts.intrinsics (fun () -> load f) in
   Option.fold ~none:empty ~some:set opts.intrinsics_file
 let parse anon_fun usage_msg =
+  let exec_mode = ref default.exec_mode in
   let output_file = ref default.output_file in
   let show_annot = ref default.show_annot in
   let show_ast = ref default.show_ast in
@@ -118,9 +133,12 @@ let parse anon_fun usage_msg =
   let debug s =
     Log.filter @@ List.map String.trim @@ String.split_on_char ',' s in
   let set_string r = Arg.String (fun s -> r := Some s) in
+  let set_exec s = exec_mode := ExecMode.from_string s in
   let set_solver s = solver := Solver.from_string s in
   let open Arg in
   let spec = [
+    ("-exec", Symbol (ExecMode.candidates, set_exec),
+     Printf.sprintf "\t Choose execution mode (default: %s)" ExecMode.default);
     ("-output-file", String (fun s -> output_file := Some s),
      "<file>\t Output target of -show-* options instead of stderr");
     ("-show-annot", Set show_annot,
@@ -172,6 +190,7 @@ let parse anon_fun usage_msg =
   ] in
   Arg.parse spec anon_fun usage_msg;
   {
+    exec_mode = !exec_mode;
     output_file = !output_file;
     show_annot = !show_annot;
     show_ast = !show_ast;
