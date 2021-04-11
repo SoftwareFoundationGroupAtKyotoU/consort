@@ -1,0 +1,41 @@
+/*
+  VERIFIED
+  1.70s user 0.19s system 86% cpu 2.167 total
+*/
+
+verify_list(l) {
+  ifnull l then 
+    ()
+  else
+    let (v, tail) = *l in 
+    ifnull tail then
+      ()
+    else
+      let (vv, _) = *tail in {
+      assert(v <= vv);
+      verify_list(tail)
+      }
+}
+
+insert_val(x, l) {
+  let (v, tail) = *l in 
+  if v < x then {
+    ifnull tail then 
+      l := (v, mkref (x, null))
+    else {
+      insert_val(x, tail);
+      alias(tail = (*l).1);
+    }
+  } else {
+	  l := (x, mkref (v, tail));
+  }
+}
+
+{
+ let l = mkref (_, null) in {
+   insert_val(_,l);
+   insert_val(_,l);
+   insert_val(_,l);
+   verify_list(l)
+ }
+}

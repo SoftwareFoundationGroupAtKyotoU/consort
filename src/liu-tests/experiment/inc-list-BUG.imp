@@ -1,0 +1,34 @@
+/*
+    UNVERIFIED (unsafe)
+    0.27s user 0.13s system 68% cpu 0.586 total
+*/
+mk_list(v) {
+  if _ then null
+  else {
+    let v2 = v + 1 in
+	let nxt = mk_list(v2) in
+	let to_fold = (v,nxt) in
+	let to_ret = mkref to_fold in
+	to_ret
+  }
+}
+
+verify_incr(p) {
+  ifnull p then ()
+  else {
+    let (v1,p2) = *p in
+	ifnull p2 then ()
+	else {
+      let (v2,_) = *p2 in {
+	    assert(v1 > v2);
+		verify_incr(p2)
+	  }
+    }
+  }
+}
+
+{
+ let start = _ in
+ let n = mk_list(start) in
+ verify_incr(n)
+}

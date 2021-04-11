@@ -1,0 +1,43 @@
+/*
+    VERIFIED
+    1.46s user 0.18s system 89% cpu 1.833 total
+*/
+
+test_sorted_loop(p) {
+  let (v,nxt) = *p in {
+  ifnull nxt then
+    ()
+  else {
+    let nxtref = *nxt in 
+    ifnull nxtref then 
+      ()
+    else
+      let (nxt_v,_) = *nxtref in {
+      assert(v <= nxt_v);
+      test_sorted_loop(nxtref)
+      }
+  };
+  }
+}
+
+insert_loop(x,p) {
+  let (v, nxt) = *p in
+  if v < x then {
+    p := (v, nxt)
+  } else {
+    let nv = mkref (v, nxt) in
+    let refv = mkref nv in
+	  p := (x, refv)
+  }
+}
+
+{
+  let g = _ in
+  let ept = mkref null in
+  let p = mkref (g, ept) in {
+  insert_loop(_,p);
+  insert_loop(_,p);
+  insert_loop(_,p);
+  test_sorted_loop(p)
+  }
+}

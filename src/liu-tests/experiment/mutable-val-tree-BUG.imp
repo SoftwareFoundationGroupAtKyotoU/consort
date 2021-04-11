@@ -1,0 +1,78 @@
+/*
+  UNVERIFIED (unknown)
+*/
+
+create_tree(v) {
+  mkref (mkref v, null, null)
+}
+
+insert_val(t, v) {
+  ifnull t then 
+    ()
+  else
+    let (curr_ref, l, r) = *t in 
+    let curr = *curr_ref in {
+    if v < curr then 
+      ifnull l then
+        t := (curr_ref, mkref (mkref v, null, null), r)
+      else {
+        insert_val(l, v);
+        alias(l = (*t).1);
+        alias(r = (*t).2)
+      }
+    else 
+        ifnull r then
+          t := (curr_ref, l, mkref (mkref v, null, null))
+        else {
+          insert_val(r, v);
+          alias(l = (*t).1);
+          alias(r = (*t).2)
+        }
+    }
+}
+
+verify_tree(t) {
+    ifnull t then 
+        ()
+    else
+        let (vref, l, r) = *t in 
+        let v = *vref in 
+        {
+            ifnull l then 
+                ()
+            else
+                let (vlr, _, _) = *l in 
+                let vl = *vlr in {
+                    assert(vl < v);
+                    verify_tree(l)
+                };
+            ifnull r then 
+                ()
+            else
+                let (vrr, _, _) = *r in
+                let vr = *vrr in {
+                    assert(vr >= v);
+                    verify_tree(r)
+                }
+        }
+}
+
+inc_tree(t) {
+  ifnull t then ()
+  else 
+    let (vref, l, r) = *t in 
+    let v = *vref in 
+    {
+      vref := v + 1; 
+      inc_tree(l);
+      inc_tree(r);
+      alias(vref = (*t).0);
+    }
+}
+
+{
+    let t = create_tree(_) in {
+        insert_val(t, _);
+        verify_tree(t)
+    }
+}

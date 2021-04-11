@@ -1,0 +1,12 @@
+f () {
+    let taill = f() in 
+    let tailr = f() in 
+    let l = mkref taill in 
+    let tuple = (l, mkref tailr) in
+    tuple
+}
+
+{
+    let what = f() in 
+    0
+}

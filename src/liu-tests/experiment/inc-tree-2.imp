@@ -1,0 +1,76 @@
+/*
+    Unknown
+    10.65s user 0.23s system 5% cpu 3:04.67 total
+*/
+
+create_tree(v) {
+    mkref (v, mkref null, mkref null)
+}
+
+insert_val(t, v) {
+    ifnull t then 
+        ()
+    else
+        let (curr, ll, rr) = *t in {
+        if v < curr then 
+            ifnull ll then
+                t := (curr, mkref mkref (v, mkref null, mkref null), rr)
+            else
+            let l = *ll in
+            ifnull l then
+                t := (curr, mkref mkref (v, mkref null, mkref null), rr)
+            else {
+                insert_val(l, v);
+                alias(l = *ll);
+                alias(ll = (*t).1);
+                alias(rr = (*t).2)
+            }
+        else 
+            ifnull rr then 
+                t := (curr, ll, mkref mkref (v, mkref null, mkref null))
+            else
+            let r = *rr in 
+            ifnull r then
+                t := (curr, ll, mkref mkref (v, mkref null, mkref null))
+            else {
+                insert_val(r, v);
+                alias(r = *rr);
+                alias(ll = (*t).1);
+                alias(rr = (*t).2)
+            }
+        }
+}
+
+verify_tree(t) {
+    ifnull t then 
+        ()
+    else
+        let (v, ll, rr) = *t in 
+        {
+            ifnull ll then 
+                ()
+            else
+                let l = *ll in 
+                let (vl, _, _) = *l in {
+                    assert(vl < v);
+                    verify_tree(l)
+                };
+            ifnull rr then 
+                ()
+            else
+                let r = *rr in 
+                let (vr, _, _) = *r in {
+                    assert(vr >= v);
+                    verify_tree(r)
+                }
+        }
+}
+
+{
+    let t = create_tree(_) in {
+        insert_val(t, _);
+        insert_val(t, _);
+        insert_val(t, _);
+        verify_tree(t)
+    }
+}

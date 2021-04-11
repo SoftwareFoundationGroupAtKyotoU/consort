@@ -1,0 +1,51 @@
+/*
+    VERIFIED
+    1.92s user 0.20s system 95% cpu 2.226 total
+*/
+mk_list(v) {
+  if _ then null
+  else {
+    let v2 = v + 2 in
+	let nxt = mk_list(v2) in
+	let to_fold = (mkref v,nxt) in
+	let to_ret = mkref to_fold in
+	to_ret
+  }
+}
+
+verify_incr(p) {
+  ifnull p then ()
+  else {
+    let (v1,p2) = *p in
+	ifnull p2 then ()
+	else {
+      let (v2,_) = *p2 in 
+      let i1 = *v1 in
+      let i2 = *v2 in {
+	    assert(i1 < i2);
+		verify_incr(p2)
+	  }
+    }
+  }
+}
+
+inc_list(p) {
+  ifnull p then ()
+  else {
+    let (v1,p2) = *p in 
+    let old = *v1 in {
+        v1 := old + 1;
+        alias(v1 = (*p).0);
+        inc_list(p2);
+        alias(p2 = (*p).1)
+    }
+  }
+}
+
+{
+ let start = _ in
+ let n = mk_list(start) in {
+    inc_list(n);
+    verify_incr(n)
+ }
+}

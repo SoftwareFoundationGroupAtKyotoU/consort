@@ -1,0 +1,55 @@
+/*
+  UNVERIFIED (unknown)
+*/
+
+create_tree() {
+  mkref (mkref 10, mkref (mkref 5, null, null), mkref (mkref 15, null, null))
+}
+
+verify_tree(t) {
+    ifnull t then 
+        ()
+    else
+        let (vref, l, r) = *t in 
+        let v = *vref in 
+        {
+            ifnull l then 
+                ()
+            else
+                let (vlr, _, _) = *l in 
+                let vl = *vlr in {
+                    assert(vl < v);
+                    verify_tree(l)
+                };
+            ifnull r then 
+                ()
+            else
+                let (vrr, _, _) = *r in
+                let vr = *vrr in {
+                    assert(vr >= v);
+                    verify_tree(r)
+                }
+        }
+}
+
+inc_tree(t) {
+  ifnull t then ()
+  else 
+    let (vref, l, r) = *t in 
+    let v = *vref in 
+    {
+      vref := v + 1; 
+      inc_tree(l);
+      inc_tree(r);
+      alias(vref = (*t).0);
+      alias(l = (*t).1);
+      alias(r = (*t).2)
+    }
+}
+
+{
+    let t = create_tree() in {
+      inc_tree(t);
+      verify_tree(t)
+    }
+}

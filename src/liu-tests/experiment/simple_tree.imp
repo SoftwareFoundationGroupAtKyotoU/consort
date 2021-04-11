@@ -1,0 +1,38 @@
+/*
+    VERIFIED
+    0.18s user 0.09s system 0% cpu 29.537 total
+*/
+
+create_tree() {
+    mkref (5, mkref(9, null, null), mkref (1, null, null))
+}
+
+verify_tree(t) {
+    ifnull t then 
+        ()
+    else
+        let (v, l, r) = *t in 
+        {
+            ifnull l then 
+                ()
+            else
+                let (vl, _, _) = *l in {
+                    assert(vl > v);
+                    verify_tree(l)
+                };
+            ifnull r then 
+                ()
+            else
+                let (vr, _, _) = *r in {
+                    assert(vr <= v);
+                    verify_tree(r)
+                }
+        }
+}
+
+{
+    let t = create_tree() in {
+        verify_tree(t)
+    }
+}
+
