@@ -210,7 +210,6 @@ type res_t =
   * string (* entry point relation *)
   * P.PathSet.t StringMap.t (* omit sets (used in relax mode only) *)
 
-
 let rec unfold_fltype subst = function
   | `TVar -> subst
   | `Mu _ -> assert false
@@ -325,7 +324,8 @@ let add_assert_cond assert_cond curr_relation =
 let rec havoc_oracle ctxt ml p =
   Log.debug ~src:"FLOW-OWN" !"Looking for %{P} @ %{sexp:OI.magic_loc}" p ml;
   let from_path p_ =
-    let o = OI.GenMap.find (ml,p_) ctxt.o_hints.OI.gen in
+    let o = try OI.GenMap.find (ml,p_) ctxt.o_hints.OI.gen 
+      with Not_found -> failwith ("No ownership hint while havocking oracle: " ^ Paths.to_string p_) in
     o = 0.0
   in
   match P.tail p with
@@ -338,7 +338,8 @@ let rec havoc_oracle ctxt ml p =
 let%lq split_oracle sl ctxt =
   let from_path p =
     Log.debug ~src:"FLOW-OWN" !"Splitting %{P} @ %{sexp:OI.split_loc}" p sl;
-    let (f1,f2) = OI.SplitMap.find (sl,p) ctxt.o_hints.OI.splits in
+    let (f1,f2) = try OI.SplitMap.find (sl,p) ctxt.o_hints.OI.splits 
+      with Not_found -> failwith "No ownership hint while spliting oracle" in
     let to_flag b = if b then `Havoc else `Stable in
     (to_flag (f1 = 0.0), to_flag (f2 = 0.0))
   in
@@ -1380,20 +1381,14 @@ module RecursiveRefinements = struct
      that code for details.
   *)
   let unfold_to ~with_havoc ?(out_mapping=PPMap.id_map) ~e_id ref_ty root target in_rel out_rel ctxt =
-
-    (** Normalize the paths to be havoced/stabilized *)
-    let normalize_havoc pset = P.PathSet.filter (fun p ->
-        PPMap.mem p out_mapping
-      ) pset |> P.PathSet.map (fun p ->
-          PPMap.find p out_mapping
-        )
-    in
+    (* Normalize the paths to be havoced/stabilized *)
     let normalize_ap p =
       if PPMap.mem p out_mapping then
         PPMap.find p out_mapping
       else
         p
     in
+    let normalize_havoc pset = P.PathSet.map normalize_ap pset in
     (** Normalize a substitution, walking into keyed choices as necessary *)
     let rec deep_normalize = function
       | Ap p -> Ap (normalize_ap p)
@@ -1418,7 +1413,6 @@ module RecursiveRefinements = struct
     let template = to_mu_template ref_ty in
     let source_mu = root_template_at template source_path in
     let target_path = target in
-
     (* We unfold the relation input R(hd, tl) for a recursive linked list type as follows:
 
        R(hd, tl!pass) /\ R(hd, tl) /\ R(hd, tl->tl) /\ hd(tl, tl->tl) => Q(hd, tl!pass, hd, tl, tl->tl)
@@ -1494,7 +1488,6 @@ module RecursiveRefinements = struct
         | _ -> `Cont ()
       ) (fun _ _ _ acc -> acc) () []
     in
-
     (* We now compute the R(hd, tl) /\ R(hd, tl->tl) and R(hd, left->hd, right->hd) /\ ... 
        substitution. The unfolding mu type here gives, for each mu binder in the source type,
        the set of mu fragments corresponding to each element under that binder, i.e., 
@@ -1505,11 +1498,10 @@ module RecursiveRefinements = struct
         P.PathMap.add src_mu l acc
       ) P.PathMap.empty mu_mapping
     in
-
     let rec combination_loop l =
       match l with
       | [] -> [P.PathMap.empty]
-      | (src_mu,possibilities)::t ->
+      | (src_mu, possibilities) :: t ->
         let comb = combination_loop t in
         ListMonad.bind (fun mu ->
           List.map (fun m ->
@@ -1602,7 +1594,7 @@ module RecursiveRefinements = struct
     in
 
     let all_havocs = { all_havocs with havoc = normalize_havoc all_havocs.havoc } in
-    
+
     let rec_havocs = H.to_rec_havoc all_havocs in
     (* Here we generate the hd => tl or right => right->right implications *)
     (* Again, due to duplication, under each mu binder in the source, we compute the
@@ -1671,7 +1663,7 @@ module RecursiveRefinements = struct
      of clauses. This is used if you know that the invariants satisfied by a mu binder in the
      source type must be also satisfy another relationsio, i.e., again during aliasing.
   *)
-  let fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy ?rec_ext ?havoc_ext ref_ty (src_root: P.concr_ap) (target_root : P.concr_ap) in_rel out_rel ctxt =
+  let fold_to ?(flows=[]) ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy ?rec_ext ?havoc_ext ref_ty (src_root: P.concr_ap) (target_root : P.concr_ap) in_rel out_rel ctxt =
     let src_ap = src_root in
     (* The content type. The type of target_root should be the result of a deep_type_normalization of this *)
     let cont_ty = match ref_ty with
@@ -1688,7 +1680,7 @@ module RecursiveRefinements = struct
 
        For example, suppose we want to fold (x, (hd, tl)) into (hd', mu (tl', 'a)). Then we have to
        generate the constraint:
-    
+
        R(x, hd, tl) => Q(x, [? hd' tl'])
 
        In otherwise, the (currently) concrete head element is collapsed with its own summary pieces.
@@ -1827,8 +1819,178 @@ module RecursiveRefinements = struct
       rel ~ty:ZBool @@ mk_relation (Ap (P.to_null target_root)) "=" (BConst is_nonnull_flag);
       PRelation (in_rel, List.map lift_copy rename_src, None) 
     ] in
+    let lifted_subst = List.mapi flow_to_subst flows in
     let fold_impl =
-      let flows = output_flows fold_up_subst in
+      let flows = output_flows (fold_up_subst @ lifted_subst) in
+      let null_ante = null_pre out_rel fold_up_subst in
+      let conseq = relation_subst out_rel flows in
+      (ante @ null_ante, conseq)
+    in
+    { ctxt with impl = (fold_impl :: ctxt.impl); havoc_set; omit_set = merge_havoc_omit (get_relation_ident out_rel) havoc_set ctxt.omit_set }
+
+  let fold_to_without_havoc_all ?(flows=[]) ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy ?rec_ext ?havoc_ext ref_ty (src_root: P.concr_ap) (target_root : P.concr_ap) in_rel out_rel ctxt =
+    (*print_string ("We are folding: " ^ fltype_to_string ref_ty ^ "\n");
+    print_string ("fold target: " ^ Paths.to_string target_root ^ "\n");
+    print_string ("to: " ^ Paths.to_string src_root ^ "\n");*)
+    let src_ap = src_root in
+    (* The content type. The type of target_root should be the result of a deep_type_normalization of this *)
+    let cont_ty = match ref_ty with
+      | `Ref (_,t) -> t
+      | _ -> assert false
+    in
+    let mu_template = to_mu_template ref_ty in
+    let target_ap = target_root in
+    let target_mu = root_template_at mu_template target_root in
+    (* This mu map in some sense inverts the role served by the similarly named variable in the unfold function.
+
+       This produces a map from (relative) mu binders paths to the roots of [unfolded] types to be folded into the
+       given mu binder.
+
+       For example, suppose we want to fold (x, (hd, tl)) into (hd', mu (tl', 'a)). Then we have to
+       generate the constraint:
+
+       R(x, hd, tl) => Q(x, [? hd' tl'])
+
+       In otherwise, the (currently) concrete head element is collapsed with its own summary pieces.
+       As a result any relation Q(x, tl'') derived by Z3 must be a relationship that holds between x and hd, and
+       between x and any values reachable from hd's tail, i.e. tl. This matches the intuition given for the representation
+       of recursive refinements given in unfold.
+    *)
+    let mu_map = parallel_type_walk (P.deref @@ P.template) src_root cont_ty (fun k (in_ap, out_ap) () ->
+        match k with
+        | `Mu -> `K (fun _ acc ->
+                     (in_ap, root_template_at mu_template out_ap)::acc
+                   )
+        | _ -> `Cont ()
+      ) (fun () _ _ acc -> acc) () []
+    in
+
+    (* This associates with each mu binder identifying a summary element in the folded target the elements (concrete and
+       otherwise) in the unfolded source. *)
+    let fold_up_map = List.fold_left (fun acc (out_binder,input_mu) ->
+        let l = input_mu.hd :: (P.PathMap.bindings input_mu.recurse |> List.map snd) in
+        P.PathMap.add out_binder l acc
+      ) P.PathMap.empty mu_map
+    in
+
+    (* This generates a multi substitution; the head element is given by the (conrete) elements reachable from the src ap *)
+    let fold_up_subst = compute_mu_multi_subst ~skip_hd_ref:true target_mu ~hd:(src_ap, cont_ty) ~tl:fold_up_map in 
+
+    (* Determines how the copying of the tail elements from the input relation to the output. By default,
+       the strategy is to weakly copy the summary locations from the source mu binders to the output. 
+    
+       Returning to the example above, assuming x, hd, and tail do not go out of scope, we will actually have
+       R(x, hd, tl) /\ R(x, hd, tl!pass) => Q(x, hd, tl!pass, x, [? hd tl])
+    *)
+
+    let (rename_src,rename_weak,rename_out) =
+      match copy_policy with
+      | Weak ->
+        let weak = ListMonad.bind (fun (_,mu) ->
+            compute_copies (fst mu.hd) (fst mu.hd) (snd mu.hd) |> to_copy_stream |> List.filter_map (fun (a,b,k) ->
+                if k = `Direct then
+                  None
+                else
+                  Some (a, to_pass_ap b)
+              )
+          ) mu_map
+              
+        in
+        ([], weak, weak)
+      | Custom { rename_src; rename_weak; rename_out } -> (rename_src, rename_weak, rename_out)
+    in
+
+    (* handles a terminal locations. Look up the concrete path in the given havoc oracle.
+       The state is a mu chain which is managed by the MuChain.raw_stepper. By the invariant, the optional mu
+       path is Some only when under a mu binder; when it is we also update the mu havoc.
+    *)
+    let handle_term oracle st acc =
+      let full_path = RecRelations.MuChain.to_concr st in
+      let flg = oracle full_path in
+      let acc = H.add_havoc full_path flg acc in
+      Option.fold ~none:acc ~some:(fun (p,binder) ->
+        H.add_mu_havoc ~binder ~ty:ref_ty p flg acc
+      ) @@ RecRelations.MuChain.get_mu_path st
+    in
+    let g = (walk_type cont_ty RecRelations.MuChain.raw_stepper (handle_term dst_oracle) (P.deref target_root, None) H.empty_havoc_state) in
+    let hstate =
+      
+      (walk_type (deep_type_normalization cont_ty) RecRelations.MuChain.raw_stepper (handle_term src_oracle) (src_ap, None)) g
+    in
+
+    let by_havoc = H.to_rec_havoc hstate in
+    (* Now we compute the recursive refinements for the new mu binders *)
+    let ctxt = List.fold_left (fun ctxt (dst_binder,src_folded) ->
+        (* The absolute path of the output mu binder *)
+        let target_mu = P.root_at ~child:dst_binder ~parent:target_ap in
+        (* rel is the new element *)
+        let ctxt,rel = RecRelations.recursive_rel_for ~e_id ref_ty target_mu ctxt in
+        let with_havoc ante ctxt =
+          RecRelations.impl_with_havoc ~ante ~by_havoc target_mu rel ctxt
+        in
+        let (hd_subst,conj_ind) =
+          Option.bind rec_ext (P.PathMap.find_opt dst_binder)
+          |> Option.value ~default:([], P.PathMap.empty)
+        in
+        let ctxt =
+          (* Get the absolute paths of the mu binders under the recursive type
+             being folded into mu binders rooted at target_mu *)
+          RecRelations.get_mu_binders (fst src_folded.hd) (snd src_folded.hd)
+          |> List.fold_left (fun ctxt mu_path ->
+              (* for each such path, get the relation describing the
+                 relationship under the mu binder *)
+              let input_rec = P.PathMap.find mu_path ctxt.recursive_rel in
+              let input_rec = PRelation (input_rec, [], None) in
+              (* we also grab an optional recursive relation as specified by the conj_ind which
+                 itself was read from the rec_ext. *)
+              (* add that any relationship admitted by this "sub" mu relation is admitted by 
+                 the folded relation. *)
+              let ante = input_rec :: (Option.to_list @@ P.PathMap.find_opt mu_path conj_ind) in
+              (* with havoc applies the implication describe above, providing all the
+                 necessary common arguments to impl_with_havoc *)
+              with_havoc ante ctxt
+            ) ctxt
+        in
+        (* in addition, say that the relationship between the (to be folded) head
+           and it's successor/tail elements (as described by the monolithic relation) are
+           also admitted by the new recursive relation *)
+        let subst = compute_mu_template_subst src_folded |> List.map (function
+            | (src, Ap dst) -> (dst, Ap src)
+            | _ -> assert false
+            ) in
+         with_havoc [ PRelation (in_rel, subst @ hd_subst, None) ] ctxt
+      ) ctxt mu_map
+    in
+    (* as in the unfold, copy the mu binders from the source to themselves; this copy
+       is necessary to havoc the input relations *)
+    let ctxt = List.fold_left (fun ctxt (_, src_folded) ->
+        RecRelations.get_mu_binders (fst src_folded.hd) (snd src_folded.hd)
+        |> List.fold_left (fun ctxt src_mu ->
+            let src_rel = P.PathMap.find src_mu ctxt.recursive_rel in
+            copy_rel ~by_havoc ~e_id ~ty:ref_ty src_rel src_mu ctxt
+          ) ctxt
+      ) ctxt mu_map
+    in
+
+    let hstate = match havoc_ext with
+      | Some f ->
+        let havoc,stable = f ~havoc:hstate.havoc ~stable:hstate.stable in
+        { hstate with havoc; stable }
+      | None -> hstate
+    in
+    let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff ctxt.havoc_set hstate.stable in
+
+    let output_flows flow_subst =
+      augment_havocs (flow_subst @ List.map lift_copy rename_out) hstate.havoc
+    in
+    let ante = [
+      PRelation (in_rel, List.map lift_copy rename_weak, None);
+      rel ~ty:ZBool @@ mk_relation (Ap (P.to_null target_root)) "=" (BConst is_nonnull_flag);
+      PRelation (in_rel, List.map lift_copy rename_src, None) 
+    ] in
+    let lifted_subst = List.mapi flow_to_subst flows in
+    let fold_impl =
+      let flows = output_flows (fold_up_subst @ lifted_subst) in
       let null_ante = null_pre out_rel fold_up_subst in
       let conseq = relation_subst out_rel flows in
       (ante @ null_ante, conseq)
@@ -1844,24 +2006,34 @@ let%lm do_unfold_copy ~with_havoc ?(out_mapping=PPMap.id_map) ~e_id src_var dst_
 (* folded ty is the type under the reference after the fold, i.e., the
    type of in_ap after folding.
    out_ap is under a ref, i.e. the location in memory where we are folding to.
- *)
-let%lm do_fold_copy ~e_id in_ap out_ap folded_ty in_rel out_rel ctxt =
+*)
+let%lm do_fold_copy ?(flows=[]) ~e_id in_ap out_ap folded_ty in_rel out_rel ctxt =
   let dst_oracle = havoc_oracle ctxt (OI.MGen e_id) in
   let ctxt,so = split_oracle (OI.SBind e_id) ctxt in
   let src_oracle p =
     let (f1,_) = so p p in
     f1 = `Havoc
   in
-  RecursiveRefinements.fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:RecursiveRefinements.Weak folded_ty (P.var in_ap) (P.var out_ap) in_rel out_rel ctxt       
+  RecursiveRefinements.fold_to ~flows ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:RecursiveRefinements.Weak folded_ty (P.var in_ap) (P.var out_ap) in_rel out_rel ctxt       
+
+let%lm do_fold_copy_without_havoc_all ?(flows=[]) ~e_id in_ap out_ap folded_ty in_rel out_rel ctxt =
+  let dst_oracle = havoc_oracle ctxt (OI.MGen e_id) in
+  let ctxt,so = split_oracle (OI.SBind e_id) ctxt in
+  let src_oracle p =
+    let (f1,_) = so p p in
+    f1 = `Havoc
+  in
+  RecursiveRefinements.fold_to_without_havoc_all ~flows ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:RecursiveRefinements.Weak folded_ty (P.var in_ap) (P.var out_ap) in_rel out_rel ctxt       
+
 
 let apply_identity_flow ?pre = add_relation_flow ?pre []
 
-let const_assign lhs const in_rel out_rel =
+let const_assign ?(flows=[]) lhs const in_rel out_rel =
   let%bind havoc_state = get_havoc_state in
-  let flows = P.PathSet.elements havoc_state |>
+  let flows = (P.PathSet.elements havoc_state |>
       List.fold_left (fun acc p ->
         Havoc p::acc
-      ) [ Const (lhs,const) ]
+      ) [ Const (lhs,const) ]) @ flows
   in
   add_relation_flow flows in_rel out_rel >>
   set_havoc_state ~rel:(get_relation_ident out_rel) havoc_state
@@ -2393,7 +2565,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
   | Assign (lhs,IInt i,k) ->
     let%bind k_rel = fresh_relation_for relation k in
     add_null_check relation (P.var lhs) >>
-    const_assign (P.deref @@ P.var lhs) i relation k_rel >>
+    const_assign (*~flows: [ (nonnull_flow @@ P.var lhs) ]*) (P.deref @@ P.var lhs) i relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
 
   | Assign (lhs, IVar rhs,k) when iso = `IsoFold ->
@@ -2401,14 +2573,14 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     let out_ap = P.var lhs in
     let ty = path_simple_type tyenv out_ap in
     add_null_check relation (P.var lhs) >>
-    do_fold_copy ~e_id rhs lhs ty relation k_rel >>
+    do_fold_copy (*~flows: [ (nonnull_flow @@ P.var lhs) ]*) ~e_id rhs lhs ty relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
 
   | Assign (lhs,IVar rhs,k) ->
     let%bind k_rel = fresh_relation_for relation k in
     let copies = compute_copies (P.var rhs) (vderef lhs) @@ List.assoc rhs tyenv in
     add_null_check relation (P.var lhs) >>
-    apply_copies ~havoc:true ~sl:(SBind e_id) copies relation k_rel >>
+    apply_copies (* ~flows: [ (nonnull_flow @@ P.var lhs) ]*) ~havoc:true ~sl:(SBind e_id) copies relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
       
   | Update (arr,ind,rhs,k) ->
@@ -2477,7 +2649,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
   | Let (PVar lhs, Mkref (RVar rhs), k) when iso = `IsoFold ->
     let%bind k_rel,tyenv',bind_info = fresh_bind_relation e_id st (PVar lhs) k in
     let%bind bound_ty = get_bound_type e_id in
-    do_fold_copy ~e_id rhs lhs bound_ty relation k_rel >>
+    do_fold_copy_without_havoc_all ~e_id rhs lhs bound_ty relation k_rel >>
     post_bind bind_info @@ process_expr ~output (k_rel,tyenv') continuation k
 
   | Let (p, Deref rhs, k) when iso = `IsoUnfold ->
@@ -2496,7 +2668,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
       ) PPMap.empty @@ to_copy_stream copies in
     let out_mapping = List.fold_left (fun acc (_,uf,real_path,_) ->
         PPMap.add uf real_path acc
-      ) out_mapping @@ to_mu_copies copies in
+      ) out_mapping @@ to_mu_copies copies in 
     add_null_check relation (P.var rhs) >>
     do_unfold_copy ~with_havoc:true ~e_id ~out_mapping rhs "$uf" ref_ty relation k_rel >>
     post_bind bind_info @@ process_expr ~output (k_rel,tyenv') continuation k
@@ -2512,7 +2684,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     apply_identity_flow relation k_rel >>
     process_expr ~output (k_rel,tyenv) continuation k
 
-  | Alias (lhs, rhs, k) when iso = `IsoUnfold->   
+  | Alias (lhs, rhs, k) ->   
     (* This means that the root of a recursive type
        aliases with the mu binder under another recursive type.
        Our basic strategy is as follows:
@@ -2523,12 +2695,12 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
        in the (now unfolded mu) and the those in the "source" unfolded type are shared,
        ensuring the values in the result of the fold reflects any information from the
        unfolded type being aliased in.
-    *)
+    *)(*
     let rec has_mu_binder = function
       | `Int | `TVar | `IntArray | `Ref _ -> false
       | `Mu _ -> true
       | `Tuple tl -> List.exists has_mu_binder tl
-    in
+    in*)
     (* TODO: add null ante pre *)
     (* If we have an isounfold here, then one of the alias
        paths must go to a mu binder. This finds
@@ -2542,311 +2714,352 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
        of the recursive type, the (reversed) list of steps followed to reach the root,
        and the remaining steps to reach the mu binder
     *)
-    let rec find_unfold_point rev t rem =
-      match t,rem with
-      | `Deref::r,`Ref (_,t) ->
-        if has_mu_binder t then
-          Some (t,r,rev)
-        else
-          find_unfold_point (`Deref::rev) r t
-      | `Proj i::r,`Tuple tl ->
-        find_unfold_point (`Proj i::rev) r (List.nth tl i)
-      | [],_ -> None
-      | _,_ -> assert false
-    in
-    (* if this path goes to a mu, return the type
-       under root of the containing recursive type,
-       the path to the root, and the path to the mu,
-       expressed relative to the path tot he root.
-
-       Otherwise, simply returns the path
-
-
-       (This is either or is represented with the result type,
-       which uses the unfortunately named constructors Ok Error, 
-       but really we are (ab)using it to represent one of two possible results
-       that has very nice interoperation with the Option module)
-    *)
-    let prepare_alias path =
-      let (root,steps,suff) = (path : P.concr_ap :> P.root * P.steps list * P.suff) in
-      let v = match root,suff with
-        | P.Var v,`None -> v
-        | _ -> assert false
+    let res = 
+      if iso = `None then None
+      else 
+      let rec find_unfold_point to_mu ops ty =
+        match ops, ty with
+        (* If ref is true, then unfolding should occur once at this pos *)
+        | `Deref::remaining, `Ref (true, _) ->
+          Some (ty, remaining, to_mu)
+        | `Deref::remaining, `Ref (false, t) ->
+          find_unfold_point (`Deref :: to_mu) remaining t
+        | `Proj i::remaining,`Tuple tl ->
+          find_unfold_point (`Proj i :: to_mu) remaining (List.nth tl i)
+        | [],_ -> None
+        | _,_ -> assert false
       in
-      let ty = List.assoc v tyenv in
-      find_unfold_point [] (List.rev steps) ty
-      |> Option.map (fun (t,to_mu,ctxt) ->
-          let p = P.var v in
-          let p = List.fold_left P.extend p @@ List.rev ctxt in
-          let to_mu = List.fold_left P.extend P.template to_mu in
-          (t,to_mu,p,path)
-        )
-      |> Option.to_result ~none:path
-    in
-    let lp = prepare_alias lhs in
-    let rp = prepare_alias rhs in
+      (*let rec find_unfold_point to_mu ops ty =
+        print_string ("?: " ^ fltype_to_string ty ^ "\n");
+        match ops, ty with
+        | `Deref::remaining,`Ref (_,t) ->
+          if has_mu_binder t then
+            Some (t, remaining, to_mu)
+          else
+            find_unfold_point (`Deref::to_mu) remaining t
+        | `Proj i::remaining,`Tuple tl ->
+          find_unfold_point (`Proj i::to_mu) remaining (List.nth tl i)
+        | [],_ -> None
+        | _,_ -> assert false
+      in*)
+      (* if this path goes to a mu, return the type
+        under root of the containing recursive type,
+        the path to the root, and the path to the mu,
+        expressed relative to the path to the root.
 
-    (* + ref_cont is the type under the root of the mu
-       + mu_path is the path to the mu binder, relative to path_to_ref
-       + path_to_ref is the path to the root of the containing recursive type
-       + full_path is the full path to the mu binder
-       + unfolded path is the path to the value to be folded by this alias
-    *)
-    let (ref_cont, mu_path, path_to_ref, full_path, unfolded_path) =
-      match lp, rp with
-      | Error unfolded_path, Ok (ref_cont, mu_path, path_to_ref, full_path)
-      | Ok (ref_cont, mu_path, path_to_ref, full_path), Error unfolded_path ->
-        (ref_cont, mu_path, path_to_ref, full_path, unfolded_path)
-      | _,_ -> assert false
-    in
-    let%bind k_rel = fresh_relation_for relation k in
+        Otherwise, simply returns the path
 
-    (* TODO: rename lhs_type to uf_type *)
-    (* This is the type we expect to find at path_to_ref (as expressed below) *)
-    let lhs_type = path_simple_type tyenv unfolded_path in
 
-    assert (
-      match lhs_type with
-      | `Ref (_,t') -> t' = ref_cont
-      | _ -> false
-    );
-    (* In order to make the mu binders match, we need to unfold the target type, i.e.
-       the aliased type. Recall this is to make the target of aliasing match the shape
-       of the unfolded source.
-    *)
-    let aliased_type = deep_type_normalization ref_cont in
-    (* the unfolding is down to a dummy $uf variable *)
-    let temp_args = type_to_paths (P.var "$uf") aliased_type |> List.map (fun p ->
-          p, path_type p
-        ) in
-    let (curr_rel, curr_args,_) = relation in
-    let%bind temp_rel = fresh_alias_relation ~e_id ~name:(curr_rel ^ "$alias") ~args:(curr_args @ temp_args) in
-    let%lm alias_unfold p1 p2 ty in_rel out_rel ctxt =
-      RecursiveRefinements.unfold_to ~e_id ~with_havoc:false ~out_mapping:PPMap.id_map ty p1 p2 in_rel out_rel ctxt
-    in
-    (* unfold *)
-    let%bind () = alias_unfold path_to_ref (P.var "$uf") lhs_type relation temp_rel in
-    (* the path to the (now unfolded) mu in $uf *)
-    let flow_root = P.root_at ~child:mu_path ~parent:(P.var "$uf") in
-    let folded_target = full_path in
-    (* the aliasing can be viewed as a "copy" from the source (found at unfolded path)
-       and the (now unfolded) [flow_root] *)
-    let copies = compute_copies unfolded_path flow_root lhs_type in
-    let copy_stream = to_copy_stream copies in
-    (* Which copies are occurring under a mu, and which not? *)
-    let direct_copies,weak_copies = copy_stream |> List.partition (fun (_,_,k) ->
-          k = `Direct
-        )
-    in
-    (* To copy information from the unfolded version while simultaneously copying
-       information from the source recursive type, we use the following trick:
-
-       In the following, let x and y be the path of a location at the same
-       relative location under the mu binder in question, and let
-       b and c be a concrete location. The resulting
-       implication is generated as:
-
-       R(b, y!pass, c, y!pass) /\ R(b, x, b, x) => Q(b, x, b, y!pass)
-
-       So we make sure that any relationship satsified by y is satisfied by x and vice versa,
-       without constraining them to be equal. However, we do b and c to be equal (as the copy
-       is direct).
-    *)
-
-    (* generate the y -> y!pass substitution *)
-    let pass_through_subst = (List.map (fun (s,_,_) ->
-        (s, to_pass_ap s)
-      ) weak_copies)
-    in
-    (* this rename is applied to a second copy of the input relation for weak copies.
-       We apply the y->y!pass and x -> y!pass substitution
-       
-       XXX: uhhhh, wanna apply the direct copies to...?
-    *)
-    let rename_weak = pass_through_subst @ List.map (fun (s,d,_) ->
-          (d, to_pass_ap s)
-        ) weak_copies in
-    (* rename y->y!pass and c -> b *)
-    let rename_out = pass_through_subst @ List.map (fun (s,d,_) -> (s,d)) direct_copies in
-    (* rename y -> x and c -> b, this is applied to a different copy of the input relation *)
-    let rename_src = List.map (fun (s,d,_) ->
-        (s,d)
-      ) copy_stream
-    in
-
-    let%lm do_alias_fold ctxt =
-      let dst_oracle p =
-        (* when we fold uf back into the original type, it we will query for the havoc
-           state of some paths that are not actually touched by the alias (i.e., the havoc
-           state of the head elements in the type containing the target mu. In
-           that case, just call back on the current havoc state *)
-        if P.has_prefix ~prefix:folded_target p && (p <> (P.to_null folded_target)) then
-          havoc_oracle ctxt (OI.MAlias e_id) p
-        else
-          P.PathSet.mem p ctxt.havoc_set
-      in
-      (* the uf state is going to be dropped anyway *)
-      let src_oracle _ = true in
-      let havoc_oracle = havoc_oracle ctxt (OI.MAlias e_id) in
-      (* the havoc of the "source", already unfolded type. (called "var" because the
-         language grammar used to require this be rooted at a plain variable) *)
-      let var_havoc = copy_stream |> List.fold_left (fun acc (src,_,k) ->
-            let havoc = havoc_oracle src in
-            let acc = H.add_havoc src havoc acc in
-            match k with
-            | `Mu (under_mu_path, binder, _, ty) ->
-              H.add_mu_havoc ~binder ~ty under_mu_path havoc acc
-            | _ -> acc
-          ) H.empty_havoc_state
-      in
-      let by_havoc = H.to_rec_havoc var_havoc in
-      (* walk the source type, and generate the new, joined recursive refinements from
-         combinining information from the unfolded temp type. In addition, this records
-         the relations to conjoin in fold_to using the rec_ext functionality
+        (This is either or is represented with the result type,
+        which uses the unfortunately named constructors Ok Error, 
+        but really we are (ab)using it to represent one of two possible results
+        that has very nice interoperation with the Option module)
       *)
-      let ante,ctxt = to_mu_copies copies |> List.fold_left (fun (ante,ctxt) (_,src_root,dst_root,ty) ->
-            let src_rel = P.PathMap.find src_root ctxt.recursive_rel in
-            let ante = P.PathMap.add dst_root (PRelation (src_rel, [], None)) ante in
-            let dst_rel = P.PathMap.find dst_root ctxt.recursive_rel in
-            let ctxt = RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante:([
-                PRelation(src_rel, [], None);
-                PRelation(dst_rel, [], None)
-              ]) src_root ty ctxt
-            in
-            ante,ctxt
-          ) (P.PathMap.empty, ctxt)
-      in
-      (* compute the head substitution for when generating the mu relation that incorporates
-         the head and tails of the temp unfolded type, it should also include the
-         corresponding head and tails of the "source" *)
-      let hd_subst = parallel_type_walk P.template unfolded_path lhs_type (fun _ _ () -> `Cont ()) (fun () i o acc ->
-          (o, Ap i)::acc
-        ) () []
-      in
-      
-      let havoc_ext ~havoc ~stable =
-        (P.PathSet.union havoc var_havoc.havoc, P.PathSet.union stable var_havoc.stable)
-      in
-      (* the extensions are only valid for the mu binder targeted by the alias expression *)
-      let rec_ext = P.PathMap.singleton (P.root_at ~child:mu_path ~parent:(P.deref P.template)) (hd_subst, ante) in
-      let open RecursiveRefinements in
-      (* easy! *)
-      let ctxt = fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:(Custom { rename_src; rename_out; rename_weak}) ~rec_ext ~havoc_ext lhs_type (P.var "$uf") path_to_ref temp_rel k_rel ctxt in
-      (* now remove all of the $uf stuff *)
-      let uf_root = P.var "$uf" in
-      let concr_root_p = Fun.negate @@ P.has_prefix ~prefix:uf_root in
-      let havoc_set = P.PathSet.filter concr_root_p ctxt.havoc_set in
-      { ctxt with
-        havoc_set;
-        recursive_rel = P.PathMap.filter (fun p _ ->
-            concr_root_p p
-          ) ctxt.recursive_rel
-      }
-    in
-    do_alias_fold >> process_expr ~output (k_rel,tyenv) continuation k
-      
-  | Alias (lhs_path,rhs_ap,k) ->
-    let null_ante_paths ap =
-      let rec null_ante_paths acc ap =
-        match P.tail ap with
-        | None -> acc
-        | Some e ->
-          let p = P.parent ap in
-          if e = `Deref then
-            null_ante_paths ((P.to_null p)::acc) p
-          else
-            null_ante_paths acc p
-      in
-      null_ante_paths [] ap
-    in
-    let%bind k_rel = fresh_relation_for relation k in
-    let lhs_type = path_simple_type tyenv lhs_path in
-    let rhs_subst = compute_copies lhs_path rhs_ap lhs_type in
-    let%bind havoc_oracle = gen_for_alias e_id in
-    (* The basic idea (which is reflected in the above)
-       is to model aliasing by introducing a constraint that all values reachable
-       from the operand paths must be equal (because they alias). As a consequence, Z3
-       must conclude that the invariants that hold on the two locations must incorporate
-       information from inputs.
-
-       left/right are used for weak copies of, you guessed it, weak locations. If
-       any weak locations are involed, then we use two copies of the input
-       relation in the antecedent, with the argument substitution
-       R(x, x) /\ R(y, y) => Q(x, y) (where x and y are two summary locations).
-    *)
-    let direct,left,right,hstate = List.fold_left (fun (direct,left,right,hstate) (src,dst,k) ->
-        let hstate =
-          if (P.to_null lhs_path) = src then
-            hstate
-          else
-            let s_havoc = havoc_oracle src in
-            let d_havoc = havoc_oracle dst in
-            let hstate =
-              H.add_havoc src s_havoc hstate
-              |> H.add_havoc dst d_havoc
-            in
-            match k with
-            | `Mu (under_mu_path, src_root, dst_root, ty) ->
-              H.add_mu_havoc ~binder:src_root ~ty under_mu_path s_havoc hstate
-              |> H.add_mu_havoc ~binder:dst_root ~ty under_mu_path d_havoc
-            | _ -> hstate
+      let prepare_alias path =
+        let (root,steps,suff) = (path : P.concr_ap :> P.root * P.steps list * P.suff) in
+        let v = match root,suff with
+          | P.Var v,`None -> v
+          | _ -> assert false
         in
-        match k with
-        | `Direct ->
-          (src,dst)::direct,left,right,hstate
-        | `Mu _ ->
-          direct,(src,dst)::left,(dst,src)::right,hstate
-      ) ([],[],[],H.empty_havoc_state) @@ to_copy_stream rhs_subst in
-    let direct = List.map lift_copy direct in
-    let ante =
-      if left <> [] then
-        let () = assert (right <> []) in
-        [
-          PRelation (relation, direct @ List.map lift_copy right, None);
-          PRelation (relation, direct @ List.map lift_copy left, None)
-        ]
-      else
-        [ PRelation (relation, direct, None) ]
-    in
-    (* for the aliasing to succeed, all references traversed must be non-null *)
-    let extend_nonnull nfs l =
-      List.fold_left (fun acc nf ->
-        (NullCons (Ap nf, BConst is_nonnull_flag))::acc
-      ) l nfs
-    in
-    let must_inhabit_paths =
-      (null_ante_paths lhs_path) @ (null_ante_paths rhs_ap)
-    in
-    let ante = extend_nonnull must_inhabit_paths ante in
-    let%bind havoc_set = get_havoc_state in
-    let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff havoc_set hstate.stable in
-    let out_subst = augment_havocs direct havoc_set in
-    let%lm alias_recursive ctxt =
-      let by_havoc = H.to_rec_havoc hstate in
-      (* conjoin the recursive refinements, in the same way as in the
-         above alias case. In this case, we use the same antecedent (a conjoining
-         of the two mu relations) but generate two relations due
-         to differences in havocing.
-      *)
-      to_mu_copies rhs_subst |> List.fold_left (fun ctxt (_,src,dst,ty) ->
-          let src_rel = P.PathMap.find src ctxt.recursive_rel in
-          let dst_rel = P.PathMap.find dst ctxt.recursive_rel in
-          let ante = [
-            PRelation (src_rel, [], None);
-            PRelation (dst_rel, [], None)
-          ] in
-          RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante src ty ctxt
-          |> RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante dst ty
-        ) ctxt
-    in
-    List.fold_left (fun seq p ->
-      seq >> add_null_path_check relation p
-    ) (return ()) must_inhabit_paths >>
-    set_havoc_state ~rel:(get_relation_ident k_rel) havoc_set >>
-    alias_recursive >>
-    add_implication ante @@ PRelation (k_rel,out_subst,None) >>
-    process_expr ~output (k_rel,tyenv) continuation k
+        let ty = List.assoc v tyenv in
+        (*print_string ("find unfold point\n");*)
+        find_unfold_point [] (List.rev steps) ty
+        |> Option.map (fun (uf_type,remaining,to_mu) ->
+            let p = P.var v in
+            let to_mu = List.fold_left P.extend p @@ List.rev to_mu in
+            let remaining = List.fold_left P.extend P.template remaining in
+            begin
+            (*print_string ("ty: " ^ fltype_to_string ty ^ "\n");
+            print_string ("uf_type: " ^ fltype_to_string uf_type ^ "\n");
+            print_string ("remaining: " ^ Paths.to_string remaining ^ "\n");
+            print_string ("to_mu/path_to_ref: " ^ Paths.to_string to_mu ^ "\n");
+            print_string ("path: " ^ Paths.to_string path ^ "\n");*)
+            (uf_type,remaining,to_mu,path)
+            end
+          )
+        |> Option.to_result ~none:path
+      in
+      (*print_string ("lhs: " ^ Paths.to_string lhs ^ "\n");
+      print_string ("rhs: " ^ Paths.to_string rhs ^ "\n");*)
+      let lp = prepare_alias lhs in
+      let rp = prepare_alias rhs in
 
+      (* + ref_cont is the type under the root of the mu
+        + mu_path is the path to the mu binder, relative to path_to_ref
+        + path_to_ref is the path to the root of the containing recursive type
+        + full_path is the full path to the mu binder
+        + unfolded path is the path to the value to be folded by this alias
+      *)
+    (*
+      ref_o: (μ '3.ref (int, ref '3)) 
+      alias:9(ref_o = ( *list).1);
+      lhs = ref_o [] ref (μ '3. ref (int, ref '3))
+      rgs = list [1;*]: (μ '3.(int, '3 ref) ref
+
+      ref_cont: type of mu
+      mu_path: from t to mu
+      path_to_ref: from mu to target
+      full_path: lhs or rhs, original path
+      unfolded_path: lhs or rhs, original path
+    *)
+        match lp, rp with
+        | Error unfolded_path, Ok (uf_type, remaining, path_to_ref, full_path)
+        | Ok (uf_type, remaining, path_to_ref, full_path), Error unfolded_path ->
+          Some (uf_type, remaining, path_to_ref, full_path, unfolded_path)
+        | Error _, Error _ -> (print_string (string_of_int e_id ^ "[err,err];") ; None)
+        | _,_ -> (print_string (string_of_int e_id ^ "[ok,ok];") ; None)
+      in
+    if Option.is_none res then
+      let null_ante_paths ap =
+        let rec null_ante_paths acc ap =
+          match P.tail ap with
+          | None -> acc
+          | Some e ->
+            let p = P.parent ap in
+            if e = `Deref then
+              null_ante_paths ((P.to_null p)::acc) p
+            else
+              null_ante_paths acc p
+        in
+        null_ante_paths [] ap
+      in
+      let%bind k_rel = fresh_relation_for relation k in
+      let lhs_type = path_simple_type tyenv lhs in
+      let rhs_subst = compute_copies lhs rhs lhs_type in
+      (*print_copy_spec rhs_subst;*)
+      let%bind havoc_oracle = gen_for_alias e_id in
+      (* The basic idea (which is reflected in the above)
+        is to model aliasing by introducing a constraint that all values reachable
+        from the operand paths must be equal (because they alias). As a consequence, Z3
+        must conclude that the invariants that hold on the two locations must incorporate
+        information from inputs.
+
+        left/right are used for weak copies of, you guessed it, weak locations. If
+        any weak locations are involed, then we use two copies of the input
+        relation in the antecedent, with the argument substitution
+        R(x, x) /\ R(y, y) => Q(x, y) (where x and y are two summary locations).
+      *)
+      let direct,left,right,hstate = List.fold_left (fun (direct,left,right,hstate) (src,dst,k) ->
+          let hstate =
+            if (P.to_null lhs) = src then
+              hstate
+            else begin
+              (*print_string ("src: " ^ Paths.to_string src ^ "\n");*)
+              let s_havoc = havoc_oracle src in
+              (*print_string ("dst: " ^ Paths.to_string dst ^ "\n");*)
+              let d_havoc = havoc_oracle dst in
+              let hstate =
+                H.add_havoc src s_havoc hstate
+                |> H.add_havoc dst d_havoc
+              in
+              match k with
+              | `Mu (under_mu_path, src_root, dst_root, ty) ->
+                H.add_mu_havoc ~binder:src_root ~ty under_mu_path s_havoc hstate
+                |> H.add_mu_havoc ~binder:dst_root ~ty under_mu_path d_havoc
+              | _ -> hstate end
+          in
+          match k with
+          | `Direct ->
+            (src,dst)::direct,left,right,hstate
+          | `Mu _ ->
+            direct,(src,dst)::left,(dst,src)::right,hstate
+        ) ([],[],[],H.empty_havoc_state) @@ to_copy_stream rhs_subst in
+      let direct = List.map lift_copy direct in
+      let ante =
+        if left <> [] then
+          let () = assert (right <> []) in
+          [
+            PRelation (relation, direct @ List.map lift_copy right, None);
+            PRelation (relation, direct @ List.map lift_copy left, None)
+          ]
+        else
+          [ PRelation (relation, direct, None) ]
+      in
+      (* for the aliasing to succeed, all references traversed must be non-null *)
+      let extend_nonnull nfs l =
+        List.fold_left (fun acc nf ->
+          (NullCons (Ap nf, BConst is_nonnull_flag))::acc
+        ) l nfs
+      in
+      let must_inhabit_paths =
+        (null_ante_paths lhs) @ (null_ante_paths rhs)
+      in
+      let ante = extend_nonnull must_inhabit_paths ante in
+      let%bind havoc_set = get_havoc_state in
+      let havoc_set = P.PathSet.union hstate.havoc @@ P.PathSet.diff havoc_set hstate.stable in
+      let out_subst = augment_havocs direct havoc_set in
+      let%lm alias_recursive ctxt =
+        let by_havoc = H.to_rec_havoc hstate in
+        (* conjoin the recursive refinements, in the same way as in the
+          above alias case. In this case, we use the same antecedent (a conjoining
+          of the two mu relations) but generate two relations due
+          to differences in havocing.
+        *)
+        to_mu_copies rhs_subst |> List.fold_left (fun ctxt (_,src,dst,ty) ->
+            let src_rel = P.PathMap.find src ctxt.recursive_rel in
+            let dst_rel = P.PathMap.find dst ctxt.recursive_rel in
+            let ante = [
+              PRelation (src_rel, [], None);
+              PRelation (dst_rel, [], None)
+            ] in
+            RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante src ty ctxt
+            |> RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante dst ty
+          ) ctxt
+      in
+      List.fold_left (fun seq p ->
+        seq >> add_null_path_check relation p
+      ) (return ()) must_inhabit_paths >>
+      set_havoc_state ~rel:(get_relation_ident k_rel) havoc_set >>
+      alias_recursive >>
+      add_implication ante @@ PRelation (k_rel,out_subst,None) >>
+      process_expr ~output (k_rel,tyenv) continuation k
+    else
+      let (uf_type, remaining, path_to_ref, full_path, unfolded_path) = Option.get res in 
+      let%bind k_rel = fresh_relation_for relation k in
+
+      let lhs_type = path_simple_type tyenv unfolded_path in
+      let ref_cont = match uf_type with 
+        | `Ref (_, t') -> t'
+        | _ -> assert false in
+
+      (* lhs should equal unfold(ref_cont) @ remaining *)
+
+      (* In order to make the mu binders match, we need to unfold the target type, i.e.
+        the aliased type. Recall this is to make the target of aliasing match the shape
+        of the unfolded source.
+      *)
+      let unfolded_content_type = deep_type_normalization ref_cont in
+      (*print_string ("rhs: " ^ fltype_to_string unfolded_content_type ^ "\n");*)
+      (* the unfolding is down to a dummy $uf variable *)
+      let temp_args = type_to_paths (P.var "$uf") unfolded_content_type |> List.map (fun p ->
+            p, path_type p
+          ) in
+      let (curr_rel, curr_args,_) = relation in
+      let%bind temp_rel = fresh_alias_relation ~e_id ~name:(curr_rel ^ "$alias") ~args:(curr_args @ temp_args) in
+      let%lm alias_unfold path_to_ref p2 lhs_type in_rel out_rel ctxt =
+        RecursiveRefinements.unfold_to ~e_id ~with_havoc:false ~out_mapping:PPMap.id_map lhs_type path_to_ref p2 in_rel out_rel ctxt
+      in
+      let%bind () = alias_unfold path_to_ref (P.var "$uf") uf_type relation temp_rel in
+      (* unfold *)
+      (* the path to the (now unfolded) mu in $uf *)
+      let flow_root = P.root_at ~child:remaining ~parent:(P.var "$uf") in
+      let folded_target = full_path in
+      (* the aliasing can be viewed as a "copy" from the source (found at unfolded path)
+        and the (now unfolded) [flow_root] *)
+      let copies = compute_copies unfolded_path flow_root lhs_type in
+      let copy_stream = to_copy_stream copies in
+      (* Which copies are occurring under a mu, and which not? *)
+      let direct_copies,weak_copies = copy_stream |> List.partition (fun (_,_,k) ->
+            k = `Direct
+          )
+      in
+      (* To copy information from the unfolded version while simultaneously copying
+        information from the source recursive type, we use the following trick:
+
+        In the following, let x and y be the path of a location at the same
+        relative location under the mu binder in question, and let
+        b and c be a concrete location. The resulting
+        implication is generated as:
+
+        R(b, y!pass, c, y!pass) /\ R(b, x, b, x) => Q(b, x, b, y!pass)
+
+        So we make sure that any relationship satsified by y is satisfied by x and vice versa,
+        without constraining them to be equal. However, we do b and c to be equal (as the copy
+        is direct).
+      *)
+      (* generate the y -> y!pass substitution *)
+      let pass_through_subst = (List.map (fun (s,_,_) ->
+          (s, to_pass_ap s)
+        ) weak_copies)
+      in
+      (* this rename is applied to a second copy of the input relation for weak copies.
+        We apply the y->y!pass and x -> y!pass substitution
+        
+        XXX: uhhhh, wanna apply the direct copies to...?
+      *)
+      let rename_weak = pass_through_subst @ List.map (fun (s,d,_) ->
+            (d, to_pass_ap s)
+          ) weak_copies in
+      (* rename y->y!pass and c -> b *)
+      let rename_out = pass_through_subst @ List.map (fun (s,d,_) -> (s,d)) direct_copies in
+      (* rename y -> x and c -> b, this is applied to a different copy of the input relation *)
+      let rename_src = List.map (fun (s,d,_) ->
+          (s,d)
+        ) copy_stream
+      in
+      let%lm do_alias_fold ctxt =
+        let dst_oracle p =
+          (* when we fold uf back into the original type, it we will query for the havoc
+            state of some paths that are not actually touched by the alias (i.e., the havoc
+            state of the head elements in the type containing the target mu. In
+            that case, just call back on the current havoc state *)
+          (*print_string (Paths.to_string folded_target ^ " folded_target \n");*)
+          if P.has_prefix ~prefix:folded_target p && (p <> (P.to_null folded_target)) then
+            begin (*print_string (Paths.to_string p ^ " has prefix \n");*)
+            havoc_oracle ctxt (OI.MAlias e_id) p end
+          else
+            begin (*print_string (Paths.to_string p ^ " otherwise \n");*)
+            P.PathSet.mem p ctxt.havoc_set end
+        in
+        (* the uf state is going to be dropped anyway *)
+        let src_oracle _ = true in
+        let havoc_oracle = havoc_oracle ctxt (OI.MAlias e_id) in
+        (* the havoc of the "source", already unfolded type. (called "var" because the
+          language grammar used to require this be rooted at a plain variable) *)
+        let var_havoc = copy_stream |> List.fold_left (fun acc (src,_,k) ->
+              let havoc = havoc_oracle src in
+              let acc = H.add_havoc src havoc acc in
+              match k with
+              | `Mu (under_mu_path, binder, _, ty) ->
+                H.add_mu_havoc ~binder ~ty under_mu_path havoc acc
+              | _ -> acc
+            ) H.empty_havoc_state
+        in
+        let by_havoc = H.to_rec_havoc var_havoc in
+        (* walk the source type, and generate the new, joined recursive refinements from
+          combinining information from the unfolded temp type. In addition, this records
+          the relations to conjoin in fold_to using the rec_ext functionality
+        *)
+        let ante,ctxt = to_mu_copies copies |> List.fold_left (fun (ante,ctxt) (_,src_root,dst_root,ty) ->
+              let src_rel = P.PathMap.find src_root ctxt.recursive_rel in
+              let ante = P.PathMap.add dst_root (PRelation (src_rel, [], None)) ante in
+              let dst_rel = P.PathMap.find dst_root ctxt.recursive_rel in
+              let ctxt = RecRelations.recursive_rel_with_havoc ~by_havoc ~e_id ~ante:([
+                  PRelation(src_rel, [], None);
+                  PRelation(dst_rel, [], None)
+                ]) src_root ty ctxt
+              in
+              ante,ctxt
+            ) (P.PathMap.empty, ctxt)
+        in
+        (* compute the head substitution for when generating the mu relation that incorporates
+          the head and tails of the temp unfolded type, it should also include the
+          corresponding head and tails of the "source" *)
+        let hd_subst = parallel_type_walk P.template unfolded_path lhs_type (fun _ _ () -> `Cont ()) (fun () i o acc ->
+            (o, Ap i)::acc
+          ) () []
+        in
+        let havoc_ext ~havoc ~stable =
+          (P.PathSet.union havoc var_havoc.havoc, P.PathSet.union stable var_havoc.stable)
+        in
+        (* the extensions are only valid for the mu binder targeted by the alias expression *)
+        let rec_ext = P.PathMap.singleton (P.root_at ~child:remaining ~parent:(P.deref P.template)) (hd_subst, ante) in
+        let open RecursiveRefinements in
+        (* easy! *)
+        let ctxt = fold_to ~oracle:(dst_oracle,src_oracle) ~e_id ~copy_policy:(Custom { rename_src; rename_out; rename_weak}) ~rec_ext ~havoc_ext uf_type (P.var "$uf") path_to_ref temp_rel k_rel ctxt in
+        (* now remove all of the $uf stuff *)
+        let uf_root = P.var "$uf" in
+        let concr_root_p = Fun.negate @@ P.has_prefix ~prefix:uf_root in
+        let havoc_set = P.PathSet.filter concr_root_p ctxt.havoc_set in
+        { ctxt with
+          havoc_set;
+          recursive_rel = P.PathMap.filter (fun p _ ->
+              concr_root_p p
+            ) ctxt.recursive_rel
+        }
+      in
+      do_alias_fold >> process_expr ~output (k_rel,tyenv) continuation k
+      
 let analyze_function fn ctxt =
   let { in_rel = (in_nm,in_args, isrc);
         out_rel = (out_nm,out_args, osrc);
