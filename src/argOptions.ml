@@ -33,6 +33,13 @@ type t = {
   omit_havoc : bool;
   null_checks : bool;
   solver_opts : Solver.options;
+  intrinsics : Intrinsics.interp_t;
+  expect_typing : bool;
+  cfa : int;
+  verbose : bool;
+  file_list : Arg.usage_msg list;
+  exit_status : bool;
+  yaml : bool;
 }
 type arg_spec = Arg.key * Arg.spec * Arg.doc
 type arg_update = ?opts:t -> unit -> t
@@ -52,6 +59,13 @@ let default = {
   omit_havoc = false;
   null_checks = false;
   solver_opts = Solver.default;
+  intrinsics = Intrinsics.empty;
+  expect_typing = true;
+  cfa = 1;
+  verbose = false;
+  file_list = [];
+  exit_status = false;
+  yaml = false;
 }
 let get_model opts = opts.print_model || opts.check_trivial
 let spec_seq (g2 : unit -> arg_gen) (g1 : arg_gen) =
@@ -108,20 +122,23 @@ let debug_arg_gen () =
     dry_run = !dry_run
   } in
   (spec, update)
-let infr_opts_loader () =
-  let relaxed_max = ref false in
+let infr_arg_gen () =
+  let relaxed_mode = ref default.relaxed_mode in
   let open Arg in
   let spec = [
-    ("-relaxed-max", Unit (fun () -> relaxed_max := true),
+    ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
      "Use alternative, relaxed maximization constraints")
   ] in
-  (spec, (fun () -> !relaxed_max))
+  let update ?(opts=default) () = {
+    opts with relaxed_mode = !relaxed_mode
+  } in
+  (spec, update)
 let opt_gen ?nm ?(solv_nm="solver") () =
   let open Arg in
   let pref = Option.map (fun s -> s ^ "-") nm |> Option.value ~default:"" in
   let timeout = ref default.solver_opts.timeout in
-  let command = ref None in
-  let extra = ref None in
+  let command = ref default.solver_opts.command in
+  let extra = ref default.solver_opts.command_extra in
   let spec = [
     ("-" ^ pref ^ "timeout", Set_int timeout,
      Printf.sprintf "Timeout for %s in seconds" solv_nm);
@@ -145,7 +162,6 @@ let solver_arg_gen () =
   let dump_ir = ref default.dump_ir in
   let omit_havoc = ref default.omit_havoc in
   let null_checks = ref default.null_checks in
-  let oi_args,oi_gen = infr_opts_loader () in
   let open Arg in
   let spec = [
     ("-seq-solver", Unit (fun () ->
@@ -178,10 +194,61 @@ let solver_arg_gen () =
     check_trivial = !check_trivial;
     solver = !solver;
     dump_ir = !dump_ir;
-    relaxed_mode = oi_gen () || !omit_havoc;
+    relaxed_mode = !omit_havoc;
     omit_havoc = !omit_havoc;
     null_checks = !null_checks
   } in
-  (oi_args @ spec, update)
+  spec_seq infr_arg_gen (spec, update)
 let solver_opt_gen () =
   ownership_arg_gen () |> spec_seq opt_gen
+let intrinsics_arg_gen () =
+  let open Arg in
+  let f_name = ref None in
+  let spec = [
+    "-intrinsics", String (fun x -> f_name := Some x),
+    "Load definitions of standard operations from <file>"
+  ] in
+  let update ?(opts=default) () = {
+    opts with intrinsics = Intrinsics.option_loader !f_name
+  } in
+  (spec, update)
+let test_suite_arg_gen () =
+  let open Arg in
+  let expect = ref default.expect_typing in
+  let verbose = ref default.verbose in
+  let cfa = ref default.cfa in
+  let file_list = ref default.file_list in
+  let spec = [
+    ("-neg", Clear expect, "Expect typing failures");
+    ("-pos", Set expect, "Expect typing success (default)");
+    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
+    ("-verbose", Set verbose, "Provide more output");
+    ("-files", Rest (fun s -> file_list := s::!file_list),
+     "Interpret all remaining arguments as files to test")
+  ] in
+  let update ?(opts=default) () = {
+    opts with
+    expect_typing = !expect;
+    cfa = !cfa;
+    verbose = !verbose;
+    file_list = !file_list
+  } in
+  (spec, update)
+let test_arg_gen () =
+  let open Arg in
+  let cfa = ref default.cfa in
+  let status = ref default.exit_status in
+  let yaml = ref default.yaml in
+  let spec = [
+    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
+    ("-exit-status", Set status,
+     "Indicate successful verification with exit code");
+    ("-yaml", Set yaml, "Print verification result in YAML format");
+  ] in
+  let update ?(opts=default) () = {
+    opts with
+    cfa = !cfa;
+    exit_status = !status;
+    yaml = !yaml;
+  } in
+  (spec, update)

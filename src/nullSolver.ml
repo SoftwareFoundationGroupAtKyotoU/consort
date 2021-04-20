@@ -1,7 +1,7 @@
-let solve ~opts ~defn_file cons =
+let solve ~opts cons =
   let cons = SexpPrinter.to_string cons in
   let cons' =
-    Option.map Files.string_of_file defn_file
+    Option.map Files.string_of_file opts.ArgOptions.intrinsics.def_file
     |> Option.fold ~some:(fun v ->
         v ^ cons
       ) ~none:cons
@@ -15,4 +15,4 @@ let solve ~opts ~defn_file cons =
   |> Option.iter (fun f -> f cons');
   Solver.Unhandled "dummy solver"
 
-let solve_cont ~opts:_ ~defn_file:_ _ = failwith "Unsupported"
+let solve_cont ~opts:_ _ = failwith "Unsupported"
