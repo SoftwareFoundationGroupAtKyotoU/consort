@@ -1,0 +1,14 @@
+/*
+    Test that we are not havocking everything at let expressions.
+    (Although this cannot be verified in the formalization of ConSORT.)
+*/
+
+{
+    let x = mkref 1 in 
+    let y = x in 
+    let x1 = *x in 
+    let x2 = *x in {
+        y := 2;
+        assert(x1 = x2)
+    }
+}

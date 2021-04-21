@@ -1,0 +1,22 @@
+/*
+    Test that nothing is wrongly havocked.
+*/
+
+create_list() {
+    if _ then
+        null
+    else
+        let tail = create_list() in
+        let tup = (1, tail) in
+        mkref tup
+}
+
+{
+    let l = create_list() in
+    let (v1, l1) = *l in
+    {
+        alias(l1 = (*l).1);
+        let (v2, _) = *l in 
+        assert(v2 = 1)
+    }
+}

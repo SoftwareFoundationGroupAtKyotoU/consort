@@ -82,6 +82,13 @@ let tag_fresh pos t =
 let tag_with i t =
   (i, t)  
 
+(** NK: added **)
+let sanity_check_alias (v1:Paths.path) (v2:Paths.path) =
+  let (root1,_,_)= (v1 :> Paths.root * Paths.steps list * Paths.suff) in
+  let (root2,_,_)= (v2 :> Paths.root * Paths.steps list * Paths.suff) in
+  if root1=root2 then
+    (print_string "Warning: found an alias statement that contains more than one occurrence of the same variable.\nThe analysis may be unsound\n";flush stdout)
+
 (* This rewriting is fairly standard, but it helps to understand some key components.
    First, count determines the number of temporary variables in scope, this ensures
    temporary variables are unique when they are created. This count is thus threaded through
@@ -164,6 +171,7 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
         |> tag_with i
       )
   | Alias (i,v1,v2) -> 
+     sanity_check_alias v1 v2; (* NK: added *)
     A.Alias (v1,v2, get_continuation ~ctxt:i count)
     |> tag_with i
   | Assert (i,{ op1; cond; op2 }) ->
