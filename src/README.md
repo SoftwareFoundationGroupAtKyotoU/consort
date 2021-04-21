@@ -62,9 +62,9 @@ The necessary S-Expressions are generated using the `SexpPrinter` module, found 
 
 The entry point of the test driver is `test.ml`. It parses all command line arguments, using the argument
 generators provided by the `ArgOptions` module (see the code for details).
-The resulting option structure and provided `.imp` file are then passed to the `Consort.check_file` function.
+The resulting option structure and provided `.imp` file are then passed to the `Consort.consort` function.
 
-`check_file` then executes the following sequence:
+`consort` then executes the following sequence:
 
 1. Lex and parse the input file (via `AstUtil.parse_file`)
 2. Infer (simple) types (via `SimpleChecker.typecheck_prog`)

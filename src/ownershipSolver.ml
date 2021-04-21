@@ -1,21 +1,6 @@
 open SexpPrinter
 
-type ownership =
-    OVar of int
-  | OConst of float
-
-type ocon =
-  | Live of ownership
-  (* Constraint ownership variable n to be 1 *)
-  | Write of ownership
-  (* ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
-  | Shuff of (ownership * ownership) * (ownership * ownership)
-  | Split of ownership * (ownership * ownership)
-  | Eq of ownership * ownership
-  (* For well-formedness: if o1 = 0, then o2 = 0 *)
-  | Wf of ownership * ownership
-  (* Ge o1 >= o2 *)
-  | Ge of ownership * ownership
+type ownership = OwnershipInference.ownership
 
 let pred = "(define-fun ov-wf ((o Real)) Bool
   (and (<= o 1) (<= 0 o)))" 
@@ -42,6 +27,7 @@ let po : ownership -> (Sexplib.Sexp.t -> 'a) -> 'a = function
 
 let pp_oconstraint ff ocon =
   begin
+    let open OwnershipInference in
     match ocon with
     | Write o -> pg "assert" [
                      pg "=" [
@@ -143,7 +129,11 @@ let rec interp_real sexp =
     Some (e1 /. e2)
   | _ -> None
 
-let solve_ownership ~opts (ovars, ocons, max_vars) =
+let solve_ownership ~opts result =
+  let open OwnershipInference.Result in
+  let ovars = result.ovars in
+  let ocons = result.ocons in
+  let max_vars = result.max_vars in
   let o_buf = SexpPrinter.fresh () in
   print_ownership_constraints ovars ocons o_buf;
   atom o_buf.printer pred;

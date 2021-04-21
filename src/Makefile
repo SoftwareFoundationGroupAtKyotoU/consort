@@ -3,8 +3,6 @@
 all: stdlib/lin.intr
 	dune build test.exe
 	dune build test_suite.exe
-	dune build typecheck.exe
-	dune build ownership.exe
 	dune build genFlags.exe
 
 test: all
