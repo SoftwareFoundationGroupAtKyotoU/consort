@@ -16,7 +16,7 @@ let solve ~opts cons =
       D.solve_cont ~opts cons
     ) backends
   in
-  Process.select_pool ~timeout:(opts.ArgOptions.solver_opts.timeout + 10) ~prock:(fun acc res ->
+  Process.select_pool ~timeout:(opts.ArgOptions.timeout + 10) ~prock:(fun acc res ->
     match res with
     | Solver.Sat _ | Solver.Unsat -> `Return res
     | _ -> `Continue (res::acc)

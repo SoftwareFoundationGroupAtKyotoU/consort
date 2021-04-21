@@ -1,18 +1,11 @@
 let () =
-  let (spec, to_opts) =
-    let open ArgOptions in
-    debug_arg_gen ()
-    |> spec_seq solver_arg_gen
-    |> spec_seq solver_opt_gen
-    |> spec_seq intrinsics_arg_gen
-    |> spec_seq test_arg_gen
-  in
+  let (spec, update) = ArgOptions.arg_gen () in
   let target_name = ref None in
   Arg.parse spec (fun s -> target_name := Some s) "Verify imp file";
   match !target_name with
   | None -> print_endline "No file provided"; exit 1
   | Some in_name ->
-    let opts = to_opts () in
+    let opts = update () in
     let res = Consort.check_file ~opts in_name in
     let () =
       if opts.yaml then

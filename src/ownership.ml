@@ -73,7 +73,7 @@ let pp_owner =
 
 let ownership_infr ~opts file =
   let ast = AstUtil.parse_file file in
-  let simple_op = RefinementTypes.to_simple_funenv opts.ArgOptions.intrinsics.op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv (ArgOptions.get_intr opts).op_interp in
   let ((_,SimpleChecker.SideAnalysis.{ fold_locs = fl; _ }) as simple_res) = SimpleChecker.typecheck_prog simple_op ast in
   print_endline "FOLD LOCATIONS>>>";
   Std.IntSet.iter (Printf.printf "* %d\n") fl;
@@ -94,11 +94,5 @@ let ownership_infr ~opts file =
       ) ~o_printer:(pf "%f") r ast
 
 let () =
-  let (spec, to_opts) =
-    let open ArgOptions in
-    debug_arg_gen ()
-    |> spec_seq intrinsics_arg_gen
-    |> spec_seq ownership_arg_gen
-    |> spec_seq infr_arg_gen
-  in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(to_opts ())
+  let (spec, update) = ArgOptions.arg_gen () in
+  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(update ())

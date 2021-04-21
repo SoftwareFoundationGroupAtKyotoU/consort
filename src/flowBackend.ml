@@ -40,7 +40,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
      
 
   let close_and_print ~opts ~fgen clause =
-    let rel_op = opts.ArgOptions.intrinsics.rel_interp in
+    let rel_op = (ArgOptions.get_intr opts).rel_interp in
     let rec pp_arg ty = function
       | Ap p -> add_ident p ty >> return @@ pp_ap p
       | IConst i -> return @@ pp_int i

@@ -3025,7 +3025,7 @@ let infer ~opts (simple_theta,side_results) o_hints (fns,main) =
     o_hints;
     curr_fun = None;
     let_types = IntMap.map lift_and_unfold (side_results.SimpleChecker.SideAnalysis.let_types);
-    bif_types = opts.ArgOptions.intrinsics.op_interp;
+    bif_types = (ArgOptions.get_intr opts).op_interp;
     fenv;
     impl = [];
     havoc_set = P.PathSet.empty;
