@@ -94,5 +94,8 @@ let ownership_infr ~opts file =
       ) ~o_printer:(pf "%f") r ast
 
 let () =
-  let (spec, update) = ArgOptions.arg_gen () in
-  Files.run_with_file spec "Run ownership inference on <file>" @@ ownership_infr ~opts:(update ())
+  let n = ref None in
+  let opts = ArgOptions.parse (fun s -> n := Some s) "Run ownership inference on <file>" in
+  match !n with
+  | None -> print_endline "No file provided"
+  | Some f -> ownership_infr ~opts f

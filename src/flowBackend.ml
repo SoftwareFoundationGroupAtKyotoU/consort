@@ -191,7 +191,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       break ff
     in
     SexpPrinter.finish ff;
-    C.solve ~opts ff
+    ff
 
   let pprint_annot =
     let open PrettyPrint in
@@ -231,39 +231,71 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
       let body = psep_gen null [ vars; mu_rel; relation ] in
       pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
+  let output_endline out s = output_string out (s ^ "\n")
+  let show_annot ~opts snap ast =
+    let print out =
+      AstPrinter.pretty_print_program
+        ~with_labels:true ~annot:(pprint_annot snap) out ast in
+    ArgOptions.show ~opts opts.show_annot print
+  let show_ast ~opts (program_types,_) ast =
+    let print out =
+      AstPrinter.pretty_print_program out ast;
+      StringMap.iter (fun n a ->
+          output_endline out
+          @@ Printf.sprintf "%s: %s" n @@ SimpleTypes.fntype_to_string a
+        ) program_types in
+    ArgOptions.show ~opts opts.show_ast print
+  let show_cons ~opts cons =
+    let print out =
+      let def_file = (ArgOptions.get_intr opts).def_file in
+      output_endline out @@ "; Sending constraints >>>";
+      output_endline out @@ "; Intrinsic definitions";
+      output_endline out
+      @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
+      output_endline out @@ "; Constraints";
+      output_endline out @@ SexpPrinter.to_string cons;
+      output_endline out @@ "; <<<" in
+    ArgOptions.show ~opts opts.show_cons print
+  let show_ir ~opts snap ast rel =
+    let print out =
+      let open Std in
+      let open Sexplib.Std in
+      let mu_bind =
+        IntMap.bindings snap
+        |> ListMonad.bind (fun (i,pmap) ->
+            P.PathMap.bindings pmap.mu_relations
+            |> List.map (fun (p,rel) -> (i,p,rel))) in
+      let sexp = [%sexp_of: Ast.prog *
+                            FlowInference.relation list *
+                            (int * P.concr_ap * relation) list
+      ] (ast,rel,mu_bind) in
+      Sexplib.Sexp.output_hum out sexp in
+    ArgOptions.show ~opts opts.show_ir print
+  let show_model ~opts ans =
+    let print out =
+      match ans with
+      | Solver.Sat Some m -> output_endline out m
+      | _ -> () in
+    ArgOptions.show ~opts opts.show_model print
+
   let solve ~opts simple_res o_hints ast =
-    let rel,impl,snap,start,omit = FlowInference.infer ~opts simple_res o_hints ast in
+    let rel,impl,snap,start,omit =
+      FlowInference.infer ~opts simple_res o_hints ast in
     let fgen =
-      if not opts.relaxed_mode then
-        (fun _ _ -> true)
-      else
+      if opts.relaxed_max then
         (fun s ->
-          StringMap.find_opt s omit
-          |> Option.map (fun s ->
-              (fun p -> not @@ P.PathSet.mem p s))
-          |> Option.value ~default:(fun _ -> true)
-        )
-    in
-    let () =
-      if opts.annot_infr then
-        AstPrinter.pretty_print_program ~with_labels:true ~annot:(pprint_annot snap) stderr ast;
-      flush stderr
-    in
-    let () = Option.iter (fun out_f ->
-        let f = open_out out_f in
-        Fun.protect ~finally:(fun () -> close_out f) (fun () ->
-          let open Std in
-          let open FlowInference in
-          let open Sexplib.Std in
-          let module P = Paths in
-          let mu_bind = IntMap.bindings snap |> ListMonad.bind (fun (i,pmap) ->
-                P.PathMap.bindings pmap.mu_relations |> List.map (fun (p,rel) -> (i,p,rel))
-              )
-          in
-          Sexplib.Sexp.output_hum f @@ [%sexp_of: Ast.prog * FlowInference.relation list * (int * P.concr_ap * relation) list] (ast,rel,mu_bind);
-          flush f;
-        )
-      ) opts.dump_ir in
-    (),
-    solve_constraints ~opts ~fgen rel impl start
+           StringMap.find_opt s omit
+           |> Option.map (fun s ->
+               (fun p -> not @@ P.PathSet.mem p s))
+           |> Option.value ~default:(fun _ -> true))
+      else (fun _ _ -> true) in
+    let cons = solve_constraints ~opts ~fgen rel impl start in
+    let ans = C.solve ~opts cons in
+    show_annot ~opts snap ast;
+    show_ast ~opts simple_res ast;
+    show_cons ~opts cons;
+    show_ir ~opts snap ast rel;
+    show_model ~opts ans;
+    ArgOptions.close_output ~opts;
+    ans
 end

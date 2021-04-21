@@ -3020,7 +3020,7 @@ let infer ~opts (simple_theta,side_results) o_hints (fns,main) =
   let entry_relation = (start_name, [], Start) in
   let relations = entry_relation::relations in
   let empty_ctxt = {
-    null_checks = opts.ArgOptions.null_checks;
+    null_checks = opts.ArgOptions.check_null;
     relations;
     o_hints;
     curr_fun = None;

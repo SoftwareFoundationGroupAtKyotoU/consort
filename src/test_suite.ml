@@ -34,10 +34,9 @@ let test_file run n_tests f_name =
   else ()
 
 let () =
-  let (spec, update) = ArgOptions.arg_gen () in
   let dir_list = ref [] in
-  Arg.parse spec (fun x -> dir_list := x::!dir_list) "Check folders for expected typing failures/success";
-  let opts = update () in
+  let opts = ArgOptions.parse (fun x -> dir_list := x::!dir_list)
+      "Check folders for expected typing failures/success" in
   let run = run_test ~opts in
   let maybe_print s = if opts.verbose then (print_string s; flush stdout) else () in
   maybe_print "Testing ";

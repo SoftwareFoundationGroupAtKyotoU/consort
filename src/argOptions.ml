@@ -1,7 +1,6 @@
 module Cache = struct
   type 'a t = 'a option ref
 
-  let init = ref None
   let get c f =
     match !c with
     | None -> let v = f() in c := Some v; v
@@ -25,150 +24,174 @@ module Solver = struct
     ("spacer", Spacer);
     ("z3smt", Z3SMT)
   ]
+  let default = "spacer"
   let candidates = List.map (fun (s, _) -> s) pairs
-  let update solver cand = solver := List.assoc cand pairs
+  let from_string s = List.assoc s pairs
 end
 
 type t = {
-  debug_cons : bool;
-  debug_ast : bool;
-  save_cons : string option;
-  annot_infr : bool;
-  print_model : bool;
+  output_file : string option;
+  show_annot : bool;
+  show_ast : bool;
+  show_cons : bool;
+  show_ir : bool;
+  show_model : bool;
   dry_run : bool;
+  relaxed_max : bool;
+  check_null : bool;
+  expect_typing : bool;
+  exit_status : bool;
+  yaml : bool;
+  verbose : bool;
   solver : Solver.t;
   timeout : int;
   command : string option;
-  command_extra : string option;
-  dump_ir : string option;
-  relaxed_mode : bool;
-  null_checks : bool;
-  intrinsics_file : string option;
-  intrinsics : Intrinsics.interp_t Cache.t;
-  expect_typing : bool;
+  solver_args : string option;
   cfa : int;
-  verbose : bool;
+  intrinsics_file : string option;
   file_list : Arg.usage_msg list;
-  exit_status : bool;
-  yaml : bool;
+  output_channel : out_channel Cache.t;
+  intrinsics : Intrinsics.interp_t Cache.t;
 }
 
 let default = {
-  debug_cons = false;
-  debug_ast = false;
-  save_cons = None;
-  annot_infr = false;
-  print_model = false;
+  output_file = None;
+  show_annot = false;
+  show_ast = false;
+  show_cons = false;
+  show_ir = false;
+  show_model = false;
   dry_run = false;
-  solver = Spacer;
-  timeout = 30;
-  command = None;
-  command_extra = None;
-  dump_ir = None;
-  relaxed_mode = false;
-  null_checks = false;
-  intrinsics_file = None;
-  intrinsics = Cache.init;
+  relaxed_max = false;
+  check_null = false;
   expect_typing = true;
-  cfa = 1;
-  verbose = false;
-  file_list = [];
   exit_status = false;
   yaml = false;
+  verbose = false;
+  solver = Solver.from_string Solver.default;
+  timeout = 30;
+  command = None;
+  solver_args = None;
+  cfa = 1;
+  intrinsics_file = None;
+  file_list = [];
+  output_channel = ref None;
+  intrinsics = ref None;
 }
+let close_output ~opts =
+  Option.iter close_out !(opts.output_channel);
+  opts.output_channel := None
+let show ~opts flag print =
+  if flag then
+    let set f = Cache.get opts.output_channel (fun () -> open_out f) in
+    let out = Option.fold ~none:stderr ~some:set opts.output_file in
+    print out; flush out
+  else ()
 let get_intr opts =
-  let option_loader () =
-    match opts.intrinsics_file with
-    | None -> Intrinsics.empty
-    | Some f -> Intrinsics.load f in
-  Cache.get opts.intrinsics option_loader
-let arg_gen () =
-  let debug_cons = ref default.debug_cons in
-  let debug_ast = ref default.debug_ast in
-  let save_cons = ref default.save_cons in
-  let annot_infr = ref default.annot_infr in
-  let print_model = ref default.print_model in
+  let open Intrinsics in
+  let set f = Cache.get opts.intrinsics (fun () -> load f) in
+  Option.fold ~none:empty ~some:set opts.intrinsics_file
+let parse anon_fun usage_msg =
+  let output_file = ref default.output_file in
+  let show_annot = ref default.show_annot in
+  let show_ast = ref default.show_ast in
+  let show_cons = ref default.show_cons in
+  let show_ir = ref default.show_ir in
+  let show_model = ref default.show_model in
+  let show_all_flags = [show_annot; show_ast; show_cons; show_ir; show_model] in
   let dry_run = ref default.dry_run in
+  let relaxed_max = ref default.relaxed_max in
+  let check_null = ref default.check_null in
+  let expect_typing = ref default.expect_typing in
+  let exit_status = ref default.exit_status in
+  let yaml = ref default.yaml in
+  let verbose = ref default.verbose in
   let solver = ref default.solver in
   let timeout = ref default.timeout in
   let command = ref default.command in
-  let extra = ref default.command_extra in
-  let dump_ir = ref default.dump_ir in
-  let relaxed_mode = ref default.relaxed_mode in
-  let null_checks = ref default.null_checks in
-  let f_name = ref None in
-  let expect = ref default.expect_typing in
+  let solver_args = ref default.solver_args in
   let cfa = ref default.cfa in
-  let verbose = ref default.verbose in
+  let intrinsics_file = ref None in
   let file_list = ref default.file_list in
-  let status = ref default.exit_status in
-  let yaml = ref default.yaml in
-  let all_debug_flags = [ debug_cons; debug_ast; annot_infr; print_model ] in
+  let show_all () =
+    List.iter (fun r -> r := true) show_all_flags; Log.all () in
+  let debug s =
+    Log.filter @@ List.map String.trim @@ String.split_on_char ',' s in
+  let set_string r = Arg.String (fun s -> r := Some s) in
+  let set_solver s = solver := Solver.from_string s in
   let open Arg in
   let spec = [
-    ("-show-cons", Set debug_cons, "Print constraints sent to Z3 on stderr");
-    ("-show-ast", Set debug_ast, "Print (low-level) AST on stderr");
-    ("-show-model", Set print_model, "Print inferred model produced from successful verification on stderr");
-    ("-annot-infer", Set annot_infr,
-     "Print an annotated AST program with the inferred types on stderr");
+    ("-output-file", String (fun s -> output_file := Some s),
+     "<file>\t Output target of -show-* options instead of stderr");
+    ("-show-annot", Set show_annot,
+     "\t Print an annotated AST program with the inferred types");
+    ("-show-ast", Set show_ast,
+     "\t Print (low-level) AST");
+    ("-show-cons", Set show_cons,
+     "\t Print constraints sent to solver");
+    ("-show-ir", Set show_ir,
+     "\t Print intermediate relations and debugging information");
+    ("-show-model", Set show_model,
+     "\t Print inferred model produced from successful verification");
+    ("-show-all", Unit show_all,
+     "\t Print all debug output");
+    ("-debug", String debug,
+     "<s1>,<s2>,...\t Debug sources");
+    ("-debug-all", Unit Log.all,
+     "\t Show all debug output");
     ("-dry-run", Set dry_run,
-     "Parse, typecheck, and run inference, but do not actually run Z3");
-    ("-save-cons", String (fun s -> save_cons := Some s),
-     "Save constraints in <file>");
-    ("-show-all", Unit (fun () ->
-         List.iter (fun r -> r := true) all_debug_flags;
-         Log.all ()),
-     "Show all debug output");
-    ("-debug", String (fun s ->
-         Log.filter @@ List.map String.trim @@ String.split_on_char ',' s),
-     "Debug sources s1,s2,...");
-    ("-debug-all", Unit Log.all, "Show all debug output");
-    ("-solver",
-     Symbol (Solver.candidates, Solver.update solver),
-     " Use solver backend <solver>. (default: spacer)");
-    ("-dump-ir", String (fun s -> dump_ir := Some s),
-     "Dump intermediate relations and debugging information");
-    ("-relaxed-max", Unit (fun () -> relaxed_mode := true),
-     "Use alternative, relaxed maximization constraints");
-    ("-check-null", Set null_checks,
-     "For freedom of null pointer exceptions");
-    ("-timeout", Set_int timeout, "Timeout for solver in seconds");
-    ("-command", String (fun s -> command := Some s), "Executable for solver");
-    ("-solver-args", String (fun s -> extra := Some s),
-     "Extra arguments to pass wholesale to solver");
-    ("-intrinsics", String (fun x -> f_name := Some x),
-     "Load definitions of standard operations from <file>");
-    ("-neg", Clear expect, "Expect typing failures");
-    ("-pos", Set expect, "Expect typing success (default)");
-    ("-cfa", Set_int cfa, "k to use for k-cfa inference");
-    ("-verbose", Set verbose, "Provide more output");
+     "\t Parse, typecheck, and run inference, but do not actually run solver (not implemented)");
+    ("-relaxed-max", Set relaxed_max,
+     "\t Use alternative, relaxed maximization constraints");
+    ("-check-null", Set check_null,
+     "\t For freedom of null pointer exceptions");
+    ("-pos", Set expect_typing,
+     "\t\t Expect typing success (default)");
+    ("-neg", Clear expect_typing,
+     "\t\t Expect typing failures");
+    ("-exit-status", Set exit_status,
+     "\t Indicate successful verification with exit code");
+    ("-yaml", Set yaml,
+     "\t Print verification result in YAML format");
+    ("-verbose", Set verbose,
+     "\t Provide more output");
+    ("-solver", Symbol (Solver.candidates, set_solver),
+     Printf.sprintf "\t Choose solver backend (default: %s)" Solver.default);
+    ("-timeout", Set_int timeout,
+     "<integer>\t Timeout for solver in seconds");
+    ("-command", set_string command,
+     "<string>\t Executable for solver");
+    ("-solver-args", set_string solver_args,
+     "<string>  Extra arguments to pass wholesale to solver");
+    ("-cfa", Set_int cfa,
+     "<integer>\t k to use for k-cfa inference");
+    ("-intrinsics", set_string intrinsics_file,
+     "<file>\t Load definitions of standard operations from <file>");
     ("-files", Rest (fun s -> file_list := s::!file_list),
-     "Interpret all remaining arguments as files to test");
-    ("-exit-status", Set status,
-     "Indicate successful verification with exit code");
-    ("-yaml", Set yaml, "Print verification result in YAML format");
+     "<file> ...\t Interpret all remaining arguments as files to test");
   ] in
-  let update () = {
-    default with
-    debug_cons = !debug_cons;
-    debug_ast = !debug_ast;
-    save_cons = !save_cons;
-    annot_infr = !annot_infr;
-    print_model = !print_model;
+  Arg.parse spec anon_fun usage_msg;
+  {
+    output_file = !output_file;
+    show_annot = !show_annot;
+    show_ast = !show_ast;
+    show_cons = !show_cons;
+    show_ir = !show_ir;
+    show_model = !show_model;
     dry_run = !dry_run;
+    relaxed_max = !relaxed_max;
+    check_null = !check_null;
+    expect_typing = !expect_typing;
+    exit_status = !exit_status;
+    yaml = !yaml;
+    verbose = !verbose;
     solver = !solver;
     timeout = !timeout;
     command = !command;
-    command_extra = !extra;
-    dump_ir = !dump_ir;
-    relaxed_mode = !relaxed_mode;
-    null_checks = !null_checks;
-    intrinsics_file = !f_name;
-    expect_typing = !expect;
+    solver_args = !solver_args;
     cfa = !cfa;
-    verbose = !verbose;
+    intrinsics_file = !intrinsics_file;
     file_list = !file_list;
-    exit_status = !status;
-    yaml = !yaml;
-  } in
-  (spec, update)
+    output_channel = default.output_channel;
+    intrinsics = default.intrinsics;
+  }
