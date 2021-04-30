@@ -21,6 +21,7 @@ type. (Note all other recursion is forbidden).
 open Ast
 open SimpleTypes
 open Sexplib.Std
+open Std
     
 type funtyp_v = {
   arg_types_v: int list;
@@ -55,15 +56,16 @@ let rec string_of_typ = function
   | `Var i -> Printf.sprintf "'%d" i
   | `TyCons t -> Printf.sprintf "$%s" @@ TyCons.to_string t
   | `Int -> "int"
-  | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
   | `Array t' -> Printf.sprintf "[%s]" @@ string_of_typ t'
 [@@ocaml.warning "-32"]
 
+let string_of_graph_type = function 
+  | `Ref t -> Printf.sprintf "ref %s" @@ string_of_typ t
+  | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
 
 type 'a c_typ = [
   | `Int
   | `TyCons of TyCons.t
-  | `Tuple of 'a list
   | `Array of 'a
 ] [@@deriving sexp]
 
@@ -71,6 +73,11 @@ type typ = [
   typ c_typ
 | `Var of int
 ] [@@deriving sexp]
+
+type graph_type = [
+  | `Ref of typ
+  | `Tuple of typ list
+ ] [@@deriving sexp]
 
 type refined_typ = typ c_typ
 
@@ -108,7 +115,7 @@ type sub_ctxt = {
   uf: UnionFind.t;
   cons_uf: TyConsUF.t;
   resolv: resolv_map;
-  cons_arg: typ TyConsResolv.t;
+  cons_arg: graph_type TyConsResolv.t;
   fn_name : string;
 }
 
@@ -159,10 +166,10 @@ let abstract_type sub_ctxt t =
   let rec loop = function
     | `TVar _ -> failwith "Not supported"
     | `Mu _ -> failwith "Not supported"
-    | `Ref t -> fresh_cons sub_ctxt ((loop t) : refined_typ :> typ)
+    | `Ref t -> fresh_cons sub_ctxt (`Ref ((loop t) : refined_typ :> typ))
     | `Int -> `Int
     | `Tuple tl ->
-      `Tuple (List.map loop tl |> List.map [%cast: typ])
+      fresh_cons sub_ctxt (`Tuple (List.map loop tl |> List.map [%cast: typ]))
     | `Array t -> `Array ((loop (t :> SimpleTypes.r_typ)) :> typ)
   in
   loop t
@@ -199,17 +206,23 @@ let canonicalize sub = function
 
 let rec occurs_check sub v (t2: typ) =
   match canonicalize sub t2 with
-  | `Var v' when v' = v -> failwith "Malformed recursive type"
-  | `Tuple tl -> List.iter (occurs_check sub v) tl
+  | `Var v' when v' = v -> failwith "Malformed recursive type (occurs check failed)"
   | `Array t' -> occurs_check sub v t'
   | `Var _
   | `Int
   (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
-  | `TyCons _ -> ()
+  | `TyCons _ -> () (* NL: Should we check if all cycles in it passes at least 1 ref? *)
 
 let assign sub var t =
   occurs_check sub var (t :> typ);
   Hashtbl.add sub.resolv var t  
+
+let raise_ill_typed_error ~loc sub_ctxt f t1 t2 =
+  Locations.raise_errorf ~loc
+            "Ill-typed; in %s could not unify %s and %s"
+            sub_ctxt.fn_name
+            (f t1)
+            (f t2)
 
 (* unify and unify_tycons are mutually recursive, the former unifies types (typ) and the
    latter unifies reference type constructors *)
@@ -225,13 +238,7 @@ let rec unify ~loc sub_ctxt t1 t2 =
       |> Option.value ~default:(`Var v)
     | _ -> t1
   in
-  let raise_ill_typed_error t1 t2 =
-    Locations.raise_errorf ~loc
-              "Ill-typed; in %s could not unify %s and %s"
-              sub_ctxt.fn_name
-              (string_of_typ t1)
-              (string_of_typ t2)
-  in
+
   match unfold t1,(unfold t2) with
   | `Var v1,`Var v2 ->
     UnionFind.union sub_ctxt.uf v1 v2
@@ -239,12 +246,6 @@ let rec unify ~loc sub_ctxt t1 t2 =
   | `Var v1,(#refined_typ as t)
   | (#refined_typ as t),`Var v1 -> assign sub_ctxt v1 t
   | `Int,`Int -> ()
-  (* structural recursion *)
-  | (`Tuple tl1 as t1'), (`Tuple tl2 as t2') ->
-    if List.length tl1 <> List.length tl2 then
-      raise_ill_typed_error t1' t2'
-    else
-      List.iter2 (unify ~loc sub_ctxt) tl1 tl2
   (* in this case, we now unify the two reference types, indirecting through that
      union find/resolution map *)
   | `TyCons c1,`TyCons c2 ->
@@ -252,7 +253,7 @@ let rec unify ~loc sub_ctxt t1 t2 =
   | `Array t1',`Array t2' ->
     unify ~loc sub_ctxt t1' t2'
   | t1',t2' ->
-    raise_ill_typed_error t1' t2'
+    raise_ill_typed_error ~loc sub_ctxt string_of_typ t1' t2'
 and unify_tycons ~loc sub_ctxt c1 c2 =
   let c1' = TyConsUF.find sub_ctxt.cons_uf c1 in
   let c2' = TyConsUF.find sub_ctxt.cons_uf c2 in
@@ -272,61 +273,89 @@ and unify_tycons ~loc sub_ctxt c1 c2 =
        unification (as above) because we've assumed that they are already "equivalent".
     *)
     TyConsUF.union sub_ctxt.cons_uf c1' c2';
-    unify ~loc sub_ctxt a1 a2
+    match a1, a2 with
+    (* structural recursion *)
+    | `Tuple tl1, `Tuple tl2 ->
+    if List.length tl1 <> List.length tl2 then
+      raise_ill_typed_error ~loc sub_ctxt string_of_graph_type a1 a2
+    else
+      List.iter2 (unify ~loc sub_ctxt) tl1 tl2
+    | `Ref t1, `Ref t2 -> 
+      unify ~loc sub_ctxt t1 t2
+    | _ -> raise_ill_typed_error ~loc sub_ctxt string_of_graph_type a1 a2
+
 
 module IS = Std.IntSet
 
+let rec substitute_tyvar tyvar ty = function 
+  | `Int -> `Int
+  | `Ref t -> `Ref (substitute_tyvar tyvar ty t)
+  | `Array `Int -> `Array `Int
+  | `Tuple tl -> `Tuple (List.map (substitute_tyvar tyvar ty) tl)
+  | `TVar id when id = tyvar -> ty
+  | `TVar id -> `TVar id 
+  | `Mu (id, t) -> assert(id <> tyvar); `Mu (id, substitute_tyvar tyvar ty t)
+
+
 (* translates a inference type into a fully concrete simple type.
-   Recursion is detected by means of the v_set and the continuation k.
-
-   In general, k takes two arguments, a set of recursive ids (see below) and the
-   translated type. The set of recursive ids communicates to the caller any type constructors
-   which were found to be recursive during resolution. If the result of resolving the contents
-   of reference type constructor i returns a set containing i, then the reference should be wrapped in a recursive
-   mu binder (see the else branch of the TyCons case below).
-
-   The argument v_set contains the (canonical) ids of all reference type constructors
-   being currently resolved. When resolving a type constructor with id i, if i
-   appears in this set, instead of resolving the reference contents, the continuation is immediately
-   invoked with arguments {i} (tvar i); i.e., reference i is recursive.
+   Recursion is detected by means of the v_set.
+   The argument v_set contains the (canonical) ids of all reference type constructors being currently resolved.
+   If we reach an id which exists in v_set then we know it's a cyclic graph, i.e. a recursive type.
+   solved_ty_map maps from type constructor ids to translated types.
+   This function returns a tuple containing 3 elements.
+   1st - A set of ids which are recursive in the current graph.
+   2nd - (partially) translated type of t
 *)
-let rec resolve_with_rec sub v_set k t =
+let rec solve_cycle sub v_set solved_ty_map t =
   match canonicalize sub t with
-  | `Int -> k IS.empty `Int
+  | `Int -> IS.empty, `Int, solved_ty_map
   | `TyCons t ->
     let id = TyCons.unwrap t in
-    if IS.mem id v_set then
-      k (IS.singleton id) @@ `TVar id
-    else
+    if IntMap.mem id solved_ty_map then
+      let ty = IntMap.find id solved_ty_map in
+      IS.empty, ty, solved_ty_map
+    else if IS.mem id v_set then
+      IS.singleton id, `TVar id, solved_ty_map
+    else begin
       let arg_type = TyConsResolv.find sub.cons_arg t in
-      resolve_with_rec sub (IS.add id v_set) (fun is t ->
-        if IS.mem id is then
-          k (IS.remove id is) @@ `Mu (id,`Ref t)
+      match arg_type with
+      | `Ref t ->
+        let rec_set, t', ty_map = solve_cycle sub (IS.add id v_set) solved_ty_map t in
+        let return_type = `Ref t' in
+        if IS.mem id rec_set then
+          let return_type = `Mu (id, return_type) in
+          let ty_map = IntMap.map (substitute_tyvar id return_type) ty_map in 
+          IS.remove id rec_set, return_type, IntMap.add id return_type ty_map
         else
-          k is @@ `Ref t
-      ) arg_type
-  | `Tuple tl ->
-    List.fold_left (fun k_acc t ->
-        (fun l is_acc ->
-          resolve_with_rec sub v_set (fun is t' ->
-            k_acc (t'::l) (IS.union is_acc is)
-          ) t
-        )
-      ) 
-      (fun l is ->
-          k is @@ `Tuple l
-        ) tl [] IS.empty
-  | `Var v when not @@ Hashtbl.mem sub.resolv v ->
-    k IS.empty `Int
+          rec_set, return_type, IntMap.add id return_type ty_map
+      | `Tuple tl -> 
+        let rec_set, tl', ty_map = List.fold_right (fun t (rec_set, tl, solved_ty_map) ->
+          let rec_set', t', solved_ty_map' = solve_cycle sub (IS.add id v_set) solved_ty_map t in
+            IntSet.union rec_set rec_set', t' :: tl, solved_ty_map') 
+            tl (IntSet.empty, [], solved_ty_map) in
+        let return_type = `Tuple tl' in
+        if IS.mem id rec_set then
+          let return_type = `Mu (id, return_type) in
+          let ty_map = IntMap.map (substitute_tyvar id return_type) ty_map in 
+          IS.remove id rec_set, return_type, IntMap.add id return_type ty_map
+        else
+          rec_set, return_type, IntMap.add id return_type ty_map
+      end
+  | `Var v when not (Hashtbl.mem sub.resolv v) ->
+    IS.empty, `Int, solved_ty_map
   | `Var v ->
     let t' = Hashtbl.find sub.resolv v in
-    resolve_with_rec sub v_set k (t' :> typ)
+    solve_cycle sub v_set solved_ty_map (t' :> typ)
   | `Array t' ->
-    resolve_with_rec sub v_set (fun is t_lift ->
-        match t_lift with
-        | `Int -> k is @@ `Array `Int
-        | _ -> failwith "Only integer arrays are supported"
-      ) t'
+    let rec_set', t', ty_map' = solve_cycle sub v_set solved_ty_map t' in
+    if t' <> `Int then
+      failwith "Only integer arrays are supported"
+    else
+      rec_set', `Array `Int, ty_map'
+
+let translate_type sub solved_ty_map t =
+  let _, return_type, solved_ty_map' = solve_cycle sub IS.empty solved_ty_map t in
+  solved_ty_map', return_type
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
@@ -382,11 +411,11 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   in
   let save_assign v =
     let assign_t = lkp v in
-    let c_id = fresh_cons_id ctxt.sub @@ assign_t in
+    let c_id = fresh_cons_id ctxt.sub @@ `Ref assign_t in
     { res_acc with assign_locs = (id,c_id,assign_t)::res_acc.assign_locs },c_id
   in
   let record_read ty res_acc =
-    let c_id = fresh_cons_id ctxt.sub ty in
+    let c_id = fresh_cons_id ctxt.sub (`Ref ty) in
     { res_acc with deref_locs = (id,c_id,ty)::res_acc.deref_locs },c_id
   in
   let record_tcons = 
@@ -421,14 +450,14 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     process_expr ret_type ctxt e1 res_acc
     |&| process_expr ret_type ctxt e2
   | NCond (v,e1,e2) ->
-    unify_ref v @@ fresh_var ();
+    unify_ref v @@ `Ref (fresh_var ());
     process_expr ret_type ctxt e1 res_acc
     |&| process_expr ret_type ctxt e2
   | Seq (e1,e2) ->
     process_expr ret_type ctxt e1 res_acc
     >> process_expr ret_type ctxt e2
   | Assign (v1,IInt _,e) ->
-    unify_ref v1 `Int;
+    unify_ref v1 (`Ref `Int);
     process_expr ret_type ctxt e res_acc
   | Assign (v1,IVar v2,e) ->
     let acc,c_id = save_assign v2 in
@@ -490,9 +519,9 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
       | Mkref i -> same @@ begin
           match i with
           | RNone
-          | RInt _ -> fresh_cons `Int
+          | RInt _ -> fresh_cons (`Ref `Int)
           | RVar v ->
-            fresh_cons (lkp v)
+            fresh_cons (`Ref (lkp v))
         end
       | Call c -> same @@ process_call ~loc lkp ctxt c
       | Nondet _ -> same `Int
@@ -505,7 +534,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         let acc',c_id = record_read tv res_acc in
         unify_var p @@ `TyCons c_id;
         acc',tv
-      | Null -> same @@ fresh_cons @@ fresh_var ()
+      | Null -> same @@ fresh_cons @@ `Ref (fresh_var ())
       | Tuple tl ->
         let _ = List.fold_left (fun acc r ->
             match r with
@@ -518,7 +547,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
                 StringSet.add v acc
           ) StringSet.empty tl
         in
-        same @@ `Tuple (List.map (function
+        same @@ fresh_cons @@ `Tuple (List.map (function
           | RInt _
           | RNone -> `Int
           | RVar v -> lkp v
@@ -541,7 +570,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
             let t_var = fresh_var () in
             (t_var::t_list,unify_patt acc' p t_var)
           ) pl ([], acc) in
-        unify t (`Tuple t_list);
+        unify t (fresh_cons (`Tuple t_list));
         acc''
     in
     let ctxt' = unify_patt ctxt p v_type in
@@ -563,41 +592,41 @@ let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   acc'
 
 (* 
-checks whether an assignemnt to (or read from) of type t' to constructor c
-requires a fold or unfold. Simply put, we walk the assigned type, and see
-if (the canonical representation of) c appears anywhere in t'. If it does, this is
-a folding or unfolding assignment/read.
+  checks whether an assignemnt to (or read from) of type t' to constructor c requires a fold or unfold.
+  If we are reading from a Mu type, then it's a unfold location.
+  If we are writing to / constructing a Mu type, then it's a fold location.
+  Simple.
 *)
-let is_rec_assign sub c t' =
-  let canon_c = TyConsUF.find sub.cons_uf c in
-  let rec check_loop h_rec t =
-    match canonicalize sub t with
-    | `Var v ->
-      Hashtbl.find_opt sub.resolv v
-      |> Option.map [%cast: typ]
-      |> Option.map @@ check_loop h_rec
-      |> Option.value ~default:true
-    | `Int -> false
-    | `TyCons c ->
-      let c_id = TyCons.unwrap c in
-      if c = canon_c then true
-      else if IS.mem c_id h_rec then
-        false
-      else
-        check_loop (IS.add c_id h_rec) @@ TyConsResolv.find sub.cons_arg c
-    | `Tuple tl ->
-      List.exists (check_loop h_rec) tl
-    | `Array t' -> check_loop h_rec t'
-  in
-  check_loop IS.empty t'
 
-let get_rec_loc sub p_ops =
-  List.fold_left (fun acc (i,c,t') ->
-      if is_rec_assign sub c t' then
-        i::acc
+let is_mu_type = function
+  | `Mu _ -> true
+  | _ -> false
+
+let get_fold_loc sub tymap p_ops = 
+  List.fold_left (fun (tymap, fold_locs) (i, tycon, _) ->
+    let id = TyCons.unwrap tycon in
+    let tymap, t = if IntMap.mem id tymap then
+                    tymap, IntMap.find id tymap
+                   else
+                    translate_type sub tymap (`TyCons tycon) in
+    if is_mu_type t then
+        tymap, i::fold_locs
       else
-        acc
-    ) [] p_ops
+        tymap, fold_locs
+    ) (tymap, []) p_ops
+
+let get_unfold_loc sub tymap p_ops =
+  List.fold_left (fun (tymap, unfold_locs) (i, tycon, _) ->
+      let id = TyCons.unwrap tycon in
+      let tymap, t = if IntMap.mem id tymap then
+                tymap, IntMap.find id tymap
+              else
+                translate_type sub tymap (`TyCons tycon) in  
+      if is_mu_type t then
+        tymap, i::unfold_locs
+      else
+        tymap, unfold_locs
+    ) (tymap, []) p_ops
 
 let typecheck_prog intr_types (fns,body) =
   let (resolv : (int,refined_typ) Hashtbl.t) = Hashtbl.create 10 in
@@ -637,11 +666,16 @@ let typecheck_prog intr_types (fns,body) =
     let t_typ = Hashtbl.find_opt sub.resolv v' in
     match t_typ with
     | None -> Locations.raise_errorf ~loc  "Could not deduce type of tuple"
-    | Some (`Tuple tl) ->
-      if (List.compare_length_with tl ind) <= 0 then
-        failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
-      else
-        unify ~loc sub (`Var unif) @@ List.nth tl ind
+    | Some (`TyCons t) ->
+      let c' = TyConsUF.find sub.cons_uf t in
+      let a = TyConsResolv.find sub.cons_arg c' in begin
+      match a with   
+      | `Tuple tl -> 
+        if (List.compare_length_with tl ind) <= 0 then
+          failwith @@ Printf.sprintf "Ill-typed: expected tuple of at least length %d, got one of length %d" (ind+1) (List.length tl)
+        else
+          unify ~loc sub (`Var unif) @@ List.nth tl ind 
+      | _ -> Locations.raise_errorf ~loc "Ill-typed: expected tuple, got ref %s" @@ string_of_typ (`TyCons t) end
     | Some t' -> Locations.raise_errorf ~loc "Ill-typed: expected tuple, got %s" @@ string_of_typ (t' :> typ)
   ) acc'.t_cons;
   let distinct_list_to_set l =
@@ -651,16 +685,25 @@ let typecheck_prog intr_types (fns,body) =
     else
       l'
   in
-  let fold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.assign_locs in
-  let unfold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.deref_locs in  
-  let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in
-  (List.fold_left (fun acc { name; _ } ->
+  (*let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in*)
+  let tymap, sm = List.fold_left (fun (tymap, acc) { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
-    let arg_types = List.map get_soln @@ List.map (fun x -> `Var x) arg_types_v in
-    let ret_type = get_soln @@ `Var ret_type_v in
-    StringMap.add name { arg_types; ret_type } acc
-   ) StringMap.empty fns),SideAnalysis.(
-    { unfold_locs;
-      fold_locs;
-      let_types = Std.IntMap.map get_soln acc'.let_types
-    })
+    let tymap, arg_types = List.fold_right (fun t (tymap, tl) -> let tymap, t = translate_type sub tymap t in
+                                                                 tymap , t :: tl)
+                                   (List.map (fun x -> `Var x) arg_types_v)
+                                   (tymap, []) in
+    let tymap, ret_type = translate_type sub tymap (`Var ret_type_v) in
+    tymap, StringMap.add name { arg_types; ret_type } acc
+  ) (IntMap.empty, StringMap.empty) fns in
+  let tymap, let_types = IntMap.fold (fun eid t (tymap, map) ->
+                    let tymap, t = translate_type sub tymap t in
+                    tymap, IntMap.add eid t map)
+                 acc'.let_types
+                 (tymap, IntMap.empty) in
+  let tymap, fold_locs =  get_fold_loc sub tymap acc'.assign_locs in
+  let _, unfold_locs =  get_unfold_loc sub tymap acc'.deref_locs in  
+  sm, SideAnalysis.{ 
+        unfold_locs = distinct_list_to_set unfold_locs;
+        fold_locs = distinct_list_to_set fold_locs;
+        let_types 
+      }
