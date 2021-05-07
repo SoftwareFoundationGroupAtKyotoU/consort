@@ -165,7 +165,9 @@ let print_typecheck (f_types, side) ast =
     match Std.IntMap.find_opt id side.let_types, e with
     | Some ty, Let (patt, _, _) -> from_ty_patt ty patt
     | _ -> null in
-  AstPrinter.pretty_print_program ~annot_fn ~annot stdout ast
+  AstPrinter.pretty_print_program ~annot_fn ~annot stdout ast;
+  print_string ("fold_locs = " ^ (Std.IntSet.to_string side.fold_locs) ^ "\n");
+  print_string ("unfold_locs = " ^ (Std.IntSet.to_string side.unfold_locs) ^ "\n")
 
 let to_hint o_res record =
   let open OwnershipInference in
