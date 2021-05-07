@@ -124,7 +124,7 @@ type sub_ctxt = {
    id of the expression. These ptr ops are analyzed later to flag expressions (by their id) that
    require fold/unfolds (see is_rec_assign)
 *)
-type ptr_op = (int * TyCons.t * typ)
+type ptr_op = (int * TyCons.t)
 
 (* Results accumulated during type inference: the tuple constraints (explained above), the read and write
    pointer operations, and the let types *)
@@ -412,12 +412,20 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let save_assign v =
     let assign_t = lkp v in
     let c_id = fresh_cons_id ctxt.sub @@ `Ref assign_t in
-    { res_acc with assign_locs = (id,c_id,assign_t)::res_acc.assign_locs },c_id
+    { res_acc with assign_locs = (id, c_id)::res_acc.assign_locs },c_id
+  in
+  let save_construct_tuple tl =
+    let c_id = fresh_cons_id ctxt.sub @@ `Tuple tl in
+    { res_acc with assign_locs = (id, c_id)::res_acc.assign_locs },c_id
   in
   let record_read ty res_acc =
     let c_id = fresh_cons_id ctxt.sub (`Ref ty) in
-    { res_acc with deref_locs = (id,c_id,ty)::res_acc.deref_locs },c_id
+    { res_acc with deref_locs = (id, c_id)::res_acc.deref_locs },c_id
   in
+  let record_destruct_tuple tl res_acc =
+    let c_id = fresh_cons_id ctxt.sub (`Tuple tl) in
+    { res_acc with deref_locs = (id, c_id)::res_acc.deref_locs },c_id
+  in 
   let record_tcons = 
     let open Std.StateMonad in
     let%lm impl tup_var ind pvar acc =
@@ -490,6 +498,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
             let tuple_v = fresh_node () in
             let content_v = fresh_node () in
             unify (`Var content_v) tau;
+            (* record_destruct_tuple *)
             record_tcons tuple_v i content_v >>
             find_loop (`Var tuple_v) rest
         in
@@ -510,6 +519,25 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   | Let (PVar v,Mkref (RVar v'),expr) ->
     let acc,c_id = save_assign v' in
     process_expr ret_type (add_var v (`TyCons c_id) ctxt) expr @@ save_let (`TyCons c_id) acc
+  | Let (PTuple pl, Var v, expr) ->
+    let tl = List.init (List.length pl) (fun _ -> fresh_var ()) in
+    let acc',c_id = record_destruct_tuple tl res_acc in
+    unify_var v @@ `TyCons c_id;
+    let rec unify_patt acc p t =
+      match p with
+      | PVar v -> [t], add_var v t acc
+      | PNone -> [fresh_var ()], acc
+      | PTuple pl ->
+        let (t_list,acc'') = List.fold_right (fun p (t_list,acc') ->
+            let t_var = fresh_var () in
+            let _, acc'' = unify_patt acc' p t_var in
+            (t_var :: t_list, acc'')
+          ) pl ([], acc) in
+        unify t (fresh_cons (`Tuple t_list));
+        t_list, acc''
+    in
+    let tl, ctxt' = unify_patt ctxt (PTuple pl) (`TyCons c_id) in
+    process_expr ret_type ctxt' expr @@ save_let (fresh_cons (`Tuple tl)) acc'
   | Let (p,lhs,expr) ->
     let res_acc',v_type =
       let same t = res_acc,t in
@@ -547,11 +575,13 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
                 StringSet.add v acc
           ) StringSet.empty tl
         in
-        same @@ fresh_cons @@ `Tuple (List.map (function
+        let tl' = List.map (function
           | RInt _
           | RNone -> `Int
           | RVar v -> lkp v
-            ) tl)
+            ) tl in
+        let acc, c_id = save_construct_tuple tl' in
+        acc, `TyCons c_id
       | MkArray v ->
         unify_var v `Int;
         same @@ `Array (fresh_var ())
@@ -603,7 +633,7 @@ let is_mu_type = function
   | _ -> false
 
 let get_fold_loc sub tymap p_ops = 
-  List.fold_left (fun (tymap, fold_locs) (i, tycon, _) ->
+  List.fold_left (fun (tymap, fold_locs) (i, tycon) ->
     let id = TyCons.unwrap tycon in
     let tymap, t = if IntMap.mem id tymap then
                     tymap, IntMap.find id tymap
@@ -616,7 +646,7 @@ let get_fold_loc sub tymap p_ops =
     ) (tymap, []) p_ops
 
 let get_unfold_loc sub tymap p_ops =
-  List.fold_left (fun (tymap, unfold_locs) (i, tycon, _) ->
+  List.fold_left (fun (tymap, unfold_locs) (i, tycon) ->
       let id = TyCons.unwrap tycon in
       let tymap, t = if IntMap.mem id tymap then
                 tymap, IntMap.find id tymap
@@ -624,8 +654,8 @@ let get_unfold_loc sub tymap p_ops =
                 translate_type sub tymap (`TyCons tycon) in  
       if is_mu_type t then
         tymap, i::unfold_locs
-      else
-        tymap, unfold_locs
+      else 
+        tymap, unfold_locs 
     ) (tymap, []) p_ops
 
 let typecheck_prog intr_types (fns,body) =
