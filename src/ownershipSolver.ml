@@ -187,6 +187,6 @@ let solve_ownership ~opts result =
             let* v = List.assoc_opt (ovar_name o_var) o_sigma in
             Some ((o_var,v)::acc)
           ) (Some []) ovars
-      | _ -> None
+      | _ -> failwith "Ownership constraints are satisfiable but the output format of the solver is NOT SUPPORTED."
     end
   | _ -> None
