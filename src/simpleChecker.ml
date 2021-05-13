@@ -62,6 +62,7 @@ let rec string_of_typ = function
 let string_of_graph_type = function 
   | `Ref t -> Printf.sprintf "ref %s" @@ string_of_typ t
   | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
+  | `PartialTuple -> Printf.sprintf "Undeduced tuple"
 
 type 'a c_typ = [
   | `Int
@@ -77,6 +78,7 @@ type typ = [
 type graph_type = [
   | `Ref of typ
   | `Tuple of typ list
+  | `PartialTuple
  ] [@@deriving sexp]
 
 type refined_typ = typ c_typ
@@ -263,7 +265,7 @@ and unify_tycons ~loc sub_ctxt c1 c2 =
   if TyCons.equal c1' c2' then
     ()
   else
-    let a1 = TyConsResolv.find sub_ctxt.cons_arg c1' in
+    let a1 = TyConsResolv.find sub_ctxt.cons_arg c1' in (* MAY NOT EXIST , THIS IS NOT A GOOD IDEA, WE CREATE A NEW OBJ THEN *)
     let a2 = TyConsResolv.find sub_ctxt.cons_arg c2' in
     (* notice that we are unifying BEFORE recursing into the unification
        of the reference contents. Effectively, this says: _under the assumption
@@ -282,6 +284,8 @@ and unify_tycons ~loc sub_ctxt c1 c2 =
       List.iter2 (unify ~loc sub_ctxt) tl1 tl2
     | `Ref t1, `Ref t2 -> 
       unify ~loc sub_ctxt t1 t2
+    | `Tuple _, `PartialTuple | `PartialTuple, `Tuple _ ->
+      ()
     | _ -> raise_ill_typed_error ~loc sub_ctxt string_of_graph_type a1 a2
 
 
@@ -340,6 +344,8 @@ let rec solve_cycle sub v_set solved_ty_map t =
           IS.remove id rec_set, return_type, IntMap.add id return_type ty_map
         else
           rec_set, return_type, IntMap.add id return_type ty_map
+      | `PartialTuple ->
+        failwith "Undeduced Tuple"
       end
   | `Var v when not (Hashtbl.mem sub.resolv v) ->
     IS.empty, `Int, solved_ty_map
@@ -426,6 +432,10 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     let c_id = fresh_cons_id ctxt.sub (`Tuple tl) in
     { res_acc with deref_locs = (id, c_id)::res_acc.deref_locs },c_id
   in 
+  let record_read_tuple_element res_acc =
+    let c_id = fresh_cons_id ctxt.sub `PartialTuple in
+    { res_acc with deref_locs = (id, c_id)::res_acc.deref_locs }, c_id
+  in 
   let record_tcons = 
     let open Std.StateMonad in
     let%lm impl tup_var ind pvar acc =
@@ -495,10 +505,11 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
             let ty = `TyCons c_id in
             find_loop ty rest
           | `Proj i::rest ->
+            let%bind c_id = record_read_tuple_element in
             let tuple_v = fresh_node () in
             let content_v = fresh_node () in
+            unify (`Var tuple_v) (`TyCons c_id);
             unify (`Var content_v) tau;
-            (* record_destruct_tuple *)
             record_tcons tuple_v i content_v >>
             find_loop (`Var tuple_v) rest
         in
