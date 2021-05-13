@@ -164,7 +164,13 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
           )
         )
       )
-  | Let (i,v,lhs,body) ->
+  | Let (i,PTuple tl,lhs,body) ->
+      lift_to_var ~ctxt:i count lhs (fun count tvar ->
+        let body' = simplify_expr ~is_tail count body in
+        A.Let (PTuple tl, A.Var tvar, body')
+        |> tag_with i
+      )
+  | Let (i,v ,lhs,body) ->
     lift_to_lhs ~ctxt:i count lhs (fun c lhs' ->
         let body' = simplify_expr ~is_tail c body in
         A.Let (v,lhs',body')
