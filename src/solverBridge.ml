@@ -11,6 +11,18 @@ module type S = sig
     Solver.cont
 end
 
+let output_cons ~opts out cons =
+  let output_endline s = output_string out (s ^ "\n") in
+  let intrinsics =
+    let def_file = (ArgOptions.get_intr opts).def_file in
+    Option.fold ~none:"" ~some:Files.string_of_file def_file in
+  output_endline @@ "; Sending constraints >>>";
+  output_endline @@ "; Intrinsic definitions";
+  output_endline @@ intrinsics;
+  output_endline @@ "; Constraints";
+  output_endline @@ SexpPrinter.to_string cons;
+  output_endline @@ "; <<<"
+
 module Make(D: sig
       type st
       val spawn : st -> Process.t
@@ -46,13 +58,11 @@ module Make(D: sig
       | Failure _ -> return_and_close @@ Solver.Unhandled s
 
   let prepare_call ~opts ~strat cons =
-    let def_file = (ArgOptions.get_intr opts).def_file in
     let (s,o) = D.prepare_out ~opts in
-    let output_endline s = output_string o (s ^ "\n") in
-    output_endline @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
-    output_endline @@ SexpPrinter.to_string cons;
-    output_endline @@ strat;
-    output_endline @@ if opts.show_model then "(get-model)" else "";
+    let output_endline o s = output_string o (s ^ "\n") in
+    output_cons ~opts o cons;
+    output_endline o @@ strat;
+    output_endline o @@ if opts.show_model then "(get-model)" else "";
     close_out o;
     let p = D.spawn s in
     (s,p)

@@ -247,14 +247,7 @@ module Make(C : Solver.SOLVER_BACKEND) = struct
     ArgOptions.show ~opts opts.show_ast print
   let show_cons ~opts cons =
     let print out =
-      let def_file = (ArgOptions.get_intr opts).def_file in
-      output_endline out @@ "; Sending constraints >>>";
-      output_endline out @@ "; Intrinsic definitions";
-      output_endline out
-      @@ Option.fold ~none:"" ~some:Files.string_of_file def_file;
-      output_endline out @@ "; Constraints";
-      output_endline out @@ SexpPrinter.to_string cons;
-      output_endline out @@ "; <<<" in
+      SolverBridge.output_cons ~opts out cons in
     ArgOptions.show ~opts opts.show_cons print
   let show_ir ~opts snap ast rel =
     let print out =
