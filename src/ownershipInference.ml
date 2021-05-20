@@ -223,7 +223,7 @@ let%lm sum_ownership t1 t2 out ctxt =
     | _ -> failwith "Mismatched types (simple checker broken C?)"
   in
   loop t1 t2 out ctxt
-    
+
 let rec unfold_simple arg mu =
   function
   | `Int -> `Int
@@ -492,7 +492,7 @@ let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
     | TVar _,TVar _
     | Int, Int -> ctxt
     | Ref (t1',o1), Ref (t2',o2)
-    | Array (t1',o1), Array (t2',o2) ->
+    | Array (t1',o1), Array (t2',o2) -> 
       loop t1' t2' { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
     | Mu (_,t1'), Mu (_,t2') -> loop t1' t2' ctxt
     | Tuple tl1,Tuple tl2 ->
@@ -666,7 +666,27 @@ let rec process_expr ~output ((e_id,_),expr) =
     begin%m
         add_constraint @@ Write new_var;
          with_types [(v,Ref (Int, new_var))] @@ process_expr ~output body
-    end
+    end    
+  | Let (patt, Var v, body) ->
+    let%bind t = lkp v in
+    let%bind (self, lhs) = split_type (SBind e_id) (P.var v) t in
+    let get_tuple_type_scheme e_id vl oty ctxt =
+      let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
+      let rec assign_patt_loop (ctxt, acc) patt ty oty =
+        match patt, ty, oty with
+        | PVar v,_,_ -> 
+          let ctxt, ty' = (print_string "lto"); lift_to_ownership (MGen e_id) (P.var v) ty ctxt in 
+          let ctxt, _ = constrain_eq ~e_id ~src:ty' ~dst:oty ctxt in
+          ctxt, (v, ty') :: acc
+        | PNone, _, _ -> ctxt, acc
+        | PTuple pl, `Tuple tl, Tuple otl ->
+          fold_left3 assign_patt_loop (ctxt, acc) pl tl otl
+        | PTuple _,_,_ -> assert false
+      in
+      assign_patt_loop (ctxt, []) vl st oty in
+    let%bind bindings = get_tuple_type_scheme e_id patt lhs in
+    update_type v self >>
+    with_types bindings @@ process_expr ~output body
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
@@ -714,8 +734,14 @@ let rec process_expr ~output ((e_id,_),expr) =
               let%bind t = lkp v in
               let%bind (t1,t2) = split_type (SBind e_id) (P.var v) t in
               update_type v t1 >> return t2
-          ) t_init in
-        return @@ Tuple tl
+         ) t_init in begin
+        match patt with 
+        | PVar v -> 
+          let%bind t = get_type_scheme e_id v in
+          constrain_eq ~e_id ~src:(Tuple tl) ~dst:t >>
+          return t
+        | _ ->
+          return @@ Tuple tl end
       | Call c -> process_call e_id c
     in
     let rec assign_patt_loop acc patt ty =
