@@ -675,7 +675,7 @@ let rec process_expr ~output ((e_id,_),expr) =
       let rec assign_patt_loop (ctxt, acc) patt ty oty =
         match patt, ty, oty with
         | PVar v,_,_ -> 
-          let ctxt, ty' = (print_string "lto"); lift_to_ownership (MGen e_id) (P.var v) ty ctxt in 
+          let ctxt, ty' = lift_to_ownership (MGen e_id) (P.var v) ty ctxt in 
           let ctxt, _ = constrain_eq ~e_id ~src:ty' ~dst:oty ctxt in
           ctxt, (v, ty') :: acc
         | PNone, _, _ -> ctxt, acc
