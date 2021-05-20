@@ -22,6 +22,16 @@ module IntMap = Map.Make(Int)
 module IntSet = PrintSet(Int)
 module StringSet = PrintSet(struct include String let to_string = Fun.id end)
 
+let fold_left3 f a l1 l2 l3 =
+  let rec inner_loop acc l1 l2 l3 =
+    match l1,l2,l3 with
+    | h1::t1,h2::t2,h3::t3 ->
+      inner_loop (f acc h1 h2 h3) t1 t2 t3
+    | [],[],[] -> acc
+    | _ -> raise @@ Invalid_argument "differing lengths"
+  in
+  inner_loop a l1 l2 l3
+
 let fold_lefti f a l =
   let rec loop i a l =
     match l with
@@ -39,7 +49,7 @@ let fold_left2i f a l1 l2 =
     | _,_ -> raise @@ Invalid_argument "unequal lengths"
   in
   loop 0 a l1 l2
-    
+
 let fold_left3i f a l1 l2 l3 =
   let rec inner_loop i acc l1 l2 l3 =
     match l1,l2,l3 with
