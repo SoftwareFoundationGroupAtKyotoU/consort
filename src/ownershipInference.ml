@@ -38,6 +38,14 @@ type 'a otype_ =
 
 type otype = ownership otype_
 
+let rec string_of_otype = function
+  | Array (t, _) -> "[" ^ string_of_otype t ^ "]"
+  | Int -> "int"
+  | Ref (t, _) -> "ref " ^ string_of_otype t
+  | Tuple tl -> "(" ^ (String.concat ", " @@ List.map string_of_otype tl) ^ ")"
+  | TVar i -> string_of_int i
+  | Mu (i, t) -> "Mu " ^ string_of_int i ^ "." ^ string_of_otype t
+
 (** For the most part, the ownership and refinement inference passes may be run independently. The only intersection is
 handling 0 ownership references; when a reference drops to 0 ownership, all refinements must go to top (although we use
 a different static semantics, see flowInference for details). Thus, we must communicate the refinement inference
@@ -177,7 +185,7 @@ let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
      This confusing naming arises from this functions use in returning ownership to a recursive
      data structure, in that case, t2/t2' represents the destination for the return operation. *)
   let unfold_dst =
-    if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
+    if IntMap.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
       unfold
     else Fun.id
   in
@@ -475,15 +483,42 @@ let rec split_type loc p =
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
 
+let unfold_with_respect_to_simple_type ot st =
+  let unfold_id = match st with 
+    `Mu (id, _) -> id
+  | _ -> failwith "Type mismatch (unfolding type is not a recursive type)" in
+  let rec subst_once id sub = function
+    | TVar id' when id = id' -> sub
+    | (Int as t)
+    | (TVar _ as t) -> t
+    | Ref (t,o) -> Ref (subst_once id sub t,o)
+    | Array (t,o) -> Array (subst_once id sub t,o)
+    | Tuple tl -> Tuple (List.map (subst_once id sub) tl)
+    | Mu (id',t) -> assert (id' <> id); Mu (id',subst_once id sub t)
+  in
+  let rec unfold_loop unfold_id = function
+    | TVar id -> assert (id <> unfold_id); TVar id
+    | Int -> Int
+    | Ref (t, o) -> Ref (unfold_loop unfold_id t,o)
+    | Array (t, o) -> Array (unfold_loop unfold_id t,o)
+    | Tuple tl ->
+      Tuple (List.map (unfold_loop unfold_id) tl)
+    | (Mu (id, t)) as mu when id = unfold_id ->
+      subst_once id mu t 
+    | Mu (id, t) ->
+      Mu (id, t)
+  in
+  unfold_loop unfold_id ot
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
 let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
   let dst_unfld =
     let open SimpleChecker.SideAnalysis in
-    if (IntSet.mem e_id ctxt.iso.unfold_locs) ||
-       (IntSet.mem e_id ctxt.iso.fold_locs) then
-      unfold t2
+    if IntMap.mem e_id ctxt.iso.unfold_locs then
+      unfold_with_respect_to_simple_type t2 (IntMap.find e_id ctxt.iso.unfold_locs)
+    else if IntMap.mem e_id ctxt.iso.fold_locs then
+      unfold_with_respect_to_simple_type t2 (IntMap.find e_id ctxt.iso.fold_locs) 
     else
       t2
   in
@@ -523,7 +558,7 @@ let lkp_split loc v =
 
 let%lq is_unfold eid ctxt =
   let open SimpleChecker.SideAnalysis in
-  IntSet.mem eid ctxt.iso.unfold_locs
+  IntMap.mem eid ctxt.iso.unfold_locs
 
 let%lq theta f ctxt = SM.find f ctxt.theta
 

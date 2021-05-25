@@ -1,8 +1,8 @@
 
 module SideAnalysis: sig
   type results = {
-    unfold_locs: Std.IntSet.t;
-    fold_locs: Std.IntSet.t;
+    unfold_locs: SimpleTypes.r_typ Std.IntMap.t;
+    fold_locs: SimpleTypes.r_typ Std.IntMap.t;
     let_types: SimpleTypes.r_typ Std.IntMap.t
   }
 end

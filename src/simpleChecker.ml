@@ -140,9 +140,9 @@ type side_results = {
 
 module SideAnalysis = struct
   type results = {
-    unfold_locs: Std.IntSet.t;
-    fold_locs: Std.IntSet.t;
-    let_types:  SimpleTypes.r_typ Std.IntMap.t
+    unfold_locs: SimpleTypes.r_typ Std.IntMap.t;
+    fold_locs: SimpleTypes.r_typ Std.IntMap.t;
+    let_types: SimpleTypes.r_typ Std.IntMap.t
   }
 end
 
@@ -651,7 +651,7 @@ let get_fold_loc sub tymap p_ops =
                    else
                     translate_type sub tymap (`TyCons tycon) in
     if is_mu_type t then
-        tymap, i::fold_locs
+        tymap, (i, t)::fold_locs
       else
         tymap, fold_locs
     ) (tymap, []) p_ops
@@ -664,7 +664,7 @@ let get_unfold_loc sub tymap p_ops =
               else
                 translate_type sub tymap (`TyCons tycon) in  
       if is_mu_type t then
-        tymap, i::unfold_locs
+        tymap, (i, t) :: unfold_locs
       else 
         tymap, unfold_locs 
     ) (tymap, []) p_ops
@@ -720,11 +720,11 @@ let typecheck_prog intr_types (fns,body) =
     | Some t' -> Locations.raise_errorf ~loc "Ill-typed: expected tuple, got %s" @@ string_of_typ (t' :> typ)
   ) acc'.t_cons;
   let distinct_list_to_set l =
-    let l' = Std.IntSet.of_list l in
-    if (List.compare_length_with l @@ Std.IntSet.cardinal l') <> 0 then
-      failwith "Multiple recursive type operations at the same point"
-    else
-      l'
+    List.fold_right (fun (exp_id, unfold_type) map -> 
+      if IntMap.mem exp_id map then
+        failwith "Multiple recursive type operations at the same point"
+      else
+        IntMap.add exp_id unfold_type map) l IntMap.empty 
   in
   (*let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in*)
   let tymap, sm = List.fold_left (fun (tymap, acc) { name; _ } ->

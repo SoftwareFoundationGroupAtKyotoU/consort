@@ -117,7 +117,7 @@ let print_fold_locations simple_res =
   let open SimpleChecker.SideAnalysis in
   let _, side = simple_res in
   print_endline "FOLD LOCATIONS >>>";
-  Std.IntSet.iter (Printf.printf "* %d\n") side.fold_locs;
+  Std.IntMap.iter (fun exp_id _ -> Printf.printf "* %d\n" exp_id) side.fold_locs;
   print_endline "<<<"
 
 let print_inference infer_res ast =
@@ -166,8 +166,8 @@ let print_typecheck (f_types, side) ast =
     | Some ty, Let (patt, _, _) -> from_ty_patt ty patt
     | _ -> null in
   AstPrinter.pretty_print_program ~annot_fn ~annot stdout ast;
-  print_string ("fold_locs = " ^ (Std.IntSet.to_string side.fold_locs) ^ "\n");
-  print_string ("unfold_locs = " ^ (Std.IntSet.to_string side.unfold_locs) ^ "\n")
+  print_string ("fold_locs = " ^ (Std.IntSet.to_string (Std.IntMap.fold (fun exp_id _ set -> Std.IntSet.add exp_id set) side.fold_locs Std.IntSet.empty)) ^ "\n");
+  print_string ("unfold_locs = " ^ (Std.IntSet.to_string (Std.IntMap.fold (fun exp_id _ set -> Std.IntSet.add exp_id set) side.unfold_locs Std.IntSet.empty)) ^ "\n")
 
 let to_hint o_res record =
   let open OwnershipInference in
