@@ -8,8 +8,8 @@ opam install --yes menhir ppx_sexp_conv sexplib dune ppx_let ppx_custom_printf y
 
 mkdir -p ~/.local/bin
 export PATH=$HOME/.local/bin:$PATH
-curl -L https://github.com/Z3Prover/z3/releases/download/z3-4.8.4/z3-4.8.4.d6df51951f4c-x64-ubuntu-14.04.zip > z3.zip
-unzip -o -j z3.zip z3-4.8.4.d6df51951f4c-x64-ubuntu-14.04/bin/z3 -d ~/.local/bin
+curl -L https://github.com/Z3Prover/z3/releases/download/z3-4.8.12/z3-4.8.12-x64-glibc-2.31.zip > z3.zip
+unzip -o -j z3.zip z3-4.8.12-x64-glibc-2.31/bin/z3 -d ~/.local/bin
 
 # approximately the memory available on travis
 make -C ./src test.exe genFlags.exe stdlib/lin.intr
