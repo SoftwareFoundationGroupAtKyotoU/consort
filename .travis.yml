@@ -1,3 +1,4 @@
+dist: bionic
 language: c
 addons:
   apt:
@@ -15,4 +16,13 @@ cache:
   directories:
     - $HOME/.opam
     - $HOME/jdk8
+
+before_install:
+- opam init --yes --no-setup --comp 4.08.0
+- eval $(opam env)
+
+install:
+- opam install --yes menhir ppx_sexp_conv sexplib dune ppx_let ppx_custom_printf yaml
+- travis_wait 30 opam install --yes z3
+
 script: bash -ex .travis-ci.sh

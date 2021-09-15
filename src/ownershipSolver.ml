@@ -170,7 +170,7 @@ let solve_ownership ~opts result =
       let open Sexplib.Sexp in
       let s = scan_sexp @@ Lexing.from_string m in
       match s with
-      | List (Atom "model"::model) ->
+      | List (Atom "model" :: model) | List model ->
         let model_assoc = extract_assoc model [] in
         let o_sigma = List.fold_left (fun acc (nm,ty,body) ->
             match ty,body with
