@@ -1,0 +1,36 @@
+name: Main workflow
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+        ocaml-compiler:
+          - 4.12.x
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Use OCaml ${{ matrix.ocaml-compiler }}
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - run: cd src; opam install . --deps-only --with-test
+
+      - run: cd src; opam exec -- dune build test.ext
+
+      - run: cd src; opam exec -- dune build test_suite.exe
+
+      - run: cd src; opam exec -- dune build genFlags.exe
