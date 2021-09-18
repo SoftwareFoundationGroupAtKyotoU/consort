@@ -29,7 +29,9 @@ jobs:
 
       - run: cd src; opam install . --deps-only --with-test
 
-      - run: cd src; opam exec -- dune build test.ext
+      - run: opam install --yes menhir ppx_sexp_conv sexplib dune ppx_let ppx_custom_printf yaml z3
+
+      - run: cd src; opam exec -- dune build test.exe
 
       - run: cd src; opam exec -- dune build test_suite.exe
 
