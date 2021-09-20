@@ -1,0 +1,66 @@
+name: Main workflow
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+#          - windows-latest
+        ocaml-compiler:
+          - 4.12.x
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Use OCaml ${{ matrix.ocaml-compiler }}
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - run: cd src; opam install . --deps-only --with-test
+
+      - run: opam install --yes menhir ppx_sexp_conv sexplib dune ppx_let ppx_custom_printf yaml
+
+      - name: Use Z3
+        uses: pavpanchekha/setup-z3@0.2.0
+        with:
+          version: '4.8.12'
+          distribution: 'glibc-2.31'
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Use Z3
+        uses: pavpanchekha/setup-z3@0.2.0
+        with:
+          version: '4.8.12'
+          distribution: 'osx-10.15.7'
+        if: matrix.os == 'macos-latest'
+  
+      - run: opam exec -- dune build test.exe
+        working-directory: ./src
+
+      - run: opam exec -- dune build test_suite.exe
+        working-directory: ./src
+
+      - run: opam exec -- dune build genFlags.exe
+        working-directory: ./src
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+#      - name: Validate Gradle wrapper
+#        uses: gradle/wrapper-validation-action@v1
+      - name: Build with Gradle
+        run: ./gradlew installDist
+        working-directory: ./src/regnant
