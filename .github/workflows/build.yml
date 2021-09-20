@@ -31,8 +31,11 @@ jobs:
 
       - run: opam install --yes menhir ppx_sexp_conv sexplib dune ppx_let ppx_custom_printf yaml z3
 
-      - run: cd src; opam exec -- dune build test.exe
+      - run: opam exec -- dune build test.exe
+        working-directory: ./src
 
-      - run: cd src; opam exec -- dune build test_suite.exe
+      - run: opam exec -- dune build test_suite.exe
+        working-directory: ./src
 
-      - run: cd src; opam exec -- dune build genFlags.exe
+      - run: opam exec -- dune build genFlags.exe
+        working-directory: ./src
