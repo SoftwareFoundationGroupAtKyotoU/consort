@@ -59,8 +59,8 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
-      - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v1
+#      - name: Validate Gradle wrapper
+#        uses: gradle/wrapper-validation-action@v1
       - name: Build with Gradle
         run: ./gradlew installDist
         working-directory: ./src/regnant
