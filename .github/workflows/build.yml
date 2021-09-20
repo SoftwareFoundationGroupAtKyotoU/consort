@@ -33,15 +33,15 @@ jobs:
 
       - name: Use Z3
         uses: pavpanchekha/setup-z3@1.2.2
-        with:
-          version: '4.8.12'
+#        with:
+#          version: '4.8.12'
 #          distribution: 'glibc-2.31'
         if: matrix.os == 'ubuntu-latest'
 
       - name: Use Z3
         uses: pavpanchekha/setup-z3@1.2.2
-        with:
-          version: '4.8.12'
+#        with:
+#          version: '4.8.12'
 #          distribution: 'osx-10.15.7'
         if: matrix.os == 'macos-latest'
   
