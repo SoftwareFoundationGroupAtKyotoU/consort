@@ -33,14 +33,14 @@ jobs:
 
       - name: Use Z3
         uses: pavpanchekha/setup-z3
-        version: 4.8.12
-        distribution: glibc-2.31   # or osx-10.15.7?
+        version: '4.8.12'
+        distribution: 'glibc-2.31'
         if: matrix.os == 'ubuntu-latest'
 
       - name: Use Z3
         uses: pavpanchekha/setup-z3
-        version: 4.8.12
-        distribution: osx-10.15.7
+        version: '4.8.12'
+        distribution: 'osx-10.15.7'
         if: matrix.os == 'macos-latest'
 
       - run: opam exec -- dune build test.exe
