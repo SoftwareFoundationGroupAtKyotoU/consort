@@ -32,14 +32,14 @@ jobs:
       - run: opam install --yes menhir ppx_sexp_conv sexplib dune ppx_let ppx_custom_printf yaml
 
       - name: Use Z3
-        uses: pavpanchekha/setup-z3
+        uses: pavpanchekha/setup-z3@1.2.2
         with:
           version: '4.8.12'
           distribution: 'glibc-2.31'
         if: matrix.os == 'ubuntu-latest'
 
       - name: Use Z3
-        uses: pavpanchekha/setup-z3
+        uses: pavpanchekha/setup-z3@1.2.2
         with:
           version: '4.8.12'
           distribution: 'osx-10.15.7'
