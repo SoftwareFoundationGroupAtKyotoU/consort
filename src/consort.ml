@@ -222,3 +222,14 @@ let typecheck ~opts file =
   let simple_res = SimpleChecker.typecheck_prog simple_op ast in
   print_typecheck simple_res ast;
   Verified
+
+let interp ~opts file =
+  let ast = AstUtil.parse_file file in
+  let intr_op = (ArgOptions.get_intr opts).op_interp in
+  let simple_typing = RefinementTypes.to_simple_funenv intr_op in
+  let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
+  ignore simple_res;
+  let open Interpreter in
+  pp_val (eval_prog ast) Format.std_formatter;
+  Format.pp_print_newline Format.std_formatter ();
+  Verified

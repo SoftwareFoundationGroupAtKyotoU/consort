@@ -2214,7 +2214,7 @@ let relation_name ((e_id,_),expr) ctxt =
     | Alias _ -> "alias"
     | NCond _ -> "ifnull"
     | Cond _ -> "ifz"
-    | Unit -> "unit"
+    | Unit _ -> "unit"
     | Return _ -> "return"
     | Fail -> "fail"
   in
@@ -2353,7 +2353,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
   let%bind iso = get_iso_at e_id in
   save_snapshot >>
   match e with
-  | Unit ->
+  | Unit _ ->
     begin
       match continuation with
       | Some out_relation ->

@@ -19,7 +19,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (wrapped false)
  (libraries sexplib util)
- (modules Parser Ast SurfaceAst AstPrinter SimpleChecker Lexer LabelManager SimpleTypes RefinementTypes Paths AstUtil Intrinsics Locations))
+ (modules Parser Ast SurfaceAst AstPrinter SimpleChecker Lexer LabelManager SimpleTypes RefinementTypes Paths AstUtil Intrinsics Locations Interpreter))
 
 (library
  (name solving)
