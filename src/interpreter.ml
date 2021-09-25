@@ -80,6 +80,17 @@ let eval_imm_op env = function
   | IVar id -> lookup id env
   | IInt i -> IntV i
 
+let eval_ap env (p : Paths.concr_ap) =
+  let rec follow_step v = function
+    | [] -> v
+    | `Deref :: rest -> (match follow_step v rest with RefV r -> !r | _ -> assert false)
+    | `Proj i :: rest -> (match follow_step v rest with TupleV tp -> List.nth tp i | _ -> assert false)
+    | _ -> assert false
+  in
+  match (p :> Paths.root * Paths.steps list * Paths.suff) with
+  | (Paths.Var id, steps, _) -> follow_step (lookup id env) steps
+  | _ -> assert false
+
 let eval_exp fundecls =
   let rec aux env = function
     | (_, Unit None) -> IntV 0
@@ -153,7 +164,12 @@ let eval_exp fundecls =
        | ArrayV arr, IntV i, v -> arr.(i) <- v; aux env exp'
        | _ -> assert false
        end
-    | (_, Alias _) (* of Paths.concr_ap * Paths.concr_ap * exp *) -> raise @@ NotImplemented "eval_exp: Alias"
+    | ((_, loc), Alias (ap1, ap2, exp')) ->
+       begin match eval_ap env ap1, eval_ap env ap2 with
+       |  RefV r1, RefV r2 -> if r1 == r2 then aux env exp'
+                              else Locations.raise_errorf ~loc "Alias Failure"
+       | _ -> assert false
+       end
     | ((_, loc), Assert ({rop1; cond; rop2}, exp')) ->
        begin match
          List.assoc cond intrinsic_funs [eval_imm_op env rop1; eval_imm_op env rop2]
