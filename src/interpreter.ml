@@ -31,8 +31,6 @@ let rec pp_val = function
          ps ")"
        ]
 
-exception Failure
-exception NullPointerExc
 exception NotImplemented of string
 
 type env = (string * v) list
@@ -78,34 +76,37 @@ let eval_ref_contents contents env = match contents with
   | RInt i -> IntV i
   | RVar id -> lookup id env
 
+let eval_imm_op env = function
+  | IVar id -> lookup id env
+  | IInt i -> IntV i
+
 let eval_exp fundecls =
   let rec aux env = function
-    | Unit None -> IntV 0
-    | Unit (Some id) -> lookup id env
-    | Fail -> raise Failure
-    | Cond (var, (_, then_exp), (_, else_exp)) ->
+    | (_, Unit None) -> IntV 0
+    | (_, Unit (Some id)) -> lookup id env
+    | ((_,loc), Fail) -> Locations.raise_errorf ~loc "Fail"
+    | (_, Cond (var, then_exp, else_exp)) ->
        begin match lookup var env with
        | IntV 0 -> aux env else_exp
        | IntV _ -> aux env then_exp
        | _ -> assert false
        end
-    | NCond (var, (_, then_exp), (_, else_exp)) ->
+    | (_, NCond (var, then_exp, else_exp)) ->
        begin match lookup var env  with
        | NilV -> aux env then_exp
        | RefV _ -> aux env else_exp
        | _ -> assert false
        end
-    | Seq ((_, exp1), (_, exp2)) ->
+    | (_, Seq (exp1, exp2)) ->
        ignore(aux env exp1);
        aux env exp2
-    | Assign (var1, rhs, (_, exp')) ->
-       begin match lookup var1 env, rhs with
-       | RefV r, IVar var2 -> r := lookup var2 env; aux env exp'
-       | RefV r, IInt i -> r := IntV i; aux env exp'
-       | NilV, _ -> raise NullPointerExc
+    | ((_,loc), Assign (var1, rhs, exp')) ->
+       begin match lookup var1 env with
+       | RefV r -> r := eval_imm_op env rhs; aux env exp'
+       | NilV -> Locations.raise_errorf ~loc "NullPointerException"
        | _ -> assert false
        end
-    | Let (pat, rhs, (_, exp')) ->
+    | ((_,loc), Let (pat, rhs, exp')) ->
        let res =
          match rhs with
          | Var id -> lookup id env
@@ -123,11 +124,11 @@ let eval_exp fundecls =
                 Not_found ->
                 let params, body = lookup_fundef f fundecls in
                 let newenv = List.fold_right2 (fun p v env -> (p, v)::env) params args env in
-                aux newenv (snd body)
+                aux newenv body
             end
          | Deref id ->
             begin match lookup id env with
-            | NilV -> raise NullPointerExc
+            | NilV -> Locations.raise_errorf ~loc "NullPointerException"
             | RefV r -> !r
             | _ -> assert false
             end
@@ -147,14 +148,21 @@ let eval_exp fundecls =
        in
        let newenv = extend pat res env in
        aux newenv exp'
-    | Update (base, ind, rhs, (_, exp')) ->
+    | (_, Update (base, ind, rhs, exp')) ->
        begin match lookup base env, lookup ind env, lookup rhs env with
        | ArrayV arr, IntV i, v -> arr.(i) <- v; aux env exp'
        | _ -> assert false
        end
-    | Alias _ (* of Paths.concr_ap * Paths.concr_ap * exp *) -> raise @@ NotImplemented "eval_exp: Alias"
-    | Assert _ (* of relation * exp *) -> raise @@ NotImplemented "eval_exp: Assert"
-    | Return var -> lookup var env
+    | (_, Alias _) (* of Paths.concr_ap * Paths.concr_ap * exp *) -> raise @@ NotImplemented "eval_exp: Alias"
+    | ((_, loc), Assert ({rop1; cond; rop2}, exp')) ->
+       begin match
+         List.assoc cond intrinsic_funs [eval_imm_op env rop1; eval_imm_op env rop2]
+       with
+       | IntV 0 -> Locations.raise_errorf ~loc "Assertion Failure"
+       | exception Not_found -> assert false
+       | _ ->  aux env exp'
+       end
+    | (_, Return var) -> lookup var env
   in aux
 
-let eval_prog (fundecls, main) = eval_exp fundecls empty_env (snd main)
+let eval_prog (fundecls, main) = eval_exp fundecls empty_env main
