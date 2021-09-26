@@ -71,8 +71,15 @@ let intrinsic_funs = [
     ("||", function [IntV i1; IntV i2] -> intV_of_bool ((i1 <> 0) || (i2 <> 0)) | _ -> assert false);
   ]
 
-let eval_ref_contents contents env = match contents with
-  | RNone -> raise @@ NotImplemented "eval_ref_contents: RNone"
+let rec really_read_int () =
+  try read_int() with
+    Failure _ -> really_read_int ()
+
+let eval_ref_contents loc contents env = match contents with
+  | RNone ->
+     Printf.eprintf "%s: Give me an integer: " (Locations.string_of_location loc);
+     flush stderr;
+     IntV (really_read_int())
   | RInt i -> IntV i
   | RVar id -> lookup id env
 
@@ -122,7 +129,7 @@ let eval_exp fundecls =
          match rhs with
          | Var id -> lookup id env
          | Const i -> IntV i
-         | Mkref init -> RefV (ref (eval_ref_contents init env))
+         | Mkref init -> RefV (ref (eval_ref_contents loc init env))
          | MkArray id ->
             begin match lookup id env with
             | IntV len -> ArrayV (Array.make len (IntV 0))
@@ -143,8 +150,12 @@ let eval_exp fundecls =
             | RefV r -> !r
             | _ -> assert false
             end
-         | Tuple contents -> TupleV (List.map (fun c -> eval_ref_contents c env) contents)
-         | Nondet _ -> raise @@ NotImplemented "eval_exp: Let-Nondet"
+         | Tuple contents -> TupleV (List.map (fun c -> eval_ref_contents loc c env) contents)
+         | Nondet None ->
+            Printf.eprintf "%s: Give me an integer: " (Locations.string_of_location loc);
+            flush stderr;
+            IntV (really_read_int())
+         | Nondet (Some _) -> raise (NotImplemented "nondeterministic integer with condition")
          | Read (id1, id2) -> 
             begin match lookup id1 env, lookup id2 env with
             | ArrayV arr, IntV ind -> arr.(ind)
