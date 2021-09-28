@@ -71,18 +71,6 @@ let intrinsic_funs = [
     ("||", function [IntV i1; IntV i2] -> intV_of_bool ((i1 <> 0) || (i2 <> 0)) | _ -> assert false);
   ]
 
-let rec really_read_int () =
-  try read_int() with
-    Failure _ -> really_read_int ()
-
-let eval_ref_contents loc contents env = match contents with
-  | RNone ->
-     Printf.eprintf "%s: Give me an integer: " (Locations.string_of_location loc);
-     flush stderr;
-     IntV (really_read_int())
-  | RInt i -> IntV i
-  | RVar id -> lookup id env
-
 let eval_imm_op env = function
   | IVar id -> lookup id env
   | IInt i -> IntV i
@@ -97,6 +85,51 @@ let eval_ap env (p : Paths.concr_ap) =
   match (p :> Paths.root * Paths.steps list * Paths.suff) with
   | (Paths.Var id, steps, _) -> follow_step (lookup id env) steps
   | _ -> assert false
+
+let rec eval_refine env =
+  let open RefinementTypes in
+  function
+  | Top -> (fun _ -> true)
+  | ConstEq n -> (fun i -> i = n)
+  | And(r1, r2) -> (fun i -> eval_refine env r1 i && eval_refine env r2 i)
+  | Relation {rel_cond; rel_op2; _} ->
+     (fun i ->
+       let j =
+         match rel_op2 with
+         | RAp ap -> eval_ap env ap
+         | RConst j -> IntV j
+       in
+       try
+         IntV 0 <> List.assoc rel_cond intrinsic_funs [IntV i; j]
+       with
+       | Not_found -> assert false)
+  | NamedPred _ -> raise (NotImplemented "named predicate in the condition")
+
+let rec really_read_int env condopt =
+  match read_int(), condopt with
+  | i, None -> i
+  | i, Some cond ->
+     if eval_refine env cond i then i
+     else
+       begin
+         Printf.eprintf "Condition violated! Give me another integer: ";
+         flush stderr;
+         really_read_int env condopt
+       end
+  | exception Failure _ ->
+     begin
+       Printf.eprintf "It's not an integer! Give me an INTEGER: ";
+       flush stderr;
+       really_read_int env condopt
+     end
+
+let eval_ref_contents loc contents env = match contents with
+  | RNone ->
+     Printf.eprintf "%s: Give me an integer: " (Locations.string_of_location loc);
+     flush stderr;
+     IntV (really_read_int env None)
+  | RInt i -> IntV i
+  | RVar id -> lookup id env
 
 let eval_exp fundecls =
   let rec aux env = function
@@ -151,12 +184,11 @@ let eval_exp fundecls =
             | _ -> assert false
             end
          | Tuple contents -> TupleV (List.map (fun c -> eval_ref_contents loc c env) contents)
-         | Nondet None ->
+         | Nondet cond ->
             Printf.eprintf "%s: Give me an integer: " (Locations.string_of_location loc);
             flush stderr;
-            IntV (really_read_int())
-         | Nondet (Some _) -> raise (NotImplemented "nondeterministic integer with condition")
-         | Read (id1, id2) -> 
+            IntV (really_read_int env cond)
+         | Read (id1, id2) ->
             begin match lookup id1 env, lookup id2 env with
             | ArrayV arr, IntV ind -> arr.(ind)
             | _ -> assert false
