@@ -57,9 +57,9 @@ let intV_of_bool b =
   if b then IntV 0 else IntV 1
 
 let intrinsic_funs = [
-    ("!=", function [IntV i1; IntV i2] -> intV_of_bool @@ (i1 <> i2) | _ -> assert false);
+    ("!=", function [IntV i1; IntV i2] -> intV_of_bool @@ (i1 != i2) | _ -> assert false);
     ("%", function [IntV i1; IntV i2] -> IntV (i1 mod i2) | _ -> assert false);
-    ("&&", function [IntV i1; IntV i2] -> intV_of_bool ((i1 <> 0) && (i2 <> 0)) | _ -> assert false);
+    ("&&", function [IntV i1; IntV i2] -> intV_of_bool ((i1 = 0) && (i2 = 0)) | _ -> assert false);
     ("*", function [IntV i1; IntV i2] -> IntV (i1 * i2) | _ -> assert false);
     ("+", function [IntV i1; IntV i2] -> IntV (i1 + i2) | _ -> assert false);
     ("-", function [IntV i1; IntV i2] -> IntV (i1 - i2) | _ -> assert false);
@@ -68,7 +68,7 @@ let intrinsic_funs = [
     ("=", function [IntV i1; IntV i2] -> intV_of_bool (i1 = i2) | _ -> assert false);
     (">", function [IntV i1; IntV i2] -> intV_of_bool (i1 > i2) | _ -> assert false);
     (">=", function [IntV i1; IntV i2] -> intV_of_bool (i1 >= i2) | _ -> assert false);
-    ("||", function [IntV i1; IntV i2] -> intV_of_bool ((i1 <> 0) || (i2 <> 0)) | _ -> assert false);
+    ("||", function [IntV i1; IntV i2] -> intV_of_bool ((i1 = 0) || (i2 = 0)) | _ -> assert false);
   ]
 
 let eval_imm_op env = function
@@ -100,7 +100,7 @@ let rec eval_refine env =
          | RConst j -> IntV j
        in
        try
-         IntV 0 <> List.assoc rel_cond intrinsic_funs [IntV i; j]
+         IntV 0 = List.assoc rel_cond intrinsic_funs [IntV i; j]
        with
        | Not_found -> assert false)
   | NamedPred _ -> raise (NotImplemented "named predicate in the condition")
@@ -217,9 +217,9 @@ let eval_exp fundecls =
        begin match
          List.assoc cond intrinsic_funs [eval_imm_op env rop1; eval_imm_op env rop2]
        with
-       | IntV 0 -> Locations.raise_errorf ~loc "Assertion Failure"
+       | IntV 0 -> aux env exp'
+       | _ -> Locations.raise_errorf ~loc "Assertion Failure"
        | exception Not_found -> assert false
-       | _ ->  aux env exp'
        end
     | (_, Return var) -> lookup var env
   in aux
