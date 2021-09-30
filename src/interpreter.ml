@@ -138,8 +138,8 @@ let eval_exp fundecls =
     | ((_,loc), Fail) -> Locations.raise_errorf ~loc "Fail"
     | (_, Cond (var, then_exp, else_exp)) ->
        begin match lookup var env with
-       | IntV 0 -> aux env else_exp
-       | IntV _ -> aux env then_exp
+       | IntV 0 -> aux env then_exp
+       | IntV _ -> aux env else_exp
        | _ -> assert false
        end
     | (_, NCond (var, then_exp, else_exp)) ->
