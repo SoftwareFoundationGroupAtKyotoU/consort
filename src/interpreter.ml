@@ -54,7 +54,7 @@ let rec extend patt valu env =
   | PNone -> env
 
 let intV_of_bool b =
-  if b then IntV 1 else IntV 0
+  if b then IntV 0 else IntV 1
 
 let intrinsic_funs = [
     ("!=", function [IntV i1; IntV i2] -> intV_of_bool @@ (i1 <> i2) | _ -> assert false);
