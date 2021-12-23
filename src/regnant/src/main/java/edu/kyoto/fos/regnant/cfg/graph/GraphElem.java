@@ -17,6 +17,7 @@ public abstract class GraphElem implements Targeted, Printable {
     return Collections.singletonList(this.getHead());
   }
 
+  // 基本ブロックの制御フローグラフを出力するメソッド (現行 regnant 向けの形、break の変換の仕方が良くない)
   public String dump() {
     StringBuilder sb = new StringBuilder();
     this.printAt(0, sb);

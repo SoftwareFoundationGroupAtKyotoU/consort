@@ -146,6 +146,7 @@ public class Translate {
     this.stream.close();
   }
 
+  // print は
   public StringBuilder print() {
     StringBuilder sb = new StringBuilder();
     this.stream.sideFunctions.forEach(p -> {
@@ -528,7 +529,8 @@ public class Translate {
     }
   }
 
-  private void encodeInstruction(final InstructionStream str, final Unit unit,
+  // jimpleの命令を受け取って変換するメソッド
+  private void encodeInstruction(final InstructionStream str, final Unit unit, // strは書き換える先、unitはjimple
       final Set<Local> needDefine,
       fj.data.TreeMap<Local, Binding> env) {
     assert !(unit instanceof IfStmt);
@@ -1165,12 +1167,13 @@ public class Translate {
     This is done with the extractFinal and o argument. If the extract final returns null, then it indicates it wants
     the final unit to be translated. In either event, value extracted with extractFinal is then passed to o
    */
+  // 命令の基本ブロックを次々受け取ってencodeInstructionに渡している
   private <R> Env encodeBasicBlock(final BasicBlock head,
       InstructionStream str,
       Function<Unit, R> extractFinal,
       final BiConsumer<Env, R> o,
       Env inEnv) {
-    System.out.println("Encoding " + head);
+    // System.out.println("Encoding " + head);
     List<Unit> units = head.units;
     /*
       These are the variables that need to be bound in this block.

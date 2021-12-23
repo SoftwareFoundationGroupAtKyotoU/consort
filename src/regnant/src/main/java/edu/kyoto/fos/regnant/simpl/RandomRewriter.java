@@ -21,6 +21,7 @@ public class RandomRewriter {
 
   public static final String RANDOM_CLASS = "edu.kyoto.regnant.Random";
 
+  // javaのrandom.nextIntをedu.kyoto.regnant.random.rand()に書き換えるメソッド
   public static Body rewriteRandom(Body b) {
     SootClass rand = Scene.v().makeSootClass(RANDOM_CLASS);
     UnitPatchingChain units = b.getUnits();

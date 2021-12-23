@@ -35,6 +35,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
+
+import java.io.IOException;
+import java.io.PrintWriter;
 /*
   The control flow graph reconstruction. This and the flag instrumentation are actually
   the trickiest parts of the translation; the actual dumping to IMPerial is relatively straightforward.
@@ -119,17 +122,21 @@ public class CFGReconstructor {
   private GraphElem cfgRoot;
   private BlockTree<BasicBlock> bt;
   private Set<Coord> recurseJumps = new TreeSet<>();
+  private BasicBlockGraph bbg;
 
   public CFGReconstructor(Body b) {
     this.bbm = new BasicBlockMapper(b);
     this.unitChain = b.getUnits();
-    BasicBlockGraph bbg = new BasicBlockGraph(new BriefUnitGraph(b), bbm);
+    this.bbg = new BasicBlockGraph(new BriefUnitGraph(b), bbm);
     this.lt = new LoopFinder(bbg).getTree();
     this.graph = new AnnotatedBasicBlockGraph(bbg,lt);
     computeCFG();
   }
 
+  // 基本ブロックの制御フローグラフ (CFG) を求めるメソッド
+  // TODO: ここの解読 特に branch の意味
   private void computeCFG() {
+    // 結局 graph.getRawGraph() は this.bbg のこと
     DominatorsFinder<BasicBlock> doms = new MHGDominatorsFinder<>(graph.getRawGraph());
     DominatorTree<BasicBlock> dt = new DominatorTree<>(doms);
     assert dt.getHead().getGode().equals(graph.getHead());
@@ -145,11 +152,15 @@ public class CFGReconstructor {
     return this.bt;
   }
 
+  // bbm は基本ブロック cfgRoot は制御フローグラフを表している （ただし現行 regnant 向きのやつなのでそういう書き方をしてほしくない）。基本ブロックを出力してから cfgRoot の形を整えたやつを返す
   public String dump() {
+    // System.out.println("-bbm->");
     this.bbm.iterator().forEachRemaining(System.out::println);
+    // System.out.println("<-bbm-");
     return this.cfgRoot.dump();
   }
 
+  // 基本ブロックの制御フローグラフを表示するためのメソッド
   private GraphElem recursiveLayout(DominatorTree<BasicBlock> dt) {
     // the block tree constructor generates the initial version of the block tree based on the dominator tree
     this.bt = new BlockTree<>(dt);
@@ -387,5 +398,14 @@ public class CFGReconstructor {
 
   public Collection<? extends Coord> getRecurseLocations() {
     return recurseJumps;
+  }
+
+  // 追加
+  public BasicBlockMapper getBbm() {
+    return bbm;
+  }
+
+  public BasicBlockGraph getBbg() {
+    return bbg;
   }
 }

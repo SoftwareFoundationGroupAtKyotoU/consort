@@ -3,6 +3,7 @@ package edu.kyoto.fos.regnant;
 import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
+import edu.kyoto.fos.regnant.myTranslation.TranslatedFunction;
 import edu.kyoto.fos.regnant.simpl.RewriteChain;
 import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
@@ -105,6 +106,7 @@ public class Regnant extends Transform {
     return this.work(reader, worklist, visited, as, oimpl);
   }
 
+  // ここで Java プログラムを jimple に変換して Translate メソッドに渡してそう
   private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited, final FieldAliasing as,
       final Impl oimpl) {
     StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
@@ -120,12 +122,20 @@ public class Regnant extends Transform {
       System.out.println("Simplified: ");
       System.out.println(simpl);
       CFGReconstructor cfg = new CFGReconstructor(simpl);
-      System.out.println(cfg.dump());
+      // System.out.println("-----dump----->");
+      // System.out.println(cfg.dump());
+      // System.out.println("<-----dump-----");
 
       FlagInstrumentation fi = new FlagInstrumentation(cfg);
       LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
       Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
       toReturn.add(t);
+
+      TranslatedFunction translatedFunction = new TranslatedFunction(cfg);
+
+      // myTranslation に渡す
+      String path = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/output.imp";
+      translatedFunction.print(path);
     }
     return toReturn;
   }

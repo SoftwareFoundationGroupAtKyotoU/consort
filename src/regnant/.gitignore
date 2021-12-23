@@ -6,3 +6,9 @@ build/
 sootOutput/
 tmp/
 minepump
+
+bin/
+output/
+.idea/
+.classpath
+.project

@@ -26,6 +26,14 @@ def print_done(args, e):
         print("done")
 
 def main(this_dir, args):
+    # 出力先のファイルのリセット
+    path = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/output.imp"
+
+    with open(path, 'w') as f:
+        pass
+
+    f = open(path, "a")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--work-dir")
     parser.add_argument("--verbose", action="store_true")
@@ -84,7 +92,7 @@ def main(this_dir, args):
 
     run_script = os.path.join(this_dir, "build/install/regnant/bin/regnant")
 
-    rt_path = os.path.join(args.jdk8, "jre/lib/rt.jar")
+    rt_path = os.path.join(args.jdk8, "Contents/Home/lib/rt.jar")
 
     regnant_command = [
         run_script,
@@ -105,7 +113,7 @@ def main(this_dir, args):
     sys.stdout.flush()
     el = run_silently(regnant_command)
     print_done(args, el)
-    
+
     print("Generating control flags...", end=' ')
     sys.stdout.flush()
     intr_loc = os.path.join(work_dir, "java.intr")
@@ -120,7 +128,7 @@ def main(this_dir, args):
     log_command(args, intr_command)
     el = run_silently(intr_command)
     print_done(args, el)
-    
+
     print("Running ConSORT on translated program:")
     yaml_flg = ["-yaml"] if args.yaml is not None else []
     consort_cmd = [
@@ -134,6 +142,11 @@ def main(this_dir, args):
     s = time.time()
     ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
     e = time.time()
+
+    # 出力先のファイルにエントリーポイントを追加
+    f.write("{ f0() }")
+    f.close()
+
     if args.yaml:
         with open(args.yaml, 'w') as out:
             print(ret.stdout.decode("utf-8"), file=out)

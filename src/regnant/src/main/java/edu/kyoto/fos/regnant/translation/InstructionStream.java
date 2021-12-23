@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+// 変換に関して共通して使うものがまとめられている気がする
 public class InstructionStream implements Printable  {
 
   private final String tag;
@@ -57,6 +58,7 @@ public class InstructionStream implements Printable  {
     printLoop(level, sb, this.stateStack.iterator());
   }
 
+  // イテレータで取ってきたものを次々printAtするメソッド
   private void printLoop(final int level, final StringBuilder sb, final Iterator<StreamState> iterator) {
     if(!iterator.hasNext()) {
       this.termNode.printAt(level, sb);
@@ -379,6 +381,7 @@ public class InstructionStream implements Printable  {
     }
   }
 
+  // StringBuilder メソッドは
   public StringBuilder dumpAs(String name, List<String> locals) {
     StringBuilder sb = new StringBuilder();
     sb.append(name).append(locals.stream().collect(Collectors.joining(",", "(", ")")));

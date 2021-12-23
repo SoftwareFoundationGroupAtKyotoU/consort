@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// 基本ブロック単位での制御フローグラフのメソッドを提供するクラス
 public class BasicBlockGraph implements DirectedGraph<BasicBlock> {
   private final DirectedGraph<Unit> ug;
   private final BasicBlockMapper bbm;
