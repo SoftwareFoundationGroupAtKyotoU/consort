@@ -15,6 +15,6 @@ public class AssertFail implements TranslatedUnit {
 	}
 
 	public String print(List<String> arguments) {
-		return ("fail;");
+		return ("assert(0 = 1);");
 	}
 }

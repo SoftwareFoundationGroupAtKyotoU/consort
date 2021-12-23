@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 // TODO: 環境 (初出の変数がどれか) を関数ごとに作る
-// TODO: 括弧の有無を考える (ConSORT の書き方を見る)
 // TODO: 無駄な Unit を減らす (関数呼び出しの後の Unit とか)
 // TODO: 無駄な基本ブロックを減らす (return 文だけの基本ブロックが大量に生成される. もしかしたら検証器には嬉しかったりするのか？)
 // TODO: オブジェクト指向の部分を big tuple で命令型言語に置き換えるようにする (もしかしたら CFGReconstructor の時点でできているのかも)
