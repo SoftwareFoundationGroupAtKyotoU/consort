@@ -1,0 +1,38 @@
+loop(arr, n, i, ans) {
+  if i < arr.length then 
+    then1(arr, n, i, ans) 
+    else assert_ans(ans)
+}
+
+then1(arr, n, i, ans) {
+  if arr[i] = n then 
+    equal_3(ans)
+    else {
+      let j = i + 1 in
+      loop(arr, n, j, ans)
+    }
+}
+
+equal_3(ans){
+  let ans_true = 1 in
+  assert_ans(ans_true)
+}
+
+assert_ans(ans){
+  assert(ans = 1)
+}
+
+{
+  let arr = mkarray 6 in {
+    arr[0] <- 0;
+    arr[1] <- 9;
+    arr[2] <- 3;
+    arr[3] <- 4;
+    arr[4] <- 15;
+    arr[5] <- 16;
+    let n = 5 in
+    let i = 0 in
+    let ans = 0 in
+    loop(arr, n, i, ans)
+  }
+}

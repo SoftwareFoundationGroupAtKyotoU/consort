@@ -1,0 +1,55 @@
+loop_x(x, y) {
+  if *x < 100 then 
+  then1(x, y)
+  else assert_ans(x, y)
+}
+
+then1(x, y) {
+  y := 0;
+  loop_y(x, y)
+}
+
+loop_y(x, y) {
+  if *y < 100 then
+  then2(x, y)
+  else else1(x, y)
+}
+
+else1(x, y) {
+  x := *x + 1;
+  loop_x(x, y)
+}
+
+then2(x, y) {
+  let minus_ten = -10 in
+  let minus_one = -1 in
+  let x2 = (*x) * (*x) in
+  let x3 = x2 * (*x) in
+  let two_x = 2 * (*x) in
+  let two_xy = two_x * (*y) in
+  let minus_ten_x = minus_ten * (*x) in
+  let minus_one_y = minus_one * (*y) in
+  let minus_one_y2 = minus_one_y * (*y) in
+  let lefthand1 = x3 + two_xy in
+  let lefthand2 = lefthand1 + minus_ten_x in
+  let lefthand = lefthand2 + minus_one_y2 in
+  if lefthand = 39 then
+  assert_ans(x, y)
+  else else2(x, y)
+}
+
+else2(x, y) {
+  y := *y + 1;
+  loop_y(x, y)
+}
+
+assert_ans(x, y) {
+  assert(*x < 100);
+  assert(*y < 100)
+}
+
+{
+  let x = mkref 0 in
+  let y = mkref 0 in
+  loop_x(x, y)
+}

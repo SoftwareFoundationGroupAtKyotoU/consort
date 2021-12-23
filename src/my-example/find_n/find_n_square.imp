@@ -1,0 +1,75 @@
+loop1(arr, n, i, j, ans) {
+  if *i < 3 then
+  then1(arr, n, i, j, ans)
+  else assert_ans(ans)
+}
+
+then1(arr, n, i, j, ans) {
+  j := 0;
+  loop2(arr, n, i, j, ans)
+}
+
+loop2(arr, n, i, j, ans) {
+  if *j < 3 then
+  then2(arr, n, i, j, ans)
+  else else1(arr, n, i, j, ans)
+}
+
+then2(arr, n, i, j, ans) {
+  let x = 3 * *i in
+  let index = x + *j in
+  if arr[index] = n then
+  then3(arr, n, i, j, ans)
+  else else2(arr, n, i, j, ans)
+}
+
+then3(arr, n, i, j, ans) {
+  ans := 1;
+  else1(arr, n, i, j, ans)
+}
+
+else2(arr, n, i, j, ans) {
+  j := *j + 1;
+  loop2(arr, n, i, j, ans)
+}
+
+else1(arr, n, i, j, ans) {
+  let y = 3 * *i in
+  let index2 = y + *j in
+  if arr[index2] = n then
+  then4(arr, n, i, j, ans)
+  else else3(arr, n, i, j, ans)
+}
+
+then4(arr, n, i, j, ans) {
+  ans := 1;
+  assert_ans(ans)
+}
+
+else3(arr, n, i, j, ans) {
+  i := *i + 1;
+  loop1(arr, n, i, j, ans)
+}
+
+assert_ans(ans) {
+  assert(*ans = 1)
+}
+
+{
+  let arr = mkarray 9 in {
+    arr[0] <- 0;
+    arr[1] <- 9;
+    arr[2] <- 3;
+    arr[3] <- 4;
+    arr[4] <- 15;
+    arr[5] <- 16;
+    arr[6] <- 8;
+    arr[7] <- 7;
+    arr[8] <- 20;
+    let n = 8 in
+    let i = mkref 0 in
+    let j = mkref 0 in
+    let ans = mkref 0 in
+    loop1(arr, n, i, j, ans)
+  }
+}

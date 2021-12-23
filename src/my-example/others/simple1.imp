@@ -1,0 +1,8 @@
+{
+  let p = mkref 1 in
+  let q = mkref 5 in {
+    p := *p + 1;
+    q := *q + 1;
+    assert(*p = 2)
+  }
+}

@@ -1,0 +1,28 @@
+loop(i, sum) {
+  if *i < 20 then
+  then1(i, sum)
+  else assert_ans(i, sum)
+}
+
+then1(i, sum) {
+  sum := *sum + *i;
+
+  if *sum > 100 then
+  assert_ans(i, sum)
+  else else1(i, sum)
+}
+
+else1(i, sum) {
+  i := *i + 1;
+  loop(i, sum)
+}
+
+assert_ans(i, sum){
+  assert(*sum > 100)
+}
+
+{
+  let i = mkref 0 in
+  let sum = mkref 0 in
+  loop(i, sum)
+}

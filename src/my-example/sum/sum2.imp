@@ -1,0 +1,45 @@
+loop1(ans, i, j) {
+  if *i < 10 then
+  then1(ans, i, j)
+  else assert_ans(i, j)
+}
+
+then1(ans, i, j) {
+  j := 0;
+  loop2(ans, i, j)
+}
+
+loop2(ans, i, j) {
+  if *j < 10 then
+  then2(ans, i, j)
+  else else1(ans, i, j)
+}
+
+else1(ans, i, j) {
+  i := *i + 1;
+  loop1(ans, i, j)
+}
+
+then2(ans, i, j) {
+  ans := *i * *j;
+  if *ans > 100 then
+  assert_ans(i, j)
+  else else2(ans, i, j)
+}
+
+else2(ans, i, j) {
+  j := *j + 1;
+  loop2(ans, i, j)
+}
+
+assert_ans(i, j) {
+  assert(*i < 10);
+  assert(*j < 10)
+}
+
+{
+  let ans = mkref 0 in
+  let i = mkref 0 in
+  let j = mkref 0 in
+  loop1(ans, i, j)
+}
