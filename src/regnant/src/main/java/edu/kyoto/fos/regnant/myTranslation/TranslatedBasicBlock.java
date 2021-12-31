@@ -15,7 +15,7 @@ public class TranslatedBasicBlock {
 	private final int id;
 	private final boolean headOfFunction;
 	private final List<TranslatedUnit> translatedBasicBlock = new ArrayList<>();
-	private final List<String> arguments = new ArrayList<>();
+	private final List<String> parameters = new ArrayList<>();
 	private final List<String> bound = new ArrayList<>();
 	private final List<BasicBlock> nextBasicBlocks;
 
@@ -30,7 +30,7 @@ public class TranslatedBasicBlock {
 			TranslatedUnit translatedUnit = service.translate(basicBlock.units.get(i), headOfFunction, nextBasicBlocks);
 
 			// もし変換後の unit が Argument だった場合, 関数の引数になる変数があるので, それを arguments フィールドに入れる
-			if (translatedUnit instanceof Argument) arguments.add(((Argument) translatedUnit).getArgumentVariable());
+			if (translatedUnit instanceof Argument) parameters.add(((Argument) translatedUnit).getArgumentVariable());
 			// もし変換後の unit が NewVariable か NEwPrimitiveVariable だった場合, 基本ブロックの引数になる変数があるので, それを bound フィールドに入れる
 			if (translatedUnit instanceof NewRef) bound.add(((NewRef) translatedUnit).getBoundVariable());
 			if (translatedUnit instanceof NewPrimitiveVariable)
@@ -41,8 +41,8 @@ public class TranslatedBasicBlock {
 	}
 
 	// arguments を返すメソッド
-	public List<String> getArguments() {
-		return arguments;
+	public List<String> getParameters() {
+		return parameters;
 	}
 
 	public List<String> getBound() {

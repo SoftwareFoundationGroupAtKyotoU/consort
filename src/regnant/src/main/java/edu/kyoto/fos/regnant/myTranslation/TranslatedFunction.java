@@ -26,7 +26,7 @@ import java.util.stream.Stream;
 public class TranslatedFunction {
 	// translatedFunction は変換後の関数, allArguments はメソッドの引数のリスト, allBound は宣言された変数のリストを表す
 	private final List<TranslatedBasicBlock> translatedFunction = new ArrayList<>();
-	private List<String> allArguments = new ArrayList<>();
+	private List<String> allParameters = new ArrayList<>();
 	private List<String> allBound = new ArrayList<>();
 
 	public TranslatedFunction(CFGReconstructor cfg) {
@@ -41,7 +41,7 @@ public class TranslatedFunction {
 				// 関数のはじめの基本ブロックだけ headOfFunction を true にし, arguments を TranslatedFunction に返す
 				TranslatedBasicBlock headBasicBlock = new TranslatedBasicBlock(block, true, nextBasicBlocks);
 				this.translatedFunction.add(headBasicBlock);
-				this.allArguments = Stream.concat(allArguments.stream(), headBasicBlock.getArguments().stream())
+				this.allParameters = Stream.concat(allParameters.stream(), headBasicBlock.getParameters().stream())
 						.collect(Collectors.toList());
 				this.allBound = Stream.concat(allBound.stream(), headBasicBlock.getBound().stream())
 						.collect(Collectors.toList());
@@ -49,7 +49,7 @@ public class TranslatedFunction {
 				// 返ってきた arguments を他の基本ブロックに渡す
 				TranslatedBasicBlock basicBlock = new TranslatedBasicBlock(block, false, nextBasicBlocks);
 				this.translatedFunction.add(basicBlock);
-				this.allArguments = Stream.concat(allArguments.stream(), basicBlock.getArguments().stream())
+				this.allParameters = Stream.concat(allParameters.stream(), basicBlock.getParameters().stream())
 						.collect(Collectors.toList());
 				this.allBound = Stream.concat(allBound.stream(), basicBlock.getBound().stream())
 						.collect(Collectors.toList());
@@ -60,7 +60,7 @@ public class TranslatedFunction {
 	// 変換後の関数をファイルに書き込むためのメソッド
 	public void print(String path) {
 		// 変換後の関数を文字列にする
-		String functionString = translatedFunction.stream().map(bb -> bb.print(allArguments, allBound)).collect(Collectors.joining("\n"));
+		String functionString = translatedFunction.stream().map(bb -> bb.print(allParameters, allBound)).collect(Collectors.joining("\n"));
 
 		try (PrintWriter pw = new PrintWriter(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(path, true), StandardCharsets.UTF_8)))) {
 			// ファイルへの書き込み
