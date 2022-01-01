@@ -20,6 +20,12 @@ public class NewRef implements TranslatedUnit {
 		this.value = service.translate(unit.getRightOp());
 	}
 
+	// 変数定義の追加によって直接 NewRef を作る際に使うコンストラクタ
+	public NewRef(String variable, TranslatedValue value) {
+		this.variable = variable;
+		this.value = value;
+	}
+
 	public boolean isSequencing() {
 		return false;
 	}

@@ -3,6 +3,8 @@ package edu.kyoto.fos.regnant.myTranslation.translatedStmt;
 import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import edu.kyoto.fos.regnant.myTranslation.Service.TranslateExprService;
+import edu.kyoto.fos.regnant.myTranslation.translatedExpr.IntConst;
+import soot.jimple.IntConstant;
 import soot.jimple.internal.JAssignStmt;
 
 import java.util.List;
@@ -37,5 +39,9 @@ public class AssignToVariable implements TranslatedUnit {
 				.append(";");
 
 		return builder.toString();
+	}
+
+	public String getAssignedVariable() {
+		return variable;
 	}
 }

@@ -2,7 +2,9 @@ package edu.kyoto.fos.regnant.myTranslation;
 
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.myTranslation.Service.TranslateStmtService;
+import edu.kyoto.fos.regnant.myTranslation.translatedExpr.IntConst;
 import edu.kyoto.fos.regnant.myTranslation.translatedStmt.*;
+import polyglot.ast.New;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,12 +13,13 @@ import java.util.stream.Stream;
 
 // ConSORT プログラムに変換された基本ブロックを表すためのクラス
 public class TranslatedBasicBlock {
-	// id は基本ブロックのナンバリング, translatedBasicBlock は変換後の式のリスト, arguments は変換後の元々の関数の引数, bound は変換後の基本ブロックの関数の引数, nextBasicBlocks は次の基本ブロック
+	// id は基本ブロックのナンバリング, translatedBasicBlock は変換後の式のリスト, arguments は変換後の元々の関数の引数, bound は変換後の基本ブロックの関数の引数, assigned は変換後の基本ブロックで代入される変数 nextBasicBlocks は次の基本ブロック
 	private final int id;
 	private final boolean headOfFunction;
-	private final List<TranslatedUnit> translatedBasicBlock = new ArrayList<>();
+	private List<TranslatedUnit> translatedBasicBlock = new ArrayList<>();
 	private final List<String> parameters = new ArrayList<>();
 	private final List<String> bound = new ArrayList<>();
+	private final List<String> assigned = new ArrayList<>();
 	private final List<BasicBlock> nextBasicBlocks;
 
 	public TranslatedBasicBlock(BasicBlock basicBlock, boolean headOfFunction, List<BasicBlock> nextBasicBlocks) {
@@ -31,10 +34,12 @@ public class TranslatedBasicBlock {
 
 			// もし変換後の unit が Argument だった場合, 関数の引数になる変数があるので, それを arguments フィールドに入れる
 			if (translatedUnit instanceof Argument) parameters.add(((Argument) translatedUnit).getArgumentVariable());
-			// もし変換後の unit が NewVariable か NEwPrimitiveVariable だった場合, 基本ブロックの引数になる変数があるので, それを bound フィールドに入れる
+			// もし変換後の unit が NewVariable か NewPrimitiveVariable だった場合, 基本ブロックの引数になる変数があるので, それを bound フィールドに入れる
 			if (translatedUnit instanceof NewRef) bound.add(((NewRef) translatedUnit).getBoundVariable());
 			if (translatedUnit instanceof NewPrimitiveVariable)
 				bound.add(((NewPrimitiveVariable) translatedUnit).getBoundVariable());
+			// もし変換後の unit が AssignToVariable だった場合, 最初の基本ブロックにない変数定義になりうる
+			if (translatedUnit instanceof AssignToVariable) assigned.add(((AssignToVariable) translatedUnit).getAssignedVariable());
 
 			translatedBasicBlock.add(translatedUnit);
 		}
@@ -45,8 +50,14 @@ public class TranslatedBasicBlock {
 		return parameters;
 	}
 
+	// bound を返すメソッド
 	public List<String> getBound() {
 		return bound;
+	}
+
+	// assigned を返すメソッド
+	public List<String> getAssigned() {
+		return assigned;
 	}
 
 	// 波括弧の左側を付けるためのメソッド
@@ -77,10 +88,10 @@ public class TranslatedBasicBlock {
 	}
 
 	// 基本ブロックを関数名と関数呼び出し付きで出力するメソッド
-	public String print(List<String> allArguments, List<String> allBound) {
+	public String print(List<String> allArguments, List<String> allBound, List<String> allUndefined) {
 
 		// 引数のための, allArguments と allBound を合わせたリスト
-		List<String> restArguments = Stream.concat(allArguments.stream(), allBound.stream())
+		List<String> restArguments = Stream.concat(Stream.concat(allArguments.stream(), allBound.stream()), allUndefined.stream())
 				.collect(Collectors.toList());
 
 		// 引数部分の作成. 初めの基本ブロックはパラメータのみ, 以降の基本ブロックはパラメータと宣言された変数を引数にとる
@@ -147,5 +158,13 @@ public class TranslatedBasicBlock {
 				.append("}\n");
 
 		return builder.toString();
+	}
+
+	// 最初の基本ブロック以外で変数が定義された場合に使う、変数定義を追加するためのメソッド (最初の基本ブロック用)
+	public void addDefines(List<String> allUndefined) {
+		assert (headOfFunction);
+
+		translatedBasicBlock = Stream.concat(allUndefined.stream().map(v -> new NewRef(v, new IntConst("0"))), translatedBasicBlock.stream())
+				.collect(Collectors.toList());
 	}
 }

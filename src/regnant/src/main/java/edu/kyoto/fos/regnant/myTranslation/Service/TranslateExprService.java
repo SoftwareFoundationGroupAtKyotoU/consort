@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import edu.kyoto.fos.regnant.myTranslation.translatedExpr.*;
 
 import soot.Value;
+import soot.jimple.IntConstant;
 import soot.jimple.internal.*;
 
 // Expr を場合分けするためのクラス
@@ -36,6 +37,8 @@ public class TranslateExprService {
 			return new ArrayLength((JLengthExpr) value);
 		} else if (value instanceof JArrayRef) {
 			return new ArrayRef((JArrayRef) value);
+		} else if (value instanceof IntConstant) {
+			return new IntConst(value.toString());
 		} else {
 			return new Other(value);
 		}
