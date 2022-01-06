@@ -85,6 +85,9 @@ def main(this_dir, args):
     flags = os.path.join(work_dir, "control.sexp")
     data = os.path.join(work_dir, "mono.imp")
 
+    # 自分のアウトプットのパスを追加
+    my_data = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/output.imp"
+
     regnant_options = "enabled:true,output:%s,flags:%s" % (data, flags)
 
     if args.functional:
@@ -129,6 +132,10 @@ def main(this_dir, args):
     el = run_silently(intr_command)
     print_done(args, el)
 
+    # 出力先のファイルにエントリーポイントを追加
+    f.write("{ f0() }")
+    f.close()
+
     print("Running ConSORT on translated program:")
     yaml_flg = ["-yaml"] if args.yaml is not None else []
     consort_cmd = [
@@ -143,10 +150,6 @@ def main(this_dir, args):
     ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
     e = time.time()
 
-    # 出力先のファイルにエントリーポイントを追加
-    f.write("{ f0() }")
-    f.close()
-
     if args.yaml:
         with open(args.yaml, 'w') as out:
             print(ret.stdout.decode("utf-8"), file=out)
@@ -155,6 +158,20 @@ def main(this_dir, args):
         print(ret.stdout.decode("utf-8").strip())
     if args.timing:
         print("(ConSORT ran for %.02f seconds)" % (e - s))
+
+    # 自分の Regnant で実行
+    print("Running ConSORT with new Regnant on translated program:")
+    consort_cmd = [os.path.join(this_dir, "../test.sh")] + [my_data]
+    log_command(args, consort_cmd)
+    my_s = time.time()
+    ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
+    my_e = time.time()
+
+    print(ret.stdout.decode("utf-8").strip())
+
+    if args.timing:
+        print("(ConSORT with new Regnant ran for %.02f seconds)" % (my_e - my_s))
+
     return ret.returncode
 
 if __name__ == "__main__":
