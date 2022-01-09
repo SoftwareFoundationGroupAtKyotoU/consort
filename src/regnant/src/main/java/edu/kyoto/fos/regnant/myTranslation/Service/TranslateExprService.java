@@ -15,6 +15,8 @@ public class TranslateExprService {
 			return new Add((JAddExpr) value);
 		} else if (value instanceof JMulExpr) {
 			return new Mult((JMulExpr) value);
+		} else if (value instanceof JRemExpr) {
+			return new Rem((JRemExpr) value);
 		} else if (value instanceof JEqExpr) {
 			return new Eq((JEqExpr) value);
 		} else if (value instanceof JGeExpr) {
