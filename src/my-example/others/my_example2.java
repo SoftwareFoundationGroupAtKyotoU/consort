@@ -3,13 +3,13 @@ public class my_example2 {
     int ans = 0;
 
     for (int i = 0; i < 10; i++) {
-      if (i % 3 == 0) {
+      if (i > 5) {
         continue;
       }
 
       ans += i;
     }
 
-    assert(ans == 37);
+    assert(ans == 15);
   }
 }

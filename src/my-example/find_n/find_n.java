@@ -1,7 +1,7 @@
 public class find_n {
   public static void main(String[] args) {
     int[] arr = { 0, 9, 3, 4, 15, 16 };
-    int n = 5;
+    int n = 3;
     int i = 0;
     int ans = 0;
 

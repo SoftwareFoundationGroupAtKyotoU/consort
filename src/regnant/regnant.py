@@ -47,6 +47,8 @@ def main(this_dir, args):
     parser.add_argument("jdk8")
     parser.add_argument("entry_point")
     parser.add_argument("consort_args", nargs="*")
+    # 追加
+    parser.add_argument("--timeout", nargs="?", default="30")
     args = parser.parse_args(args)
     cls = args.entry_point
     if args.src_dir is None and args.jar is None:
@@ -142,6 +144,7 @@ def main(this_dir, args):
         os.path.join(this_dir, "../_build/default/test.exe"),
         "-intrinsics", intr_loc,
         "-exit-status",
+        "-timeout", args.timeout
     ] + args.consort_args + yaml_flg + [
         data
     ]
@@ -161,7 +164,7 @@ def main(this_dir, args):
 
     # 自分の Regnant で実行
     print("Running ConSORT with new Regnant on translated program:")
-    consort_cmd = [os.path.join(this_dir, "../test.sh")] + [my_data]
+    consort_cmd = [os.path.join(this_dir, "../test.sh"), "-timeout", args.timeout, my_data]
     log_command(args, consort_cmd)
     my_s = time.time()
     ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)

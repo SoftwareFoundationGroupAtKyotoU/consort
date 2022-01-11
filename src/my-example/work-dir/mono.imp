@@ -1,24 +1,23 @@
-regnant$my_example2_main__loop_1(i1,i2,reg$control){
+regnant$my_example2_main__loop_1(i0,i1,reg$control){
   {
-    if (*i2) >= 10 then
+    if (*i1) >= 10 then
       {
         reg$control := 1;
         return 0
       }
 
     else
-      let _tmp_i0 = (*i2) % 3 in 
       {
-        if _tmp_i0 != 0 then
+        if (*i1) <= 5 then
           {
-            i1 := (*i1) + (*i2);
+            i0 := (*i0) + (*i1);
             reg$control := 2;
           }
 
         else
           {
-            i2 := (*i2) + 1;
-            return regnant$my_example2_main__loop_1(i1, i2, reg$control)
+            i1 := (*i1) + 1;
+            return regnant$my_example2_main__loop_1(i0, i1, reg$control)
           }
 ;
       }
@@ -28,13 +27,13 @@ regnant$my_example2_main__loop_1(i1,i2,reg$control){
 }
 my_example2_main(){
   let reg$control = mkref 0 in 
+  let i0 = mkref 0 in 
   let i1 = mkref 0 in 
-  let i2 = mkref 0 in 
   {
-    regnant$my_example2_main__loop_1(i1, i2, reg$control);
+    regnant$my_example2_main__loop_1(i0, i1, reg$control);
     if regnant$flag_1(*reg$control) then
       {
-        if (*i1) = 37 then
+        if (*i0) = 150 then
           ()
         else
           {
