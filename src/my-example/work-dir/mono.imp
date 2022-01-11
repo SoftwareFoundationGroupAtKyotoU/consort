@@ -1,23 +1,23 @@
-regnant$my_example2_main__loop_1(i0,i1,reg$control){
+regnant$sum_goto_main__loop_4(i1,i2,i3,i4,reg$control){
   {
-    if (*i1) >= 10 then
-      {
-        reg$control := 1;
-        return 0
-      }
+    if (*i4) >= 5 then
+      return 0
 
     else
+      let _tmp_i0 = (*i3) + (*i4) in 
       {
-        if (*i1) <= 5 then
+        i1 := (*i1) + _tmp_i0;
+        i2 := (*i2) + 1;
+        if (*i1) <= 15 then
           {
-            i0 := (*i0) + (*i1);
-            reg$control := 2;
+            i4 := (*i4) + 1;
+            return regnant$sum_goto_main__loop_4(i1, i2, i3, i4, reg$control)
           }
 
         else
           {
-            i1 := (*i1) + 1;
-            return regnant$my_example2_main__loop_1(i0, i1, reg$control)
+            reg$control := 1;
+            return 0
           }
 ;
       }
@@ -25,28 +25,44 @@ regnant$my_example2_main__loop_1(i0,i1,reg$control){
   }
 
 }
-my_example2_main(){
+regnant$sum_goto_main__loop_1(i1,i2,i3,reg$control){
+  {
+    if (*i3) >= 5 then
+      return 0
+
+    else
+      let i4 = mkref 0 in 
+      {
+        regnant$sum_goto_main__loop_4(i1, i2, i3, i4, reg$control);
+        if regnant$flag_1(*reg$control) then
+          return 0
+
+        else
+          ();
+        i3 := (*i3) + 1;
+        return regnant$sum_goto_main__loop_1(i1, i2, i3, reg$control)
+      }
+;
+  }
+
+}
+sum_goto_main(){
   let reg$control = mkref 0 in 
-  let i0 = mkref 0 in 
   let i1 = mkref 0 in 
+  let i2 = mkref 0 in 
+  let i3 = mkref 0 in 
   {
-    regnant$my_example2_main__loop_1(i0, i1, reg$control);
-    if regnant$flag_1(*reg$control) then
-      {
-        if (*i0) = 150 then
-          ()
-        else
-          {
-            fail;
-          }
-;
-        return 0
-      }
-
+    regnant$sum_goto_main__loop_1(i1, i2, i3, reg$control);
+    if (*i2) = 8 then
+      ()
     else
-      ();
+      {
+        fail;
+      }
+;
+    return 0
   }
 
 }
 
-{ my_example2_main() }
+{ sum_goto_main() }
