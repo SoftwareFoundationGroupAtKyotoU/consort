@@ -4,15 +4,17 @@ public class find_n {
     int n = 2;
     int i = 0;
     int ans = 0;
+    int s = 0;
 
     while (i < arr.length) {
       if (arr[i] == n) {
-        ans = 1;
+        s = 1;
+        ans = 2;
         break;
       }
       i++;
     }
 
-    assert (ans == 1);
+    assert (ans == 2);
   }
 }

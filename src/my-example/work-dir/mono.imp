@@ -1,22 +1,24 @@
-regnant$sum_goto_main__loop_4(i1,i2,i3,i4,reg$control){
+regnant$find_n_main__loop_1(_tmp_r2,r1,b0,i3,b4,z1,reg$control){
+  let _tmp_i1 = r1.length in 
   {
-    if (*i4) >= 5 then
-      return 0
+    if (*i3) >= _tmp_i1 then
+      {
+        reg$control := 1;
+        return 0
+      }
 
     else
-      let _tmp_i0 = (*i3) + (*i4) in 
+      let _tmp_i2 = r1[*i3] in 
       {
-        i1 := (*i1) + _tmp_i0;
-        i2 := (*i2) + 1;
-        if (*i1) <= 15 then
+        if _tmp_i2 != b0 then
           {
-            i4 := (*i4) + 1;
-            return regnant$sum_goto_main__loop_4(i1, i2, i3, i4, reg$control)
+            i3 := (*i3) + 1;
+            return regnant$find_n_main__loop_1(_tmp_r2, r1, b0, i3, b4, z1, reg$control)
           }
 
         else
           {
-            reg$control := 1;
+            reg$control := 2;
             return 0
           }
 ;
@@ -25,44 +27,42 @@ regnant$sum_goto_main__loop_4(i1,i2,i3,i4,reg$control){
   }
 
 }
-regnant$sum_goto_main__loop_1(i1,i2,i3,reg$control){
-  {
-    if (*i3) >= 5 then
-      return 0
-
-    else
-      let i4 = mkref 0 in 
-      {
-        regnant$sum_goto_main__loop_4(i1, i2, i3, i4, reg$control);
-        if regnant$flag_1(*reg$control) then
-          return 0
-
-        else
-          ();
-        i3 := (*i3) + 1;
-        return regnant$sum_goto_main__loop_1(i1, i2, i3, reg$control)
-      }
-;
-  }
-
-}
-sum_goto_main(){
+find_n_main(){
   let reg$control = mkref 0 in 
-  let i1 = mkref 0 in 
-  let i2 = mkref 0 in 
-  let i3 = mkref 0 in 
+  let _tmp_r2 = mkarray 6 in 
   {
-    regnant$sum_goto_main__loop_1(i1, i2, i3, reg$control);
-    if (*i2) = 8 then
-      ()
-    else
-      {
-        fail;
-      }
+    _tmp_r2[0] <- 0;
+    _tmp_r2[1] <- 9;
+    _tmp_r2[2] <- 3;
+    _tmp_r2[3] <- 4;
+    _tmp_r2[4] <- 15;
+    _tmp_r2[5] <- 16;
+    let r1 = _tmp_r2 in 
+    let b0 = 2 in 
+    let i3 = mkref 0 in 
+    let b4 = mkref 0 in 
+    let z1 = 0 in 
+    {
+      regnant$find_n_main__loop_1(_tmp_r2, r1, b0, i3, b4, z1, reg$control);
+      if regnant$flag_1(*reg$control) then
+        let z2 = 1 in 
+        {
+          b4 := 2;
+        }
+
+      else
+        ();
+      if (*b4) = 2 then
+        ()
+      else
+        {
+          fail;
+        }
 ;
-    return 0
+      return 0
+    }
   }
 
 }
 
-{ sum_goto_main() }
+{ find_n_main() }

@@ -45,8 +45,10 @@ public class TranslateStmtService {
 				// 配列の要素を更新する場合 (もし初期化の場合のみ <- を使うとかだったら要修正)
 				return new AssignToArray(assignUnit);
 			} else if (assignUnit.getLeftOp() instanceof JimpleLocal) {
-				// tmp 変数は最初の基本ブロックでなくても初めて定義される
-				if (headOfFunction) {
+				if (assignUnit.getLeftOp().toString().contains("tmp")) {
+					// 定義する変数が tmp 変数の場合
+					return new NewTmpVariable(assignUnit);
+				} else if (headOfFunction) {
 					// 初めて変数が定義される場合 (関数の中の最初の基本ブロックに変数定義が全て含まれているという仮説による)
 					if (assignUnit.getRightOp().getType() instanceof ArrayType) {
 						// 右辺が配列の場合
@@ -54,10 +56,7 @@ public class TranslateStmtService {
 					} else {
 						return new NewRef(assignUnit);
 					}
-				} else if (assignUnit.getLeftOp().toString().contains("tmp")) {
-					// 定義する変数が tmp 変数の場合
-					return new NewTmpVariable(assignUnit);
-				} else {
+				}  else {
 					// 定義されている変数に値を代入する場合
 					return new AssignToVariable(assignUnit);
 				}
