@@ -1,4 +1,4 @@
-regnant$find_n_main__loop_1(_tmp_r2,r1,b0,i3,b4,z1,reg$control){
+regnant$find_n_main__loop_1(_tmp_r2,r1,i0,i3,b4,reg$control){
   let _tmp_i1 = r1.length in 
   {
     if (*i3) >= _tmp_i1 then
@@ -10,10 +10,10 @@ regnant$find_n_main__loop_1(_tmp_r2,r1,b0,i3,b4,z1,reg$control){
     else
       let _tmp_i2 = r1[*i3] in 
       {
-        if _tmp_i2 != b0 then
+        if _tmp_i2 != i0 then
           {
             i3 := (*i3) + 1;
-            return regnant$find_n_main__loop_1(_tmp_r2, r1, b0, i3, b4, z1, reg$control)
+            return regnant$find_n_main__loop_1(_tmp_r2, r1, i0, i3, b4, reg$control)
           }
 
         else
@@ -38,16 +38,14 @@ find_n_main(){
     _tmp_r2[4] <- 15;
     _tmp_r2[5] <- 16;
     let r1 = _tmp_r2 in 
-    let b0 = 2 in 
+    let i0 = 2 in 
     let i3 = mkref 0 in 
     let b4 = mkref 0 in 
-    let z1 = 0 in 
     {
-      regnant$find_n_main__loop_1(_tmp_r2, r1, b0, i3, b4, z1, reg$control);
+      regnant$find_n_main__loop_1(_tmp_r2, r1, i0, i3, b4, reg$control);
       if regnant$flag_1(*reg$control) then
-        let z2 = 1 in 
         {
-          b4 := 2;
+          b4 := 1;
         }
 
       else

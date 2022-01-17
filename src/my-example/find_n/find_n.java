@@ -4,12 +4,10 @@ public class find_n {
     int n = 2;
     int i = 0;
     int ans = 0;
-    int s = 0;
 
     while (i < arr.length) {
       if (arr[i] == n) {
-        s = 1;
-        ans = 2;
+        ans = 1;
         break;
       }
       i++;
