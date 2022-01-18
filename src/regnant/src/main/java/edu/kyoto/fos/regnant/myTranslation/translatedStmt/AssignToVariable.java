@@ -7,6 +7,7 @@ import edu.kyoto.fos.regnant.myTranslation.translatedExpr.IntConst;
 import soot.jimple.IntConstant;
 import soot.jimple.internal.JAssignStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 変数に値を代入する式を表すクラス
@@ -30,12 +31,12 @@ public class AssignToVariable implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append(variable)
 				.append(" := ")
-				.append(value.print(true))
+				.append(value.print(true, headIDs))
 				.append(";");
 
 		return builder.toString();

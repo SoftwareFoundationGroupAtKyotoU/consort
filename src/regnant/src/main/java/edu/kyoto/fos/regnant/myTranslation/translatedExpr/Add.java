@@ -4,6 +4,8 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import edu.kyoto.fos.regnant.myTranslation.Service.TranslateExprService;
 import soot.jimple.internal.JAddExpr;
 
+import java.util.HashMap;
+
 // 変換された AddExpr を表すクラス
 public class Add implements TranslatedValue {
 	// leftOp は1つ目のオペランド, rightOp は2つ目のオペランドを表す
@@ -17,12 +19,12 @@ public class Add implements TranslatedValue {
 		this.rightOp = service.translate(e.getOp2());
 	}
 
-	public String print(boolean isDereference) {
+	public String print(boolean isDereference, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
-				.append(leftOp.print(true))
+				.append(leftOp.print(true, headIDs))
 				.append(" + ")
-				.append(rightOp.print(true));
+				.append(rightOp.print(true, headIDs));
 
 		return builder.toString();
 	}

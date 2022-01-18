@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import soot.jimple.internal.JAssignStmt;
 import soot.jimple.internal.JNewArrayExpr;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 配列を新しく定義する式を表すクラス
@@ -25,7 +26,7 @@ public class NewArray implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append("let ")

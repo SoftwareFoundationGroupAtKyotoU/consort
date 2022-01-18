@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import soot.Value;
 import soot.jimple.internal.JReturnStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // ある値を返す return 文のクラス
@@ -23,7 +24,7 @@ public class Return implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append("return ")

@@ -30,10 +30,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Regnant extends Transform {
   private Regnant(final Regnant[] regnants) {
@@ -111,6 +109,11 @@ public class Regnant extends Transform {
       final Impl oimpl) {
     StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
     List<Translate> toReturn = new ArrayList<>();
+
+    // 変換後の Body と関数名と初めの基本ブロックの対応表の作成
+    List<TranslatedFunction> translatedBody = new ArrayList<>();
+    HashMap<String, Integer> headIDs = new HashMap<>();
+
     while(reader.hasNext()) {
       SootMethod m = reader.next();
       if(!visited.add(m)) {
@@ -131,12 +134,16 @@ public class Regnant extends Transform {
       Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
       toReturn.add(t);
 
+      // translatedBody と headIDs に追加
       TranslatedFunction translatedFunction = new TranslatedFunction(cfg, simpl.getMethod().getName());
-
-      // myTranslation に渡す
-      String path = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/output.imp";
-      translatedFunction.print(path);
+      translatedBody.add(translatedFunction);
+      headIDs.put(translatedFunction.getName(), translatedFunction.getHeadID());
     }
+
+    // myTranslation の出力
+    String path = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/output.imp";
+    translatedBody.stream().forEach(tf -> tf.print(path, headIDs));
+
     return toReturn;
   }
 }

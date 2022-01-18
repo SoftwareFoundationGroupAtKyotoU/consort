@@ -5,6 +5,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import edu.kyoto.fos.regnant.myTranslation.Service.TranslateExprService;
 import soot.jimple.internal.JAssignStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 変数を (ポインタで) 定義する式を表すクラス
@@ -34,13 +35,13 @@ public class NewRef implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append("let ")
 				.append(variable)
 				.append(" = mkref ")
-				.append(value.print(true))
+				.append(value.print(true, headIDs))
 				.append(" in");
 
 		return builder.toString();

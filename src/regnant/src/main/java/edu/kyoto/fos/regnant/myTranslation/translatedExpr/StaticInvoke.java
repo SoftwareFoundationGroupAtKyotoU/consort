@@ -3,6 +3,7 @@ package edu.kyoto.fos.regnant.myTranslation.translatedExpr;
 import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import soot.jimple.internal.JStaticInvokeExpr;
 
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class StaticInvoke implements TranslatedValue {
@@ -12,12 +13,15 @@ public class StaticInvoke implements TranslatedValue {
 		this.func = e;
 	}
 
-	public String print(boolean isDereference) {
+	public String print(boolean isDereference, HashMap<String, Integer> headIDs) {
 		String arguments = func.getArgs().stream().map(Object::toString).collect(Collectors.joining(", "));
+		String funcName = func.getMethod().getName();
 
 		StringBuilder sb = new StringBuilder();
 		sb
-				.append(func.getMethod().getName())
+				.append(funcName)
+				.append("_")
+				.append(headIDs.get(funcName))
 				.append("(")
 				.append(arguments)
 				.append(")");

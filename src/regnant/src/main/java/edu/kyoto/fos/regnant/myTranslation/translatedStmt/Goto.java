@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import soot.jimple.internal.JGotoStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 public class Goto implements TranslatedUnit {
@@ -25,7 +26,7 @@ public class Goto implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		return toFunctionCall(target, arguments, funcName);
 	}
 }

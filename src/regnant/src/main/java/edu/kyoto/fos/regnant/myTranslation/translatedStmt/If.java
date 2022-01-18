@@ -6,6 +6,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import soot.jimple.internal.JIfStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 変換後の if 式を表すクラス
@@ -40,11 +41,11 @@ public class If implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append("if ")
-				.append(condition.print(true))
+				.append(condition.print(true, headIDs))
 				.append(" then ")
 				.append(toFunctionCall(thenBasicBlock, arguments, funcName))
 				.append(" else ")

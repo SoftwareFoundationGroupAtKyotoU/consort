@@ -5,6 +5,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import edu.kyoto.fos.regnant.myTranslation.TranslatedValue;
 import soot.jimple.internal.JAssignStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 public class NewPrimitiveVariable implements TranslatedUnit {
@@ -27,13 +28,13 @@ public class NewPrimitiveVariable implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append("let ")
 				.append(variable)
 				.append(" = ")
-				.append(value.print(false))
+				.append(value.print(false, headIDs))
 				.append(" in");
 
 		return builder.toString();

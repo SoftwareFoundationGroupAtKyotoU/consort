@@ -2,6 +2,7 @@ package edu.kyoto.fos.regnant.myTranslation;
 
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,13 +15,13 @@ public interface TranslatedUnit {
 	boolean istTranslatedUnitEmpty();
 
 	// Regnant における抽象構文木から ConSORT プログラムに変換するメソッド
-	String print(List<String> arguments);
+	String print(List<String> arguments, HashMap<String, Integer> headID);
 
 	// インデントをつけて変換後の Unit を出力するメソッド
-	default String printWithIndent(int indentLevel, List<String> arguments) {
+	default String printWithIndent(int indentLevel, List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder.append("  ".repeat(Math.max(0, indentLevel)));
-		builder.append(print(arguments));
+		builder.append(print(arguments, headIDs));
 
 		return builder.toString();
 	}

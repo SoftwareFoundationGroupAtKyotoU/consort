@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import soot.Value;
 import soot.jimple.internal.JIdentityStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 基本ブロックを関数にした際に引数を設定するためのクラス
@@ -24,7 +25,7 @@ public class Argument implements TranslatedUnit {
 		return true;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		return "";
 	}
 

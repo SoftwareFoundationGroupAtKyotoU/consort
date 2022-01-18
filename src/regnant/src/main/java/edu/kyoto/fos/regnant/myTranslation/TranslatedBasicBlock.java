@@ -7,6 +7,7 @@ import edu.kyoto.fos.regnant.myTranslation.translatedStmt.*;
 import polyglot.ast.New;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -88,7 +89,7 @@ public class TranslatedBasicBlock {
 	}
 
 	// 基本ブロックを関数名と関数呼び出し付きで出力するメソッド
-	public String print(List<String> allArguments, List<String> allBound, List<String> allUndefined) {
+	public String print(List<String> allArguments, List<String> allBound, List<String> allUndefined, HashMap<String, Integer> headIDs) {
 
 		// 引数のための, allArguments と allBound を合わせたリスト
 		List<String> restArguments = Stream.concat(Stream.concat(allArguments.stream(), allBound.stream()), allUndefined.stream())
@@ -109,11 +110,11 @@ public class TranslatedBasicBlock {
 					basicBlocksBuilder
 							.append(printLeftBraces(indentLevel - 1))
 							.append("\n")
-							.append(translatedUnit.printWithIndent(indentLevel, restArguments))
+							.append(translatedUnit.printWithIndent(indentLevel, restArguments, headIDs))
 							.append("\n");
 				} else {
 					basicBlocksBuilder
-							.append(translatedUnit.printWithIndent(indentLevel, restArguments))
+							.append(translatedUnit.printWithIndent(indentLevel, restArguments, headIDs))
 							.append("\n");
 				}
 			}

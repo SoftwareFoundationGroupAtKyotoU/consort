@@ -11,6 +11,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -25,7 +26,9 @@ import java.util.stream.Stream;
 
 // ConSORT プログラムに変換された関数を表すクラス
 public class TranslatedFunction {
-	// translatedFunction は変換後の関数, allArguments はメソッドの引数のリスト, allBound は宣言された変数のリストを表す
+	// name は関数名, headID は初めの基本ブロックの id, translatedFunction は変換後の関数, allArguments はメソッドの引数のリスト, allBound は宣言された変数のリストを表す
+	private final String name;
+	private int headID;
 	private final List<TranslatedBasicBlock> translatedFunction = new ArrayList<>();
 	private List<String> allParameters = new ArrayList<>();
 	private List<String> allBound = new ArrayList<>();
@@ -36,6 +39,8 @@ public class TranslatedFunction {
 		// 基本ブロックを出力
 		System.out.println(cfg.dump());
 
+		this.name = name;
+
 		int head = 0;
 		List<String> headEnv = new ArrayList<>();
 		List<String> allAssigned = new ArrayList<>();
@@ -45,6 +50,7 @@ public class TranslatedFunction {
 
 			if (cfg.getBbg().getHeads().contains(basicBlocks.get(i))) {
 				// 関数のはじめの基本ブロックだけ headOfFunction を true にし, arguments を TranslatedFunction に返す
+				this.headID = basicBlocks.get(i).getId();
 				TranslatedBasicBlock headBasicBlock = new TranslatedBasicBlock(name, basicBlocks.get(i), true, nextBasicBlocks);
 				this.translatedFunction.add(headBasicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), headBasicBlock.getParameters().stream())
@@ -83,10 +89,19 @@ public class TranslatedFunction {
 		translatedFunction.get(head).addDefines(this.allUndefined);
 	}
 
+	// Getter
+	public String getName() {
+		return name;
+	}
+
+	public int getHeadID() {
+		return headID;
+	}
+
 	// 変換後の関数をファイルに書き込むためのメソッド
-	public void print(String path) {
+	public void print(String path, HashMap<String, Integer> headIDs) {
 		// 変換後の関数を文字列にする
-		String functionString = translatedFunction.stream().map(bb -> bb.print(allParameters, allBound, allUndefined)).collect(Collectors.joining("\n"));
+		String functionString = translatedFunction.stream().map(bb -> bb.print(allParameters, allBound, allUndefined, headIDs)).collect(Collectors.joining("\n"));
 
 		try (PrintWriter pw = new PrintWriter(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(path, true), StandardCharsets.UTF_8)))) {
 			// ファイルへの書き込み

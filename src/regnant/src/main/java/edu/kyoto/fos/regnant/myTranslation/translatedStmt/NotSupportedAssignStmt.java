@@ -4,6 +4,7 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import soot.Value;
 import soot.jimple.internal.JAssignStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // まだ対応できていない JAssignStmt をエラーにする代わりに出力するためのクラス
@@ -28,7 +29,7 @@ public class NotSupportedAssignStmt implements TranslatedUnit {
 	}
 
 	// 出力の際には変換前の unit と, 左辺と右辺それぞれのクラスを出力する
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append("This AssignStmt is not yet supported: ")

@@ -6,6 +6,7 @@ import edu.kyoto.fos.regnant.myTranslation.Service.TranslateExprService;
 import soot.jimple.internal.JArrayRef;
 import soot.jimple.internal.JAssignStmt;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 配列に代入する式を表すクラス
@@ -31,14 +32,14 @@ public class AssignToArray implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append(arrayName)
 				.append("[")
-				.append(index.print(true))
+				.append(index.print(true, headIDs))
 				.append("] <- ")
-				.append(value.print(true))
+				.append(value.print(true, headIDs))
 				.append(";");
 
 		return builder.toString();

@@ -7,6 +7,7 @@ import edu.kyoto.fos.regnant.myTranslation.translatedExpr.StaticInvoke;
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.internal.JStaticInvokeExpr;
 
+import java.util.HashMap;
 import java.util.List;
 
 // 変換された InvokeStmt を表すクラス
@@ -31,7 +32,7 @@ public class FunctionCall implements TranslatedUnit {
 		return false;
 	}
 
-	public String print(List<String> arguments) {
-		return func.print(false);
+	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
+		return func.print(false, headIDs);
 	}
 }
