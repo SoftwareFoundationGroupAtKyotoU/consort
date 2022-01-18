@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 // ConSORT プログラムに変換された基本ブロックを表すためのクラス
 public class TranslatedBasicBlock {
 	// id は基本ブロックのナンバリング, translatedBasicBlock は変換後の式のリスト, arguments は変換後の元々の関数の引数, bound は変換後の基本ブロックの関数の引数, assigned は変換後の基本ブロックで代入される変数 nextBasicBlocks は次の基本ブロック
-	private final int id;
+	private final String name;
 	private final boolean headOfFunction;
 	private List<TranslatedUnit> translatedBasicBlock = new ArrayList<>();
 	private final List<String> parameters = new ArrayList<>();
@@ -22,15 +22,15 @@ public class TranslatedBasicBlock {
 	private final List<String> assigned = new ArrayList<>();
 	private final List<BasicBlock> nextBasicBlocks;
 
-	public TranslatedBasicBlock(BasicBlock basicBlock, boolean headOfFunction, List<BasicBlock> nextBasicBlocks) {
+	public TranslatedBasicBlock(String name, BasicBlock basicBlock, boolean headOfFunction, List<BasicBlock> nextBasicBlocks) {
 		TranslateStmtService service = new TranslateStmtService();
 
-		this.id = basicBlock.id;
+		this.name = name + "_" + basicBlock.id;
 		this.headOfFunction = headOfFunction;
 		this.nextBasicBlocks = nextBasicBlocks;
 
 		for (int i = 0; i < basicBlock.units.size(); i++) {
-			TranslatedUnit translatedUnit = service.translate(basicBlock.units.get(i), headOfFunction, nextBasicBlocks);
+			TranslatedUnit translatedUnit = service.translate(basicBlock.units.get(i), headOfFunction, nextBasicBlocks, name);
 
 			// もし変換後の unit が Argument だった場合, 関数の引数になる変数があるので, それを arguments フィールドに入れる
 			if (translatedUnit instanceof Argument) parameters.add(((Argument) translatedUnit).getArgumentVariable());
@@ -135,8 +135,7 @@ public class TranslatedBasicBlock {
 			assert (nextBasicBlocks.size() == 1);
 
 			nextBasicBlockBuilder
-					.append("f")
-					.append(nextBasicBlocks.get(0).id)
+					.append(name)
 					.append("(")
 					.append(callArgumentsString)
 					.append(")\n");
@@ -147,8 +146,7 @@ public class TranslatedBasicBlock {
 		// 結合
 		StringBuilder builder = new StringBuilder();
 		builder
-				.append("f")
-				.append(id)
+				.append(name)
 				.append("(")
 				.append(parametersString)
 				.append(") { \n")

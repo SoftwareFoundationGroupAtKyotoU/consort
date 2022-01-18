@@ -41,6 +41,8 @@ public class TranslateExprService {
 			return new ArrayRef((JArrayRef) value);
 		} else if (value instanceof IntConstant) {
 			return new IntConst(value.toString());
+		} else if (value instanceof JStaticInvokeExpr) {
+			return new StaticInvoke((JStaticInvokeExpr) value);
 		} else {
 			return new Other(value);
 		}

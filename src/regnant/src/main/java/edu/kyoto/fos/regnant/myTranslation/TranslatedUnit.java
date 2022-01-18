@@ -26,12 +26,13 @@ public interface TranslatedUnit {
 	}
 
 	// 基本ブロックの呼び出しを関数呼び出しに変換するメソッド
-	default String toFunctionCall(BasicBlock basicBlock, List<String> arguments) {
+	default String toFunctionCall(BasicBlock basicBlock, List<String> arguments, String funcName) {
 		String parametersString = arguments.stream().collect(Collectors.joining(", "));
 
 		StringBuilder builder = new StringBuilder();
 		builder
-				.append("f")
+				.append(funcName)
+				.append("_")
 				.append(basicBlock.id)
 				.append("(")
 				.append(parametersString)

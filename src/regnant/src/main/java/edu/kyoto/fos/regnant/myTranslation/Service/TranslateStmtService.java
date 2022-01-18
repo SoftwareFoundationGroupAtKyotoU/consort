@@ -5,23 +5,14 @@ import edu.kyoto.fos.regnant.myTranslation.TranslatedUnit;
 import edu.kyoto.fos.regnant.myTranslation.translatedStmt.*;
 import soot.ArrayType;
 import soot.Unit;
-import soot.jimple.internal.JArrayRef;
-import soot.jimple.internal.JAssignStmt;
-import soot.jimple.internal.JGotoStmt;
-import soot.jimple.internal.JIdentityStmt;
-import soot.jimple.internal.JIfStmt;
-import soot.jimple.internal.JNewArrayExpr;
-import soot.jimple.internal.JNopStmt;
-import soot.jimple.internal.JReturnStmt;
-import soot.jimple.internal.JReturnVoidStmt;
-import soot.jimple.internal.JimpleLocal;
+import soot.jimple.internal.*;
 
 import java.util.List;
 
 // Stmt を場合分けして変換するためのクラス
 public class TranslateStmtService {
 	// Stmt を場合分けして変換するメソッド
-	public TranslatedUnit translate(Unit unit, boolean headOfFunction, List<BasicBlock> nextTranslateBlock) {
+	public TranslatedUnit translate(Unit unit, boolean headOfFunction, List<BasicBlock> nextTranslateBlock, String funcName) {
 		// Java SE 12 以降も使えるようにしたら switch 文に書き換える
 		if (unit instanceof JNopStmt) {
 			// nop の場合 (assert が失敗した場合)
@@ -67,12 +58,14 @@ public class TranslateStmtService {
 			}
 		} else if (unit instanceof JIfStmt) {
 			// if 文の場合
-			return new If((JIfStmt) unit, nextTranslateBlock);
+			return new If((JIfStmt) unit, nextTranslateBlock, funcName);
 		} else if (unit instanceof JGotoStmt) {
 			// Goto 文の場合
-			return new Goto((JGotoStmt) unit, nextTranslateBlock);
+			return new Goto((JGotoStmt) unit, nextTranslateBlock, funcName);
+		} else if (unit instanceof JInvokeStmt) {
+			// 関数呼び出しの場合
+			return new FunctionCall((JInvokeStmt) unit);
 		} else {
-			// TODO: InvokeStmt にも対応する
 			// throw new RuntimeException("This unit is not yet supported: " + unit + " (" + unit.getClass() + ")");
 			// デバッグのための, エラーのための標準出力
 			return new NotSupportedUnit(unit);

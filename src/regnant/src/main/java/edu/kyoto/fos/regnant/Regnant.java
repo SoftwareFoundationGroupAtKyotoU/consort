@@ -131,7 +131,7 @@ public class Regnant extends Transform {
       Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
       toReturn.add(t);
 
-      TranslatedFunction translatedFunction = new TranslatedFunction(cfg);
+      TranslatedFunction translatedFunction = new TranslatedFunction(cfg, simpl.getMethod().getName());
 
       // myTranslation に渡す
       String path = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/output.imp";

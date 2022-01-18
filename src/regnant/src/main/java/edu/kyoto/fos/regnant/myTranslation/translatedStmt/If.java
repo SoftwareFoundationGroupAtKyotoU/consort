@@ -11,13 +11,15 @@ import java.util.List;
 // 変換後の if 式を表すクラス
 public class If implements TranslatedUnit {
 	// condition は条件式, thenBasicBlock は条件が成り立つ場合, elseBasicBlock は条件式が成田立たない場合を表す
+	private final String funcName;
 	private final TranslatedValue condition;
 	private final BasicBlock thenBasicBlock;
 	private final BasicBlock elseBasicBlock;
 
-	public If(JIfStmt unit, List<BasicBlock> nextBasicBlocks) {
-		TranslateExprService service = new TranslateExprService();
+	public If(JIfStmt unit, List<BasicBlock> nextBasicBlocks, String funcName) {
+		this.funcName = funcName;
 
+		TranslateExprService service = new TranslateExprService();
 		this.condition = service.translate(unit.getCondition());
 
 		assert (nextBasicBlocks.size() == 2);
@@ -44,9 +46,9 @@ public class If implements TranslatedUnit {
 				.append("if ")
 				.append(condition.print(true))
 				.append(" then ")
-				.append(toFunctionCall(thenBasicBlock, arguments))
+				.append(toFunctionCall(thenBasicBlock, arguments, funcName))
 				.append(" else ")
-				.append(toFunctionCall(elseBasicBlock, arguments));
+				.append(toFunctionCall(elseBasicBlock, arguments, funcName));
 
 		return builder.toString();
 	}

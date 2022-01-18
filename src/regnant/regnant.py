@@ -137,7 +137,7 @@ def main(this_dir, args):
     print_done(args, el)
 
     # 出力先のファイルにエントリーポイントを追加
-    f.write("{ f0() }")
+    f.write("{ main_0() }")
     f.close()
 
     print("Running ConSORT on translated program:")

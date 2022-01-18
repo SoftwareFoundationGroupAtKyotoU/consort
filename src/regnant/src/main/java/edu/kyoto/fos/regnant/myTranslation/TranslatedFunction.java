@@ -31,7 +31,8 @@ public class TranslatedFunction {
 	private List<String> allBound = new ArrayList<>();
 	private final List<String> allUndefined = new ArrayList<>();
 
-	public TranslatedFunction(CFGReconstructor cfg) {
+	// 引数の name は元の関数名
+	public TranslatedFunction(CFGReconstructor cfg, String name) {
 		// 基本ブロックを出力
 		System.out.println(cfg.dump());
 
@@ -44,7 +45,7 @@ public class TranslatedFunction {
 
 			if (cfg.getBbg().getHeads().contains(basicBlocks.get(i))) {
 				// 関数のはじめの基本ブロックだけ headOfFunction を true にし, arguments を TranslatedFunction に返す
-				TranslatedBasicBlock headBasicBlock = new TranslatedBasicBlock(basicBlocks.get(i), true, nextBasicBlocks);
+				TranslatedBasicBlock headBasicBlock = new TranslatedBasicBlock(name, basicBlocks.get(i), true, nextBasicBlocks);
 				this.translatedFunction.add(headBasicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), headBasicBlock.getParameters().stream())
 						.collect(Collectors.toList());
@@ -59,7 +60,7 @@ public class TranslatedFunction {
 				head = i;
 			} else {
 				// 返ってきた arguments を他の基本ブロックに渡す
-				TranslatedBasicBlock basicBlock = new TranslatedBasicBlock(basicBlocks.get(i), false, nextBasicBlocks);
+				TranslatedBasicBlock basicBlock = new TranslatedBasicBlock(name, basicBlocks.get(i), false, nextBasicBlocks);
 				this.translatedFunction.add(basicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), basicBlock.getParameters().stream())
 						.collect(Collectors.toList());
