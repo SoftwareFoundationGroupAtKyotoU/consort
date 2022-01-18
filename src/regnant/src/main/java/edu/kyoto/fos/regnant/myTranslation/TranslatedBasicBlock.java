@@ -4,7 +4,6 @@ import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.myTranslation.Service.TranslateStmtService;
 import edu.kyoto.fos.regnant.myTranslation.translatedExpr.IntConst;
 import edu.kyoto.fos.regnant.myTranslation.translatedStmt.*;
-import polyglot.ast.New;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,8 +13,9 @@ import java.util.stream.Stream;
 
 // ConSORT プログラムに変換された基本ブロックを表すためのクラス
 public class TranslatedBasicBlock {
-	// id は基本ブロックのナンバリング, translatedBasicBlock は変換後の式のリスト, arguments は変換後の元々の関数の引数, bound は変換後の基本ブロックの関数の引数, assigned は変換後の基本ブロックで代入される変数 nextBasicBlocks は次の基本ブロック
+	// name は関数名, id は基本ブロックのナンバリング, translatedBasicBlock は変換後の式のリスト, arguments は変換後の元々の関数の引数, bound は変換後の基本ブロックの関数の引数, assigned は変換後の基本ブロックで代入される変数, nextBasicBlocks は次の基本ブロック, gotoFlag は次の基本ブロックを呼び出す必要があるかどうか
 	private final String name;
+	private final int id;
 	private final boolean headOfFunction;
 	private List<TranslatedUnit> translatedBasicBlock = new ArrayList<>();
 	private final List<String> parameters = new ArrayList<>();
@@ -26,7 +26,8 @@ public class TranslatedBasicBlock {
 	public TranslatedBasicBlock(String name, BasicBlock basicBlock, boolean headOfFunction, List<BasicBlock> nextBasicBlocks) {
 		TranslateStmtService service = new TranslateStmtService();
 
-		this.name = name + "_" + basicBlock.id;
+		this.name = name;
+		this.id = basicBlock.id;
 		this.headOfFunction = headOfFunction;
 		this.nextBasicBlocks = nextBasicBlocks;
 
@@ -40,9 +41,12 @@ public class TranslatedBasicBlock {
 			if (translatedUnit instanceof NewPrimitiveVariable)
 				bound.add(((NewPrimitiveVariable) translatedUnit).getBoundVariable());
 			// もし変換後の unit が AssignToVariable だった場合, 最初の基本ブロックにない変数定義になりうる
-			if (translatedUnit instanceof AssignToVariable) assigned.add(((AssignToVariable) translatedUnit).getAssignedVariable());
+			if (translatedUnit instanceof AssignToVariable)
+				assigned.add(((AssignToVariable) translatedUnit).getAssignedVariable());
 
 			translatedBasicBlock.add(translatedUnit);
+
+			if (translatedUnit instanceof FunctionCall) break;
 		}
 	}
 
@@ -130,13 +134,15 @@ public class TranslatedBasicBlock {
 		// 次の基本ブロックの引数部分の作成
 		String callArgumentsString = restArguments.stream().collect(Collectors.joining(", "));
 
-		if (!(getTail() instanceof If || getTail() instanceof Goto || nextBasicBlocks.size() == 0)) {
+		if (!(getTail() instanceof If || getTail() instanceof Goto || getTail() instanceof FunctionCall || nextBasicBlocks.size() == 0)) {
 			nextBasicBlockBuilder.append("  ".repeat(Math.max(0, indentLevel)));
 
 			assert (nextBasicBlocks.size() == 1);
 
 			nextBasicBlockBuilder
 					.append(name)
+					.append("_")
+					.append(nextBasicBlocks.get(0).id)
 					.append("(")
 					.append(callArgumentsString)
 					.append(")\n");
@@ -148,6 +154,8 @@ public class TranslatedBasicBlock {
 		StringBuilder builder = new StringBuilder();
 		builder
 				.append(name)
+				.append("_")
+				.append(id)
 				.append("(")
 				.append(parametersString)
 				.append(") { \n")

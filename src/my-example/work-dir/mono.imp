@@ -1,49 +1,57 @@
-find_n_single_main(){
-  let _tmp_r2 = mkarray 6 in 
+regnant$sum_break_main__loop_4(i1,i2,i3,i4){
   {
-    _tmp_r2[0] <- 0;
-    _tmp_r2[1] <- 9;
-    _tmp_r2[2] <- 3;
-    _tmp_r2[3] <- 4;
-    _tmp_r2[4] <- 15;
-    _tmp_r2[5] <- 16;
-    let r1 = _tmp_r2 in 
-    let b0 = 3 in 
-    let b1 = 0 in 
-    let b2 = 0 in 
-    {
-      find_n_single_loop(r1, b0, b1, b2);
+    if (*i4) >= 5 then
       return 0
-    }
-  }
-
-}
-find_n_single_loop(regnant$in_r0,regnant$in_i0,regnant$in_i1,regnant$in_i2){
-  let r0 = regnant$in_r0 in 
-  let i0 = regnant$in_i0 in 
-  let i1 = regnant$in_i1 in 
-  let i2 = regnant$in_i2 in 
-  let _tmp_i3 = r0.length in 
-  {
-    if i1 >= _tmp_i3 then
-      {
-        find_n_single_assert_ans(i2);
-      }
 
     else
+      let _tmp_i0 = (*i3) + (*i4) in 
       {
-        find_n_single_then1(r0, i0, i1, i2);
+        i1 := (*i1) + _tmp_i0;
+        i2 := (*i2) + 1;
+        if (*i1) <= 15 then
+          {
+            i4 := (*i4) + 1;
+            return regnant$sum_break_main__loop_4(i1, i2, i3, i4)
+          }
+
+        else
+          return 0
+;
       }
 ;
-    alias(r0 = regnant$in_r0);
-    return 0
   }
 
 }
-find_n_single_assert_ans(regnant$in_i0){
-  let i0 = regnant$in_i0 in 
+regnant$sum_break_main__loop_1(i1,i2,i3){
   {
-    if i0 = 1 then
+    if (*i3) >= 5 then
+      return 0
+
+    else
+      let i4 = mkref 0 in 
+      {
+        regnant$sum_break_main__loop_4(i1, i2, i3, i4);
+        if (*i1) <= 15 then
+          {
+            i3 := (*i3) + 1;
+            return regnant$sum_break_main__loop_1(i1, i2, i3)
+          }
+
+        else
+          return 0
+;
+      }
+;
+  }
+
+}
+sum_break_main(){
+  let i1 = mkref 0 in 
+  let i2 = mkref 0 in 
+  let i3 = mkref 0 in 
+  {
+    regnant$sum_break_main__loop_1(i1, i2, i3);
+    if (*i2) = 8 then
       ()
     else
       {
@@ -54,49 +62,5 @@ find_n_single_assert_ans(regnant$in_i0){
   }
 
 }
-find_n_single_then1(regnant$in_r0,regnant$in_i0,regnant$in_i1,regnant$in_i2){
-  let r0 = regnant$in_r0 in 
-  let i0 = regnant$in_i0 in 
-  let i1 = regnant$in_i1 in 
-  let i2 = regnant$in_i2 in 
-  let _tmp_i3 = r0[i1] in 
-  {
-    if _tmp_i3 != i0 then
-      {
-        find_n_single_else1(r0, i0, i1, i2);
-      }
 
-    else
-      {
-        find_n_single_equal_3(i2);
-      }
-;
-    alias(r0 = regnant$in_r0);
-    return 0
-  }
-
-}
-find_n_single_else1(regnant$in_r0,regnant$in_i0,regnant$in_i2,regnant$in_i1){
-  let r0 = regnant$in_r0 in 
-  let i0 = regnant$in_i0 in 
-  let i2 = regnant$in_i2 in 
-  let i1 = regnant$in_i1 in 
-  let i3 = i2 + 1 in 
-  {
-    find_n_single_loop(r0, i0, i3, i1);
-    alias(r0 = regnant$in_r0);
-    return 0
-  }
-
-}
-find_n_single_equal_3(regnant$in_i0){
-  let i0 = regnant$in_i0 in 
-  let b1 = 1 in 
-  {
-    find_n_single_assert_ans(b1);
-    return 0
-  }
-
-}
-
-{ find_n_single_main() }
+{ sum_break_main() }
