@@ -53,7 +53,7 @@ public class find_n_square_goto_single {
 
   public static void main(String[] args) {
     int[] arr = { 0, 9, 3, 4, 15, 16, 8, 7, 20 };
-    int n = 5;
+    int n = 3;
     int i = 0;
     int j = 0;
     int ans = 0;

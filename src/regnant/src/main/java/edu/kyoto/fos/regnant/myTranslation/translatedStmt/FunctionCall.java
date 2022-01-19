@@ -33,6 +33,6 @@ public class FunctionCall implements TranslatedUnit {
 	}
 
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
-		return func.print(false, headIDs);
+		return func.print(false, headIDs) + ";";
 	}
 }
