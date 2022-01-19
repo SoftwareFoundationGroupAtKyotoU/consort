@@ -1,57 +1,24 @@
-regnant$sum_break_main__loop_4(i1,i2,i3,i4){
+regnant$call_in_expr_main__loop_1(i0,i1){
   {
-    if (*i4) >= 5 then
+    if (*i1) >= 10 then
       return 0
 
     else
-      let _tmp_i0 = (*i3) + (*i4) in 
       {
-        i1 := (*i1) + _tmp_i0;
-        i2 := (*i2) + 1;
-        if (*i1) <= 15 then
-          {
-            i4 := (*i4) + 1;
-            return regnant$sum_break_main__loop_4(i1, i2, i3, i4)
-          }
-
-        else
-          return 0
-;
+        i0 := call_in_expr_plus2(*i0);
+        i1 := (*i1) + 1;
+        return regnant$call_in_expr_main__loop_1(i0, i1)
       }
 ;
   }
 
 }
-regnant$sum_break_main__loop_1(i1,i2,i3){
-  {
-    if (*i3) >= 5 then
-      return 0
-
-    else
-      let i4 = mkref 0 in 
-      {
-        regnant$sum_break_main__loop_4(i1, i2, i3, i4);
-        if (*i1) <= 15 then
-          {
-            i3 := (*i3) + 1;
-            return regnant$sum_break_main__loop_1(i1, i2, i3)
-          }
-
-        else
-          return 0
-;
-      }
-;
-  }
-
-}
-sum_break_main(){
+call_in_expr_main(){
+  let i0 = mkref 0 in 
   let i1 = mkref 0 in 
-  let i2 = mkref 0 in 
-  let i3 = mkref 0 in 
   {
-    regnant$sum_break_main__loop_1(i1, i2, i3);
-    if (*i2) = 8 then
+    regnant$call_in_expr_main__loop_1(i0, i1);
+    if (*i0) = 200 then
       ()
     else
       {
@@ -62,5 +29,11 @@ sum_break_main(){
   }
 
 }
+call_in_expr_plus2(regnant$in_i0){
+  let i0 = regnant$in_i0 in 
+  let _tmp_i1 = i0 + 2 in 
+  return _tmp_i1
 
-{ sum_break_main() }
+}
+
+{ call_in_expr_main() }

@@ -46,7 +46,7 @@ public class TranslatedBasicBlock {
 
 			translatedBasicBlock.add(translatedUnit);
 
-			if (translatedUnit instanceof FunctionCall) break;
+			if (translatedUnit instanceof FunctionCall || translatedUnit instanceof AssertFail) break;
 		}
 	}
 
@@ -134,7 +134,7 @@ public class TranslatedBasicBlock {
 		// 次の基本ブロックの引数部分の作成
 		String callArgumentsString = restArguments.stream().collect(Collectors.joining(", "));
 
-		if (!(getTail() instanceof If || getTail() instanceof Goto || getTail() instanceof FunctionCall || nextBasicBlocks.size() == 0)) {
+		if (!(getTail() instanceof If || getTail() instanceof Goto || getTail() instanceof FunctionCall || getTail() instanceof AssertFail || nextBasicBlocks.size() == 0)) {
 			nextBasicBlockBuilder.append("  ".repeat(Math.max(0, indentLevel)));
 
 			assert (nextBasicBlocks.size() == 1);
