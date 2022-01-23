@@ -99,7 +99,7 @@ public class TranslatedBasicBlock {
 	// 基本ブロックを関数名と関数呼び出し付きで出力するメソッド
 	public String print(List<String> allArguments, List<String> allBound, List<String> allUndefined, HashMap<String, Integer> headIDs) {
 
-		// 引数のための, allArguments と allBound を合わせたリスト
+		// 引数のための, allArguments と allBound, allUndefined を合わせたリスト
 		List<String> restArguments = Stream.concat(Stream.concat(allArguments.stream(), allBound.stream()), allUndefined.stream())
 				.collect(Collectors.toList());
 

@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+// TODO: 返り値が tmp と普通の変数がごっちゃになっておかしくなるから全部ポインタにした方が良さそう
+// TODO: JNewArrayStmt を分ける
+// TODO: Local の情報から先に参照を生成する（これに伴って array 周りは色々変えないかんと思う）
 // TODO: 環境 (初出の変数がどれか) を関数ごとに作るように変更する
 // TODO: 無駄な Unit を減らす (関数呼び出しの後の Unit とか)
 // TODO: 無駄な基本ブロックを減らす (return 文だけの基本ブロックが大量に生成される. もしかしたら検証器には嬉しかったりするのか？)
