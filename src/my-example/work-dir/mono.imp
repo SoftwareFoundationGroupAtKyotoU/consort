@@ -3,7 +3,16 @@ jimple_example_main(){
   let _tmp_i0 = jimple_example_abs(b2) in 
   let _tmp_i1 = 2 * _tmp_i0 in 
   let i3 = 1 + _tmp_i1 in 
-  return 0
+  {
+    if i3 = 7 then
+      ()
+    else
+      {
+        fail;
+      }
+;
+    return 0
+  }
 
 }
 jimple_example_abs(regnant$in_i0){

@@ -2,6 +2,7 @@ package edu.kyoto.fos.regnant.cfg;
 
 import soot.Unit;
 import soot.jimple.AssignStmt;
+import soot.jimple.IdentityStmt;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -51,13 +52,28 @@ public final class BasicBlock implements Comparable<BasicBlock> {
   //   return id + ":{" + getHead() + "->" + getTail() + "}";
   // }
 
+  private static String showDetail(Unit unit) {
+    String s;
+
+    if (unit instanceof AssignStmt) {
+      s = unit + " (" + unit.getClass() + (" Left: " + ((AssignStmt)unit).getLeftOp().getClass().toString()
+              + " Right: " + ((AssignStmt)unit).getRightOp().getClass().toString()) + " "
+              + ((AssignStmt) unit).getRightOp().getType().getClass() + ")";
+    } else if (unit instanceof IdentityStmt) {
+      s = unit + " (" + unit.getClass() + (" Left: " + ((IdentityStmt)unit).getLeftOp().getClass().toString()
+              + " Right: " + ((IdentityStmt)unit).getRightOp().getClass().toString()) + " "
+              + ((IdentityStmt) unit).getRightOp().getType().getClass() + ")";
+    } else {
+      s = unit + " (" + unit.getClass() + ")";
+    }
+
+    return s;
+  }
+
   @Override public String toString() {
     String basicBlockCode;
     basicBlockCode = this.units.stream()
-                    .map(unit -> unit.toString() + " (" + unit.getClass() +
-                            ((unit instanceof AssignStmt)
-                                    ? (" Left: " + ((AssignStmt)unit).getLeftOp().getClass().toString() + " Right: " + ((AssignStmt)unit).getRightOp().getClass().toString()) + " " + ((AssignStmt) unit).getRightOp().getType().getClass()
-                                    : "") + ")")
+                    .map(BasicBlock::showDetail)
                     .collect(Collectors.joining("\n     "));
     return "f" + id + "(){" + basicBlockCode + "}\n";
   }
