@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import statistics
 import sys
 import subprocess
 import tempfile
@@ -50,6 +50,7 @@ def main(this_dir, args):
     # 追加
     parser.add_argument("--timeout", nargs="?", default="30")
     parser.add_argument("--show-all", action="store_true", default = False)
+    parser.add_argument("--experiment", action="store_true")
 
     args = parser.parse_args(args)
     cls = args.entry_point
@@ -140,48 +141,70 @@ def main(this_dir, args):
     f.write("{ main_0() }")
     f.close()
 
-    print("Running ConSORT on translated program:")
-    yaml_flg = ["-yaml"] if args.yaml is not None else []
-    consort_cmd = [
-        os.path.join(this_dir, "../_build/default/test.exe"),
-        "-intrinsics", intr_loc,
-        "-exit-status",
-        # timeout の追加
-        "-timeout", args.timeout
-    ] + args.consort_args + yaml_flg + [
-        data
-    ]
-    # show-all の追加
-    if args.show_all:
-        consort_cmd = consort_cmd + ["-show-all"]
-    log_command(args, consort_cmd)
-    s = time.time()
-    ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
-    e = time.time()
-
-    if args.yaml:
-        with open(args.yaml, 'w') as out:
-            print(ret.stdout.decode("utf-8"), file=out)
-        print("Done")
+    # 検証時間測る用
+    if args.experiment:
+        loop = 10
     else:
+        loop = 1
+    list_reg = list(range(10))
+    list_mine = list(range(10))
+
+    for i in range(loop):
+        print("Running ConSORT on translated program:")
+        yaml_flg = ["-yaml"] if args.yaml is not None else []
+        consort_cmd = [
+            os.path.join(this_dir, "../_build/default/test.exe"),
+            "-intrinsics", intr_loc,
+            "-exit-status",
+            # timeout の追加
+            "-timeout", args.timeout
+        ] + args.consort_args + yaml_flg + [
+            data
+        ]
+        # show-all の追加
+        if args.show_all:
+            consort_cmd = consort_cmd + ["-show-all"]
+        log_command(args, consort_cmd)
+        s = time.time()
+        ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
+        e = time.time()
+
+        if args.yaml:
+            with open(args.yaml, 'w') as out:
+                print(ret.stdout.decode("utf-8"), file=out)
+            print("Done")
+        else:
+            print(ret.stdout.decode("utf-8").strip())
+        if args.timing:
+            print("(ConSORT ran for %.02f seconds)" % (e - s))
+
+        # 時間測る用
+        list_reg[i] = e - s
+
+        # 実験用
+        # my_data = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/find_square.imp"
+
+        # 自分の Regnant で実行
+        print("Running ConSORT with new Regnant on translated program:")
+        consort_cmd = [os.path.join(this_dir, "../test.sh"), "-timeout", args.timeout, my_data]
+        if args.show_all:
+            consort_cmd = consort_cmd + ["-show-all"]
+        log_command(args, consort_cmd)
+        my_s = time.time()
+        ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
+        my_e = time.time()
+
         print(ret.stdout.decode("utf-8").strip())
-    if args.timing:
-        print("(ConSORT ran for %.02f seconds)" % (e - s))
 
-    # 自分の Regnant で実行
-    print("Running ConSORT with new Regnant on translated program:")
-    consort_cmd = [os.path.join(this_dir, "../test.sh"), "-timeout", args.timeout, my_data]
-    if args.show_all:
-        consort_cmd = consort_cmd + ["-show-all"]
-    log_command(args, consort_cmd)
-    my_s = time.time()
-    ret = subprocess.run(consort_cmd, stdout = subprocess.PIPE)
-    my_e = time.time()
+        if args.timing:
+            print("(ConSORT with new Regnant ran for %.02f seconds)" % (my_e - my_s))
 
-    print(ret.stdout.decode("utf-8").strip())
+        # 時間測る用
+        list_mine[i] = my_e - my_s
 
-    if args.timing:
-        print("(ConSORT with new Regnant ran for %.02f seconds)" % (my_e - my_s))
+    if args.experiment:
+        print("Regnant: " + str(statistics.mean(list_reg)) + " +- " + str(statistics.pstdev(list_reg)))
+        print("Mine: " + str(statistics.mean(list_mine)) + " +- " + str(statistics.pstdev(list_mine)))
 
     return ret.returncode
 

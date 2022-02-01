@@ -1,6 +1,14 @@
 {
-	let x = mkref 0 in {
-		x := 1;
-		assert(*x = 1)
-	}
+	let _tmp_r2 = mkarray 6 in 
+  {
+    _tmp_r2[0] <- 0;
+    _tmp_r2[1] <- 9;
+    _tmp_r2[2] <- 3;
+    _tmp_r2[3] <- 4;
+    _tmp_r2[4] <- 15;
+    _tmp_r2[5] <- 16;
+	let a = mkref _tmp_r2 in {
+      assert(*a[2] = 3);
+    }
+  }
 }

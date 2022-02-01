@@ -47,10 +47,10 @@ public class TranslatedBasicBlock {
 			translatedBasicBlock.add(translatedUnit);
 
 			// assert は必ず失敗するようにしているので assert の先の命令を無視して return 文に変換するs
-			if (translatedUnit instanceof AssertFail) {
-				translatedBasicBlock.add(new ReturnVoid());
-				break;
-			}
+//			if (translatedUnit instanceof AssertFail) {
+//				translatedBasicBlock.add(new ReturnVoid());
+//				break;
+//			}
 		}
 	}
 
@@ -138,7 +138,7 @@ public class TranslatedBasicBlock {
 		// 次の基本ブロックの引数部分の作成
 		String callArgumentsString = restArguments.stream().collect(Collectors.joining(", "));
 
-		if (!(getTail() instanceof If || getTail() instanceof Goto || getTail() instanceof ReturnVoid || nextBasicBlocks.size() == 0)) {
+		if (!(getTail() instanceof If || getTail() instanceof Goto || nextBasicBlocks.size() == 0)) {
 			nextBasicBlockBuilder.append("  ".repeat(Math.max(0, indentLevel)));
 
 			assert (nextBasicBlocks.size() == 1);

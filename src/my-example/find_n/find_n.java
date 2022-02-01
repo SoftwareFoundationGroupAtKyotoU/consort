@@ -1,7 +1,7 @@
 public class find_n {
   public static void main(String[] args) {
     int[] arr = { 0, 9, 3, 4, 15, 16 };
-    int n = 2;
+    int n = 5;
     int i = 0;
     int ans = 0;
 
@@ -13,6 +13,6 @@ public class find_n {
       i++;
     }
 
-    assert (ans == 2);
+    assert (ans == 1);
   }
 }
