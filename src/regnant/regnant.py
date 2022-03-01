@@ -181,8 +181,8 @@ def main(this_dir, args):
         # 時間測る用
         list_reg[i] = e - s
 
-        # 実験用
-        # my_data = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/find_square.imp"
+        # 卒論実験用
+        # my_data = "./src/main/java/edu/kyoto/fos/regnant/myTranslation/output/call_in_expr.imp"
 
         # 自分の Regnant で実行
         print("Running ConSORT with new Regnant on translated program:")

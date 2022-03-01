@@ -1,9 +1,10 @@
 public class my_example {
   public static void main(String[] args) {
     int i = 0;
-    while (i < 10) {
+    int n = 10;
+
+    while (i < n) {
       i++;
     }
-    assert (i == 10);
   }
 }

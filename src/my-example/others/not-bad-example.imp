@@ -1,0 +1,8 @@
+{
+    let x = mkref 1 in
+    let y = mkref 2 in
+    let a = x in
+    let b = y in
+    alias(a = b);
+    assert(*a = *b)
+}

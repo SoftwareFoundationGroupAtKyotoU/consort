@@ -9,6 +9,6 @@ public class call_in_expr {
       x = plus2(x);
     }
 
-    assert(x == 20);
+    assert(x == 30);
   }
 }

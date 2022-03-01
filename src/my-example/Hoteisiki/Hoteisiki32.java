@@ -7,8 +7,8 @@ public class Hoteisiki32 {
           break out;
       }
     }
-    assert (x < 100);
-    assert (y < 100);
+    assert (x < 10);
+    assert (y < 10);
     // if (x < 100)
     // System.out.println("x = " + x + ",y = " + y);
     // else

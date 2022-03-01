@@ -1,0 +1,13 @@
+{
+    let x = mkref 1 in
+    let y = x in
+    {
+        y := 2;
+        let z = x in
+        let a = mkref 10 in
+        {
+            alias(z = a);
+            assert(*z = 10)
+        }
+    }
+}

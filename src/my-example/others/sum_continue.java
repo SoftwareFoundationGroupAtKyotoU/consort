@@ -10,6 +10,6 @@ public class sum_continue {
       ans += i;
     }
 
-    assert(ans == 15);
+    assert(ans == 16);
   }
 }

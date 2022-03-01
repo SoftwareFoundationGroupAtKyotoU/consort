@@ -1,0 +1,11 @@
+{
+    let x = mkref 1 in
+    let y = mkref 2 in
+    let a = x in
+    let b = y in
+    {
+        x := 10;
+        y := 20;
+        alias(a = b)
+    }
+}
