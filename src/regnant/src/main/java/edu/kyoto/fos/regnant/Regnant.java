@@ -23,6 +23,7 @@ import soot.Transform;
 import soot.UnitPatchingChain;
 import soot.ValueBox;
 import soot.options.Options;
+import soot.util.Chain;
 import soot.util.queue.ChunkedQueue;
 import soot.util.queue.QueueReader;
 
@@ -101,12 +102,13 @@ public class Regnant extends Transform {
     QueueReader<SootMethod> reader = worklist.reader();
     worklist.add(m);
     HashSet<SootMethod> visited = new HashSet<>();
-    return this.work(reader, worklist, visited, as, oimpl);
+    Chain<Local> locals = m.getActiveBody().getLocals();
+    return this.work(reader, worklist, visited, as, oimpl, locals);
   }
 
   // ここで Java プログラムを jimple に変換して Translate メソッドに渡してそう
   private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited, final FieldAliasing as,
-      final Impl oimpl) {
+      final Impl oimpl, final Chain<Local> locals) {
     StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
     List<Translate> toReturn = new ArrayList<>();
 
@@ -135,7 +137,7 @@ public class Regnant extends Transform {
       toReturn.add(t);
 
       // translatedBody と headIDs に追加
-      TranslatedFunction translatedFunction = new TranslatedFunction(cfg, simpl.getMethod().getName());
+      TranslatedFunction translatedFunction = new TranslatedFunction(cfg, simpl.getMethod().getName(), locals);
       translatedBody.add(translatedFunction);
       headIDs.put(translatedFunction.getName(), translatedFunction.getHeadID());
     }

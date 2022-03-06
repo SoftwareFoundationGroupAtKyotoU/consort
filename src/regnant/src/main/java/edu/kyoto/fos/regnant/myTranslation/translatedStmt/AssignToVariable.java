@@ -22,7 +22,7 @@ public class AssignToVariable implements TranslatedUnit {
 		this.variable = unit.getLeftOp().toString();
 		this.value = handler.translate(unit.getRightOp());
 	}
-
+	
 	public boolean isSequencing() {
 		return true;
 	}
@@ -40,9 +40,5 @@ public class AssignToVariable implements TranslatedUnit {
 				.append(";");
 
 		return builder.toString();
-	}
-
-	public String getAssignedVariable() {
-		return variable;
 	}
 }

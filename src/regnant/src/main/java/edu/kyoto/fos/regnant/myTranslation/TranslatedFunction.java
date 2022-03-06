@@ -3,6 +3,8 @@ package edu.kyoto.fos.regnant.myTranslation;
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.myTranslation.translatedStmt.AssignToVariable;
+import soot.Local;
+import soot.util.Chain;
 
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
@@ -35,61 +37,38 @@ public class TranslatedFunction {
 	private final List<TranslatedBasicBlock> translatedFunction = new ArrayList<>();
 	private List<String> allParameters = new ArrayList<>();
 	private List<String> allBound = new ArrayList<>();
-	private final List<String> allUndefined = new ArrayList<>();
 
 	// 引数の name は元の関数名
-	public TranslatedFunction(CFGReconstructor cfg, String name) {
+	public TranslatedFunction(CFGReconstructor cfg, String name, Chain<Local> locals) {
 		// 基本ブロックを出力
 		System.out.println(cfg.dump());
 
 		this.name = name;
 
-		int head = 0;
-		List<String> headEnv = new ArrayList<>();
-		List<String> allAssigned = new ArrayList<>();
 		List<BasicBlock> basicBlocks = new ArrayList<>(cfg.getBbm().getHdMap().values());
-		for (int i = 0; i < basicBlocks.size(); i++) {
-			List<BasicBlock> nextBasicBlocks = cfg.getBbg().getSuccsOf(basicBlocks.get(i));
+		for (BasicBlock block : basicBlocks) {
+			List<BasicBlock> nextBasicBlocks = cfg.getBbg().getSuccsOf(block);
 
-			if (cfg.getBbg().getHeads().contains(basicBlocks.get(i))) {
+			if (cfg.getBbg().getHeads().contains(block)) {
 				// 関数のはじめの基本ブロックだけ headOfFunction を true にし, arguments を TranslatedFunction に返す
-				this.headID = basicBlocks.get(i).getId();
-				TranslatedBasicBlock headBasicBlock = new TranslatedBasicBlock(name, basicBlocks.get(i), true, nextBasicBlocks);
+				this.headID = block.getId();
+				TranslatedBasicBlock headBasicBlock = new TranslatedBasicBlock(name, block, true, nextBasicBlocks, locals);
+
 				this.translatedFunction.add(headBasicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), headBasicBlock.getParameters().stream())
 						.collect(Collectors.toList());
 				this.allBound = Stream.concat(allBound.stream(), headBasicBlock.getBound().stream())
 						.collect(Collectors.toList());
-
-				// headEnv は関数の最初の基本ブロックで定義されている変数
-				headEnv = Stream.concat(headBasicBlock.getParameters().stream(), headBasicBlock.getBound().stream())
-						.collect(Collectors.toList());
-
-				// head は関数の最初の基本ブロックのインデックス
-				head = i;
 			} else {
 				// 返ってきた arguments を他の基本ブロックに渡す
-				TranslatedBasicBlock basicBlock = new TranslatedBasicBlock(name, basicBlocks.get(i), false, nextBasicBlocks);
+				TranslatedBasicBlock basicBlock = new TranslatedBasicBlock(name, block, false, nextBasicBlocks, locals);
 				this.translatedFunction.add(basicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), basicBlock.getParameters().stream())
 						.collect(Collectors.toList());
 				this.allBound = Stream.concat(allBound.stream(), basicBlock.getBound().stream())
 						.collect(Collectors.toList());
-
-				// allAssigned は最初の基本ブロック以外で代入されている変数
-				allAssigned = Stream.concat(allAssigned.stream(), basicBlock.getAssigned().stream())
-						.collect(Collectors.toList());
 			}
 		}
-
-		// 代入された変数が最初の基本ブロックで定義されていなければ allUndefined に加える
-		for (String variable : allAssigned) {
-			if (!(headEnv.contains(variable) || this.allUndefined.contains(variable))) {
-				this.allUndefined.add(variable);
-			}
-		}
-
-		translatedFunction.get(head).addDefines(this.allUndefined);
 	}
 
 	// Getter
@@ -104,7 +83,7 @@ public class TranslatedFunction {
 	// 変換後の関数をファイルに書き込むためのメソッド
 	public void print(String path, HashMap<String, Integer> headIDs) {
 		// 変換後の関数を文字列にする
-		String functionString = translatedFunction.stream().map(bb -> bb.print(allParameters, allBound, allUndefined, headIDs)).collect(Collectors.joining("\n"));
+		String functionString = translatedFunction.stream().map(bb -> bb.print(allParameters, allBound, headIDs)).collect(Collectors.joining("\n"));
 
 		try (PrintWriter pw = new PrintWriter(new BufferedWriter(new OutputStreamWriter(new FileOutputStream(path, true), StandardCharsets.UTF_8)))) {
 			// ファイルへの書き込み

@@ -33,24 +33,11 @@ public class TranslateStmtService {
 				// 配列を新しく作る場合
 				return new NewArray(assignUnit);
 			} else if (assignUnit.getLeftOp() instanceof JArrayRef) {
-				// 配列の要素を更新する場合 (もし初期化の場合のみ <- を使うとかだったら要修正)
+				// 配列の要素を更新する場合
 				return new AssignToArray(assignUnit);
 			} else if (assignUnit.getLeftOp() instanceof JimpleLocal) {
-				if (assignUnit.getLeftOp().toString().contains("tmp")) {
-					// 定義する変数が tmp 変数の場合
-					return new NewTmpVariable(assignUnit);
-				} else if (headOfFunction) {
-					// 初めて変数が定義される場合 (関数の中の最初の基本ブロックに変数定義が全て含まれているという仮説による)
-					if (assignUnit.getRightOp().getType() instanceof ArrayType) {
-						// 右辺が配列の場合
-						return new NewPrimitiveVariable(assignUnit);
-					} else {
-						return new NewRef(assignUnit);
-					}
-				}  else {
-					// 定義されている変数に値を代入する場合
-					return new AssignToVariable(assignUnit);
-				}
+				// 定義されている変数に値を代入する場合（変数定義は全て初めに行われる）
+				return new AssignToVariable(assignUnit);
 			} else {
 				// throw new RuntimeException("This AssignStmt is not yet supported: " + unit + " ( Left: " + assignUnit.getLeftOp().getClass().toString() + " Right: " + assignUnit.getRightOp().getClass().toString() + ")");
 				// デバッグのための, エラーの代わりの標準出力

@@ -1,0 +1,8 @@
+{
+    let a = mkarray 0 in
+    let r = mkref a in
+    let b = mkarray 1 in {
+        b[0] <- 1;
+        r := b
+    }
+}

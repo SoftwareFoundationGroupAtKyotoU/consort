@@ -14,7 +14,7 @@ public class StaticInvoke implements TranslatedValue {
 	}
 
 	public String print(boolean isDereference, HashMap<String, Integer> headIDs) {
-		String arguments = func.getArgs().stream().map(Object::toString).collect(Collectors.joining(", "));
+		String arguments = func.getArgs().stream().map(Object::toString).map(v -> "*" + v).collect(Collectors.joining(", "));
 		String funcName = func.getMethod().getName();
 
 		StringBuilder sb = new StringBuilder();

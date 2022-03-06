@@ -18,6 +18,11 @@ public class NewArray implements TranslatedUnit {
 		this.arraySize = ((JNewArrayExpr) (unit.getRightOp())).getSize().toString();
 	}
 
+	public NewArray(String arrayName, String arraySize) {
+		this.arrayName = arrayName;
+		this.arraySize = arraySize;
+	}
+
 	public boolean isSequencing() {
 		return false;
 	}

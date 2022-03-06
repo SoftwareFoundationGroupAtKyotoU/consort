@@ -8,14 +8,18 @@ import java.util.HashMap;
 // その他の Expr を表すクラス
 public class Other implements TranslatedValue {
 	// value は Expr そのものを表す
-	private final Value value;
+	private final String value;
 
 	public Other(Value value) {
+		this.value = value.toString();;
+	}
+
+	public Other(String value) {
 		this.value = value;
 	}
 
 	// 元々の toString をそのまま返す
 	public String print(boolean isPointer, HashMap<String, Integer> headIDs) {
-		return value.toString();
+		return value;
 	}
 }
