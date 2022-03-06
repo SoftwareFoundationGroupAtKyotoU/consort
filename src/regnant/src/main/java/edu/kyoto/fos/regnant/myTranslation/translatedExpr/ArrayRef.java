@@ -20,7 +20,9 @@ public class ArrayRef implements TranslatedValue {
 
 	public String print(boolean isDereference, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
+		// TODO: ここで健全じゃなくなってるかも. * を外す？ それとも最初に変数を全て定義するのが悪い？
 		builder
+				.append("*")
 				.append(arrayName)
 				.append("[")
 				.append(index.print(true, headIDs))
