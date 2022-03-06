@@ -24,10 +24,6 @@ public class Goto implements TranslatedUnit {
 		return false;
 	}
 
-	public boolean istTranslatedUnitEmpty() {
-		return false;
-	}
-
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		return toFunctionCall(target, arguments, funcName);
 	}

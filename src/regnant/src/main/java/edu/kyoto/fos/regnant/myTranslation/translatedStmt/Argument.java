@@ -22,10 +22,6 @@ public class Argument implements TranslatedUnit {
 	}
 
 	public boolean isSequencing() {
-		return false;
-	}
-
-	public boolean istTranslatedUnitEmpty() {
 		return true;
 	}
 

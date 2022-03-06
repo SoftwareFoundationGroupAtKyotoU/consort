@@ -19,10 +19,6 @@ public class NotSupportedUnit implements TranslatedUnit {
 		return false;
 	}
 
-	public boolean istTranslatedUnitEmpty() {
-		return false;
-	}
-
 	// 出力の際には変換前の unit を出力する
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();

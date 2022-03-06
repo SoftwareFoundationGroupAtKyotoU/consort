@@ -11,10 +11,6 @@ public class AssertFail implements TranslatedUnit {
 		return true;
 	}
 
-	public boolean istTranslatedUnitEmpty() {
-		return false;
-	}
-
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		return ("assert(0 = 1);");
 	}

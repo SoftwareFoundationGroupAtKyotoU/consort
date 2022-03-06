@@ -102,13 +102,12 @@ public class Regnant extends Transform {
     QueueReader<SootMethod> reader = worklist.reader();
     worklist.add(m);
     HashSet<SootMethod> visited = new HashSet<>();
-    Chain<Local> locals = m.getActiveBody().getLocals();
-    return this.work(reader, worklist, visited, as, oimpl, locals);
+    return this.work(reader, worklist, visited, as, oimpl);
   }
 
   // ここで Java プログラムを jimple に変換して Translate メソッドに渡してそう
   private List<Translate> work(final QueueReader<SootMethod> reader, final ChunkedQueue<SootMethod> worklist, final HashSet<SootMethod> visited, final FieldAliasing as,
-      final Impl oimpl, final Chain<Local> locals) {
+      final Impl oimpl) {
     StorageLayout l = new StorageLayout(Scene.v().getPointsToAnalysis());
     List<Translate> toReturn = new ArrayList<>();
 
@@ -135,6 +134,9 @@ public class Regnant extends Transform {
       LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
       Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
       toReturn.add(t);
+
+      // locals の取り出し
+      Chain<Local> locals = m.getActiveBody().getLocals();
 
       // translatedBody と headIDs に追加
       TranslatedFunction translatedFunction = new TranslatedFunction(cfg, simpl.getMethod().getName(), locals);

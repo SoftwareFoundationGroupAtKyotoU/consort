@@ -24,10 +24,6 @@ public class Return implements TranslatedUnit {
 		return false;
 	}
 
-	public boolean istTranslatedUnitEmpty() {
-		return false;
-	}
-
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();
 		builder

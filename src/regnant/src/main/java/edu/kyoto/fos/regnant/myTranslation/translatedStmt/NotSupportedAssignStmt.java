@@ -24,10 +24,6 @@ public class NotSupportedAssignStmt implements TranslatedUnit {
 		return false;
 	}
 
-	public boolean istTranslatedUnitEmpty() {
-		return false;
-	}
-
 	// 出力の際には変換前の unit と, 左辺と右辺それぞれのクラスを出力する
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		StringBuilder builder = new StringBuilder();

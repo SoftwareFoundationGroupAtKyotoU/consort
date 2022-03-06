@@ -12,10 +12,6 @@ public class ReturnVoid implements TranslatedUnit {
 		return false;
 	}
 
-	public boolean istTranslatedUnitEmpty() {
-		return false;
-	}
-
 	// 出力する際には0を返すようにする
 	public String print(List<String> arguments, HashMap<String, Integer> headIDs) {
 		return "return 0";

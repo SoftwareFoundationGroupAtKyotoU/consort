@@ -35,6 +35,9 @@ public class TranslateStmtService {
 			} else if (assignUnit.getLeftOp() instanceof JArrayRef) {
 				// 配列の要素を更新する場合
 				return new AssignToArray(assignUnit);
+			} else if (assignUnit.getRightOp().getType() instanceof ArrayType) {
+				// 配列を代入する場合
+				return new AssignArrayToV(assignUnit);
 			} else if (assignUnit.getLeftOp() instanceof JimpleLocal) {
 				// 定義されている変数に値を代入する場合（変数定義は全て初めに行われる）
 				return new AssignToVariable(assignUnit);

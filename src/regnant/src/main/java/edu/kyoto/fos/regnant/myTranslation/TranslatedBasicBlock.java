@@ -12,6 +12,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static fj.function.Strings.contains;
+
 // ConSORT プログラムに変換された基本ブロックを表すためのクラス
 public class TranslatedBasicBlock {
 	// name は関数名, id は基本ブロックのナンバリング, translatedBasicBlock は変換後の式のリスト, arguments は変換後の元々の関数の引数, bound は変換後の基本ブロックの関数の引数, assigned は変換後の基本ブロックで代入される変数, nextBasicBlocks は次の基本ブロック, gotoFlag は次の基本ブロックを呼び出す必要があるかどうか
@@ -43,7 +45,7 @@ public class TranslatedBasicBlock {
 				// int, byte, boolean は 0, int[] は長さ0の配列で初期化
 				if(Objects.equals(p.getType().toString(), "int") || Objects.equals(p.getType().toString(), "byte") || Objects.equals(p.getType().toString(), "boolean") || Objects.equals(p.getType().toString(), "java.lang.AssertionError")) {
 					translatedBasicBlock.add(new NewRef(p.getName(), new IntConst("0")));
-				} else if (Objects.equals(p.getType().toString(), "int[]")) {
+				} else if (Objects.equals(p.getType().toString(), "int[]") && !p.getName().contains("_tmp_")) {
 					String tmp_var = "reg_tmp_arr" + arrayID;
 					arrayID++;
 
@@ -64,13 +66,6 @@ public class TranslatedBasicBlock {
 			if (translatedUnit instanceof Argument) parameters.add(((Argument) translatedUnit).getArgumentVariable());
 
 			translatedBasicBlock.add(translatedUnit);
-
-			// MARK: 現時点では遅くなるから現時点ではやめるようにした
-			// assert は必ず失敗するようにしているので assert の先の命令を無視して return 文に変換するs
-//			if (translatedUnit instanceof AssertFail) {
-//				translatedBasicBlock.add(new ReturnVoid());
-//				break;
-//			}
 		}
 	}
 
@@ -126,20 +121,18 @@ public class TranslatedBasicBlock {
 		int indentLevel = 1;
 		StringBuilder basicBlocksBuilder = new StringBuilder();
 		for (TranslatedUnit translatedUnit : translatedBasicBlock) {
-			if (!translatedUnit.istTranslatedUnitEmpty()) {
-				if (translatedUnit.isSequencing() && !prevSequence) {
-					indentLevel++;
+			if (translatedUnit.isSequencing() && !prevSequence) {
+				indentLevel++;
 
-					basicBlocksBuilder
-							.append(printLeftBraces(indentLevel - 1))
-							.append("\n")
-							.append(translatedUnit.printWithIndent(indentLevel, Arguments, headIDs))
-							.append("\n");
-				} else {
-					basicBlocksBuilder
-							.append(translatedUnit.printWithIndent(indentLevel, Arguments, headIDs))
-							.append("\n");
-				}
+				basicBlocksBuilder
+						.append(printLeftBraces(indentLevel - 1))
+						.append("\n")
+						.append(translatedUnit.printWithIndent(indentLevel, Arguments, headIDs))
+						.append("\n");
+			} else {
+				basicBlocksBuilder
+						.append(translatedUnit.printWithIndent(indentLevel, Arguments, headIDs))
+						.append("\n");
 			}
 
 			prevSequence = translatedUnit.isSequencing();

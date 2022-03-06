@@ -1,32 +1,66 @@
-jimple_example_main(){
-  let b2 = -3 in 
-  let _tmp_i0 = jimple_example_abs(b2) in 
-  let _tmp_i1 = 2 * _tmp_i0 in 
-  let i3 = 1 + _tmp_i1 in 
+regnant$find_n_main__loop_1(_tmp_r0,r1,b0,i3,z1,reg$control){
+  let _tmp_i1 = r1.length in 
   {
-    if i3 = 7 then
-      ()
-    else
+    if (*i3) >= _tmp_i1 then
       {
-        fail;
+        reg$control := 1;
+        return 0
+      }
+
+    else
+      let _tmp_i2 = r1[*i3] in 
+      {
+        if _tmp_i2 != b0 then
+          {
+            i3 := (*i3) + 1;
+            return regnant$find_n_main__loop_1(_tmp_r0, r1, b0, i3, z1, reg$control)
+          }
+
+        else
+          {
+            reg$control := 2;
+            return 0
+          }
+;
       }
 ;
-    return 0
   }
 
 }
-jimple_example_abs(regnant$in_i0){
-  let i0 = regnant$in_i0 in 
+find_n_main(){
+  let reg$control = mkref 0 in 
+  let _tmp_r0 = mkarray 6 in 
   {
-    if i0 >= 0 then
-      return i0
+    _tmp_r0[0] <- 0;
+    _tmp_r0[1] <- 9;
+    _tmp_r0[2] <- 3;
+    _tmp_r0[3] <- 4;
+    _tmp_r0[4] <- 15;
+    _tmp_r0[5] <- 16;
+    let r1 = _tmp_r0 in 
+    let b0 = 5 in 
+    let i3 = mkref 0 in 
+    let z1 = mkref 0 in 
+    {
+      regnant$find_n_main__loop_1(_tmp_r0, r1, b0, i3, z1, reg$control);
+      if regnant$flag_1(*reg$control) then
+        {
+          z1 := 1;
+        }
 
-    else
-      let _tmp_i1 = -1 * i0 in 
-      return _tmp_i1
+      else
+        ();
+      if (*z1) = 1 then
+        ()
+      else
+        {
+          fail;
+        }
 ;
+      return 0
+    }
   }
 
 }
 
-{ jimple_example_main() }
+{ find_n_main() }
