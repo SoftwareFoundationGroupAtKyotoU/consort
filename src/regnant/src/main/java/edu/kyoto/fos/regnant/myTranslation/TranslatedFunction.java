@@ -2,7 +2,6 @@ package edu.kyoto.fos.regnant.myTranslation;
 
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
-import edu.kyoto.fos.regnant.myTranslation.translatedStmt.AssignToVariable;
 import soot.Local;
 import soot.util.Chain;
 
@@ -57,7 +56,7 @@ public class TranslatedFunction {
 				this.translatedFunction.add(headBasicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), headBasicBlock.getParameters().stream())
 						.collect(Collectors.toList());
-				this.allBound = Stream.concat(allBound.stream(), headBasicBlock.getBound().stream())
+				this.allBound = Stream.concat(allBound.stream(), headBasicBlock.getBounds().stream())
 						.collect(Collectors.toList());
 			} else {
 				// 返ってきた arguments を他の基本ブロックに渡す
@@ -65,7 +64,7 @@ public class TranslatedFunction {
 				this.translatedFunction.add(basicBlock);
 				this.allParameters = Stream.concat(allParameters.stream(), basicBlock.getParameters().stream())
 						.collect(Collectors.toList());
-				this.allBound = Stream.concat(allBound.stream(), basicBlock.getBound().stream())
+				this.allBound = Stream.concat(allBound.stream(), basicBlock.getBounds().stream())
 						.collect(Collectors.toList());
 			}
 		}

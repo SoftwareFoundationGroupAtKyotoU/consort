@@ -46,9 +46,4 @@ public class NewRef implements TranslatedUnit {
 
 		return builder.toString();
 	}
-
-	// 束縛された変数を外に伝えるためのメソッド
-	public String getBoundVariable() {
-		return variable;
-	}
 }
