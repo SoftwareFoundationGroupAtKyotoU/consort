@@ -1,7 +1,4 @@
-let parse_file in_name =
-  let f = open_in in_name in
-  let lexbuf = Lexing.from_channel f in
-  Locations.set_file_name lexbuf in_name 1;
+let parse lexbuf =
   try
     Parser.prog Lexer.read lexbuf |> SurfaceAst.simplify
   with
@@ -11,3 +8,11 @@ let parse_file in_name =
       let open Lexing in
       failwith @@ Printf.sprintf "Lexing error at %s" @@ Locations.string_of_location lexbuf.lex_curr_p
 
+let parse_file in_name =
+  let f = open_in in_name in
+  let lexbuf = Lexing.from_channel f in
+  Locations.set_file_name lexbuf in_name 1;
+  parse lexbuf
+
+let parse_string s =
+  parse @@ Lexing.from_string s
