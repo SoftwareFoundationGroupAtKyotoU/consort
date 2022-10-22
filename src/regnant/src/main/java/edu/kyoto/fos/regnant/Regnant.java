@@ -1,6 +1,8 @@
 package edu.kyoto.fos.regnant;
 
 import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
+import edu.kyoto.fos.regnant.cfg.BasicBlockGraph;
+import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.simpl.RewriteChain;
@@ -120,11 +122,11 @@ public class Regnant extends Transform {
       System.out.println("Simplified: ");
       System.out.println(simpl);
       CFGReconstructor cfg = new CFGReconstructor(simpl);
+      BasicBlockMapper bbm = cfg.GetBasicBlockMapper();
+      BasicBlockGraph bbg = cfg.GetBasicBlockGraph();
       System.out.println(cfg.dump());
 
-      FlagInstrumentation fi = new FlagInstrumentation(cfg);
-      LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
-      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
+      Translate t = new Translate(simpl, worklist, l, as, oimpl, bbm, bbg);
       toReturn.add(t);
     }
     return toReturn;
