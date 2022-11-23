@@ -4,22 +4,8 @@ import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.cfg.BasicBlockGraph;
 import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
-import edu.kyoto.fos.regnant.cfg.graph.BlockSequence;
-import edu.kyoto.fos.regnant.cfg.graph.ConditionalNode;
-import edu.kyoto.fos.regnant.cfg.graph.Continuation;
 import edu.kyoto.fos.regnant.cfg.graph.Coord;
-import edu.kyoto.fos.regnant.cfg.graph.ElemCont;
-import edu.kyoto.fos.regnant.cfg.graph.GraphElem;
-import edu.kyoto.fos.regnant.cfg.graph.InstNode;
-import edu.kyoto.fos.regnant.cfg.graph.JumpCont;
-import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
-import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
-import edu.kyoto.fos.regnant.ir.expr.ArrayLength;
-import edu.kyoto.fos.regnant.ir.expr.ArrayRead;
-import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
-import edu.kyoto.fos.regnant.ir.expr.IntLiteral;
-import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
-import edu.kyoto.fos.regnant.ir.expr.Variable;
+import edu.kyoto.fos.regnant.ir.expr.*;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp.Builder;
 import edu.kyoto.fos.regnant.simpl.RandomRewriter;
@@ -30,64 +16,20 @@ import fj.P;
 import fj.P2;
 import fj.data.Option;
 import fj.data.TreeMap;
-import soot.Body;
-import soot.FastHierarchy;
-import soot.Local;
-import soot.PointsToAnalysis;
-import soot.RefLikeType;
-import soot.RefType;
-import soot.Scene;
-import soot.SootClass;
-import soot.SootField;
-import soot.SootMethod;
-import soot.Type;
-import soot.Unit;
-import soot.Value;
-import soot.ValueBox;
-import soot.jimple.ArrayRef;
-import soot.jimple.AssignStmt;
-import soot.jimple.CastExpr;
-import soot.jimple.ConditionExpr;
-import soot.jimple.GotoStmt;
-import soot.jimple.IdentityRef;
-import soot.jimple.IdentityStmt;
-import soot.jimple.IfStmt;
-import soot.jimple.InstanceFieldRef;
-import soot.jimple.InstanceInvokeExpr;
-import soot.jimple.InstanceOfExpr;
-import soot.jimple.InvokeExpr;
-import soot.jimple.InvokeStmt;
-import soot.jimple.LengthExpr;
-import soot.jimple.NopStmt;
-import soot.jimple.NullConstant;
-import soot.jimple.ParameterRef;
-import soot.jimple.ReturnStmt;
-import soot.jimple.ReturnVoidStmt;
-import soot.jimple.SpecialInvokeExpr;
-import soot.jimple.StaticInvokeExpr;
-import soot.jimple.StringConstant;
-import soot.jimple.ThisRef;
-import soot.jimple.ThrowStmt;
+import soot.*;
+import soot.jimple.*;
 import soot.jimple.toolkits.callgraph.VirtualCalls;
 import soot.util.NumberedString;
 import soot.util.Numberer;
 import soot.util.queue.ChunkedQueue;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation.*;
 import static edu.kyoto.fos.regnant.translation.InstructionStream.fresh;
 
 /*
@@ -111,7 +53,7 @@ public class Translate {
   private final FieldAliasing as;
   private final ObjectModel objectModel;
   private int coordCounter = 1;
-  private Map<Coord, Integer> coordAssignment = new HashMap<>();
+  private final Map<Coord, Integer> coordAssignment = new HashMap<>();
   public static final String CONTROL_FLAG = "reg$control";
   private final BasicBlockMapper bbm;
   private final BasicBlockGraph bbg;
@@ -127,15 +69,19 @@ public class Translate {
     this.bbg = bbg;
 
     // TODO: envは各変数がmutableかどうかを表すMap。これをデータフロー解析で作れるようにする
-    TreeMap<Local, Binding> env = null;
+    Env empty = Env.empty();
+    Map<Local, Binding> binding = new HashMap<>();
+    for (Local l: b.getLocals()) {
+      binding.put(l, Binding.MUTABLE);
+    }
+    Env env = empty.updateBound(binding);
 
     /* the instructionstream.fresh takes a lambda which builds the instruction stream
      "in place."
      */
     this.stream = fresh("main", is -> {
-      translateMethod(b, bbg, is, env);
+      translateMethod(is, env);
     });
-    this.stream.close();
   }
 
   public StringBuilder print() {
@@ -163,28 +109,20 @@ public class Translate {
 
   protected static class Env {
     final fj.data.TreeMap<Local, Binding> boundVars;
-    final boolean inLoop;
-    final P2<String, List<Local>> currentLoop;
 
-    Env(final boolean inLoop, final TreeMap<Local, Binding> boundVars, final P2<String, List<Local>> currentLoop) {
+    Env(final TreeMap<Local, Binding> boundVars) {
       this.boundVars = boundVars;
-      this.inLoop = inLoop;
-      this.currentLoop = currentLoop;
-    }
-
-    public Env enterLoop(String nm, List<Local> locs) {
-      return new Env(true, boundVars, P.p(nm, locs));
     }
 
     public Env updateBound(Map<Local, Binding> b) {
       TreeMap<Local, Binding> newBind = fj.data.Stream.iterableStream(b.entrySet()).foldLeft((curr, elem) ->
           curr.set(elem.getKey(), elem.getValue()), boundVars);
-      return new Env(inLoop, newBind, currentLoop);
+      return new Env(newBind);
     }
 
-    public static Env empty() {
-      return new Env(false, fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
-          Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))), null);
+    private static Env empty() {
+      return new Env(fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
+          Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))));
     }
   }
 
@@ -222,9 +160,27 @@ public class Translate {
   }
 
   private void encodeInstruction(final InstructionStream is, final Unit unit, TreeMap<Local, Binding> env) {
-    assert !(unit instanceof IfStmt);
-    assert !(unit instanceof ReturnStmt);
-    if(unit instanceof NopStmt) {
+    if(unit instanceof IfStmt) {
+      IfStmt ifUnit = (IfStmt)unit;
+      assert (ifUnit.getSucc == 2);
+      if (unit.getTarget() == nextBasicBlocks.get(0).getHead()) {
+        this.thenBasicBlock = nextBasicBlocks.get(0);
+        this.elseBasicBlock = nextBasicBlocks.get(1);
+      } else {
+        this.thenBasicBlock = nextBasicBlocks.get(1);
+        this.elseBasicBlock = nextBasicBlocks.get(0);
+      }
+      is.addCond();
+    } else if(unit instanceof ReturnStmt) {
+      // TODO: ReturnStmtの場合の実装
+      System.out.println("ReturnStmt!!!!");
+    } else if(unit instanceof ReturnVoidStmt) {
+      // TODO: ReturnVoidStmtの場合の実装
+      System.out.println("ReturnVoidStmt!!!!");
+    } else if(unit instanceof GotoStmt) {
+      // TODO: GotoStmtの場合の実装
+      System.out.println("GotoStmt!!!!");
+    } else if(unit instanceof NopStmt) {
       if(unit.hasTag(UnreachableTag.NAME)) {
         // despite the name, this outputs a fail statement
         is.addAssertFalse();
@@ -262,8 +218,8 @@ public class Translate {
       Local target = (Local) lhs;
 
       // TODO: データフロー解析で判定できるよにする
-      boolean needsDefinition = true;
-      boolean mutableBinding = true;
+      boolean needsDefinition = false;
+      boolean mutableBinding = env.get(target).some() == Binding.MUTABLE;
 
       // the stream in which the write occurs. when possible we do this in a scope block to avoid temp variable clutter
       InstructionStream writeStream;
@@ -317,7 +273,7 @@ public class Translate {
       c.cleanup(call);
       // add the block
       is.addBlock(call);
-    } else if(!(unit instanceof GotoStmt)) {
+    } else {
       // this is really hard, do it later
       throw new RuntimeException("Unhandled statement " + unit + " " + unit.getClass());
     }
@@ -505,6 +461,21 @@ public class Translate {
     return expr instanceof StaticInvokeExpr &&
         ((expr.getMethodRef().getDeclaringClass().getName().equals(RandomRewriter.RANDOM_CLASS) && expr.getMethodRef().getName().equals("rand")) ||
             expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS));
+  }
+
+  private void gateLoop(final InstructionStream tgt,
+                        final Iterator<P2<List<Integer>,InstructionStream>> instStream,
+                        final Function<List<Integer>,ImpExpr> cond,
+                        final Consumer<InstructionStream> fallThrough) {
+    P2<List<Integer>, InstructionStream> g = instStream.next();
+    final InstructionStream elseBranch;
+    if(instStream.hasNext()) {
+      elseBranch = InstructionStream.fresh("gate-choice", l -> gateLoop(l, instStream, cond, fallThrough));
+      elseBranch.close();
+    } else {
+      elseBranch = InstructionStream.fresh("fallthrough", fallThrough);
+    }
+    tgt.addCond(cond.apply(g._1()), g._2(), elseBranch);
   }
 
   private String devirtualize(final Unit u, final InstructionStream s, final Map<SootMethod,Set<SootClass>> callees) {
@@ -854,11 +825,13 @@ public class Translate {
     return String.format("regnant$in_%s", b.getParameterLocal(paramNumber).getName());
   }
 
-  private void translateMethod(Body b, BasicBlockGraph bbg, InstructionStream is, TreeMap<Local, Binding> env) {
+  private void translateMethod(InstructionStream is, Env e) {
+    TreeMap<Local, Binding> env = e.boundVars;
+
     for (BasicBlock bb : bbg) {
       // TODO: 引数のリストを最適化する
       // TODO: 関数名を自動で生成するようにする
-      is.addSideFunction("test", b.getLocals(), encodeBasicBlock(bb, env));
+      is.addSideFunction(b.getMethod().getName() + bb.getId(), b.getLocals(), encodeBasicBlock(bb, env));
     }
   }
 
@@ -871,11 +844,12 @@ public class Translate {
     System.out.println("Encoding " + bb);
     List<Unit> units = bb.units;
 
-    InstructionStream is = fresh("TODO");
+    InstructionStream is = fresh("BasicBlock");
 
-    for(int i = 0; i < units.size() - 1; i++) {
-      encodeInstruction(is, units.get(i), env);
+    for (Unit unit : units) {
+      encodeInstruction(is, unit, env);
     }
+    is.close();
 
     return is;
   }
