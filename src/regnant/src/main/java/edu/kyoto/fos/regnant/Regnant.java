@@ -6,7 +6,6 @@ import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
 import edu.kyoto.fos.regnant.simpl.RewriteChain;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
-import edu.kyoto.fos.regnant.translation.FlagTranslation;
 import edu.kyoto.fos.regnant.translation.ObjectModel;
 import edu.kyoto.fos.regnant.translation.ObjectModel.Impl;
 import edu.kyoto.fos.regnant.translation.Translate;
@@ -65,7 +64,7 @@ public class Regnant extends Transform {
       pw.printf("{ %s() }\n", Translate.getMangledName(mainMethod));
     } catch (IOException ignored) {
     }
-    FlagTranslation.outputTo(options.get("flags"));
+//    FlagTranslation.outputTo(options.get("flags"));
   }
 
   private void removeArgVector(final SootMethod main) {

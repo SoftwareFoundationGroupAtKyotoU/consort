@@ -159,27 +159,35 @@ public class Translate {
     }
   }
 
-  private void encodeInstruction(final InstructionStream is, final Unit unit, TreeMap<Local, Binding> env) {
+  private void encodeInstruction(final InstructionStream is, final Unit unit, TreeMap<Local, Binding> env, BasicBlock bb) {
     if(unit instanceof IfStmt) {
-      IfStmt ifUnit = (IfStmt)unit;
-      assert (ifUnit.getSucc == 2);
-      if (unit.getTarget() == nextBasicBlocks.get(0).getHead()) {
-        this.thenBasicBlock = nextBasicBlocks.get(0);
-        this.elseBasicBlock = nextBasicBlocks.get(1);
+      IfStmt ifUnit = (IfStmt) unit;
+      List<BasicBlock> nextBBs = bbg.getSuccsOf(bb);
+
+      assert (nextBBs.size() == 2);
+      BasicBlock thenBB;
+      BasicBlock elseBB;
+      // Conditional branches are converted to jumps between basic blocks
+      if (ifUnit.getTarget() == nextBBs.get(0).getHead()) {
+        thenBB = nextBBs.get(0);
+        elseBB = nextBBs.get(1);
       } else {
-        this.thenBasicBlock = nextBasicBlocks.get(1);
-        this.elseBasicBlock = nextBasicBlocks.get(0);
+        thenBB = nextBBs.get(1);
+        elseBB = nextBBs.get(0);
       }
-      is.addCond();
+      is.addCond(lifter.lift(ifUnit.getCondition(), env), thenBB, elseBB, b);
     } else if(unit instanceof ReturnStmt) {
-      // TODO: ReturnStmtの場合の実装
-      System.out.println("ReturnStmt!!!!");
+      ReturnStmt returnUnit = (ReturnStmt) unit;
+      is.addReturn(lifter.lift(returnUnit.getOp(), env));
     } else if(unit instanceof ReturnVoidStmt) {
-      // TODO: ReturnVoidStmtの場合の実装
-      System.out.println("ReturnVoidStmt!!!!");
+      is.addReturn(new IntLiteral(0));
     } else if(unit instanceof GotoStmt) {
-      // TODO: GotoStmtの場合の実装
-      System.out.println("GotoStmt!!!!");
+      List<BasicBlock> nextBBs = bbg.getSuccsOf(bb);
+      assert (nextBBs.size() == 1);
+      BasicBlock nextBB = nextBBs.get(0);
+
+      // Converts a goto statement to a function call because it corresponds to a jump between basic blocks
+      is.addExpr(new InterBasicBlockCall(b, nextBB));
     } else if(unit instanceof NopStmt) {
       if(unit.hasTag(UnreachableTag.NAME)) {
         // despite the name, this outputs a fail statement
@@ -828,6 +836,21 @@ public class Translate {
   private void translateMethod(InstructionStream is, Env e) {
     TreeMap<Local, Binding> env = e.boundVars;
 
+    // TODO: メソッドのはじめの変数定義はデータフロー解析を入れた時点で消すかもしれない
+    // Define all variables at the beginning of the method
+    for (Local local : b.getLocals()) {
+      if (local.getType() instanceof ArrayType) {
+        is.addBinding(local.getName(), new NewArray(new IntLiteral(0)), false);
+      } else {
+        // TODO: assertion error型等は省いたほうが良さそう
+        is.addBinding(local.getName(), new IntLiteral(0), true);
+      }
+    }
+
+    // Call the basic block at the beginning of the method
+    is.addExpr(new InterBasicBlockCall(b, "0"));
+    is.close();
+
     for (BasicBlock bb : bbg) {
       // TODO: 引数のリストを最適化する
       // TODO: 関数名を自動で生成するようにする
@@ -847,8 +870,21 @@ public class Translate {
     InstructionStream is = fresh("BasicBlock");
 
     for (Unit unit : units) {
-      encodeInstruction(is, unit, env);
+      encodeInstruction(is, unit, env, bb);
     }
+
+    // If there is no instruction at the end to explicitly jump between basic blocks, add one.
+    if (!(units.get(units.size() - 1) instanceof IfStmt ||
+            units.get(units.size() - 1) instanceof GotoStmt ||
+            units.get(units.size() - 1) instanceof ReturnStmt ||
+            units.get(units.size() - 1) instanceof ReturnVoidStmt)) {
+      List<BasicBlock> nextBBs = bbg.getSuccsOf(bb);
+      assert (nextBBs.size() == 1);
+      BasicBlock nextBB = nextBBs.get(0);
+
+      is.addExpr(new InterBasicBlockCall(b, nextBB));
+    }
+
     is.close();
 
     return is;

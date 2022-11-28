@@ -3,7 +3,6 @@ package edu.kyoto.fos.regnant.ir.stmt;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 
 public class Return extends Effect {
-	// TODO: valの型がこれでいいか考える
 	private final ImpExpr val;
 
 	public Return(final ImpExpr val) {

@@ -1,7 +1,7 @@
 package edu.kyoto.fos.regnant.translation;
 
 import edu.kyoto.fos.regnant.Printable;
-import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
+import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
 import edu.kyoto.fos.regnant.ir.expr.InterBasicBlockCall;
 import edu.kyoto.fos.regnant.ir.stmt.*;
@@ -257,10 +257,11 @@ public class InstructionStream implements Printable  {
     this.addEffect(new Condition(cond, tr, fls));
   }
 
-  public void addCond(ImpExpr cond, soot.Unit tr, soot.Unit fls, Body b, BasicBlockMapper bbm) {
+  // Used in conditional branching with jumps between basic blocks
+  public void addCond(ImpExpr cond, BasicBlock tr, BasicBlock fls, Body b) {
     // TODO: データフロー解析で引数を減らす
-    InterBasicBlockCall trueCallee = new InterBasicBlockCall(b, bbm, tr);
-    InterBasicBlockCall falseCallee = new InterBasicBlockCall(b, bbm, fls);
+    InterBasicBlockCall trueCallee = new InterBasicBlockCall(b, tr);
+    InterBasicBlockCall falseCallee = new InterBasicBlockCall(b, fls);
     this.addEffect(new Condition(cond, trueCallee, falseCallee));
   }
 
@@ -352,6 +353,10 @@ public class InstructionStream implements Printable  {
     this.ret(ImpExpr.unitValue());
   }
 
+  public void addReturn(ImpExpr value) {
+    this.addEffect(new edu.kyoto.fos.regnant.ir.stmt.Return(value));
+  }
+
   public void addSideFunction(String name, List<String> l, InstructionStream s) {
     this.inheritFunctions(s);
     this.sideFunctions.add(P.p(name, l, s));
@@ -385,7 +390,7 @@ public class InstructionStream implements Printable  {
     sb.append(name).append(locals.stream().collect(Collectors.joining(",", "(", ")")));
     sb.append("{\n");
     this.printAt(1, sb);
-    sb.append("\n}\n\n");
+    sb.append("}\n\n");
     return sb;
   }
 }

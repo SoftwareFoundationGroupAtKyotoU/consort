@@ -16,10 +16,9 @@ public class Condition extends Effect {
   @Override public void printAt(final int level, final StringBuilder b) {
     indent(level, b).append("if ");
     cond.printOn(b);
-    b.append(" then\n");
+    b.append(" then ");
     tBranch.printAt(level + 1, b);
-    b.append("\n");
-    indent(level, b).append("else\n");
+    b.append(" else ");
     fBranch.printAt(level + 1, b);
   }
 }
