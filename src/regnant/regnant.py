@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
-import sys
-import subprocess
-import tempfile
-import atexit, shutil, os
 import argparse
+import atexit
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 import time
+
 
 def log_command(args, cmd):
     if args.verbose:
@@ -108,7 +111,7 @@ def main(this_dir, args):
     
     # print("Generating control flags...", end=' ')
     # sys.stdout.flush()
-    # intr_loc = os.path.join(work_dir, "java.intr")
+    intr_loc = os.path.join(work_dir, "java.intr")
     #
     # intr_command = [
     #     os.path.join(this_dir, "../_build/default/genFlags.exe"),
@@ -125,7 +128,7 @@ def main(this_dir, args):
     yaml_flg = ["-yaml"] if args.yaml is not None else []
     consort_cmd = [
         os.path.join(this_dir, "../_build/default/test.exe"),
-        # "-intrinsics", intr_loc,
+        "-intrinsics", intr_loc,
         "-exit-status",
     ] + args.consort_args + yaml_flg + [
         data

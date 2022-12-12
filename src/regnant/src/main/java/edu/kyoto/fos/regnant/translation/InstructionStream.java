@@ -258,10 +258,10 @@ public class InstructionStream implements Printable  {
   }
 
   // Used in conditional branching with jumps between basic blocks
-  public void addCond(ImpExpr cond, BasicBlock tr, BasicBlock fls, Body b) {
+  public void addCond(ImpExpr cond, BasicBlock tr, BasicBlock fls, Body b, String calleeName) {
     // TODO: データフロー解析で引数を減らす
-    InterBasicBlockCall trueCallee = new InterBasicBlockCall(b, tr);
-    InterBasicBlockCall falseCallee = new InterBasicBlockCall(b, fls);
+    InterBasicBlockCall trueCallee = new InterBasicBlockCall(b, tr, calleeName);
+    InterBasicBlockCall falseCallee = new InterBasicBlockCall(b, fls, calleeName);
     this.addEffect(new Condition(cond, trueCallee, falseCallee));
   }
 

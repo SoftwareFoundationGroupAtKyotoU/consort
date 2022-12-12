@@ -175,7 +175,7 @@ public class Translate {
         thenBB = nextBBs.get(1);
         elseBB = nextBBs.get(0);
       }
-      is.addCond(lifter.lift(ifUnit.getCondition(), env), thenBB, elseBB, b);
+      is.addCond(lifter.lift(ifUnit.getCondition(), env), thenBB, elseBB, b, getMangledName());
     } else if(unit instanceof ReturnStmt) {
       ReturnStmt returnUnit = (ReturnStmt) unit;
       is.addReturn(lifter.lift(returnUnit.getOp(), env));
@@ -187,7 +187,7 @@ public class Translate {
       BasicBlock nextBB = nextBBs.get(0);
 
       // Converts a goto statement to a function call because it corresponds to a jump between basic blocks
-      is.addExpr(new InterBasicBlockCall(b, nextBB));
+      is.addExpr(new InterBasicBlockCall(b, nextBB, getMangledName()));
     } else if(unit instanceof NopStmt) {
       if(unit.hasTag(UnreachableTag.NAME)) {
         // despite the name, this outputs a fail statement
@@ -840,21 +840,26 @@ public class Translate {
     // Define all variables at the beginning of the method
     for (Local local : b.getLocals()) {
       if (local.getType() instanceof ArrayType) {
-        is.addBinding(local.getName(), new NewArray(new IntLiteral(0)), false);
-      } else {
+        is.addBinding(local.getName(), new NewArray(new IntLiteral(0)), true);
+      } else if (local.getType() instanceof RefLikeType) {
+        // Define as a tuple if it is an instance of a class
+        is.addBinding(local.getName(),
+                new Tuple(new ArrayList<>(Arrays.asList(new IntLiteral(0), new IntLiteral(0)))), true);
+      }
+      else {
         // TODO: assertion error型等は省いたほうが良さそう
         is.addBinding(local.getName(), new IntLiteral(0), true);
       }
     }
 
     // Call the basic block at the beginning of the method
-    is.addExpr(new InterBasicBlockCall(b, "0"));
+    is.addExpr(new InterBasicBlockCall(b, bbm.getEntryPoint(), getMangledName()));
     is.close();
 
     for (BasicBlock bb : bbg) {
       // TODO: 引数のリストを最適化する
       // TODO: 関数名を自動で生成するようにする
-      is.addSideFunction(b.getMethod().getName() + bb.getId(), b.getLocals(), encodeBasicBlock(bb, env));
+      is.addSideFunction(getMangledName() + bb.getId(), b.getLocals(), encodeBasicBlock(bb, env));
     }
   }
 
@@ -882,7 +887,7 @@ public class Translate {
       assert (nextBBs.size() == 1);
       BasicBlock nextBB = nextBBs.get(0);
 
-      is.addExpr(new InterBasicBlockCall(b, nextBB));
+      is.addExpr(new InterBasicBlockCall(b, nextBB, getMangledName()));
     }
 
     is.close();

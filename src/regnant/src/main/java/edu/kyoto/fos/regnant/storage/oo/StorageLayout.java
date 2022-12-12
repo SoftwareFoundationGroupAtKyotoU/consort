@@ -2,22 +2,11 @@ package edu.kyoto.fos.regnant.storage.oo;
 
 import edu.kyoto.fos.regnant.storage.oo.UnionFind.Node;
 import edu.kyoto.fos.regnant.translation.Translate;
-import soot.PointsToAnalysis;
-import soot.RefLikeType;
-import soot.RefType;
-import soot.SootClass;
-import soot.SootField;
-import soot.Type;
+import soot.*;
 import soot.jimple.spark.pag.LocalVarNode;
 import soot.jimple.spark.pag.PAG;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,10 +24,11 @@ public class StorageLayout {
     unifyRepr(pag.allocSources().stream().flatMap(n -> n.getAllFieldRefs().stream()));
     unifyRepr(pag.simpleInvSources().stream());
 
+    // "getFields" method does not include fields from which it is inherited, so add fields from which it is inherited
     uf.universe().forEach(sc -> getTransitiveFields(sc).forEach(sf -> {
       addMetaField(uf.find(sc).getData(), sf);
     }));
-    
+
     this.assignSlots();
   }
 
@@ -86,6 +76,7 @@ public class StorageLayout {
     metaClasses.computeIfAbsent(data, ign -> new HashSet<>()).add(sf);
   }
 
+  // Unify the classes that each node can point to
   private void unifyRepr(final Stream<? extends soot.jimple.spark.pag.Node> nodeStream) {
     nodeStream.forEach(adf -> {
       if(adf instanceof LocalVarNode) {
