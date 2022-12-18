@@ -79,9 +79,7 @@ public class Translate {
     /* the instructionstream.fresh takes a lambda which builds the instruction stream
      "in place."
      */
-    this.stream = fresh("main", is -> {
-      translateMethod(is, env);
-    });
+    this.stream = fresh("main", is -> translateMethod(is, env));
   }
 
   public StringBuilder print() {
@@ -843,8 +841,8 @@ public class Translate {
         is.addBinding(local.getName(), new NewArray(new IntLiteral(0)), true);
       } else if (local.getType() instanceof RefLikeType) {
         // Define as a tuple if it is an instance of a class
-        is.addBinding(local.getName(),
-                new Tuple(new ArrayList<>(Arrays.asList(new IntLiteral(0), new IntLiteral(0)))), true);
+        is.addBinding(local.getName(), new Mkref(
+                new Tuple(new ArrayList<>(Arrays.asList(new IntLiteral(0), new IntLiteral(0))))), true);
       }
       else {
         // TODO: assertion error型等は省いたほうが良さそう
