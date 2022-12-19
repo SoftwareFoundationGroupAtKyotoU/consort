@@ -41,13 +41,17 @@ public class InterBasicBlockCall extends Call implements Printable {
 
 		// Add method parameters
 		sb.append(String.join(", ", paramNamesOfMethod));
+		if (paramNamesOfMethod.size() > 0) {
+			sb.append(", ");
+		}
 
 		this.doInterleaved(arguments.stream(), sb, ImpExpr::printOn, b -> b.append(", "));
 		sb.append(")");
 	}
 
+	// We do not use it, but We are defining it to implement printable.
 	@Override
 	public void printAt(int level, StringBuilder b) {
-		super.printOn(b);
+		assert false;
 	}
 }
