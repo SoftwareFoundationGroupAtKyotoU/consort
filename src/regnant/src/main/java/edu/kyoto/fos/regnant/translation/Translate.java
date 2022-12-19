@@ -12,7 +12,6 @@ import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp.Builder;
 import edu.kyoto.fos.regnant.simpl.RandomRewriter;
 import edu.kyoto.fos.regnant.storage.Binding;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
-import edu.kyoto.fos.regnant.type.RegnantType;
 import fj.Ord;
 import fj.P;
 import fj.P2;
@@ -59,7 +58,6 @@ public class Translate {
   public static final String CONTROL_FLAG = "reg$control";
   private final BasicBlockMapper bbm;
   private final BasicBlockGraph bbg;
-  private Env env;
 
   public Translate(Body b, final ChunkedQueue<SootMethod> worklist, StorageLayout sl, final FieldAliasing as, ObjectModel.Impl om, BasicBlockMapper bbm, BasicBlockGraph bbg) {
     this.b = b;
@@ -77,7 +75,7 @@ public class Translate {
     for (Local l: b.getLocals()) {
       binding.put(l, Binding.MUTABLE);
     }
-    env = empty.updateBound(binding);
+    Env env = empty.updateBound(binding);
 
     /* the instructionstream.fresh takes a lambda which builds the instruction stream
      "in place."
@@ -111,25 +109,19 @@ public class Translate {
   // The class in which the type of each variable and whether it can be changed is maintained
   protected static class Env {
     final fj.data.TreeMap<Local, Binding> boundVars;
-    final fj.data.TreeMap<Local, RegnantType> typeEnv;
 
-    Env(final TreeMap<Local, Binding> boundVars, TreeMap<Local, RegnantType> typeEnv) {
+    Env(final TreeMap<Local, Binding> boundVars) {
       this.boundVars = boundVars;
-      this.typeEnv = typeEnv;
     }
 
     public Env updateBound(Map<Local, Binding> b) {
       TreeMap<Local, Binding> newBind = fj.data.Stream.iterableStream(b.entrySet()).foldLeft((curr, elem) ->
           curr.set(elem.getKey(), elem.getValue()), boundVars);
-      return new Env(newBind, typeEnv);
+      return new Env(newBind);
     }
 
     private static Env empty() {
-      return new Env(
-              fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
-                      Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))),
-              fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
-                      Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))));
+      return new Env(fj.data.TreeMap.empty(Ord.ord(l1 -> l2 -> Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))));
     }
   }
 
