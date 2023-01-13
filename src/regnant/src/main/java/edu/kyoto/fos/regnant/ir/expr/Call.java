@@ -3,8 +3,8 @@ package edu.kyoto.fos.regnant.ir.expr;
 import java.util.List;
 
 public class Call extends ImpExpr implements CompoundExpr, InterleavedDo {
-  private final String callee;
-  private final List<ImpExpr> arguments;
+  protected final String callee;
+  protected final List<ImpExpr> arguments;
 
   public Call(String callee, List<ImpExpr> arguments) {
     this.callee = callee;

@@ -387,7 +387,7 @@ public class InstructionStream implements Printable  {
 
   public StringBuilder dumpAs(String name, List<String> locals) {
     StringBuilder sb = new StringBuilder();
-    sb.append(name).append(locals.stream().collect(Collectors.joining(",", "(", ")")));
+    sb.append(name).append(locals.stream().collect(Collectors.joining(", ", "(", ")")));
     sb.append("{\n");
     this.printAt(1, sb);
     sb.append("}\n\n");

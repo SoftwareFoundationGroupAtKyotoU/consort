@@ -5,6 +5,7 @@ import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.cfg.BasicBlockGraph;
 import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
 import edu.kyoto.fos.regnant.cfg.graph.Coord;
+import edu.kyoto.fos.regnant.ir.expr.NullConstant;
 import edu.kyoto.fos.regnant.ir.expr.*;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp.Builder;
@@ -43,7 +44,7 @@ import static edu.kyoto.fos.regnant.translation.InstructionStream.fresh;
 
 */
 public class Translate {
-  private static final String THIS_PARAM = "reg$this_in";
+  public static final String THIS_PARAM = "reg$this_in";
   public static final String ALIASING_CLASS = "edu.kyoto.fos.regnant.runtime.Aliasing";
   private final Body b;
   private final InstructionStream stream;
@@ -105,6 +106,7 @@ public class Translate {
   }
 
 
+  // The class in which the type of each variable and whether it can be changed is maintained
   protected static class Env {
     final fj.data.TreeMap<Local, Binding> boundVars;
 
@@ -119,8 +121,7 @@ public class Translate {
     }
 
     private static Env empty() {
-      return new Env(fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
-          Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))));
+      return new Env(fj.data.TreeMap.empty(Ord.ord(l1 -> l2 -> Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))));
     }
   }
 
@@ -212,11 +213,15 @@ public class Translate {
       boolean mutableParam = true;
 
       if(rhs instanceof ThisRef) {
-        is.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+        // TODO: データフロー解析に対応したら、一旦はじめに全ての変数を定義することがなくなるため、おそらくaddBindingになる
+        // is.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+        is.addWrite(defn.getName(), ImpExpr.var(THIS_PARAM));
       } else {
         assert rhs instanceof ParameterRef;
         int paramNumber = ((ParameterRef) rhs).getIndex();
-        is.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+        // TODO: データフロー解析に対応したら、一旦はじめに全ての変数を定義することがなくなるため、おそらくaddBindingになる
+        // is.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+        is.addWrite(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)));
       }
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof Local) {
       AssignStmt as = (AssignStmt) unit;
@@ -831,6 +836,10 @@ public class Translate {
     return String.format("regnant$in_%s", b.getParameterLocal(paramNumber).getName());
   }
 
+  private static String getParamName(Local param) {
+    return String.format("regnant$in_%s", param.getName());
+  }
+
   private void translateMethod(InstructionStream is, Env e) {
     TreeMap<Local, Binding> env = e.boundVars;
 
@@ -840,9 +849,8 @@ public class Translate {
       if (local.getType() instanceof ArrayType) {
         is.addBinding(local.getName(), new NewArray(new IntLiteral(0)), true);
       } else if (local.getType() instanceof RefLikeType) {
-        // Define as a tuple if it is an instance of a class
-        is.addBinding(local.getName(), new Mkref(
-                new Tuple(new ArrayList<>(Arrays.asList(new IntLiteral(0), new IntLiteral(0))))), true);
+        // Define as null if it is an instance of a class
+        is.addBinding(local.getName(), new NullConstant(), true);
       }
       else {
         // TODO: assertion error型等は省いたほうが良さそう
@@ -857,7 +865,16 @@ public class Translate {
     for (BasicBlock bb : bbg) {
       // TODO: 引数のリストを最適化する
       // TODO: 関数名を自動で生成するようにする
-      is.addSideFunction(getMangledName() + bb.getId(), b.getLocals(), encodeBasicBlock(bb, env));
+      List<String> arguments = Stream.concat(
+              b.getParameterLocals().stream().map(Translate::getParamName),
+              b.getLocals().stream().map(Local::getName)
+      ).collect(Collectors.toList());
+
+      if (!b.getMethod().isStatic()) {
+        arguments.add(0, THIS_PARAM);
+      }
+
+      is.addSideFunction(getMangledName() + bb.getId(), arguments, encodeBasicBlock(bb, env));
     }
   }
 
