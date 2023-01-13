@@ -213,11 +213,15 @@ public class Translate {
       boolean mutableParam = true;
 
       if(rhs instanceof ThisRef) {
-        is.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+        // TODO: データフロー解析に対応したら、一旦はじめに全ての変数を定義することがなくなるため、おそらくaddBindingになる
+        // is.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+        is.addWrite(defn.getName(), ImpExpr.var(THIS_PARAM));
       } else {
         assert rhs instanceof ParameterRef;
         int paramNumber = ((ParameterRef) rhs).getIndex();
-        is.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+        // TODO: データフロー解析に対応したら、一旦はじめに全ての変数を定義することがなくなるため、おそらくaddBindingになる
+        // is.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+        is.addWrite(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)));
       }
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof Local) {
       AssignStmt as = (AssignStmt) unit;
