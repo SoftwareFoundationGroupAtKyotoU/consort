@@ -49,9 +49,8 @@ public class InterBasicBlockCall extends Call implements Printable {
 		sb.append(")");
 	}
 
-	// We do not use it, but We are defining it to implement printable.
 	@Override
 	public void printAt(int level, StringBuilder b) {
-		assert false;
+		printOn(b);
 	}
 }
