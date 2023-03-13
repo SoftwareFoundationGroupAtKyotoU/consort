@@ -474,11 +474,12 @@ public class Translate {
             expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS));
   }
 
+  // the function to branch a method to be called by the class
   private void gateLoop(final InstructionStream tgt,
-                        final Iterator<P2<List<Integer>,InstructionStream>> instStream,
-                        final Function<List<Integer>,ImpExpr> cond,
+                        final Iterator<P2<Integer,InstructionStream>> instStream,
+                        final Function<Integer,ImpExpr> cond,
                         final Consumer<InstructionStream> fallThrough) {
-    P2<List<Integer>, InstructionStream> g = instStream.next();
+    P2<Integer, InstructionStream> g = instStream.next();
     final InstructionStream elseBranch;
     if(instStream.hasNext()) {
       elseBranch = InstructionStream.fresh("gate-choice", l -> gateLoop(l, instStream, cond, fallThrough));
@@ -515,7 +516,7 @@ public class Translate {
     SootClass klassSz = callees.entrySet().iterator().next().getValue().iterator().next();
     int projSize = layout.metaStorageSize(klassSz);
     InstructionStream virtBody = fresh("devirt", body -> {
-      List<P2<List<Integer>, InstructionStream>> actions = new ArrayList<>();
+      List<P2<Integer, InstructionStream>> actions = new ArrayList<>();
       /*
         This is a list of the possible instruction streams that call the target method, and the runtime tags that resolve to that method.
        */
@@ -524,16 +525,19 @@ public class Translate {
         worklist.add(meth);
         String actual = getMangledName(meth);
         InstructionStream br = fresh("branch", brnch -> brnch.ret(ImpExpr.call(actual, fwdCalls)));
-        actions.add(P.p(flgs, br));
+
+        for(Integer flg : flgs) {
+          actions.add(P.p(flg, br));
+        }
       });
 
       String runtimeTag = "ty";
       // project the runtime tag out
       body.bindProjection(runtimeTag, 0, projSize, "this");
       // use the same machinery as the recurse-on/return-on flags to generate the if/else flags, but the final else block must be a fail (devirtualization shouldn't fail)
-      gateLoop(body, actions.iterator(), flgs -> {
-        // TODO: もしかするとクラスが異なるが呼ばれるメソッドが同じ場合にバグると思う、要チェック
-        return new Binop(new Variable(runtimeTag, false), "=", new IntLiteral(flgs.get(0)));
+      gateLoop(body, actions.iterator(), flg -> {
+        // TODO: クラスが異なるが呼ばれるメソッドが同じ場合に対応する
+        return new Binop(new Variable(runtimeTag, false), "=", new IntLiteral(flg));
       }, InstructionStream::addAssertFalse);
     });
     virtBody.close();
