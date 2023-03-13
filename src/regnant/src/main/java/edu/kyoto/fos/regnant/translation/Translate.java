@@ -530,11 +530,10 @@ public class Translate {
       String runtimeTag = "ty";
       // project the runtime tag out
       body.bindProjection(runtimeTag, 0, projSize, "this");
-      List<ImpExpr> flagArg = List.of(Variable.immut(runtimeTag));
       // use the same machinery as the recurse-on/return-on flags to generate the if/else flags, but the final else block must be a fail (devirtualization shouldn't fail)
       gateLoop(body, actions.iterator(), flgs -> {
-        String control = FlagTranslation.allocate(flgs);
-        return ImpExpr.call(control, flagArg);
+        // TODO: もしかするとクラスが異なるが呼ばれるメソッドが同じ場合にバグると思う、要チェック
+        return new Binop(new Variable(runtimeTag, false), "=", new IntLiteral(flgs.get(0)));
       }, InstructionStream::addAssertFalse);
     });
     virtBody.close();
