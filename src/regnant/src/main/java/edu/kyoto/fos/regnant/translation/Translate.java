@@ -535,10 +535,7 @@ public class Translate {
       // project the runtime tag out
       body.bindProjection(runtimeTag, 0, projSize, "this");
       // use the same machinery as the recurse-on/return-on flags to generate the if/else flags, but the final else block must be a fail (devirtualization shouldn't fail)
-      gateLoop(body, actions.iterator(), flg -> {
-        // TODO: クラスが異なるが呼ばれるメソッドが同じ場合に対応する
-        return new Binop(new Variable(runtimeTag, false), "=", new IntLiteral(flg));
-      }, InstructionStream::addAssertFalse);
+      gateLoop(body, actions.iterator(), flg -> new Binop(new Variable(runtimeTag, false), "=", new IntLiteral(flg)), InstructionStream::addAssertFalse);
     });
     virtBody.close();
     s.addSideFunction(virtName, args, virtBody);
