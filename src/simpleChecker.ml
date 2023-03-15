@@ -185,7 +185,7 @@ let init_tyenv fenv { name; args; _ } =
 
 let add_var v t ctxt =
   if StringMap.mem v ctxt.tyenv then
-    failwith "variable shadowing"
+    failwith ("variable shadowing: " ^ v)
   else
     { ctxt with tyenv = StringMap.add v t ctxt.tyenv }
 
