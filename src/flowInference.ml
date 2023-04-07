@@ -322,9 +322,13 @@ let add_assert_cond assert_cond curr_relation =
    null flag of [v] happens to be represented as an extension (and thus "beneath") [v]; this requires an annoying special
    case when doing havoc queries, but *believe me*, it's far more annoying to use another strategy.
  *)
+
+let show_map m = OI.GenMap.fold (fun k d rest -> Printf.sprintf !"%{sexp:OI.magic_loc * P.path}" k ^ " -> " ^ string_of_float d ^ ", " ^ rest) m ""
+
 let rec havoc_oracle ctxt ml p =
   Log.debug ~src:"FLOW-OWN" !"Looking for %{P} @ %{sexp:OI.magic_loc}" p ml;
   let from_path p_ =
+    Log.debug ~src:"DEBUG" !"Searching %{sexp:OI.magic_loc * P.path} in %s" (ml,p_) (show_map ctxt.o_hints.OI.gen);
     let o = OI.GenMap.find (ml,p_) ctxt.o_hints.OI.gen in
     o = 0.0
   in
