@@ -1,26 +1,15 @@
 package edu.kyoto.fos.regnant;
 
 import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
+import edu.kyoto.fos.regnant.cfg.BasicBlockGraph;
+import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
 import edu.kyoto.fos.regnant.cfg.CFGReconstructor;
-import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
 import edu.kyoto.fos.regnant.simpl.RewriteChain;
-import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
-import edu.kyoto.fos.regnant.translation.FlagTranslation;
 import edu.kyoto.fos.regnant.translation.ObjectModel;
 import edu.kyoto.fos.regnant.translation.ObjectModel.Impl;
 import edu.kyoto.fos.regnant.translation.Translate;
-import soot.Body;
-import soot.Local;
-import soot.Main;
-import soot.PackManager;
-import soot.Scene;
-import soot.SceneTransformer;
-import soot.SootClass;
-import soot.SootMethod;
-import soot.Transform;
-import soot.UnitPatchingChain;
-import soot.ValueBox;
+import soot.*;
 import soot.options.Options;
 import soot.util.queue.ChunkedQueue;
 import soot.util.queue.QueueReader;
@@ -75,7 +64,7 @@ public class Regnant extends Transform {
       pw.printf("{ %s() }\n", Translate.getMangledName(mainMethod));
     } catch (IOException ignored) {
     }
-    FlagTranslation.outputTo(options.get("flags"));
+//    FlagTranslation.outputTo(options.get("flags"));
   }
 
   private void removeArgVector(final SootMethod main) {
@@ -120,11 +109,11 @@ public class Regnant extends Transform {
       System.out.println("Simplified: ");
       System.out.println(simpl);
       CFGReconstructor cfg = new CFGReconstructor(simpl);
+      BasicBlockMapper bbm = cfg.GetBasicBlockMapper();
+      BasicBlockGraph bbg = cfg.GetBasicBlockGraph();
       System.out.println(cfg.dump());
 
-      FlagInstrumentation fi = new FlagInstrumentation(cfg);
-      LetBindAllocator bindAlloc = new LetBindAllocator(cfg.getStructure());
-      Translate t = new Translate(simpl, cfg.getReconstructedGraph(), fi, bindAlloc, worklist, l, as, oimpl);
+      Translate t = new Translate(simpl, worklist, l, as, oimpl, bbm, bbg);
       toReturn.add(t);
     }
     return toReturn;

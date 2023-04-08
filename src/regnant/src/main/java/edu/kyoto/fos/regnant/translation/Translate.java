@@ -2,96 +2,36 @@ package edu.kyoto.fos.regnant.translation;
 
 import edu.kyoto.fos.regnant.aliasing.FieldAliasing;
 import edu.kyoto.fos.regnant.cfg.BasicBlock;
-import edu.kyoto.fos.regnant.cfg.graph.BlockSequence;
-import edu.kyoto.fos.regnant.cfg.graph.ConditionalNode;
-import edu.kyoto.fos.regnant.cfg.graph.Continuation;
+import edu.kyoto.fos.regnant.cfg.BasicBlockGraph;
+import edu.kyoto.fos.regnant.cfg.BasicBlockMapper;
 import edu.kyoto.fos.regnant.cfg.graph.Coord;
-import edu.kyoto.fos.regnant.cfg.graph.ElemCont;
-import edu.kyoto.fos.regnant.cfg.graph.GraphElem;
-import edu.kyoto.fos.regnant.cfg.graph.InstNode;
-import edu.kyoto.fos.regnant.cfg.graph.JumpCont;
-import edu.kyoto.fos.regnant.cfg.graph.JumpNode;
-import edu.kyoto.fos.regnant.cfg.graph.LoopNode;
-import edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation;
-import edu.kyoto.fos.regnant.ir.expr.ArrayLength;
-import edu.kyoto.fos.regnant.ir.expr.ArrayRead;
-import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
-import edu.kyoto.fos.regnant.ir.expr.IntLiteral;
-import edu.kyoto.fos.regnant.ir.expr.ValueLifter;
-import edu.kyoto.fos.regnant.ir.expr.Variable;
+import edu.kyoto.fos.regnant.ir.expr.NullConstant;
+import edu.kyoto.fos.regnant.ir.expr.*;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp.Builder;
 import edu.kyoto.fos.regnant.simpl.RandomRewriter;
 import edu.kyoto.fos.regnant.storage.Binding;
-import edu.kyoto.fos.regnant.storage.LetBindAllocator;
 import edu.kyoto.fos.regnant.storage.oo.StorageLayout;
 import fj.Ord;
 import fj.P;
 import fj.P2;
 import fj.data.Option;
 import fj.data.TreeMap;
-import soot.Body;
-import soot.FastHierarchy;
-import soot.IntType;
-import soot.Local;
-import soot.PointsToAnalysis;
-import soot.RefLikeType;
-import soot.RefType;
-import soot.Scene;
-import soot.SootClass;
-import soot.SootField;
-import soot.SootMethod;
-import soot.Type;
-import soot.Unit;
-import soot.Value;
-import soot.ValueBox;
-import soot.jimple.ArrayRef;
-import soot.jimple.AssignStmt;
-import soot.jimple.CastExpr;
-import soot.jimple.ConditionExpr;
-import soot.jimple.GotoStmt;
-import soot.jimple.IdentityRef;
-import soot.jimple.IdentityStmt;
-import soot.jimple.IfStmt;
-import soot.jimple.InstanceFieldRef;
-import soot.jimple.InstanceInvokeExpr;
-import soot.jimple.InstanceOfExpr;
-import soot.jimple.InvokeExpr;
-import soot.jimple.InvokeStmt;
-import soot.jimple.LengthExpr;
-import soot.jimple.NopStmt;
-import soot.jimple.NullConstant;
-import soot.jimple.ParameterRef;
-import soot.jimple.ReturnStmt;
-import soot.jimple.ReturnVoidStmt;
-import soot.jimple.SpecialInvokeExpr;
-import soot.jimple.StaticInvokeExpr;
-import soot.jimple.StringConstant;
-import soot.jimple.ThisRef;
-import soot.jimple.ThrowStmt;
-import soot.jimple.internal.JimpleLocal;
+import soot.*;
+import soot.jimple.*;
 import soot.jimple.toolkits.callgraph.VirtualCalls;
 import soot.util.NumberedString;
 import soot.util.Numberer;
 import soot.util.queue.ChunkedQueue;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.BiConsumer;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation.*;
+import static edu.kyoto.fos.regnant.translation.InstructionStream.fresh;
 
 /*
   The big fish translation.
@@ -104,11 +44,9 @@ import static edu.kyoto.fos.regnant.cfg.instrumentation.FlagInstrumentation.*;
 
 */
 public class Translate {
-  private static final String THIS_PARAM = "reg$this_in";
+  public static final String THIS_PARAM = "reg$this_in";
   public static final String ALIASING_CLASS = "edu.kyoto.fos.regnant.runtime.Aliasing";
-  private final FlagInstrumentation flg;
   private final Body b;
-  private final LetBindAllocator alloc;
   private final InstructionStream stream;
   private final ChunkedQueue<SootMethod> worklist;
   private final StorageLayout layout;
@@ -116,34 +54,33 @@ public class Translate {
   private final FieldAliasing as;
   private final ObjectModel objectModel;
   private int coordCounter = 1;
-  private Map<Coord, Integer> coordAssignment = new HashMap<>();
+  private final Map<Coord, Integer> coordAssignment = new HashMap<>();
   public static final String CONTROL_FLAG = "reg$control";
+  private final BasicBlockMapper bbm;
+  private final BasicBlockGraph bbg;
 
-  public Translate(Body b, GraphElem startElem, FlagInstrumentation flg, LetBindAllocator alloc, final ChunkedQueue<SootMethod> worklist, StorageLayout sl, final FieldAliasing as, ObjectModel.Impl om) {
-    this.flg = flg;
+  public Translate(Body b, final ChunkedQueue<SootMethod> worklist, StorageLayout sl, final FieldAliasing as, ObjectModel.Impl om, BasicBlockMapper bbm, BasicBlockGraph bbg) {
     this.b = b;
-    this.alloc = alloc;
     this.worklist = worklist;
     this.layout = sl;
     this.objectModel = om.make(layout);
     this.lifter = new ValueLifter(worklist, layout, objectModel);
     this.as = as;
+    this.bbm = bbm;
+    this.bbg = bbg;
+
+    // TODO: envは各変数がmutableかどうかを表すMap。これをデータフロー解析で作れるようにする
+    Env empty = Env.empty();
+    Map<Local, Binding> binding = new HashMap<>();
+    for (Local l: b.getLocals()) {
+      binding.put(l, Binding.MUTABLE);
+    }
+    Env env = empty.updateBound(binding);
+
     /* the instructionstream.fresh takes a lambda which builds the instruction stream
      "in place."
      */
-    this.stream = InstructionStream.fresh("main", l -> {
-      // The environment does not actually track static types (we don't need it to). Rather, it tracks what the current loop name is,
-      // what variables are in scope, and the binding type of each variable (i.e., wrapped in a ref type or immutable)
-      Env e = Env.empty();
-      // if we need to track flags during this execution, allocate the special control flag variable.
-      if(flg.setFlag.size() > 0) {
-        l.addBinding(CONTROL_FLAG, ImpExpr.literalInt(0), true);
-        e = e.updateBound(Collections.singletonMap(new JimpleLocal(CONTROL_FLAG, IntType.v()), Binding.MUTABLE));
-      }
-      // translate the root start elem
-      translateElem(l, startElem, e);
-    });
-    this.stream.close();
+    this.stream = fresh("main", is -> translateMethod(is, env));
   }
 
   public StringBuilder print() {
@@ -169,187 +106,23 @@ public class Translate {
   }
 
 
+  // The class in which the type of each variable and whether it can be changed is maintained
   protected static class Env {
     final fj.data.TreeMap<Local, Binding> boundVars;
-    final boolean inLoop;
-    final P2<String, List<Local>> currentLoop;
 
-    Env(final boolean inLoop, final TreeMap<Local, Binding> boundVars, final P2<String, List<Local>> currentLoop) {
+    Env(final TreeMap<Local, Binding> boundVars) {
       this.boundVars = boundVars;
-      this.inLoop = inLoop;
-      this.currentLoop = currentLoop;
-    }
-
-    public Env enterLoop(String nm, List<Local> locs) {
-      return new Env(true, boundVars, P.p(nm, locs));
     }
 
     public Env updateBound(Map<Local, Binding> b) {
       TreeMap<Local, Binding> newBind = fj.data.Stream.iterableStream(b.entrySet()).foldLeft((curr, elem) ->
           curr.set(elem.getKey(), elem.getValue()), boundVars);
-      return new Env(inLoop, newBind, currentLoop);
+      return new Env(newBind);
     }
 
-    public static Env empty() {
-      return new Env(false, fj.data.TreeMap.empty(Ord.ord(l1 -> l2 ->
-          Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))), null);
+    private static Env empty() {
+      return new Env(fj.data.TreeMap.empty(Ord.ord(l1 -> l2 -> Ord.intOrd.compare(l1.getNumber(), l2.getNumber()))));
     }
-  }
-  /*
-    When translating each element, we may wrap it in multiple conditionals. The first is
-    a check of whether the execution of this block should occur, based on the gate on flag.
-   */
-  @SuppressWarnings("unchecked") private Env translateElem(InstructionStream outStream, GraphElem elem, Env e) {
-    Map<String, Object> annot = elem.getAnnot();
-    if(annot.containsKey(GATE_ON)) {
-      Set<Coord> cond = elem.getAnnotation(GATE_ON, Set.class);
-      InstructionStream i = InstructionStream.fresh("gate-top");
-      translateElemChoose(i, elem, e);
-      outStream.addCond(
-          // this will generate a new conditional to check the value of the control flag
-          ImpExpr.controlFlag(cond.stream().map(this::getCoordId).collect(Collectors.toList())),
-          i.andClose(),
-          InstructionStream.unit("gate"));
-      return e;
-    } else {
-      return translateElemChoose(outStream, elem, e);
-    }
-  }
-
-  /*
-    The next step is to select which block to execute;
-    this generates a chain of if/else expressions
-   */
-  @SuppressWarnings("unchecked")
-  private Env translateElemChoose(final InstructionStream i, final GraphElem elem, Env e) {
-    if(elem.getAnnot().containsKey(CHOOSE_BY)) {
-      assert elem instanceof InstNode;
-      InstNode inst = (InstNode) elem;
-      Map<BasicBlock, Set<Coord>> chooseBy = elem.getAnnotation(CHOOSE_BY, Map.class);
-      assert chooseBy.size() > 1;
-      assert chooseBy.size() == inst.hds.size();
-      translateElemChoose(i, inst.hds.iterator(), chooseBy, e);
-      return e;
-    } else {
-      return translateElemLoop(i, elem, e);
-    }
-  }
-
-  /* i is the instruction stream on which to place the translation of the remainder of the choices */
-  private void translateElemChoose(final InstructionStream i,
-      final Iterator<GraphElem> iterator,
-      final Map<BasicBlock,Set<Coord>> chooseBy, Env e) {
-    assert iterator.hasNext();
-    GraphElem hd = iterator.next();
-    if(!iterator.hasNext()) {
-      /*
-      if this is the last possibility, directly translate onto i
-       */
-      translateElemLoop(i, hd, e);
-    } else {
-      List<Integer> choiceBy = toChoiceFlags(chooseBy.get(hd.getHead()));
-      InstructionStream curr = InstructionStream.fresh("choice1");
-      InstructionStream rest = InstructionStream.fresh("choice-rest");
-      /*
-        otherwise translate this elements body on curr
-       */
-      translateElemLoop(curr, hd, e);
-      curr.close();
-      /*
-      translate the remaining elements of the stream on rest
-       */
-      translateElemChoose(rest, iterator, chooseBy, e);
-      /* then place the conditional, decided based on the choice flag, on the stream i given to us */
-      i.addCond(ImpExpr.controlFlag(choiceBy), curr, rest.andClose());
-    }
-  }
-
-  private List<Integer> toChoiceFlags(final Set<Coord> tmp) {
-    return tmp.stream().map(this::getCoordId).collect(Collectors.toList());
-  }
-
-  /*
-    If this is a loop, lift it into a separate function, and then insert a call to that function.
-
-    Otherwise, do the actual translation in translateElemBase
-   */
-  @SuppressWarnings("unchecked")
-  private Env translateElemLoop(final InstructionStream i, final GraphElem elem, Env e) {
-    if(elem.isLoop()) {
-      Map<String, Object> annot = elem.getAnnot();
-      String loopName = this.getLoopName(elem);
-      List<Local> args = new ArrayList<>();
-      /*
-        Collect all variables in scope
-       */
-      e.boundVars.keys().forEach(args::add);
-
-      InstructionStream lBody = InstructionStream.fresh("loop-body");
-      /*
-        Translate the loop body on the (fresh) lbody scheme
-       */
-      translateElemBase(lBody, elem, e.enterLoop(loopName, args));
-      lBody.close();
-      assert lBody.isTerminal();
-      /*
-        Attach the body of the function as an auxiliary function to i,
-        the aux function has body lBody, name loopName, and arguments args,
-       */
-      i.addSideFunction(loopName, args, lBody);
-
-      /*
-        Invoke the new loop function, passing in all live arguments;
-       */
-      i.addLoopInvoke(loopName, args);
-      List<P2<List<Integer>, InstructionStream>> doIf = new ArrayList<>();
-      /*
-      Add a series of conditional operations; break out of the root, or recursively invoke the current loop
-       */
-      if(annot.containsKey(RECURSE_ON) && !elem.getAnnotation(RECURSE_ON,Set.class).isEmpty()) {
-        assert e.currentLoop != null;
-        Set<Coord> recFlags = elem.getAnnotation(RECURSE_ON, Set.class);
-        InstructionStream l = InstructionStream.fresh("recurse-gate");
-        l.ret(ImpExpr.callLoop(e.currentLoop._1(), e.currentLoop._2()));
-        List<Integer> gateOn = toChoiceFlags(recFlags);
-        doIf.add(P.p(gateOn, l));
-      }
-      if(annot.containsKey(RETURN_ON) && !elem.getAnnotation(RETURN_ON,Set.class).isEmpty()) {
-        ImpExpr toReturn = ImpExpr.unitValue();
-        InstructionStream l = InstructionStream.fresh("return-gate");
-        l.ret(toReturn);
-        List<Integer> gateOn = toChoiceFlags(elem.getAnnotation(RETURN_ON, Set.class));
-        doIf.add(P.p(gateOn, l));
-      }
-      if(doIf.size() > 0) {
-        gateLoop(i, doIf.iterator());
-      }
-      return e;
-    } else {
-      return translateElemBase(i, elem, e);
-    }
-  }
-  /*
-    Translate a seties of instruction streams and control flag values into a series of if/else statements.
-   */
-  private void gateLoop(InstructionStream tgt,
-      Iterator<P2<List<Integer>, InstructionStream>> instStream) {
-    gateLoop(tgt, instStream, ImpExpr::controlFlag, InstructionStream::close);
-  }
-
-  private void gateLoop(final InstructionStream tgt,
-      final Iterator<P2<List<Integer>,InstructionStream>> instStream,
-      final Function<List<Integer>,ImpExpr> cond,
-      final Consumer<InstructionStream> fallThrough) {
-    P2<List<Integer>, InstructionStream> g = instStream.next();
-    final InstructionStream elseBranch;
-    if(instStream.hasNext()) {
-      elseBranch = InstructionStream.fresh("gate-choice", l -> gateLoop(l, instStream, cond, fallThrough));
-      elseBranch.close();
-    } else {
-      elseBranch = InstructionStream.fresh("fallthrough", fallThrough);
-    }
-    tgt.addCond(cond.apply(g._1()), g._2(), elseBranch);
-
   }
 
   private String getMangledName() {
@@ -359,149 +132,6 @@ public class Translate {
 
   public static String getMangledName(final SootMethod m) {
     return m.getDeclaringClass().getName().replace(".", "__") + "_" + m.getName().replace("<init>", "$init$");
-  }
-
-  private String getLoopName(final GraphElem elem) {
-    return String.format("regnant$%s_%s__loop_%d",
-        b.getMethod().getDeclaringClass().getName().replace(".", "$$"),
-        b.getMethod().getName(),
-        elem.getHead().id);
-  }
-
-  /*
-    Compile a continuation that appears in a conditional expression. The pre consumer is for attaching cleanup operations
-    generated by evaluating the condition, namely aliasing temporary variables back into their "stable" storage.
-   */
-  private InstructionStream compileJump(Continuation c, final Env env, Consumer<InstructionStream> pre) {
-    if(c instanceof JumpCont) {
-      JumpCont jumpCont = (JumpCont) c;
-      Coord srcCoord = jumpCont.c;
-      /*
-        If we have to set a flag, return, or recurse call the jumpFrom function, otherwise do nothing
-       */
-      if(flg.setFlag.contains(srcCoord) || flg.returnJump.contains(srcCoord) || jumpCont.j.cont.size() > 0) {
-        return InstructionStream.fresh("jump", i -> {
-          pre.accept(i);
-          jumpFrom(jumpCont.c, i, env);
-        });
-      } else {
-        return InstructionStream.fresh("fallthrough", l -> {
-          pre.accept(l);
-          l.close();
-        });
-      }
-    } else {
-      assert c instanceof ElemCont;
-      return InstructionStream.fresh("branch", l -> {
-        /* the continuation is actually a block, so translate it, starting the chain against from translateElem */
-        pre.accept(l);
-        translateElem(l, ((ElemCont) c).elem, env);
-      });
-    }
-  }
-
-  private InstructionStream compileJump(Continuation c, final Env env) {
-    return compileJump(c, env, i -> {});
-  }
-
-  private void jumpFrom(final Coord c, final InstructionStream i, Env e) {
-    if(flg.recurseFlag.contains(c)) {
-      /*
-        The current loop record provides an exact name of the method and the variables available in each iteration;
-        i.e., those that should be passed in as arugments
-       */
-      i.ret(ImpExpr.callLoop(e.currentLoop._1(), e.currentLoop._2()));
-      assert !flg.setFlag.contains(c) && !flg.returnJump.contains(c);
-    }
-    /*
-     the special i.setControl emits a mutation of the special flag variable
-     */
-    if(flg.setFlag.contains(c)) {
-      assert !i.isTerminal();
-      i.setControl(this.getCoordId(c));
-    }
-    // This may fire after the above, so we may set the flag and then return
-    if(flg.returnJump.contains(c)) {
-      assert !i.isTerminal();
-      i.returnUnit();
-    }
-  }
-
-  private Env translateElemBase(final InstructionStream lBody, final GraphElem elem, final Env env) {
-    // we would have gated this already
-    assert !(elem instanceof InstNode);
-    if(elem instanceof ConditionalNode) {
-      ConditionalNode cond = (ConditionalNode) elem;
-      // we handle the translation of ifstatements ourselves.
-      return encodeBasicBlock(cond.head, lBody, u -> {
-        assert u instanceof IfStmt; return ((IfStmt)u);
-      }, (env_, el) -> {
-        Value condValue = el.getCondition();
-        // based on asm source, the right (aka 2nd) op will always be null when representing ifnull/ifnonull
-        // this is not terribly *robust* mind you, but serves for the moment.
-        if(condValue instanceof ConditionExpr && ((ConditionExpr) condValue).getOp2().equals(NullConstant.v())) {
-          ConditionExpr condE = (ConditionExpr) condValue;
-          Continuation tCont, fCont;
-          if(condE.getSymbol().trim().equals("==")) {
-            // the TRUE branch is what we take if the pointer is null, i.e., it becomes the true branch of ifnull
-            tCont = cond.tBranch;
-            fCont = cond.fBranch;
-          } else {
-            assert condE.getSymbol().trim().equals("!=");
-            // then the true branch is if we are non-null, in which case it must be swapped to be the ELSE branch
-            // of our ifnull
-            tCont = cond.fBranch;
-            fCont = cond.tBranch;
-          }
-          LocalContents l = this.liftValue(el, condE.getOp1(), new FieldOpWrite("null"), lBody, BindMode.IMMEDIATE, env_.boundVars);
-          lBody.addNullCond(l.getValue(), compileJump(tCont, env_, l::cleanup), compileJump(fCont, env_, l::cleanup));
-        } else {
-          ImpExpr path = lifter.lift(condValue, env_.boundVars);
-          lBody.addCond(path, compileJump(cond.tBranch, env_).andClose(), compileJump(cond.fBranch, env_).andClose());
-        }
-      }, env);
-    } else if(elem instanceof JumpNode) {
-      JumpNode j = (JumpNode) elem;
-      /*
-        Override the final unit handling if it is a return statement.
-       */
-      return encodeBasicBlock(j.head, lBody, u -> (u instanceof ReturnStmt || u instanceof ReturnVoidStmt) ? u : null, (env_, rs_) -> {
-        Coord c = Coord.of(j.head);
-        /* before returning, we have to either set control flags and add parameter aliasing
-          (parameters are copied into local variable names, following Soot's argument model. We need this
-          aliasing to transfer the ownership back to the formal argument names
-         */
-        if(rs_ instanceof ReturnStmt) {
-          ReturnStmt rs = (ReturnStmt) rs_;
-          if(flg.setFlag.contains(c)) {
-            lBody.setControl(this.getCoordId(c));
-          }
-          addParameterAliasing(env_, lBody);
-          lBody.ret(lifter.lift(rs.getOp(), env_.boundVars));
-          return;
-        } else if(rs_ instanceof ReturnVoidStmt) {
-          if(flg.setFlag.contains(c)) {
-            lBody.setControl(this.getCoordId(c));
-          }
-          addParameterAliasing(env_, lBody);
-          lBody.returnUnit();
-          return;
-        }
-        // otherwise this is a fall through. This will have been called after the final element has been translated, so set any flags as necessary for intra-procedural control flow
-        jumpFrom(c, lBody, env_);
-      }, env);
-    } else if(elem instanceof BlockSequence) {
-      BlockSequence sequence = (BlockSequence) elem;
-      Env it = env;
-      LinkedList<GraphElem> list = new LinkedList<>(sequence.chain);
-      while(!list.isEmpty()) {
-        GraphElem hd = list.pop();
-        it = translateElem(lBody, hd, it);
-      }
-    } else if(elem instanceof LoopNode) {
-      return this.translateElemBase(lBody, ((LoopNode) elem).loopBody, env);
-    }
-    return env;
   }
 
   private void addParameterAliasing(final Env env_, final InstructionStream lBody) {
@@ -528,15 +158,39 @@ public class Translate {
     }
   }
 
-  private void encodeInstruction(final InstructionStream str, final Unit unit,
-      final Set<Local> needDefine,
-      fj.data.TreeMap<Local, Binding> env) {
-    assert !(unit instanceof IfStmt);
-    assert !(unit instanceof ReturnStmt);
-    if(unit instanceof NopStmt) {
+  private void encodeInstruction(final InstructionStream is, final Unit unit, TreeMap<Local, Binding> env, BasicBlock bb) {
+    if(unit instanceof IfStmt) {
+      IfStmt ifUnit = (IfStmt) unit;
+      List<BasicBlock> nextBBs = bbg.getSuccsOf(bb);
+
+      assert (nextBBs.size() == 2);
+      BasicBlock thenBB;
+      BasicBlock elseBB;
+      // Conditional branches are converted to jumps between basic blocks
+      if (ifUnit.getTarget() == nextBBs.get(0).getHead()) {
+        thenBB = nextBBs.get(0);
+        elseBB = nextBBs.get(1);
+      } else {
+        thenBB = nextBBs.get(1);
+        elseBB = nextBBs.get(0);
+      }
+      is.addCond(lifter.lift(ifUnit.getCondition(), env), thenBB, elseBB, b, getMangledName());
+    } else if(unit instanceof ReturnStmt) {
+      ReturnStmt returnUnit = (ReturnStmt) unit;
+      is.addReturn(lifter.lift(returnUnit.getOp(), env));
+    } else if(unit instanceof ReturnVoidStmt) {
+      is.addReturn(new IntLiteral(0));
+    } else if(unit instanceof GotoStmt) {
+      List<BasicBlock> nextBBs = bbg.getSuccsOf(bb);
+      assert (nextBBs.size() == 1);
+      BasicBlock nextBB = nextBBs.get(0);
+
+      // Converts a goto statement to a function call because it corresponds to a jump between basic blocks
+      is.addExpr(new InterBasicBlockCall(b, nextBB, getMangledName()));
+    } else if(unit instanceof NopStmt) {
       if(unit.hasTag(UnreachableTag.NAME)) {
         // despite the name, this outputs a fail statement
-        str.addAssertFalse();
+        is.addAssertFalse();
       }
     } else if(unit instanceof ThrowStmt) {
       throw new RuntimeException("not handled yet");
@@ -554,30 +208,36 @@ public class Translate {
 
       assert identityStmt.getLeftOp() instanceof Local;
       Local defn = (Local) identityStmt.getLeftOp();
-      assert needDefine.contains(defn);
-      assert env.contains(defn);
-      needDefine.remove(defn);
-      boolean mutableParam = env.get(defn).some() == Binding.MUTABLE;
+
+      // TODO: 基本ブロックの一番初めのみfalseになるようにすれば良いと思う（多分）
+      boolean mutableParam = true;
+
       if(rhs instanceof ThisRef) {
-        str.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+        // TODO: データフロー解析に対応したら、一旦はじめに全ての変数を定義することがなくなるため、おそらくaddBindingになる
+        // is.addBinding(defn.getName(), ImpExpr.var(THIS_PARAM), mutableParam);
+        is.addWrite(defn.getName(), ImpExpr.var(THIS_PARAM));
       } else {
         assert rhs instanceof ParameterRef;
         int paramNumber = ((ParameterRef) rhs).getIndex();
-        str.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+        // TODO: データフロー解析に対応したら、一旦はじめに全ての変数を定義することがなくなるため、おそらくaddBindingになる
+        // is.addBinding(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)), mutableParam);
+        is.addWrite(defn.getName(), ImpExpr.var(this.getParamName(paramNumber)));
       }
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof Local) {
       AssignStmt as = (AssignStmt) unit;
       Value lhs = as.getLeftOp();
       Local target = (Local) lhs;
-      boolean needsDefinition = needDefine.contains(target);
-      needDefine.remove(target);
+
+      // TODO: データフロー解析で判定できるよにする
+      boolean needsDefinition = false;
       boolean mutableBinding = env.get(target).some() == Binding.MUTABLE;
+
       // the stream in which the write occurs. when possible we do this in a scope block to avoid temp variable clutter
       InstructionStream writeStream;
       if(!needsDefinition) {
-        writeStream = InstructionStream.fresh("write");
+        writeStream = fresh("write");
       } else {
-        writeStream = str;
+        writeStream = is;
       }
       // we allow complex RHS in binding forms
       // liftValue handles the messiness of extracting out field contents.
@@ -590,16 +250,17 @@ public class Translate {
       }
       c.cleanup(writeStream);
       if(!needsDefinition) {
-        str.addBlock(writeStream);
+        is.addBlock(writeStream);
       }
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof InstanceFieldRef) {
       AssignStmt assign = (AssignStmt) unit;
+      // TODO: その変数がmutableかどうかをデータフロー解析で行う
       ImpExpr right = lifter.lift(assign.getRightOp(), env);
       InstanceFieldRef fieldRef = (InstanceFieldRef) assign.getLeftOp();
-      this.writeField(str, fieldRef, env, right, new CtxtVarManager(unit, "base", "field"));
+      this.writeField(is, fieldRef, env, right, new CtxtVarManager(unit, "base", "field"));
     } else if(unit instanceof AssignStmt && ((AssignStmt) unit).getLeftOp() instanceof ArrayRef) {
       ArrayRef arrayRef = (ArrayRef) ((AssignStmt) unit).getLeftOp();
-      InstructionStream s = InstructionStream.fresh("array");
+      InstructionStream s = fresh("array");
       // the base pointer may be in mutable memory, we may need to move it into a temporary, "direct" variable.
       LocalContents basePtr = this.unwrapArray(arrayRef, s, env, new FieldOpWrite("array"));
       // By the invariants provided by soot, we know these are immediates
@@ -607,23 +268,23 @@ public class Translate {
       ImpExpr val = this.lifter.lift(((AssignStmt) unit).getRightOp(), env);
       s.addArrayWrite(basePtr.getValue(), ind, val);
       basePtr.cleanup(s);
-      str.addBlock(s);
+      is.addBlock(s);
     } else if(unit instanceof InvokeStmt) {
-      InstructionStream call = InstructionStream.fresh("call");
-      InvokeStmt is = (InvokeStmt) unit;
+      InstructionStream call = fresh("call");
+      InvokeStmt iStmt = (InvokeStmt) unit;
       // skip super object constructors
-      if(is.getInvokeExpr() instanceof SpecialInvokeExpr && is.getInvokeExpr().getMethodRef().getDeclaringClass().getName().equals("java.lang.Object") && is.getInvokeExpr().getMethodRef().getName().equals("<init>")) {
+      if(iStmt.getInvokeExpr() instanceof SpecialInvokeExpr && iStmt.getInvokeExpr().getMethodRef().getDeclaringClass().getName().equals("java.lang.Object") && iStmt.getInvokeExpr().getMethodRef().getName().equals("<init>")) {
         return;
       }
       // local contents here actually contains the call expression, which must be added to the stream
       // N.B>
-      LocalContents c = this.translateCall(unit, call, is.getInvokeExpr(), env);
+      LocalContents c = this.translateCall(unit, call, iStmt.getInvokeExpr(), env);
       call.addExpr(c.getValue());
       // clean up temporary values made in temporary storage as necessary
       c.cleanup(call);
       // add the block
-      str.addBlock(call);
-    } else if(!(unit instanceof GotoStmt)) {
+      is.addBlock(call);
+    } else {
       // this is really hard, do it later
       throw new RuntimeException("Unhandled statement " + unit + " " + unit.getClass());
     }
@@ -636,7 +297,7 @@ public class Translate {
     if(this.as.isFinal(fieldRef.getField()) && (!this.b.getMethod().getDeclaringClass().equals(fieldRef.getField().getDeclaringClass()) || !this.b.getMethod().isConstructor())) {
       throw new UnsupportedOperationException("Must alias annotation requires field " + fieldRef.getField() + " to be effectively final");
     }
-    InstructionStream i = InstructionStream.fresh("write", l -> {
+    InstructionStream i = fresh("write", l -> {
       // unwrap the raw pointer representing the memory address in which the object representation is kept.
       VariableContents base = this.unwrapPointer(l, env, m, (Local) fieldRef.getBase());
       // a list of cleanups. To be processed in order
@@ -693,7 +354,7 @@ public class Translate {
         callee = devirtualize(ctxt, str, callees);
       }
     }
-    // Lift all of the arguments to immediate values with cleanups, as represented by LocalContents
+    // Lift all the arguments to immediate values with cleanups, as represented by LocalContents
     if(expr instanceof InstanceInvokeExpr) {
       InstanceInvokeExpr iie = (InstanceInvokeExpr) expr;
       args.add(liftValue(ctxt, iie.getBase(), vm, str, BindMode.IMMEDIATE, env));
@@ -813,6 +474,22 @@ public class Translate {
             expr.getMethodRef().getDeclaringClass().getName().equals(ALIASING_CLASS));
   }
 
+  // the function to branch a method to be called by the class
+  private void gateLoop(final InstructionStream tgt,
+                        final Iterator<P2<Integer,InstructionStream>> instStream,
+                        final Function<Integer,ImpExpr> cond,
+                        final Consumer<InstructionStream> fallThrough) {
+    P2<Integer, InstructionStream> g = instStream.next();
+    final InstructionStream elseBranch;
+    if(instStream.hasNext()) {
+      elseBranch = InstructionStream.fresh("gate-choice", l -> gateLoop(l, instStream, cond, fallThrough));
+      elseBranch.close();
+    } else {
+      elseBranch = InstructionStream.fresh("fallthrough", fallThrough);
+    }
+    tgt.addCond(cond.apply(g._1()), g._2(), elseBranch);
+  }
+
   private String devirtualize(final Unit u, final InstructionStream s, final Map<SootMethod,Set<SootClass>> callees) {
     assert callees.size() > 1;
     Numberer<Unit> numberer = Scene.v().getUnitNumberer();
@@ -838,8 +515,8 @@ public class Translate {
     /* this is a gross hack to get the size of the tuple used to store objects of the static type of the receiver */
     SootClass klassSz = callees.entrySet().iterator().next().getValue().iterator().next();
     int projSize = layout.metaStorageSize(klassSz);
-    InstructionStream virtBody = InstructionStream.fresh("devirt", body -> {
-      List<P2<List<Integer>, InstructionStream>> actions = new ArrayList<>();
+    InstructionStream virtBody = fresh("devirt", body -> {
+      List<P2<Integer, InstructionStream>> actions = new ArrayList<>();
       /*
         This is a list of the possible instruction streams that call the target method, and the runtime tags that resolve to that method.
        */
@@ -847,19 +524,18 @@ public class Translate {
         List<Integer> flgs = kls.stream().map(SootClass::getNumber).collect(Collectors.toList());
         worklist.add(meth);
         String actual = getMangledName(meth);
-        InstructionStream br = InstructionStream.fresh("branch", brnch -> brnch.ret(ImpExpr.call(actual, fwdCalls)));
-        actions.add(P.p(flgs, br));
+        InstructionStream br = fresh("branch", brnch -> brnch.ret(ImpExpr.call(actual, fwdCalls)));
+
+        for(Integer flg : flgs) {
+          actions.add(P.p(flg, br));
+        }
       });
 
       String runtimeTag = "ty";
       // project the runtime tag out
       body.bindProjection(runtimeTag, 0, projSize, "this");
-      List<ImpExpr> flagArg = List.of(Variable.immut(runtimeTag));
       // use the same machinery as the recurse-on/return-on flags to generate the if/else flags, but the final else block must be a fail (devirtualization shouldn't fail)
-      gateLoop(body, actions.iterator(), flgs -> {
-        String control = FlagTranslation.allocate(flgs);
-        return ImpExpr.call(control, flagArg);
-      }, InstructionStream::addAssertFalse);
+      gateLoop(body, actions.iterator(), flg -> new Binop(new Variable(runtimeTag, false), "=", new IntLiteral(flg)), InstructionStream::addAssertFalse);
     });
     virtBody.close();
     s.addSideFunction(virtName, args, virtBody);
@@ -1007,7 +683,7 @@ public class Translate {
       }
       String test = FlagTranslation.allocate(validDownCasts);
       ImpExpr checkCall = ImpExpr.call(test, List.of(Variable.immut(runtimeTag)));
-      s.addCond(checkCall, InstructionStream.fresh("valid-cast", InstructionStream::close), InstructionStream.fresh("invalid-cast", InstructionStream::addAssertFalse));
+      s.addCond(checkCall, fresh("valid-cast", InstructionStream::close), fresh("invalid-cast", InstructionStream::addAssertFalse));
       return l;
     } else if(v instanceof InstanceOfExpr) {
       // TODO(jtoman): handle impossible casts
@@ -1031,9 +707,9 @@ public class Translate {
       String tmp = m.getBase();
       s.addBinding(tmp, ImpExpr.literalInt(0), true);
       // if the value is null, then it is definitely not an instance
-      InstructionStream isNull = InstructionStream.fresh("is-null-branch", l -> l.addWrite(tmp, IntLiteral.v(0)));
+      InstructionStream isNull = fresh("is-null-branch", l -> l.addWrite(tmp, IntLiteral.v(0)));
       // if it is not null, then interrogate the runtime tag.
-      InstructionStream isInhabited = InstructionStream.fresh("non-null-branch", l -> {
+      InstructionStream isInhabited = fresh("non-null-branch", l -> {
         int sz = layout.metaStorageSize(getRepresentativeClass(opTypes));
         String runtimeField = m.getField();
         l.bindProjection(runtimeField, 0, sz, c.getWrappedVariable());
@@ -1160,58 +836,78 @@ public class Translate {
     return String.format("regnant$in_%s", b.getParameterLocal(paramNumber).getName());
   }
 
+  private static String getParamName(Local param) {
+    return String.format("regnant$in_%s", param.getName());
+  }
+
+  private void translateMethod(InstructionStream is, Env e) {
+    TreeMap<Local, Binding> env = e.boundVars;
+
+    // TODO: メソッドのはじめの変数定義はデータフロー解析を入れた時点で消すかもしれない
+    // Define all variables at the beginning of the method
+    for (Local local : b.getLocals()) {
+      if (local.getType() instanceof ArrayType) {
+        is.addBinding(local.getName(), new NewArray(new IntLiteral(0)), true);
+      } else if (local.getType() instanceof RefLikeType) {
+        // Define as null if it is an instance of a class
+        is.addBinding(local.getName(), new NullConstant(), true);
+      }
+      else {
+        // TODO: assertion error型等は省いたほうが良さそう
+        is.addBinding(local.getName(), new IntLiteral(0), true);
+      }
+    }
+
+    // Call the basic block at the beginning of the method
+    is.addExpr(new InterBasicBlockCall(b, bbm.getEntryPoint(), getMangledName()));
+    is.close();
+
+    for (BasicBlock bb : bbg) {
+      // TODO: 引数のリストを最適化する
+      // TODO: 関数名を自動で生成するようにする
+      List<String> arguments = Stream.concat(
+              b.getParameterLocals().stream().map(Translate::getParamName),
+              b.getLocals().stream().map(Local::getName)
+      ).collect(Collectors.toList());
+
+      if (!b.getMethod().isStatic()) {
+        arguments.add(0, THIS_PARAM);
+      }
+
+      is.addSideFunction(getMangledName() + bb.getId(), arguments, encodeBasicBlock(bb, env));
+    }
+  }
+
   /*
     Encodes a basic block into the stream str. In come cases, the final element of the stream may need special handling or must be skipped.
     This is done with the extractFinal and o argument. If the extract final returns null, then it indicates it wants
     the final unit to be translated. In either event, value extracted with extractFinal is then passed to o
    */
-  private <R> Env encodeBasicBlock(final BasicBlock head,
-      InstructionStream str,
-      Function<Unit, R> extractFinal,
-      final BiConsumer<Env, R> o,
-      Env inEnv) {
-    System.out.println("Encoding " + head);
-    List<Unit> units = head.units;
-    /*
-      These are the variables that need to be bound in this block.
-     */
-    Map<Local, Binding> localStorage = alloc.letBind.getOrDefault(head, Collections.emptyMap());
-    Env outEnv = inEnv.updateBound(localStorage);
+  private InstructionStream encodeBasicBlock(final BasicBlock bb, TreeMap<Local, Binding> env) {
+    System.out.println("Encoding " + bb);
+    List<Unit> units = bb.units;
 
-    /* These variables are actually defined with an assignment within the block, so their assignment may be deferred. Variables
-      whose assignment do not appear in the block occur when a variable is only assigned in two branches of a conditional; for the scoping to work
-      out in IMPerial, we need to have the variable declared in the common ancester block of the two branches.
-     */
-    Set<Local> defInBlock = units.stream().flatMap(u ->
-      u.getDefBoxes().stream().map(ValueBox::getValue).flatMap(v ->
-        v instanceof Local ? Stream.of((Local)v) : Stream.empty()
-      )
-    ).collect(Collectors.toSet());
-    Set<Local> needDefined = new HashSet<>();
-    localStorage.forEach((loc, bind) -> {
-      if(!defInBlock.contains(loc)) {
-        /* Those variables that require this ahead of time declaration are given dummy values, bound before translating the rest of the block.
-          These variables must be mutable, otherwise there is no feasible way to declare them ahead of time, and indeed, there is no need to
-         */
-        assert bind == Binding.MUTABLE;
-        str.addBinding(loc.getName(), ImpExpr.dummyValue(loc.getType()), true);
-      } else {
-        // need defined tracks which variables declared in this block still require definition. Essentially the first write to
-        // a variable will create a let binding, but all future bindings translate to assignments
-        needDefined.add(loc);
-      }
-    });
+    InstructionStream is = fresh("BasicBlock");
 
-    for(int i = 0; i < units.size() - 1; i++) {
-      encodeInstruction(str, units.get(i), needDefined, outEnv.boundVars);
+    for (Unit unit : units) {
+      encodeInstruction(is, unit, env, bb);
     }
-    Unit finalUnit = units.get(units.size() - 1);
-    R f = extractFinal.apply(finalUnit);
-    if(f == null) {
-      encodeInstruction(str, finalUnit, needDefined, outEnv.boundVars);
+
+    // If there is no instruction at the end to explicitly jump between basic blocks, add one.
+    if (!(units.get(units.size() - 1) instanceof IfStmt ||
+            units.get(units.size() - 1) instanceof GotoStmt ||
+            units.get(units.size() - 1) instanceof ReturnStmt ||
+            units.get(units.size() - 1) instanceof ReturnVoidStmt)) {
+      List<BasicBlock> nextBBs = bbg.getSuccsOf(bb);
+      assert (nextBBs.size() == 1);
+      BasicBlock nextBB = nextBBs.get(0);
+
+      is.addExpr(new InterBasicBlockCall(b, nextBB, getMangledName()));
     }
-    o.accept(outEnv, f);
-    return outEnv;
+
+    is.close();
+
+    return is;
   }
 
   private int getCoordId(Coord c) {

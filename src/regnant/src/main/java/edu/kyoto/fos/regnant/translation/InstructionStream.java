@@ -1,29 +1,17 @@
 package edu.kyoto.fos.regnant.translation;
 
 import edu.kyoto.fos.regnant.Printable;
+import edu.kyoto.fos.regnant.cfg.BasicBlock;
 import edu.kyoto.fos.regnant.ir.expr.ImpExpr;
-import edu.kyoto.fos.regnant.ir.stmt.Alias;
-import edu.kyoto.fos.regnant.ir.stmt.ArrayWrite;
-import edu.kyoto.fos.regnant.ir.stmt.AssertFalse;
-import edu.kyoto.fos.regnant.ir.stmt.Assign;
-import edu.kyoto.fos.regnant.ir.stmt.Bind;
-import edu.kyoto.fos.regnant.ir.stmt.Block;
-import edu.kyoto.fos.regnant.ir.stmt.Condition;
-import edu.kyoto.fos.regnant.ir.stmt.Effect;
-import edu.kyoto.fos.regnant.ir.stmt.LetBind;
-import edu.kyoto.fos.regnant.ir.stmt.NullCheck;
-import edu.kyoto.fos.regnant.ir.stmt.SideEffect;
+import edu.kyoto.fos.regnant.ir.expr.InterBasicBlockCall;
+import edu.kyoto.fos.regnant.ir.stmt.*;
 import edu.kyoto.fos.regnant.ir.stmt.aliasing.AliasOp;
 import fj.P;
 import fj.P3;
+import soot.Body;
 import soot.Local;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -53,15 +41,21 @@ public class InstructionStream implements Printable  {
   }
 
   public void printAt(final int level, final StringBuilder sb) {
-    assert this.isTerminal() : sb.toString() + " " + this.tag;
+//    assert this.isTerminal() : sb.toString() + " " + this.tag;
     printLoop(level, sb, this.stateStack.iterator());
   }
 
   private void printLoop(final int level, final StringBuilder sb, final Iterator<StreamState> iterator) {
     if(!iterator.hasNext()) {
+      // TODO: ここ何でNullになるのか考える
+      if (termNode == null) {
+        return;
+      }
+
       this.termNode.printAt(level, sb);
       return;
     }
+
     StreamState st = iterator.next();
     int bodyLevel = st.open(level, sb);
     st.printAt(bodyLevel, sb);
@@ -186,7 +180,7 @@ public class InstructionStream implements Printable  {
       if(binds.size() > 0) {
         stateStack.add(this);
       }
-      return new Unit();
+      return new InstructionStream.Unit();
     }
 
     @Override protected boolean isPopulated() {
@@ -261,6 +255,14 @@ public class InstructionStream implements Printable  {
     this.inheritFunctions(tr);
     this.inheritFunctions(fls);
     this.addEffect(new Condition(cond, tr, fls));
+  }
+
+  // Used in conditional branching with jumps between basic blocks
+  public void addCond(ImpExpr cond, BasicBlock tr, BasicBlock fls, Body b, String calleeName) {
+    // TODO: データフロー解析で引数を減らす
+    InterBasicBlockCall trueCallee = new InterBasicBlockCall(b, tr, calleeName);
+    InterBasicBlockCall falseCallee = new InterBasicBlockCall(b, fls, calleeName);
+    this.addEffect(new Condition(cond, trueCallee, falseCallee));
   }
 
   public void addNullCond(final ImpExpr value, final InstructionStream tBranch, final InstructionStream falseBranch) {
@@ -351,6 +353,10 @@ public class InstructionStream implements Printable  {
     this.ret(ImpExpr.unitValue());
   }
 
+  public void addReturn(ImpExpr value) {
+    this.addEffect(new edu.kyoto.fos.regnant.ir.stmt.Return(value));
+  }
+
   public void addSideFunction(String name, List<String> l, InstructionStream s) {
     this.inheritFunctions(s);
     this.sideFunctions.add(P.p(name, l, s));
@@ -381,10 +387,10 @@ public class InstructionStream implements Printable  {
 
   public StringBuilder dumpAs(String name, List<String> locals) {
     StringBuilder sb = new StringBuilder();
-    sb.append(name).append(locals.stream().collect(Collectors.joining(",", "(", ")")));
+    sb.append(name).append(locals.stream().collect(Collectors.joining(", ", "(", ")")));
     sb.append("{\n");
     this.printAt(1, sb);
-    sb.append("\n}\n");
+    sb.append("}\n\n");
     return sb;
   }
 }

@@ -5,29 +5,25 @@ import soot.Unit;
 import soot.jimple.GotoStmt;
 import soot.toolkits.graph.BriefUnitGraph;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class BasicBlockMapper {
   private Map<Unit, BasicBlock> hdMap = new HashMap<>();
   private Map<Unit, BasicBlock> tlMap = new HashMap<>();
+  private List<Unit> entryPoints;
 
   public BasicBlockMapper(final Body b) {
     HashSet<Unit> start = new HashSet<>();
     BriefUnitGraph ug = new BriefUnitGraph(b);
+    entryPoints = ug.getHeads();
+
     for(Unit u : b.getUnits()) {
       if(ug.getPredsOf(u).size() > 1) {
         start.add(u);
       }
     }
-    LinkedList<Unit> worklist = new LinkedList<>(ug.getHeads());
+    LinkedList<Unit> worklist = new LinkedList<>(entryPoints);
     Set<Unit> visited = new HashSet<>();
     List<List<Unit>> blocks = new ArrayList<>();
     while(!worklist.isEmpty()) {
@@ -85,6 +81,11 @@ public class BasicBlockMapper {
   public BasicBlock getBlockByTail(final Unit unit) {
     assert tlMap.containsKey(unit) : unit;
     return tlMap.get(unit);
+  }
+
+  public BasicBlock getEntryPoint() {
+    assert entryPoints.size() == 1;
+    return getBlockByHead(entryPoints.get(0));
   }
 
   public Iterator<BasicBlock> iterator() {

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
-import sys
-import subprocess
-import tempfile
-import atexit, shutil, os
 import argparse
+import atexit
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 import time
+
 
 def log_command(args, cmd):
     if args.verbose:
@@ -36,7 +39,7 @@ def main(this_dir, args):
     parser.add_argument("--timing", action="store_true")
     parser.add_argument("--src-dir")
     parser.add_argument("--yaml")
-    parser.add_argument("jdk8")
+    parser.add_argument("jdk8_rtjar")
     parser.add_argument("entry_point")
     parser.add_argument("consort_args", nargs="*")
     args = parser.parse_args(args)
@@ -84,8 +87,6 @@ def main(this_dir, args):
 
     run_script = os.path.join(this_dir, "build/install/regnant/bin/regnant")
 
-    rt_path = os.path.join(args.jdk8, "jre/lib/rt.jar")
-
     regnant_command = [
         run_script,
         "-f", "n", # no output
@@ -93,7 +94,7 @@ def main(this_dir, args):
         "-w", # whole program mode
         "-p", "cg.spark", "on", # run points to analysis
 #        "-p", "jb", "use-original-names:true", # try to make our names easier
-        "-soot-class-path", cls_dir + ":" + rt_path, # where to find the test file
+        "-soot-class-path", cls_dir + ":" + args.jdk8_rtjar, # where to find the test file
         "-p", "wjtp.regnant", regnant_options,
         cls # the class to run on
     ]
@@ -106,20 +107,20 @@ def main(this_dir, args):
     el = run_silently(regnant_command)
     print_done(args, el)
     
-    print("Generating control flags...", end=' ')
-    sys.stdout.flush()
+    # print("Generating control flags...", end=' ')
+    # sys.stdout.flush()
     intr_loc = os.path.join(work_dir, "java.intr")
-
-    intr_command = [
-        os.path.join(this_dir, "../_build/default/genFlags.exe"),
-        os.path.join(this_dir, "../stdlib/lin.intr"),
-        flags,
-        intr_loc,
-        "generated.smt"
-    ]
-    log_command(args, intr_command)
-    el = run_silently(intr_command)
-    print_done(args, el)
+    #
+    # intr_command = [
+    #     os.path.join(this_dir, "../_build/default/genFlags.exe"),
+    #     os.path.join(this_dir, "../stdlib/lin.intr"),
+    #     flags,
+    #     intr_loc,
+    #     "generated.smt"
+    # ]
+    # log_command(args, intr_command)
+    # el = run_silently(intr_command)
+    # print_done(args, el)
     
     print("Running ConSORT on translated program:")
     yaml_flg = ["-yaml"] if args.yaml is not None else []
