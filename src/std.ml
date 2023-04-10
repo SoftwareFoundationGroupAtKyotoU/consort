@@ -18,7 +18,15 @@ module PrintSet(P: sig
   let to_string e = elements e |> List.map P.to_string |> String.concat ", " |> Printf.sprintf "{%s}"
 end
 
-module IntMap = Map.Make(Int)
+module IntMap = struct
+  open Sexplib.Std
+  include Map.Make(Int)
+  let sexp_of_t (type v_type) ~(v: v_type -> Sexplib.Sexp.t) t =
+    let sexp_of_v_type = v in
+    bindings t
+    |> [%sexp_of: (int * v_type) list]
+end
+
 module IntSet = PrintSet(Int)
 module StringSet = PrintSet(struct include String let to_string = Fun.id end)
 
