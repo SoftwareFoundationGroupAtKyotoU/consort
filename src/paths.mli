@@ -28,6 +28,7 @@ type steps = [
 private (to protect crucial invariants), but may still be pattern matched over. To make extension O(1), the steps are stored in _reverse_ order
 in the path representation; i.e., the last step is the head of the list, etc. *)
 type path = private root * steps list * suff [@@deriving sexp]
+(* type path = root * steps list * suff [@@deriving sexp] *)
 type concr_ap = path [@@deriving sexp]
 
 (** Give a string representation of the path, suitable for use as a z3 identifier *)

@@ -328,7 +328,7 @@ let show_map m = OI.GenMap.fold (fun k d rest -> Printf.sprintf !"%{sexp:OI.magi
 let rec havoc_oracle ctxt ml p =
   Log.debug ~src:"FLOW-OWN" !"Looking for %{P} @ %{sexp:OI.magic_loc}" p ml;
   let from_path p_ =
-    Log.debug ~src:"DEBUG" !"Searching %{sexp:OI.magic_loc * P.path} in %s" (ml,p_) (show_map ctxt.o_hints.OI.gen);
+    Log.debug ~src:"FLOW-OWN" !"Searching %{sexp:OI.magic_loc * P.path} in %s" (ml,p_) (show_map ctxt.o_hints.OI.gen);
     let o = OI.GenMap.find (ml,p_) ctxt.o_hints.OI.gen in
     o = 0.0
   in

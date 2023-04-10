@@ -112,6 +112,9 @@ type 'a ownership_ops = {
    the function parameters, and b) the ownership returned back to the function.
  *) 
 
+type gamma = otype StringMap.t
+let sexp_of_gamma = StringMap.sexp_of_t ~v:sexp_of_otype
+
 (** Save the ownership types at each point in the program; only used for debugging *)
 type save_env = otype StringMap.t IntMap.t
 let sexp_of_save_env = IntMap.sexp_of_t ~v:(StringMap.sexp_of_t ~v:sexp_of_otype)
@@ -127,7 +130,7 @@ type context = {
   v_counter: int;
   iso: SimpleChecker.SideAnalysis.results;
   ocons: ocon list;
-  gamma: otype StringMap.t;
+  gamma: gamma;
   theta: (otype RefinementTypes._funtype) StringMap.t;
   op_record: ownership ownership_ops;
   save_env: save_env
@@ -842,7 +845,8 @@ let infer ~opts (simple_types,iso) (fn,prog) =
   in
   let ctxt = List.fold_left analyze_fn ctxt fn in
   let (ctxt,_) = process_expr ~output:None prog ctxt in
-  Log.debug ~src:"DEBUG" !"%{sexp:save_env}" ctxt.save_env;
+  Log.debug ~src:"OWNERSHIP" !"Gamma: %{sexp:gamma}" ctxt.gamma;
+  Log.debug ~src:"OWNERSHIP" !"Owenrship types at each point: %{sexp:save_env}" ctxt.save_env;
   {
     Result.ocons = ctxt.ocons;
     Result.ovars = ctxt.ovars;
