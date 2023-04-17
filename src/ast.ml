@@ -6,7 +6,7 @@ type ref_contents =
   | RVar of string [@@deriving sexp]
 
 type ref_init = ref_contents [@@deriving sexp]
-  
+
 type fn_call = {
   callee: string;
   arg_names: string list;
@@ -62,9 +62,15 @@ type raw_exp =
   | Assign of string * imm_op * exp
   | Update of string * string * string * exp
   | Let of patt * lhs * exp
+  | LetNewlock of string * exp
+  | LetFork of string * exp * exp
   | Alias of Paths.concr_ap * Paths.concr_ap * exp
   | Assert of relation * exp
-  | Return of string [@@deriving sexp]
+  | Return of string
+  | Freelock of string * exp
+  | Acq of string * exp
+  | Rel of string * exp
+  | Wait of  string * exp [@@deriving sexp]
 
 and exp = position * raw_exp [@@deriving sexp]
 

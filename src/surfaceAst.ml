@@ -65,6 +65,12 @@ type exp =
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
   | Return of pos * lhs
+  | LetNewlock of pos * string * exp
+  | LetFork of pos * string * exp * exp
+  | Freelock of pos * string
+  | Acq of pos * string
+  | Rel of pos * string
+  | Wait of pos * string
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -183,6 +189,18 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
               |> tag_with i))
   | Return (i, rval) ->
       lift_to_var ~ctxt:i count rval (fun _ tvar -> A.Return tvar |> tag_with i)
+  | LetNewlock (i, v, body) ->
+      let body' = simplify_expr ~is_tail count body in
+      A.LetNewlock (v, body') |> tag_with i
+  | LetFork (i, v, e, body) ->
+      let e' = simplify_expr ~is_tail:false count e in
+      let body' = simplify_expr ~is_tail count body in
+      A.LetFork (v, e', body') |> tag_with i
+  | Freelock (i, v) ->
+      A.Freelock (v, get_continuation ~ctxt:i count) |> tag_with i
+  | Acq (i, v) -> A.Acq (v, get_continuation ~ctxt:i count) |> tag_with i
+  | Rel (i, v) -> A.Rel (v, get_continuation ~ctxt:i count) |> tag_with i
+  | Wait (i, v) -> A.Wait (v, get_continuation ~ctxt:i count) |> tag_with i
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest : int -> A.lhs -> A.exp) =
   let k r = rest count r in
