@@ -64,6 +64,12 @@ rule read =
   | '~' { NU }
   | ":=" { ASSIGN }
   | "null" { NULL }
+  | "newlock" { NEWLOCK }
+  | "freelock" { FREELOCK }
+  | "acq" { ACQ }
+  | "rel" { REL }
+  | "fork" { FORK }
+  | "wait" { WAIT }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }
   | '_' { UNDERSCORE }
   | id { ID (Lexing.lexeme lexbuf) }
