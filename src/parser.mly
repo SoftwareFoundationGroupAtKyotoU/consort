@@ -44,6 +44,11 @@
 %token ARROW
 %token NU AND
 
+// concurrency
+%token NEWLOCK FREELOCK
+%token ACQ REL
+%token FORK WAIT
+
 %left AND
 
 %type <SurfaceAst.lhs> lhs
@@ -103,7 +108,22 @@ let expr :=
 	  }
   | RETURN; lbl = expr_label; e = lhs; {
 		Return ((lbl,$startpos),e)
-	  }
+    }
+  // Match with patt instead of id to avoid shift-reduce conflict, and extract id from PVar
+  | LET; lbl = expr_label; p = patt; EQ; NEWLOCK; UNIT; IN; body = expr; {
+      match p with
+      | PVar id -> LetNewlock ((lbl, $startpos), id, body)
+      | _ -> assert false
+    }
+  | LET; lbl = expr_label; p = patt; EQ; FORK; e = delimited(LPAREN, expr, RPAREN); IN; body = expr; {
+      match p with
+      | PVar id -> LetFork ((lbl, $startpos), id, e, body)
+      | _ -> assert false
+    }
+  | FREELOCK; lbl = expr_label; id = delimited(LPAREN, ID, RPAREN); { Freelock((lbl, $startpos), id) }
+  | ACQ; lbl = expr_label; id = delimited(LPAREN, ID, RPAREN); { Acq((lbl, $startpos), id) }
+  | REL; lbl = expr_label; id = delimited(LPAREN, ID, RPAREN); { Rel((lbl, $startpos), id) }
+  | WAIT; lbl = expr_label; id = delimited(LPAREN, ID, RPAREN); { Wait((lbl, $startpos), id) }
 
 let ap :=
   | STAR; a = ap_prim; { Paths.deref a }
