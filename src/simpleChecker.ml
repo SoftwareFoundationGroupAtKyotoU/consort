@@ -519,6 +519,12 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
           let t = lkp v in
           unify t ty;
           (res_acc, true))
+  | LetNewlock _ -> failwith "not implemented in simpleChecker"
+  | LetFork _ -> failwith "not implemented in simpleChecker"
+  | Freelock _ -> failwith "not implemented in simpleChecker"
+  | Acq _ -> failwith "not implemented in simpleChecker"
+  | Rel _ -> failwith "not implemented in simpleChecker"
+  | Wait _ -> failwith "not implemented in simpleChecker"
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in

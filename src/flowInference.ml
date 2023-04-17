@@ -2217,6 +2217,12 @@ let relation_name ((e_id,_),expr) ctxt =
     | Unit -> "unit"
     | Return _ -> "return"
     | Fail -> "fail"
+    | LetNewlock _ -> "letnewlock"
+    | LetFork _ -> "letfork"
+    | Freelock _ -> "freelock"
+    | Acq _ -> "acq"
+    | Rel _ -> "rel"
+    | Wait _ -> "wait"
   in
   prefix ^ kind
 
@@ -2840,6 +2846,12 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     alias_recursive >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
     process_expr ~output (k_rel,tyenv) continuation k
+  | LetNewlock _ -> failwith "not implemented in flowinference"
+  | LetFork _ -> failwith "not implemented in flowinference"
+  | Freelock _ -> failwith "not implemented in flowinference"
+  | Acq _ -> failwith "not implemented in flowinference"
+  | Rel _ -> failwith "not implemented in flowinference"
+  | Wait _ -> failwith "not implemented in flowinference"
 
 let analyze_function fn ctxt =
   let { in_rel = (in_nm,in_args, isrc);

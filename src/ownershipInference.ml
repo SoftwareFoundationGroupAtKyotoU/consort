@@ -724,6 +724,12 @@ let rec process_expr ~output ((e_id, _), expr) =
       in
       let bindings = assign_patt_loop [] patt to_bind in
       with_types bindings @@ process_expr ~output body
+  | LetNewlock _ -> failwith "not implemented in ownershipinference"
+  | LetFork _ -> failwith "not implemented in ownershipinference"
+  | Freelock _ -> failwith "not implemented in ownershipinference"
+  | Acq _ -> failwith "not implemented in ownershipinference"
+  | Rel _ -> failwith "not implemented in ownershipinference"
+  | Wait _ -> failwith "not implemented in ownershipinference"
 
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
   let ctxt_tpre, () = tr_branch ctxt in
