@@ -1,0 +1,9 @@
+{
+    let t1 = fork ({
+        let x = 0 in x;
+        0
+    }) in
+    let t2 = fork (let y = 0 in 0)
+    in
+    0
+}
