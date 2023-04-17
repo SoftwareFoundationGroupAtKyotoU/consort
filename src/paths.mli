@@ -144,6 +144,8 @@ val compare : path -> path -> int
 *)
 val tail : path -> [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option
 
+val string_of_tail: [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option -> string
+
 (** A (printable) set of paths *)
 module PathSet : Std.PRINTSET with type elt = path
 

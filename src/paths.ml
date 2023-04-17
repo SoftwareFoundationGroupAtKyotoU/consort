@@ -143,11 +143,11 @@ let unsafe_get_root (v,_,_) = match v with
   | Var n -> n
   | _ -> failwith "Not rooted in var"
 
-let parent (p,suff,fl) =
-  match suff,fl with
+let parent (p,fl,suff) =
+  match fl,suff with
   | [],`None -> raise @@ Invalid_argument "at root"
   | _::t,`None -> (p,t,`None)
-  | _,_ -> (p,suff,`None)
+  | _,_ -> (p,fl,`None)
 
 let root_at ~child:(r,steps,suff) ~parent:(root,steps2,suff2) =
   let () =
@@ -170,6 +170,17 @@ let tail (_,l,f) =
   | h::_,`None -> Some (h :> tail_ret)
   | [],`None -> None
   | _,(#inh_tags as cr) -> Some cr
+
+let string_of_tail = function
+  | Some e -> 
+    (match e with
+      | `Null -> "Null"
+      | `Deref -> "Deref"
+      | `Proj i -> Printf.sprintf "Proj %d" i
+      | `Len -> "Len"
+      | `Elem -> "Elem"
+      | `Ind -> "Ind")
+  | None -> "None"
 
 module PathOrd = struct
   type t = path
