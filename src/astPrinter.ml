@@ -32,7 +32,7 @@ let pprint_kv (k,v) =
   ]
 
 let upp_imm = ul pp_imm
-    
+
 let pp_ap r =
   let open Paths in
   (* private tuple types are very annoying *)
@@ -112,7 +112,7 @@ let rec pp_patt = function
                     ps "(";
                     psep ", " @@ List.map pp_patt l;
                     ps ")"
-                  ]   
+                  ]
 
 let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
   let e_printer =
@@ -161,6 +161,43 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
     | Unit -> ps "()"
     | Return v -> pf "return%a %s" po_id id v
     | Fail -> ps "fail"
+    | LetNewlock (x, body) ->
+      maybe_brace ~ip ~annot ~all_seq:true ~pre:(pl [
+        pf "let%a %s = newlock() in "
+          po_id id
+          x
+      ]) body
+    | LetFork (x, e, body) ->
+      maybe_brace ~ip ~annot ~all_seq:true ~pre:(pl [
+        pf "let%a %s = fork(%a) in "
+          po_id id
+          x
+          (fun f e -> pp_expr ~ip ~annot e f) e (* 合ってる？ *)
+      ]) body
+    | Freelock (x, e) ->
+      pl [
+        pf "freelock%a(%s)" pr_id id x;
+        semi;
+        pp_expr ~ip ~annot e
+      ]
+    | Acq (x, e) ->
+      pl [
+        pf "acq%a(%s)" pr_id id x;
+        semi;
+        pp_expr ~ip ~annot e
+      ]
+    | Rel (x, e) ->
+      pl [
+        pf "rel%a(%s)" pr_id id x;
+        semi;
+        pp_expr ~ip ~annot e
+      ]
+    | Wait (x, e) ->
+      pl [
+        pf "wait%a(%s)" pr_id id x;
+        semi;
+        pp_expr ~ip ~annot e
+      ]
   in
   match e with
   | Seq _ -> e_printer
@@ -180,7 +217,7 @@ and pp_cond ~ip:((po_id,_) as ip) ~annot id cond v tr fl =
 
 
 and maybe_brace ~ip ~annot ?(all_seq=false) ?pre ((_,e) as tagged_e) : formatter -> unit =
-  let need_block = 
+  let need_block =
       match e with
       | Seq _ -> true
       | Alias _ when all_seq -> true
@@ -230,7 +267,7 @@ let id_printer labels =
     (fun ff (id,_) -> pf ":%d" id ff),(fun ff (id,_) -> pf "%d:" id ff)
   else
     (fun _ _ -> ()),(fun _ _ -> ())
-    
+
 let pretty_print_program ?(with_labels=true) ?(annot_fn=(fun _ _ -> ())) ?(annot=(fun _ _ _ -> ())) out_chan prog =
   let ff = Format.formatter_of_out_channel out_chan in
   pprint_prog ~ip:(id_printer with_labels) ~annot_fn ~annot ff prog;
