@@ -6,3 +6,5 @@ build/
 sootOutput/
 tmp/
 minepump
+bin/
+.idea/
