@@ -68,6 +68,11 @@ rule read =
   | '_' { UNDERSCORE }
   | id { ID (Lexing.lexeme lexbuf) }
   | eof { EOF }
+  | "Nil" { NIL }
+  | "Cons" { CONS }
+  | "match" { MATCH }
+  | "with" { WITH }
+  | "|" { BAR }
   | _ { failwith @@ "Invalid token " ^ (Lexing.lexeme lexbuf) }
 and comment =
   parse
