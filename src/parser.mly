@@ -134,7 +134,6 @@ let op :=
   | ~ = ID; <`OVar>
   | TRUE; { `OBool true }
   | FALSE; { `OBool false }
-  | NIL; { `Nil }
   | STAR; ~ = ID; <`ODeref>
   | ~ = nondet; <>
   | LPAREN; o = lhs; RPAREN; { o }
@@ -146,7 +145,8 @@ let op :=
   | ~ = cons; <>
 
 let cons :=
-  | ~ = CONS; h = lhs; r = cons <`Cons>
+  | CONS; h = lhs; r = cons; <`Cons>
+  | NIL; { `Nil }
 
 let tuple_rest :=
   | l = lhs; COMMA; { [l] }

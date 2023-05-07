@@ -65,7 +65,7 @@ type exp =
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
   | Return of pos * lhs
-  | Match of pos * lhs * exp * exp * string * string * exp
+  | Match of pos * lhs * exp * string * string * exp
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -91,6 +91,9 @@ let sanity_check_alias (v1:Paths.path) (v2:Paths.path) =
   let (root2,_,_)= (v2 :> Paths.root * Paths.steps list * Paths.suff) in
   if root1=root2 then
     (print_string "Warning: found an alias statement that contains more than one occurrence of the same variable.\nThe analysis may be unsound\n";flush stdout)
+
+(* FIXME: delete it before merge to main branch *)
+exception Not_implemented of string
 
 (* This rewriting is fairly standard, but it helps to understand some key components.
    First, count determines the number of temporary variables in scope, this ensures
@@ -188,7 +191,7 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
     lift_to_var ~ctxt:i count rval (fun _ tvar ->
         A.Return tvar |> tag_with i
       )
-  | raise 
+  | Match (_, _, _, _, _, _) -> raise(Not_implemented "match")
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
@@ -228,6 +231,8 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
         )
       )
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
+  | `Cons _ -> raise (Not_implemented "cons")
+  | `Nil -> raise (Not_implemented "nil")
 
 and lift_to_rinit ~ctxt count (r: lhs) rest =
   let k = rest count in
