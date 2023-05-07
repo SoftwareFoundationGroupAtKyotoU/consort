@@ -1,4 +1,4 @@
 *.smt
 /recursive-tests/
 /benchmarks/consort/**/*.class
-.tmp/
+tmp/
