@@ -7,6 +7,8 @@ type r_typ = [
   | `Ref of r_typ
   | `Mu of int * r_typ
   | `Array of a_typ
+  | `Lock
+  | `ThreadID
 ]
 and a_typ = [ `Int ] [@@deriving sexp]
 
@@ -25,6 +27,8 @@ let rec type_to_string = function
   | `Mu (v,t) -> Printf.sprintf "(%s '%d.%s)" Greek.mu v @@ type_to_string t
   | `TVar v -> Printf.sprintf "'%d" v
   | `Array at -> Printf.sprintf "[%s]" @@ array_type_to_string at
+  | `Lock -> "lock"
+  | `ThreadID -> "tid"
 and array_type_to_string = function
   | `Int -> "int"
 

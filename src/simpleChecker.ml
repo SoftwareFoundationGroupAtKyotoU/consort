@@ -57,9 +57,11 @@ let rec string_of_typ = function
   | `Tuple pl ->
       Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
   | `Array t' -> Printf.sprintf "[%s]" @@ string_of_typ t'
+  | `Lock -> "lock"
+  | `ThreadID -> "tid"
   [@@ocaml.warning "-32"]
 
-type 'a c_typ = [ `Int | `TyCons of TyCons.t | `Tuple of 'a list | `Array of 'a ]
+type 'a c_typ = [ `Int | `TyCons of TyCons.t | `Tuple of 'a list | `Array of 'a | `Lock | `ThreadID ]
 [@@deriving sexp]
 
 type typ = [ typ c_typ | `Var of int ] [@@deriving sexp]
@@ -148,6 +150,8 @@ let abstract_type sub_ctxt t =
     | `Int -> `Int
     | `Tuple tl -> `Tuple (List.map loop tl |> List.map [%cast: typ])
     | `Array t -> `Array (loop (t :> SimpleTypes.r_typ) :> typ)
+    | `Lock -> `Lock
+    | `ThreadID -> `ThreadID
   in
   loop t
 
@@ -189,6 +193,7 @@ let rec occurs_check sub v (t2 : typ) =
   | `Tuple tl -> List.iter (occurs_check sub v) tl
   | `Array t' -> occurs_check sub v t'
   | `Var _ | `Int
+  | `Lock | `ThreadID 
   (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
   | `TyCons _ ->
       ()
@@ -230,6 +235,8 @@ let rec unify ~loc sub_ctxt t1 t2 =
      union find/resolution map *)
   | `TyCons c1, `TyCons c2 -> unify_tycons ~loc sub_ctxt c1 c2
   | `Array t1', `Array t2' -> unify ~loc sub_ctxt t1' t2'
+  | `Lock, `Lock -> ()
+  | `ThreadID, `ThreadID -> ()
   | t1', t2' -> raise_ill_typed_error t1' t2'
 
 and unify_tycons ~loc sub_ctxt c1 c2 =
@@ -300,6 +307,8 @@ let rec resolve_with_rec sub v_set k t =
           | `Int -> k is @@ `Array `Int
           | _ -> failwith "Only integer arrays are supported")
         t'
+  | `Lock -> k IS.empty `Lock
+  | `ThreadID -> k IS.empty `ThreadID
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
@@ -327,10 +336,12 @@ let dump_sexp p t = p t |> Sexplib.Sexp.to_string_hum |> print_endline
   [@@ocaml.warning "-32"]
 
 let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
+  (* Find the representative of v in ctxt.sub.uf. *)
   let resolv = function
     | `Var v -> `Var (UnionFind.find ctxt.sub.uf v)
     | t -> t
   in
+  (* Find the type of variable n in the type environment. *)
   let lkp n =
     try StringMap.find n ctxt.tyenv |> resolv
     with Not_found ->
@@ -346,8 +357,9 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
   in
   let unify t1 t2 = unify ~loc ctxt.sub t1 t2 in
   let fresh_cons t1 = fresh_cons ctxt.sub t1 in
-  let save_assign v =
-    let assign_t = lkp v in
+  let save_assign v = (* for mkref and assign *)
+    let assign_t = lkp v in (* the type of the right-hand side *)
+    (* Create a new type variable of a reference to the right-hand side *)
     let c_id = fresh_cons_id ctxt.sub @@ assign_t in
     ( { res_acc with assign_locs = (id, c_id, assign_t) :: res_acc.assign_locs },
       c_id )
@@ -519,12 +531,21 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
           let t = lkp v in
           unify t ty;
           (res_acc, true))
-  | LetNewlock _ -> failwith "not implemented in simpleChecker"
-  | LetFork _ -> failwith "not implemented in simpleChecker"
-  | Freelock _ -> failwith "not implemented in simpleChecker"
-  | Acq _ -> failwith "not implemented in simpleChecker"
-  | Rel _ -> failwith "not implemented in simpleChecker"
-  | Wait _ -> failwith "not implemented in simpleChecker"
+  | LetNewlock (v, expr) ->
+    let v_type = `Lock in
+    let ctxt' = add_var v v_type ctxt in
+    process_expr ret_type ctxt' expr @@ save_let v_type res_acc
+  | LetFork (v, e1, e2) -> 
+    let v_type = `ThreadID in
+    let ctxt' = add_var v v_type ctxt in
+    process_expr ret_type ctxt' e1 @@ save_let v_type res_acc |&| (* todo: >> or |&| *)
+    process_expr ret_type ctxt' e2
+  | Freelock (x, e) | Acq (x, e) | Rel (x, e) -> 
+      unify_var x `Lock;
+      process_expr ret_type ctxt e res_acc
+  | Wait (x, e) -> 
+      unify_var x `ThreadID;
+      process_expr ret_type ctxt e res_acc
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
@@ -559,6 +580,7 @@ let is_rec_assign sub c t' =
         else check_loop (IS.add c_id h_rec) @@ TyConsResolv.find sub.cons_arg c
     | `Tuple tl -> List.exists (check_loop h_rec) tl
     | `Array t' -> check_loop h_rec t'
+    | `Lock | `ThreadID -> false
   in
   check_loop IS.empty t'
 

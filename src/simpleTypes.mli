@@ -5,6 +5,8 @@ type r_typ = [
   | `Ref of r_typ
   | `Mu of int * r_typ
   | `Array of a_typ
+  | `Lock
+  | `ThreadID
 ] and a_typ = [ `Int ][@@deriving sexp]
 
 type 'a _funtyp = {

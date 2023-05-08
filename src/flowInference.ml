@@ -231,6 +231,7 @@ let rec deep_type_normalization = function
   | `Ref (b,t) -> `Ref (b, deep_type_normalization t)
   | `IntArray -> `IntArray
   | `TVar -> assert false
+  | `Lock | `ThreadID -> failwith "not implemented in flowinference"
 
 let rec simple_to_fltype ?tvar = function
   | `Mu (id,t) ->
@@ -243,6 +244,7 @@ let rec simple_to_fltype ?tvar = function
     assert (Option.map ((=) id) tvar |> Option.value ~default:false);
     `TVar
   | `Tuple tl -> `Tuple (List.map (simple_to_fltype ?tvar) tl)
+  | `Lock | `ThreadID -> failwith "not implemented in flowinference"
 
 let%lq get_function_type f_name ctxt =
   let { f_type; _ } = StringMap.find f_name ctxt.fenv in
@@ -626,6 +628,7 @@ let rec walk_type ty step f st acc =
         )
       )
     )
+  | `Lock | `ThreadID -> failwith "not implemented in flowinference"
 
 (** Walk two paths in parallel according to the type ty. Unlike type_walk, this
    walk function only calls the step function when:

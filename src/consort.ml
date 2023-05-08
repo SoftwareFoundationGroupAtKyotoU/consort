@@ -164,6 +164,7 @@ let print_typecheck (f_types, side) ast =
   let annot (id, _) e =
     match Std.IntMap.find_opt id side.let_types, e with
     | Some ty, Let (patt, _, _) -> from_ty_patt ty patt
+    | Some ty, (LetNewlock(v, _) | LetFork(v, _, _)) -> from_ty_patt ty @@ PVar v
     | _ -> null in
   AstPrinter.pretty_print_program ~annot_fn ~annot stdout ast
 
