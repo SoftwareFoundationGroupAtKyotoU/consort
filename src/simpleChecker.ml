@@ -554,7 +554,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         unify t ty;
         res_acc,true
     end
-    
+  | Match (_, _, _, _, _) -> assert false
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in

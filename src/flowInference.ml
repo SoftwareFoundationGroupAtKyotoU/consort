@@ -2217,6 +2217,7 @@ let relation_name ((e_id,_),expr) ctxt =
     | Unit -> "unit"
     | Return _ -> "return"
     | Fail -> "fail"
+    | Match _ -> "match"
   in
   prefix ^ kind
 
@@ -2840,6 +2841,7 @@ let rec process_expr ~output (((relation : relation),tyenv) as st) continuation 
     alias_recursive >>
     add_implication ante @@ PRelation (k_rel,out_subst,None) >>
     process_expr ~output (k_rel,tyenv) continuation k
+  | Match (_, _, _, _, _) -> assert false
 
 let analyze_function fn ctxt =
   let { in_rel = (in_nm,in_args, isrc);

@@ -28,7 +28,9 @@ type lhs =
   | Nondet of RefinementTypes.concr_refinement option
   | Read of string * string
   | LengthOf of string
-  | Null [@@deriving sexp]
+  | Null
+  | Nil
+  | Cons of lhs * lhs [@@deriving sexp]
 
 type patt =
   | PVar of string
@@ -64,7 +66,8 @@ type raw_exp =
   | Let of patt * lhs * exp
   | Alias of Paths.concr_ap * Paths.concr_ap * exp
   | Assert of relation * exp
-  | Return of string [@@deriving sexp]
+  | Return of string
+  | Match of lhs * exp * string * string * exp [@@deriving sexp]
 
 and exp = position * raw_exp [@@deriving sexp]
 

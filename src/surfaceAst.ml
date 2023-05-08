@@ -92,9 +92,6 @@ let sanity_check_alias (v1:Paths.path) (v2:Paths.path) =
   if root1=root2 then
     (print_string "Warning: found an alias statement that contains more than one occurrence of the same variable.\nThe analysis may be unsound\n";flush stdout)
 
-(* FIXME: delete it before merge to main branch *)
-exception Not_implemented of string
-
 (* This rewriting is fairly standard, but it helps to understand some key components.
    First, count determines the number of temporary variables in scope, this ensures
    temporary variables are unique when they are created. This count is thus threaded through
@@ -191,7 +188,11 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
     lift_to_var ~ctxt:i count rval (fun _ tvar ->
         A.Return tvar |> tag_with i
       )
-  | Match (_, _, _, _, _, _) -> raise(Not_implemented "match")
+  | Match (i, e1, e2, h, r, e3) ->
+    lift_to_lhs ~ctxt:i count e1 (fun c e1' ->
+        A.Match (e1', simplify_expr ~is_tail c e2, h, r, simplify_expr ~is_tail c e3)
+        |> tag_with i
+      )
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
@@ -231,8 +232,8 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
         )
       )
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
-  | `Cons _ -> raise (Not_implemented "cons")
-  | `Nil -> raise (Not_implemented "nil")
+  | `Cons _ -> assert false
+  | `Nil -> assert false
 
 and lift_to_rinit ~ctxt count (r: lhs) rest =
   let k = rest count in

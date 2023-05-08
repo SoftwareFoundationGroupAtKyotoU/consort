@@ -728,6 +728,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     in
     let bindings = assign_patt_loop [] patt to_bind in
     with_types bindings @@ process_expr ~output body
+  | Match (_, _, _, _, _) -> assert false
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
   let (ctxt_tpre,()) = tr_branch ctxt in
   let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre in
