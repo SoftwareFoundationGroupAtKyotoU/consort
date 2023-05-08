@@ -14,6 +14,5 @@ type 'a _funtyp = {
 
 type funtyp = r_typ _funtyp
 
-val unfold_simple_type : int -> r_typ -> r_typ
 val type_to_string: r_typ -> string
 val fntype_to_string: funtyp -> string
