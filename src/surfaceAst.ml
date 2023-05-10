@@ -233,7 +233,7 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
       )
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
   | `Cons _ -> assert false
-  | `Nil -> assert false
+  | `Nil -> k @@ A.Nil
 
 and lift_to_rinit ~ctxt count (r: lhs) rest =
   let k = rest count in
