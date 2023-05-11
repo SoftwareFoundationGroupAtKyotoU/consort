@@ -531,6 +531,8 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         let cont = fresh_var () in
         unify_var b @@ `Array cont;
         same cont
+      | Cons _ -> assert false;
+      | Nil -> assert false;
     in
     let rec unify_patt acc p t =
       match p with

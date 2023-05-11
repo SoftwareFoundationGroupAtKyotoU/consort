@@ -717,6 +717,8 @@ let rec process_expr ~output ((e_id,_),expr) =
           ) t_init in
         return @@ Tuple tl
       | Call c -> process_call e_id c
+      | Cons _ -> assert false
+      | Nil -> assert false
     in
     let rec assign_patt_loop acc patt ty =
       match patt,ty with

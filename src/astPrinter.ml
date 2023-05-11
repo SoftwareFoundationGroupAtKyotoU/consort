@@ -75,7 +75,7 @@ let rec pp_ref_ast (r: RefinementTypes.concr_refinement) =
       (ul pp_ref_ast) r2
   | _ -> failwith @@ "Cannot annotate with relation " ^ (string_of_refinement r)
 
-let pp_lhs = function
+let rec pp_lhs = function
   | Var x -> pv x
   | Const i -> pi i
   | Mkref il -> pl [
@@ -104,6 +104,15 @@ let pp_lhs = function
     pf "%s[%s]" b i
   | LengthOf v ->
     pf "%s.length" v
+  | Cons (h, r) ->
+    pl [
+      ps "cons";
+      pp_lhs h;
+      ps "(";
+      pp_lhs r;
+      ps ")"
+    ]
+  | Nil -> ps "nil"
 
 let rec pp_patt = function
   | PVar v -> pv v

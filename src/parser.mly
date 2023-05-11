@@ -143,6 +143,7 @@ let op :=
   | ~ = array_expr; <`Read>
   | ~ = op; DOT; LENGTH; <`LengthOf>
   | CONS; h = lhs; r = cons; <`Cons>
+  | NIL; { `Nil }
 
 let cons :=
   | LPAREN; CONS; h = lhs; r = cons; RPAREN; <`Cons>

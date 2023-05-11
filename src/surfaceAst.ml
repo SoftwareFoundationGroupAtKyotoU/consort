@@ -232,7 +232,11 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
         )
       )
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
-  | `Cons _ -> assert false
+  | `Cons (h, r) -> lift_to_lhs ~ctxt count h (fun c h' ->
+                      lift_to_lhs ~ctxt c r (fun c' r' ->
+                        rest c' @@ A.Cons (h', r')
+                      )
+                    )
   | `Nil -> k @@ A.Nil
 
 and lift_to_rinit ~ctxt count (r: lhs) rest =
