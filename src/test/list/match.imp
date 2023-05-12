@@ -1,0 +1,14 @@
+sum(l, s) {
+    match l with
+      Nil -> s
+    | Cons h r -> {
+        let s = s + h in
+        sum(r, s)
+    }
+}
+
+{
+    let l = Cons 1 (Cons 2 (Cons 3 Nil)) in
+    let s = sum(l, 0) in
+    assert(s = 6)
+}
