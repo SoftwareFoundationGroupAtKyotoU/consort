@@ -538,8 +538,8 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
   | LetFork (v, e1, e2) -> 
     let v_type = `ThreadID in
     let ctxt' = add_var v v_type ctxt in
-    process_expr ret_type ctxt' e1 @@ save_let v_type res_acc |&| (* todo: >> or |&| *)
-    process_expr ret_type ctxt' e2
+    let (res_acc', _) = process_expr ret_type ctxt' e1 @@ save_let v_type res_acc in
+    process_expr ret_type ctxt' e2 res_acc'
   | Freelock (x, e) | Acq (x, e) | Rel (x, e) -> 
       unify_var x `Lock;
       process_expr ret_type ctxt e res_acc
