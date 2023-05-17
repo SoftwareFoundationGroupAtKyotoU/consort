@@ -65,6 +65,7 @@ type 'a c_typ = [
   | `TyCons of TyCons.t
   | `Tuple of 'a list
   | `Array of 'a
+  | `IntList
 ] [@@deriving sexp]
 
 type typ = [
