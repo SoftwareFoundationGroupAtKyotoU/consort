@@ -30,7 +30,9 @@ type lhs =
   | LengthOf of string
   | Null
   | Nil
-  | Cons of lhs * lhs [@@deriving sexp]
+  | Cons of lhs * lhs
+  | Fold of lhs
+  | Unfold of lhs [@@deriving sexp]
 
 type patt =
   | PVar of string

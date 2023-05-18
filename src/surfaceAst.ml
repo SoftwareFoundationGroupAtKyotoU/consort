@@ -190,7 +190,7 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
       )
   | Match (i, e1, e2, h, r, e3) ->
     lift_to_lhs ~ctxt:i count e1 (fun c e1' ->
-        A.Match (e1', simplify_expr ~is_tail c e2, h, r, simplify_expr ~is_tail c e3)
+        A.Match (A.Unfold e1', simplify_expr ~is_tail c e2, h, r, simplify_expr ~is_tail c e3)
         |> tag_with i
       )
 
@@ -234,10 +234,10 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
   | `Cons (h, r) -> lift_to_lhs ~ctxt count h (fun c h' ->
                       lift_to_lhs ~ctxt c r (fun c' r' ->
-                        rest c' @@ A.Cons (h', r')
+                        rest c' @@ A.Fold (A.Cons (h', r'))
                       )
                     )
-  | `Nil -> k @@ A.Nil
+  | `Nil -> k @@ A.Fold A.Nil
 
 and lift_to_rinit ~ctxt count (r: lhs) rest =
   let k = rest count in
