@@ -371,6 +371,7 @@ let process_rec ~loc = function
   )
   | Unfold lhs -> (
     match lhs with
+    (* TODO: How can we get a value or unfolded type of lhs? *)
       Nil -> `Nil
     | Cons _ -> `Cons (`Int, `IntList)
     | _ -> Locations.raise_errorf ~loc "Cannot unfold types that is neither Nil nor Cons"
@@ -553,10 +554,10 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         let cont = fresh_var () in
         unify_var b @@ `Array cont;
         same cont
-      | Cons _ -> assert false
-      | Nil -> assert false
-      | Fold _ -> assert false
-      | Unfold _ -> assert false
+      | Fold l -> same @@ process_rec ~loc l
+      | Cons _ -> Locations.raise_errorf ~loc "No Cons will come here, Cons should be wrapped in Fold"
+      | Nil -> Locations.raise_errorf ~loc "No Nil will come here, Nil should be wrapped in Fold"
+      | Unfold _ -> Locations.raise_errorf ~loc "No Unfold will come here"
     in
     let rec unify_patt acc p t =
       match p with
@@ -580,7 +581,9 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         unify t ty;
         res_acc,true
     end
-  | Match (_, _, _, _, _) -> assert false
+  | Match (e1, e2, h, r, e3) ->
+    unify e1 @@ process_rec ~loc e1;
+
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in

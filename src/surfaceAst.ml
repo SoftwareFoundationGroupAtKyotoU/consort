@@ -65,7 +65,7 @@ type exp =
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
   | Return of pos * lhs
-  | Match of pos * lhs * exp * string * string * exp
+  | Match of pos * string * exp * string * string * exp
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -188,11 +188,9 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
     lift_to_var ~ctxt:i count rval (fun _ tvar ->
         A.Return tvar |> tag_with i
       )
-  | Match (i, e1, e2, h, r, e3) ->
-    lift_to_lhs ~ctxt:i count e1 (fun c e1' ->
-        A.Match (A.Unfold e1', simplify_expr ~is_tail c e2, h, r, simplify_expr ~is_tail c e3)
-        |> tag_with i
-      )
+  | Match (i, id, e1, h, r, e2) ->
+    A.Match (A.Unfold id, simplify_expr ~is_tail count e1, h, r, simplify_expr ~is_tail count e2)
+    |> tag_with i
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in

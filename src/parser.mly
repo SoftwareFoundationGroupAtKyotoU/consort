@@ -107,8 +107,8 @@ let expr :=
   | RETURN; lbl = expr_label; e = lhs; {
 		Return ((lbl,$startpos),e)
 	  }
-  | MATCH; lbl = expr_label; e1 = lhs; WITH; NIL; ARROW; e2 = expr; BAR; CONS; h = ID; r = ID; ARROW; e3 = expr; {
-    Match ((lbl,$startpos),e1,e2,h,r,e3)
+  | MATCH; lbl = expr_label; id = ID; WITH; NIL; ARROW; e1 = expr; BAR; CONS; h = ID; r = ID; ARROW; e2 = expr; {
+    Match ((lbl,$startpos),id,e1,h,r,e2)
     }
 
 let ap :=

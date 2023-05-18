@@ -32,7 +32,7 @@ type lhs =
   | Nil
   | Cons of lhs * lhs
   | Fold of lhs
-  | Unfold of lhs [@@deriving sexp]
+  | Unfold of string [@@deriving sexp]
 
 type patt =
   | PVar of string
