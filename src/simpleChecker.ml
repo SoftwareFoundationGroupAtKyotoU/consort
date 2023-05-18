@@ -66,11 +66,13 @@ type 'a c_typ = [
   | `Tuple of 'a list
   | `Array of 'a
   | `IntList
+  | `Nil
 ] [@@deriving sexp]
 
 type typ = [
   typ c_typ
 | `Var of int
+| `Cons of typ * typ
 ] [@@deriving sexp]
 
 type refined_typ = typ c_typ
@@ -203,10 +205,14 @@ let rec occurs_check sub v (t2: typ) =
   | `Var v' when v' = v -> failwith "Malformed recursive type"
   | `Tuple tl -> List.iter (occurs_check sub v) tl
   | `Array t' -> occurs_check sub v t'
+  | `Cons (x, y) -> occurs_check sub v x; occurs_check sub v y
+  | `IntList
+  | `Nil
   | `Var _
-  | `Int -> ()
+  | `Int
   (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
-  (* | `TyCons _ -> () *)
+  (* TODO: Probably, TyCons is going to be deleted *)
+  | `TyCons _ -> ()
 
 let assign sub var t =
   occurs_check sub var (t :> typ);
@@ -355,6 +361,21 @@ let process_call ~loc lkp ctxt { callee; arg_names; _ } =
 let dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
       [@@ocaml.warning "-32"]
+
+(* get a type Fold lhs or Unfold lhs by a type of lhs *)
+let process_rec loc = function
+  | Fold lhs -> (
+    match lhs with
+      Nil | Cons _ -> `IntList
+    | _ -> failwith @@ Printf.sprintf "Cannot fold types that is neither Nil nor Cons at %s" @@ Locations.string_of_location loc
+  )
+  | Unfold lhs -> (
+    match lhs with
+      Nil -> `Nil
+    | Cons _ -> `Cons (`Int, `IntList)
+    | _ -> failwith @@ Printf.sprintf "Cannot unfold types that is neither Nil nor Cons at %s" @@ Locations.string_of_location loc
+  )
+  | _ -> failwith @@ Printf.sprintf "Cannot fold or unfold types that is not recursive types at %s" @@ Locations.string_of_location loc
 
 let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let resolv = function
@@ -532,8 +553,10 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         let cont = fresh_var () in
         unify_var b @@ `Array cont;
         same cont
-      | Cons _ -> assert false;
-      | Nil -> assert false;
+      | Cons _ -> assert false
+      | Nil -> assert false
+      | Fold _ -> assert false
+      | Unfold _ -> assert false
     in
     let rec unify_patt acc p t =
       match p with
