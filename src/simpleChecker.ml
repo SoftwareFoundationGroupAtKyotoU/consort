@@ -363,19 +363,19 @@ let dump_sexp p t =
       [@@ocaml.warning "-32"]
 
 (* get a type Fold lhs or Unfold lhs by a type of lhs *)
-let process_rec loc = function
+let process_rec ~loc = function
   | Fold lhs -> (
     match lhs with
       Nil | Cons _ -> `IntList
-    | _ -> failwith @@ Printf.sprintf "Cannot fold types that is neither Nil nor Cons at %s" @@ Locations.string_of_location loc
+    | _ -> Locations.raise_errorf ~loc "Cannot fold types that is neither Nil nor Cons"
   )
   | Unfold lhs -> (
     match lhs with
       Nil -> `Nil
     | Cons _ -> `Cons (`Int, `IntList)
-    | _ -> failwith @@ Printf.sprintf "Cannot unfold types that is neither Nil nor Cons at %s" @@ Locations.string_of_location loc
+    | _ -> Locations.raise_errorf ~loc "Cannot unfold types that is neither Nil nor Cons"
   )
-  | _ -> failwith @@ Printf.sprintf "Cannot fold or unfold types that is not recursive types at %s" @@ Locations.string_of_location loc
+  | _ -> Locations.raise_errorf ~loc "Cannot fold or unfold types that is not recursive types"
 
 let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let resolv = function
