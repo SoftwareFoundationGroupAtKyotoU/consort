@@ -358,22 +358,6 @@ let dump_sexp p t =
   (p t) |> Sexplib.Sexp.to_string_hum |> print_endline
       [@@ocaml.warning "-32"]
 
-(* get a type Fold lhs or Unfold lhs by a type of lhs *)
-let process_rec ~loc = function
-  | Fold lhs -> (
-    match lhs with
-      Nil | Cons _ -> `IntList
-    | _ -> Locations.raise_errorf ~loc "Cannot fold types that is neither Nil nor Cons"
-  )
-  | Unfold lhs -> (
-    match lhs with
-    (* TODO: How can we get a value or unfolded type of lhs? *)
-      Nil -> `Nil
-    | Cons _ -> `Cons (`Int, `IntList)
-    | _ -> Locations.raise_errorf ~loc "Cannot unfold types that is neither Nil nor Cons"
-  )
-  | _ -> Locations.raise_errorf ~loc "Cannot fold or unfold types that is not recursive types"
-
 let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let resolv = function
     | `Var v -> `Var (UnionFind.find ctxt.sub.uf v)
@@ -550,10 +534,9 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         let cont = fresh_var () in
         unify_var b @@ `Array cont;
         same cont
-      | Fold l -> same @@ process_rec ~loc l
-      | Cons _ -> Locations.raise_errorf ~loc "No Cons will come here, Cons should be wrapped in Fold"
-      | Nil -> Locations.raise_errorf ~loc "No Nil will come here, Nil should be wrapped in Fold"
-      | Unfold _ -> Locations.raise_errorf ~loc "No Unfold will come here"
+      (* Types of Cons and Nil is "folded" so they are handled as IntList, simply *)
+      | Cons _ -> same `IntList
+      | Nil -> same `IntList
     in
     let rec unify_patt acc p t =
       match p with
@@ -578,8 +561,15 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         res_acc,true
     end
   | Match (e1, e2, h, r, e3) ->
-    unify e1 @@ process_rec ~loc e1;
-
+    let v1 =
+      match e1 with
+        Var v -> v
+      | _ -> Locations.raise_errorf ~loc "Not implemented"
+    in
+    unify_var v1 `IntList;
+    (* No need a constraint to be the return type of e2 and e3 are the same because they share the "ret_type". *)
+    process_expr ret_type ctxt e2 res_acc
+    |&| process_expr ret_type (add_var h `Int (add_var r `IntList ctxt)) e3
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
