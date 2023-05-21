@@ -66,13 +66,11 @@ type 'a c_typ = [
   | `Tuple of 'a list
   | `Array of 'a
   | `IntList
-  | `Nil
 ] [@@deriving sexp]
 
 type typ = [
   typ c_typ
 | `Var of int
-| `Cons of typ * typ
 ] [@@deriving sexp]
 
 type refined_typ = typ c_typ
@@ -205,9 +203,7 @@ let rec occurs_check sub v (t2: typ) =
   | `Var v' when v' = v -> failwith "Malformed recursive type"
   | `Tuple tl -> List.iter (occurs_check sub v) tl
   | `Array t' -> occurs_check sub v t'
-  | `Cons (x, y) -> occurs_check sub v x; occurs_check sub v y
   | `IntList
-  | `Nil
   | `Var _
   | `Int
   (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
