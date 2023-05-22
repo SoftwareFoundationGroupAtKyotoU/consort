@@ -236,6 +236,7 @@ let rec unfold_simple arg mu =
   | `Array `Int -> `Array `Int
   | `Tuple tl_list -> `Tuple (List.map (unfold_simple arg mu) tl_list)
   | `Mu (id,t) -> `Mu (id, unfold_simple arg mu t)
+  | `IntList -> assert false
 
 (** Walk a type, constraining the first occurrence of an
    ownership variable to be well-formed w.r.t [o]. 
