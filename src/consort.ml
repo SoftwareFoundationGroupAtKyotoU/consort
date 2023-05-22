@@ -82,6 +82,8 @@ let print_program ~o_map ~o_printer r ast =
         (ul print_type) t
     | TVar id ->
       pf "'%d" id
+    | IntList ->
+      ps "int list"
   in
   let print_type_binding (k, t) = pb [pf "%s: " k; print_type t] in
   let print_type_sep t = List.map print_type t |> psep_gen (pf ",@ ") in

@@ -2,8 +2,8 @@ sum(l, s) {
     match l with
       Nil -> s
     | Cons h r -> {
-        let s = s + h in
-        sum(r, s)
+        let s2 = s + h in
+        sum(r, s2)
     }
 }
 

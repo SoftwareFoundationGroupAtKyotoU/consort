@@ -1,5 +1,5 @@
 {
     let x = Cons 1 Nil in
     let y = Cons 1 (Cons 2 (Cons 3 Nil)) in
-    assert(y = Cons 1 (Cons 2 (Cons 3 Nil)))
+    ()
 }

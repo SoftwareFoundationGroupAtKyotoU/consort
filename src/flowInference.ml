@@ -243,6 +243,7 @@ let rec simple_to_fltype ?tvar = function
     assert (Option.map ((=) id) tvar |> Option.value ~default:false);
     `TVar
   | `Tuple tl -> `Tuple (List.map (simple_to_fltype ?tvar) tl)
+  | `IntList -> assert false
     
 let%lq get_function_type f_name ctxt =
   let { f_type; _ } = StringMap.find f_name ctxt.fenv in
