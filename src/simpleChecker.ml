@@ -57,6 +57,7 @@ let rec string_of_typ = function
   | `Int -> "int"
   | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
   | `Array t' -> Printf.sprintf "[%s]" @@ string_of_typ t'
+  | `IntList -> "int list"
 [@@ocaml.warning "-32"]
 
 
@@ -165,6 +166,7 @@ let abstract_type sub_ctxt t =
     | `Tuple tl ->
       `Tuple (List.map loop tl |> List.map [%cast: typ])
     | `Array t -> `Array ((loop (t :> SimpleTypes.r_typ)) :> typ)
+    | `IntList -> `IntList
   in
   loop t
 
@@ -254,6 +256,7 @@ let rec unify ~loc sub_ctxt t1 t2 =
     unify_tycons ~loc sub_ctxt c1 c2
   | `Array t1',`Array t2' ->
     unify ~loc sub_ctxt t1' t2'
+  | `IntList,`IntList -> ()
   | t1',t2' ->
     raise_ill_typed_error t1' t2'
 and unify_tycons ~loc sub_ctxt c1 c2 =
@@ -293,6 +296,7 @@ module IS = Std.IntSet
    appears in this set, instead of resolving the reference contents, the continuation is immediately
    invoked with arguments {i} (tvar i); i.e., reference i is recursive.
 *)
+(* If this function is to resolve recursive types, you can omit this step by proposing fold/unfold *)
 let rec resolve_with_rec sub v_set k t =
   match canonicalize sub t with
   | `Int -> k IS.empty `Int
@@ -330,6 +334,7 @@ let rec resolve_with_rec sub v_set k t =
         | `Int -> k is @@ `Array `Int
         | _ -> failwith "Only integer arrays are supported"
       ) t'
+  | `IntList -> k IS.empty `IntList
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
@@ -583,6 +588,7 @@ requires a fold or unfold. Simply put, we walk the assigned type, and see
 if (the canonical representation of) c appears anywhere in t'. If it does, this is
 a folding or unfolding assignment/read.
 *)
+(* If this function is to resolve recursive types, you can omit this step by proposing fold/unfold *)
 let is_rec_assign sub c t' =
   let canon_c = TyConsUF.find sub.cons_uf c in
   let rec check_loop h_rec t =
@@ -603,9 +609,11 @@ let is_rec_assign sub c t' =
     | `Tuple tl ->
       List.exists (check_loop h_rec) tl
     | `Array t' -> check_loop h_rec t'
+    | `IntList -> false
   in
   check_loop IS.empty t'
 
+(* If this function is to resolve recursive types, you can omit this step by proposing fold/unfold *)
 let get_rec_loc sub p_ops =
   List.fold_left (fun acc (i,c,t') ->
       if is_rec_assign sub c t' then

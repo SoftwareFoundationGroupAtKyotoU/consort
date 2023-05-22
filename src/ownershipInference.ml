@@ -35,6 +35,7 @@ type 'a otype_ =
   | Tuple of 'a otype_ list
   | TVar of int
   | Mu of int * 'a otype_
+  | IntList
 
 type otype = ownership otype_
 
@@ -142,6 +143,7 @@ let unfold =
     | Array (t,o) -> Array (subst_once id sub t,o)
     | Tuple tl -> Tuple (List.map (subst_once id sub) tl)
     | Mu (id',t) -> assert (id' <> id); Mu (id',subst_once id sub t)
+    | IntList -> assert false
   in
   let rec unfold_loop ~unfld = function
     | TVar id -> assert (IntSet.mem id unfld); TVar id
@@ -155,6 +157,7 @@ let unfold =
     | (Mu (id,t)) as mu ->
       let t' = subst_once id mu t in
       unfold_loop ~unfld:(IntSet.add id unfld) t'
+    | IntList -> assert false
   in
   unfold_loop ~unfld:IntSet.empty
 
@@ -250,6 +253,7 @@ let rec constrain_wf_loop o t ctxt =
     constrain_wf_loop o' t' {
         ctxt with ocons = Wf (o,o')::ctxt.ocons
       }
+  | IntList -> assert false
 
 (** Like constrain_wf_above, but only begin emitting wf constraints
    when the first ownership variable is encountered *)
@@ -260,6 +264,7 @@ let rec constrain_well_formed = function
   | Mu (_,t) -> constrain_well_formed t
   | Ref (t,o)
   | Array (t,o) -> constrain_wf_loop o t
+  | IntList -> assert false
 
 (** Record the allocation of an ownership variable in the context
    of a magic operation. Updates the gen map *)
@@ -336,6 +341,7 @@ let lift_to_ownership loc root t_simp =
           simple_lift ~unfld (P.t_ind root i) t
         ) tl in
       return @@ Tuple tl'
+    | `IntList -> assert false
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
   constrain_well_formed t >> return t
@@ -366,6 +372,7 @@ let make_fresh_type loc root t =
   | Mu (id,t) ->
     let%bind t' = loop root t in
     return @@ Mu (id,t')
+  | IntList -> assert false
   in
   let%bind t' = loop root t in
   constrain_well_formed t' >> return t'
@@ -474,6 +481,7 @@ let rec split_type loc p =
     return @@ (Tuple tl1,Tuple tl2)
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
+  | IntList -> assert false
 
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
@@ -558,6 +566,7 @@ let rec max_type = function
     miter max_type tl
   | Ref (t,o) ->
     max_ovar o >> max_type t
+  | IntList -> assert false
 
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
