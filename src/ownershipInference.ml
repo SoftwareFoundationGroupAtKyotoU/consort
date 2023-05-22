@@ -342,7 +342,7 @@ let lift_to_ownership loc root t_simp =
           simple_lift ~unfld (P.t_ind root i) t
         ) tl in
       return @@ Tuple tl'
-    | `IntList -> assert false
+    | `IntList -> return IntList
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
   constrain_well_formed t >> return t
@@ -727,8 +727,8 @@ let rec process_expr ~output ((e_id,_),expr) =
           ) t_init in
         return @@ Tuple tl
       | Call c -> process_call e_id c
-      | Cons _ -> assert false
-      | Nil -> assert false
+      | Cons _
+      | Nil -> return IntList
     in
     let rec assign_patt_loop acc patt ty =
       match patt,ty with

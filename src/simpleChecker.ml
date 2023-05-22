@@ -540,7 +540,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         unify_var b @@ `Array cont;
         same cont
       (* Types of Cons and Nil is "folded" so they are handled as IntList, simply *)
-      | Cons _ -> same `IntList
+      | Cons _
       | Nil -> same `IntList
     in
     let rec unify_patt acc p t =
@@ -574,6 +574,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     unify_var v1 `IntList;
     (* No need a constraint to be the return type of e2 and e3 are the same because they share the "ret_type". *)
     process_expr ret_type ctxt e2 res_acc
+    (* Unfold an IntList type to a pair of Int and IntList type. *)
     |&| process_expr ret_type (add_var h `Int (add_var r `IntList ctxt)) e3
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
