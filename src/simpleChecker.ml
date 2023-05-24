@@ -129,13 +129,15 @@ type side_results = {
   deref_locs: ptr_op list;
   let_types: typ Std.IntMap.t; (* let_types gives the type of the RHS of every let expression (by id). This is used
                                   to know what type to give a null constant *)
+  match_bindings: (string * typ) list Std.IntMap.t; (* match_binded gives binding information in match statement *)
 }
 
 module SideAnalysis = struct
   type results = {
     unfold_locs: Std.IntSet.t;
     fold_locs: Std.IntSet.t;
-    let_types:  SimpleTypes.r_typ Std.IntMap.t
+    let_types:  SimpleTypes.r_typ Std.IntMap.t;
+    match_bindings: (string * SimpleTypes.r_typ) list Std.IntMap.t;
   }
 end
 
@@ -407,6 +409,9 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let save_let ty acc =
     { acc with let_types = Std.IntMap.add id ty acc.let_types }
   in
+  let save_match_binding list acc =
+    { acc with match_bindings = Std.IntMap.add id list acc.match_bindings }
+  in
   let (|&|) (a,r1) b =
     let (a',r2) = b a in
     a',(r1 && r2)
@@ -539,7 +544,6 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
         let cont = fresh_var () in
         unify_var b @@ `Array cont;
         same cont
-      (* Types of Cons and Nil is "folded" so they are handled as IntList, simply *)
       | Cons _
       | Nil -> same `IntList
     in
@@ -573,9 +577,9 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     in
     unify_var v1 `IntList;
     (* No need a constraint to be the return type of e2 and e3 are the same because they share the "ret_type". *)
-    process_expr ret_type ctxt e2 res_acc
-    (* Unfold an IntList type to a pair of Int and IntList type. *)
-    |&| process_expr ret_type (add_var h `Int (add_var r `IntList ctxt)) e3
+    let acc1, b1 = process_expr ret_type ctxt e2 res_acc in
+    let acc2, b2 = process_expr ret_type (add_var h `Int (add_var r `IntList ctxt)) e3 @@ save_match_binding [(h, `Int); (r, `IntList)] acc1 in
+    acc2, b1 && b2
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
@@ -649,7 +653,8 @@ let typecheck_prog intr_types (fns,body) =
       t_cons = [];
       assign_locs = [];
       deref_locs = [];
-      let_types = Std.IntMap.empty
+      let_types = Std.IntMap.empty;
+      match_bindings = Std.IntMap.empty;
     } fns
   in
   let (acc',_) = process_expr None {
@@ -676,8 +681,12 @@ let typecheck_prog intr_types (fns,body) =
       l'
   in
   let fold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.assign_locs in
-  let unfold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.deref_locs in  
+  let unfold_locs = distinct_list_to_set @@ get_rec_loc sub acc'.deref_locs in
   let get_soln = resolve_with_rec sub IS.empty (fun _ t -> t) in
+  let rec get_soln_with_var_name = function
+    | [] -> []
+    | (var, ty) :: r -> (var, get_soln ty) :: get_soln_with_var_name r
+  in
   (List.fold_left (fun acc { name; _ } ->
     let { arg_types_v; ret_type_v } = StringMap.find name fenv in
     let arg_types = List.map get_soln @@ List.map (fun x -> `Var x) arg_types_v in
@@ -686,5 +695,6 @@ let typecheck_prog intr_types (fns,body) =
    ) StringMap.empty fns),SideAnalysis.(
     { unfold_locs;
       fold_locs;
-      let_types = Std.IntMap.map get_soln acc'.let_types
+      let_types = Std.IntMap.map get_soln acc'.let_types;
+      match_bindings = Std.IntMap.map get_soln_with_var_name acc'.match_bindings;
     })
