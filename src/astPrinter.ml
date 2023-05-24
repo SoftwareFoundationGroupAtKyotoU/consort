@@ -173,9 +173,9 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
     | Match (e1, e2, h, r, e3) ->
       pl [
         pf "match %a with " (ul pp_lhs) e1;
-        pf "| Nil -> { ";
+        pf "Nil -> { ";
         pp_expr ~ip ~annot e2;
-        ps "}";
+        ps " } ";
         pf "| Cons(%s,%s) -> { " h r;
         pp_expr ~ip ~annot e3;
         ps "}";
