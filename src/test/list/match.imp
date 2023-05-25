@@ -3,12 +3,16 @@ sum(l, s) {
       Nil -> s
     | Cons h r -> {
         let s2 = s + h in
-        sum(r, s2)
+        let r2 = *r in
+        sum(r2, s2)
     }
 }
 
 {
-    let l = Cons 1 (Cons 2 (Cons 3 Nil)) in
+    let x = mkref Nil in
+    let y = mkref (Cons 1 x) in
+    let z = mkref (Cons 2 y) in
+    let l = mkref (Cons 3 z) in
     let s = sum(l, 0) in
     assert(s = 6)
 }
