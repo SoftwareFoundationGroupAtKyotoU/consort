@@ -5,7 +5,6 @@ type r_typ = [
   | `TVar of int
   | `Tuple of r_typ list
   | `Ref of r_typ
-  | `Mu of int * r_typ
   | `Array of a_typ
   | `IntList
 ]
@@ -26,8 +25,7 @@ let unfold_simple_type i t =
       | `Ref t -> `Ref (loop t)
       | `Array `Int -> `Array `Int
       | `IntList -> `IntList
-      | `TVar _
-      | `Mu (_,_) -> failwith "Malformed recursive type"
+      | `TVar _ -> failwith "Malformed recursive type"
     in
     loop t
 
@@ -35,7 +33,6 @@ let rec type_to_string = function
   | `Int -> "int"
   | `Ref t -> Printf.sprintf "%s ref" @@ type_to_string t
   | `Tuple tl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map type_to_string tl
-  | `Mu (v,t) -> Printf.sprintf "(%s '%d.%s)" Greek.mu v @@ type_to_string t
   | `TVar v -> Printf.sprintf "'%d" v
   | `Array at -> Printf.sprintf "[%s]" @@ array_type_to_string at
   | `IntList -> "int list"

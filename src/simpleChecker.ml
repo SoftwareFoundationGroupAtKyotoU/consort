@@ -27,33 +27,9 @@ type funtyp_v = {
   ret_type_v: int
 }
 
-module TyCons : sig
-  type t[@@immediate][@@deriving sexp]
-  val equal : t -> t -> bool
-  val hash : t -> int
-  val fresh : unit -> t
-  val to_string : t -> string
-  val unwrap : t -> int
-  val weight : t -> int
-end = struct
-  type t = int [@@deriving sexp]
-  let _ref = ref 0;;
-
-  let equal = (=)
-  let hash i = i
-  let fresh () =
-    let i = !_ref in
-    incr _ref;
-    i
-
-  let to_string = string_of_int
-  let unwrap i = i
-  let weight = unwrap
-end
-
 let rec string_of_typ = function
   | `Var i -> Printf.sprintf "'%d" i
-  | `TyCons t -> Printf.sprintf "$%s" @@ TyCons.to_string t
+  | `Ref t -> Printf.sprintf "ref %s" @@ string_of_typ t
   | `Int -> "int"
   | `Tuple pl -> Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
   | `Array t' -> Printf.sprintf "[%s]" @@ string_of_typ t'
@@ -63,7 +39,7 @@ let rec string_of_typ = function
 
 type 'a c_typ = [
   | `Int
-  | `TyCons of TyCons.t
+  | `Ref of 'a
   | `Tuple of 'a list
   | `Array of 'a
   | `IntList
@@ -75,10 +51,6 @@ type typ = [
 ] [@@deriving sexp]
 
 type refined_typ = typ c_typ
-
-
-module TyConsUF = UnionFind.Make(TyCons)
-module TyConsResolv = Hashtbl.Make(TyCons)
 
 module SM = StringMap
 module StringSet = Std.StringSet
@@ -108,9 +80,7 @@ type tuple_cons = {var: int; ind: int; unif: int; loc: Lexing.position}
 
 type sub_ctxt = {
   uf: UnionFind.t;
-  cons_uf: TyConsUF.t;
   resolv: resolv_map;
-  cons_arg: typ TyConsResolv.t;
   fn_name : string;
 }
 
@@ -149,21 +119,12 @@ type fn_ctxt = {
   tyenv: tyenv;
 }
 
-let fresh_cons_id sub_ctxt t =
-  let id = TyCons.fresh () in
-  TyConsResolv.add sub_ctxt.cons_arg id t;
-  TyConsUF.register sub_ctxt.cons_uf id;
-  id
-
-let fresh_cons sub_ctxt t =
-  `TyCons (fresh_cons_id sub_ctxt t)
-
 (* Abstracts a simple type into an inference type (used to give types to instrinsics) *)
 let abstract_type sub_ctxt t =
   let rec loop = function
     | `TVar _ -> failwith "Not supported"
     | `Mu _ -> failwith "Not supported"
-    | `Ref t -> fresh_cons sub_ctxt ((loop t) : refined_typ :> typ)
+    | `Ref t -> `Ref (loop t)
     | `Int -> `Int
     | `Tuple tl ->
       `Tuple (List.map loop tl |> List.map [%cast: typ])
@@ -199,7 +160,6 @@ let add_var v t ctxt =
 (* For type variables or type constructors, find the representative id as recorded in the corresponding UF) *)
 let canonicalize sub = function
   | `Var v -> `Var (UnionFind.find sub.uf v)
-  | `TyCons v -> `TyCons (TyConsUF.find sub.cons_uf v)
   | t' -> t'
 
 let rec occurs_check sub v (t2: typ) =
@@ -207,12 +167,12 @@ let rec occurs_check sub v (t2: typ) =
   | `Var v' when v' = v -> failwith "Malformed recursive type"
   | `Tuple tl -> List.iter (occurs_check sub v) tl
   | `Array t' -> occurs_check sub v t'
+  | `Ref t -> occurs_check sub v t
   | `IntList
   | `Var _
-  | `Int
+  | `Int -> ()
   (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
   (* TODO: Probably, TyCons is going to be deleted *)
-  | `TyCons _ -> ()
 
 let assign sub var t =
   occurs_check sub var (t :> typ);
@@ -252,35 +212,13 @@ let rec unify ~loc sub_ctxt t1 t2 =
       raise_ill_typed_error t1' t2'
     else
       List.iter2 (unify ~loc sub_ctxt) tl1 tl2
-  (* in this case, we now unify the two reference types, indirecting through that
-     union find/resolution map *)
-  | `TyCons c1,`TyCons c2 ->
-    unify_tycons ~loc sub_ctxt c1 c2
+  | `Ref t1',`Ref t2' ->
+    unify ~loc sub_ctxt t1' t2'
   | `Array t1',`Array t2' ->
     unify ~loc sub_ctxt t1' t2'
   | `IntList,`IntList -> ()
   | t1',t2' ->
     raise_ill_typed_error t1' t2'
-and unify_tycons ~loc sub_ctxt c1 c2 =
-  let c1' = TyConsUF.find sub_ctxt.cons_uf c1 in
-  let c2' = TyConsUF.find sub_ctxt.cons_uf c2 in
-  (* If the two constructors are already unified to the same representative,
-     then we must have unified these references already, in which case we can stop,
-     we know the contents are equal *)
-  if TyCons.equal c1' c2' then
-    ()
-  else
-    let a1 = TyConsResolv.find sub_ctxt.cons_arg c1' in
-    let a2 = TyConsResolv.find sub_ctxt.cons_arg c2' in
-    (* notice that we are unifying BEFORE recursing into the unification
-       of the reference contents. Effectively, this says: _under the assumption
-       constructors c1' and c2' are equivalent_, prove the contents of the
-       references are equivalent, i.e., a coinductive style proof. In other words,
-       while unifying the contents of c1' and c2', if we reach c1' and c2' we can halt
-       unification (as above) because we've assumed that they are already "equivalent".
-    *)
-    TyConsUF.union sub_ctxt.cons_uf c1' c2';
-    unify ~loc sub_ctxt a1 a2
 
 module IS = Std.IntSet
 
@@ -378,7 +316,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   in
   let unify_var n typ = unify ~loc ctxt.sub (lkp n) typ in
   let unify_ref v t =
-    unify ~loc ctxt.sub (lkp v) @@ fresh_cons ctxt.sub t
+    unify ~loc ctxt.sub (lkp v) @@ t
   in
   let fresh_var () =
     let t = UnionFind.new_node ctxt.sub.uf in
