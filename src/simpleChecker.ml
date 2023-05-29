@@ -21,7 +21,7 @@ type. (Note all other recursion is forbidden).
 open Ast
 open SimpleTypes
 open Sexplib.Std
-    
+
 type funtyp_v = {
   arg_types_v: int list;
   ret_type_v: int
@@ -72,7 +72,7 @@ let _sexp_of_resolv_map r = Hashtbl.fold (fun k v acc ->
 
    Instead, if the tuple size is not yet known, we save a tuple constraint, which
    consists of the type variable (var) representing the tuple, the index (ind), and the
-   type variable to unify with type at ind (unif). 
+   type variable to unify with type at ind (unif).
    After the rest of type inference is completed, we resolve var, and (assuming it has been properly
    refined to a concrete length tuple) perform the unification with unif at ind.
 *)
@@ -112,11 +112,11 @@ type fn_ctxt = {
 let abstract_type t =
   let rec loop = function
     | `TVar _ -> failwith "Not supported"
-    | `Ref t -> `Ref (loop t)
+    | `Ref t -> `Ref ((loop t) :> typ)
     | `Int -> `Int
     | `Tuple tl ->
       `Tuple (List.map loop tl |> List.map [%cast: typ])
-    | `Array t -> `Array ((loop (t :> SimpleTypes.r_typ)) :> typ)
+    | `Array t -> `Array ((loop (t :> SimpleTypes.r_typ)) : refined_typ :> typ)
     | `IntList -> `IntList
   in
   loop t
@@ -164,7 +164,7 @@ let rec occurs_check sub v (t2: typ) =
 
 let assign sub var t =
   occurs_check sub var (t :> typ);
-  Hashtbl.add sub.resolv var t  
+  Hashtbl.add sub.resolv var t
 
 (* unify and unify_tycons are mutually recursive, the former unifies types (typ) and the
    latter unifies reference type constructors *)
@@ -214,7 +214,7 @@ module IS = Std.IntSet
 let rec resolve sub k t =
   match canonicalize sub t with
   | `Int -> k `Int
-  | `Ref t -> k @@ `Ref t
+  | `Ref t -> k @@ `Ref (resolve sub (fun t -> t) t)
   | `Tuple tl ->
     List.fold_left (fun k_acc t ->
       (fun l ->
@@ -287,7 +287,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   let unify t1 t2 =
     unify ~loc ctxt.sub t1 t2
   in
-  let record_tcons = 
+  let record_tcons =
     let open Std.StateMonad in
     let%lm impl tup_var ind pvar acc =
       { acc with t_cons = { var = tup_var; ind; unif = pvar; loc }::acc.t_cons }
@@ -354,8 +354,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
             unify_var v tau;
             return ()
           | `Deref::rest ->
-            let%bind c_id = record_read tau in
-            let ty = `TyCons c_id in
+            let ty = `Ref tau in
             find_loop ty rest
           | `Proj i::rest ->
             let tuple_v = fresh_node () in
