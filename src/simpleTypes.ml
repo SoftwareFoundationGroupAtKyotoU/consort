@@ -17,18 +17,6 @@ type 'a _funtyp = {
 
 type funtyp = r_typ _funtyp
 
-let unfold_simple_type i t =
-    let rec loop = function
-      | `Int -> `Int
-      | `TVar j when i = j -> `Mu (i,t)
-      | `Tuple tl -> `Tuple (List.map loop tl)
-      | `Ref t -> `Ref (loop t)
-      | `Array `Int -> `Array `Int
-      | `IntList -> `IntList
-      | `TVar _ -> failwith "Malformed recursive type"
-    in
-    loop t
-
 let rec type_to_string = function
   | `Int -> "int"
   | `Ref t -> Printf.sprintf "%s ref" @@ type_to_string t
