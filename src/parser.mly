@@ -142,11 +142,7 @@ let op :=
   | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
   | ~ = array_expr; <`Read>
   | ~ = op; DOT; LENGTH; <`LengthOf>
-  | CONS; h = lhs; r = cons; <`Cons>
-  | NIL; { `Nil }
-
-let cons :=
-  | LPAREN; CONS; h = lhs; r = cons; RPAREN; <`Cons>
+  | CONS; h = lhs; r = op; <`Cons>
   | NIL; { `Nil }
 
 let tuple_rest :=

@@ -29,7 +29,7 @@ let result_to_string = function
   | Verified -> "VERIFIED"
   | Unverified r -> Printf.sprintf "UNVERIFIED (%s)" @@ reason_to_string r true
 
-let solver_result_to_check_result =
+(* let solver_result_to_check_result =
   let open Solver in
   function
   | Unsat -> Unverified Unsafe
@@ -37,9 +37,9 @@ let solver_result_to_check_result =
   | Timeout -> Unverified Timeout
   | Unhandled msg -> Unverified (UnhandledSolverOutput msg)
   | Error msg -> Unverified (SolverError msg)
-  | Unknown -> Unverified Unknown
+  | Unknown -> Unverified Unknown *)
 
-let choose_solver =
+(* let choose_solver =
   let open ArgOptions.Solver in
   function
   | Eldarica -> EldaricaBackend.solve
@@ -47,13 +47,13 @@ let choose_solver =
   | Null -> NullSolver.solve
   | Parallel -> ParallelBackend.solve
   | Spacer -> HornBackend.solve
-  | Z3SMT -> SmtBackend.solve
+  | Z3SMT -> SmtBackend.solve *)
 
 let pcomment ~body =
   let open PrettyPrint in
   pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-let print_program ~o_map ~o_printer r ast =
+(* let print_program ~o_map ~o_printer r ast =
   let open PrettyPrint in
   let open OwnershipInference.Result in
   let rec print_type =
@@ -113,25 +113,25 @@ let print_program ~o_map ~o_printer r ast =
       newline
     ]
   in
-  AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast
+  AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast *)
 
-let print_fold_locations simple_res =
+(* let print_fold_locations simple_res =
   let open SimpleChecker.SideAnalysis in
   let _, side = simple_res in
   print_endline "FOLD LOCATIONS >>>";
   Std.IntSet.iter (Printf.printf "* %d\n") side.fold_locs;
-  print_endline "<<<"
+  print_endline "<<<" *)
 
-let print_inference infer_res ast =
+(* let print_inference infer_res ast =
   let open PrettyPrint in
   let open OwnershipInference in
   let o_map o = o in
   let o_printer = function
     | OConst o -> pf "%f" o
     | OVar v -> pf "$%d" v in
-  print_program ~o_map ~o_printer infer_res ast
+  print_program ~o_map ~o_printer infer_res ast *)
 
-let print_ownership ownership_res infer_res ast =
+(* let print_ownership ownership_res infer_res ast =
   let open PrettyPrint in
   let open OwnershipInference in
   match ownership_res with
@@ -141,7 +141,7 @@ let print_ownership ownership_res infer_res ast =
       | OConst o -> o
       | OVar o -> List.assoc o o_res in
     let o_printer = pf "%f" in
-    print_program ~o_map ~o_printer infer_res ast
+    print_program ~o_map ~o_printer infer_res ast *)
 
 let print_typecheck (f_types, side) ast =
   let open Ast in
@@ -174,7 +174,7 @@ let print_typecheck (f_types, side) ast =
   in
   AstPrinter.pretty_print_program ~annot_fn ~annot stdout ast
 
-let to_hint o_res record =
+(* let to_hint o_res record =
   let open OwnershipInference in
   let o_map = function
     | OVar v -> List.assoc v o_res
@@ -183,22 +183,23 @@ let to_hint o_res record =
   {
     splits = SplitMap.map s_map record.splits;
     gen = GenMap.map o_map record.gen
-  }
+  } *)
 
-let get_solve ~opts =
+(* let get_solve ~opts =
   let open ArgOptions in
   let module Backend = struct
     let solve = choose_solver opts.solver
   end in
   let module S = FlowBackend.Make(Backend) in
-  S.solve
+  S.solve *)
 
 let consort ~opts file =
   let ast = AstUtil.parse_file file in
   let intr_op = (ArgOptions.get_intr opts).op_interp in
   let simple_typing = RefinementTypes.to_simple_funenv intr_op in
-  let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
-  let infer_res = OwnershipInference.infer ~opts simple_res ast in
+  let _ = SimpleChecker.typecheck_prog simple_typing ast in
+  assert false
+  (* let infer_res = OwnershipInference.infer ~opts simple_res ast in
   let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
   match ownership_res with
   | None -> Unverified Aliasing
@@ -206,21 +207,22 @@ let consort ~opts file =
     let o_hint = to_hint o_res infer_res.op_record in
     let solve = get_solve ~opts in
     let ans = solve ~opts simple_res o_hint ast in
-    solver_result_to_check_result ans
+    solver_result_to_check_result ans *)
 
 let ownership ~opts file =
   let ast = AstUtil.parse_file file in
   let intr_op = (ArgOptions.get_intr opts).op_interp in
   let simple_op = RefinementTypes.to_simple_funenv intr_op in
-  let simple_res = SimpleChecker.typecheck_prog simple_op ast in
-  print_fold_locations simple_res;
+  let _ = SimpleChecker.typecheck_prog simple_op ast in
+  assert false
+  (* print_fold_locations simple_res;
   let infer_res = OwnershipInference.infer ~opts simple_res ast in
   print_inference infer_res ast;
   let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
   print_ownership ownership_res infer_res ast;
   match ownership_res with
   | None -> Unverified Aliasing
-  | Some _ -> Verified
+  | Some _ -> Verified *)
 
 let typecheck ~opts file =
   let ast = AstUtil.parse_file file in

@@ -134,7 +134,7 @@ type infr_options = bool
 
 let infr_opts_default = false
 
-let unfold =
+(* let unfold =
   let rec subst_once id sub = function
     | TVar id' when id = id' -> sub
     | (Int as t)
@@ -159,7 +159,7 @@ let unfold =
       unfold_loop ~unfld:(IntSet.add id unfld) t'
     | IntList -> assert false
   in
-  unfold_loop ~unfld:IntSet.empty
+  unfold_loop ~unfld:IntSet.empty *)
 
 (** The optional relaxed argument indicates whether the passed in
    constraint should be applied only if the relaxed flag is in the indicated state.
@@ -175,14 +175,15 @@ let%lm add_constraint ?relaxed c ctxt =
 (** Shuffle the ownership between two source types (t1 and t2) and two destination
    types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
    parallel, at references the ownerships are shuffled with the Shuff constraint. *)
-let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
+let%lm shuffle_types (*~e_id*) ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   (* check whether we need to unfold the "destination", which in this case is t2/t2', not t1/t1'.
      This confusing naming arises from this functions use in returning ownership to a recursive
      data structure, in that case, t2/t2' represents the destination for the return operation. *)
   let unfold_dst =
-    if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
+    (* if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
       unfold
-    else Fun.id
+    else *)
+      Fun.id
   in
   let rec loop t1 t2 t1' t2' ctxt =
     match t1,t2,t1',t2' with
@@ -453,9 +454,10 @@ let fresh_ap e_id (p: P.concr_ap) =
   ) steps
     
 (* this must record *)
-let get_type_scheme e_id v ctxt =
-  let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
-  lift_to_ownership (MGen e_id) (P.var v) st ctxt
+let get_type_scheme (*e_id v ctxt*) =
+  assert false
+  (* let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
+  lift_to_ownership (MGen e_id) (P.var v) st ctxt *)
 
 let tarray o t = Array (t,o)
 let tref o t = Ref (t,o)
@@ -487,13 +489,13 @@ let rec split_type loc p =
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
-let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
+let%lm constrain_rel (*~e_id*) ~rel ~src:t1 ~dst:t2 ctxt =
   let dst_unfld =
-    let open SimpleChecker.SideAnalysis in
+    (* let open SimpleChecker.SideAnalysis in
     if (IntSet.mem e_id ctxt.iso.unfold_locs) ||
        (IntSet.mem e_id ctxt.iso.fold_locs) then
       unfold t2
-    else
+    else *)
       t2
   in
   let rec loop t1 t2 ctxt =
@@ -530,9 +532,9 @@ let lkp_split loc v =
   let%bind (t1,t2) = split_type loc (P.var v) t in
   update_type v t1 >> return t2
 
-let%lq is_unfold eid ctxt =
+(* let%lq is_unfold eid ctxt =
   let open SimpleChecker.SideAnalysis in
-  IntSet.mem eid ctxt.iso.unfold_locs
+  IntSet.mem eid ctxt.iso.unfold_locs *)
 
 let%lq theta f ctxt = SM.find f ctxt.theta
 
@@ -573,7 +575,7 @@ let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
   begin%m
-      miter (fun (i,a) -> constrain_eq ~e_id ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
+      miter (fun (i,a) -> constrain_eq (*~e_id*) ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
        miteri (fun i arg_name ->
          let%bind t = lkp arg_name in
          let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
@@ -597,10 +599,10 @@ let rec process_expr ~output ((e_id,_),expr) =
     let () = assert (output <> None) in
     let (output_types, return_type) = Option.get output in
     let%bind t2 = lkp_split (SRet e_id) v in
-    constrain_eq ~e_id ~src:t2 ~dst:return_type
+    constrain_eq (*~e_id*) ~src:t2 ~dst:return_type
     >> miter (fun (v,out_t) ->
         let%bind curr_t = lkp v in
-        constrain_eq ~e_id ~src:curr_t ~dst:out_t
+        constrain_eq (*~e_id*) ~src:curr_t ~dst:out_t
       ) output_types
     >> return `Return
   | Unit -> return `Cont
@@ -630,7 +632,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     in
     begin%m
         constrain_wf_loop o' vt';
-         constrain_eq ~e_id ~src:t2 ~dst:vt';
+         constrain_eq (*~e_id*) ~src:t2 ~dst:vt';
          update_type v @@ Ref (vt',o');
          constrain_write o;
          constrain_write o';
@@ -642,7 +644,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     begin%m
          constrain_wf_loop o new_cts;
          constrain_write o;
-         constrain_eq ~e_id ~src:cts ~dst:new_cts;
+         constrain_eq (*~e_id*) ~src:cts ~dst:new_cts;
          update_type base @@ Array (new_cts,o);
          process_expr ~output nxt
     end
@@ -650,7 +652,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     let%bind (src_up,st,st') = fresh_ap e_id src
     and (dst_up,dt,dt') = fresh_ap e_id dst in
     begin%m
-        shuffle_types ~e_id ~src:(st,st') ~dst:(dt,dt');
+        shuffle_types (*~e_id*) ~src:(st,st') ~dst:(dt,dt');
          src_up;
          dst_up;
          process_expr ~output nxt
@@ -659,17 +661,17 @@ let rec process_expr ~output ((e_id,_),expr) =
   | Let (PVar v,Mkref (RVar src),body) ->
     let%bind t2 = lkp_split (SBind e_id) src in
     begin
-      match%bind get_type_scheme e_id v with
+      match%bind get_type_scheme (*e_id v*) with
       | (Ref (ref_cont,o)) as t' ->
         begin%m
-            constrain_eq ~e_id ~src:t2 ~dst:ref_cont;
+            constrain_eq (*~e_id*) ~src:t2 ~dst:ref_cont;
              add_constraint @@ Write o;
              with_types [(v,t')] @@ process_expr ~output body
         end
       | _ -> assert false
     end
   | Let (PVar v,(Null | MkArray _),body) ->
-    let%bind t = get_type_scheme e_id v in
+    let%bind t = get_type_scheme (*e_id v*) in
     with_types [(v,t)] @@ process_expr ~output body
   | Let (PVar v,Mkref (RNone | RInt _), body) ->
     let%bind new_var = alloc_ovar (MGen e_id) (P.var v) in
@@ -697,11 +699,11 @@ let rec process_expr ~output ((e_id,_),expr) =
       | Deref v -> 
         let%bind (t,o) = lkp_ref v in
         let%bind (t1,t2_pre) = split_type (SBind e_id) (P.deref (P.var v)) t in
-        let%bind uf = is_unfold e_id in
+        (* let%bind uf = is_unfold e_id in *)
         let t2 =
-          if uf then
+          (* if uf then
             unfold t2_pre
-          else
+          else *)
             t2_pre
         in
         begin%m
@@ -755,8 +757,8 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
         let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
         begin%m
             (* notice that we allow ownership to be discarded at join points, the reason for MJoin *)
-            constrain_ge ~e_id ~src:tt ~dst:t';
-             constrain_ge ~e_id ~src:ft ~dst:t';
+            constrain_ge (*~e_id*) ~src:tt ~dst:t';
+             constrain_ge (*~e_id*) ~src:ft ~dst:t';
              update_type k t'
         end
       ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in

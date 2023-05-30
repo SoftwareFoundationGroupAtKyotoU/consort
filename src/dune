@@ -43,8 +43,7 @@
  (modules HornBackend SmtBackend
           Z3BasedBackend Consort
           HoiceBackend NullSolver
-          ExternalFileBackend EldaricaBackend ParallelBackend
-          FlowInference FlowBackend))
+          ExternalFileBackend EldaricaBackend ParallelBackend))
 
 (executable
  (name test)
