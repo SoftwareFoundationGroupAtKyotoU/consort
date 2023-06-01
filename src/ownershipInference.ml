@@ -34,8 +34,7 @@ type 'a otype_ =
   | Ref of 'a otype_ * 'a
   | Tuple of 'a otype_ list
   | TVar of int
-  | Mu of int * 'a otype_
-  | IntList
+  | IntList of 'a list
 
 type otype = ownership otype_
 
