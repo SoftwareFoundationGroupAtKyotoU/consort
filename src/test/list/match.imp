@@ -12,7 +12,7 @@ sum(l, s) {
     let x = mkref Nil in
     let y = mkref (Cons 1 x) in
     let z = mkref (Cons 2 y) in
-    let l = mkref (Cons 3 z) in
+    let l = Cons 3 z in
     let s = sum(l, 0) in
     assert(s = 6)
 }
