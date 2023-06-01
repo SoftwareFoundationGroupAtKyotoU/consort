@@ -378,7 +378,6 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     process_expr ret_type ctxt e res_acc
   | Fail -> res_acc,true
   | Let (PVar v,Mkref (RVar v'),expr) ->
-    unify_var v @@ `Ref (lkp v');
     process_expr ret_type (add_var v (`Ref (lkp v')) ctxt) expr @@ save_let (`Ref (lkp v')) res_acc
   | Let (p,lhs,expr) ->
     let res_acc',v_type =
