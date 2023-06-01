@@ -9,8 +9,7 @@ sum(l, s) {
 }
 
 {
-    let n = Nil in
-    let x = mkref n in
+    let x = mkref Nil in
     let y = mkref (Cons 1 x) in
     let z = mkref (Cons 2 y) in
     let l = mkref (Cons 3 z) in
