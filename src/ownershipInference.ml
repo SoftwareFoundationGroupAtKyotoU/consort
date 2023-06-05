@@ -321,7 +321,14 @@ let alloc_split,alloc_ovar =
 
 (** Lift a simple type into an ownership type (of type otype) *)
 (* this must record *)
-let lift_to_ownership loc root t_simp =
+let lift_to_ownership loc root t_simp ~o_arity =
+  let rec lift_list_to_ownership loc root ~o_arity =
+    if o_arity <= 0 then return []
+      else (
+        let%bind o = alloc_ovar loc root in
+        return (o :: lift_list_to_ownership loc root ~o_arity:(o_arity - 1))
+      )
+  in
   let rec simple_lift ~unfld root =
     function
     | `Mu (id,t) when IntSet.mem id unfld ->
@@ -342,7 +349,7 @@ let lift_to_ownership loc root t_simp =
           simple_lift ~unfld (P.t_ind root i) t
         ) tl in
       return @@ Tuple tl'
-    | `IntList -> return IntList
+    | `IntList -> return @@ IntList (lift_list_to_ownership loc root ~o_arity)
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
   constrain_well_formed t >> return t
