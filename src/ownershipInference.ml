@@ -792,7 +792,7 @@ let analyze_fn ctxt fn =
 let infer ~opts (simple_types,iso) (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
-      lift_to_ownership loc (P.arg i) t
+      lift_to_ownership loc (P.arg i) t ~o_arity
     ) l
   in
   let lift_simple_ft nm ft =
