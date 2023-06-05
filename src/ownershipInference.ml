@@ -326,15 +326,12 @@ let lift_to_ownership loc root t_simp ~o_arity =
     if o_arity <= 0 then return []
       else (
         let%bind o = alloc_ovar loc root in
-        return (o :: lift_list_to_ownership loc root ~o_arity:(o_arity - 1))
+        let%bind o_list = lift_list_to_ownership loc root ~o_arity:(o_arity - 1) in
+        return (o :: o_list)
       )
   in
   let rec simple_lift ~unfld root =
     function
-    | `Mu (id,t) when IntSet.mem id unfld ->
-      let%bind t' = simple_lift ~unfld root t in
-      return @@ Mu (id, t')
-    | (`Mu (id,t) as mu) -> simple_lift ~unfld:(IntSet.add id unfld) root @@ unfold_simple id mu t
     | `Array `Int ->
       let%bind o = alloc_ovar loc root in
       return @@ Array (Int, o)
@@ -349,7 +346,9 @@ let lift_to_ownership loc root t_simp ~o_arity =
           simple_lift ~unfld (P.t_ind root i) t
         ) tl in
       return @@ Tuple tl'
-    | `IntList -> return @@ IntList (lift_list_to_ownership loc root ~o_arity)
+    | `IntList ->
+      let%bind o_list = lift_list_to_ownership loc root ~o_arity in
+      return @@ IntList o_list
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
   constrain_well_formed t >> return t
