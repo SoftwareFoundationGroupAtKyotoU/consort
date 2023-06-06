@@ -74,7 +74,7 @@ module StringSet = Std.StringSet
 
 type funenv = funtyp_v SM.t
 
-let _sexp_of_tyenv = SM.sexp_of_t ~v:sexp_of_typ
+let _sexp_of_tyenv = SM.sexp_of_t sexp_of_typ
 
 type tyenv = typ SM.t
 type resolv_map = (int, typ c_typ) Hashtbl.t
