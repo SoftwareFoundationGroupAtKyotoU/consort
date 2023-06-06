@@ -7,10 +7,11 @@ type r_typ = [
   | `Ref of r_typ
   | `Mu of int * r_typ
   | `Array of a_typ
-  | `Lock
-  | `ThreadID
+  | `Lock of (r_typ StringMap.t)
+  | `ThreadID of (r_typ StringMap.t)
 ]
-and a_typ = [ `Int ] [@@deriving sexp]
+and a_typ = [ `Int ] 
+[@@deriving sexp]
 
 type 'a _funtyp = {
   arg_types: 'a list;
@@ -27,8 +28,8 @@ let rec type_to_string = function
   | `Mu (v,t) -> Printf.sprintf "(%s '%d.%s)" Greek.mu v @@ type_to_string t
   | `TVar v -> Printf.sprintf "'%d" v
   | `Array at -> Printf.sprintf "[%s]" @@ array_type_to_string at
-  | `Lock -> "lock"
-  | `ThreadID -> "tid"
+  | `Lock _ -> "lock"
+  | `ThreadID _ -> "tid"
 and array_type_to_string = function
   | `Int -> "int"
 
