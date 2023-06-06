@@ -49,13 +49,13 @@ type bif_t = {
 }[@@deriving sexp]
 
 type bif_env_t = bif_t StringMap.t
-let bif_env_t_of_sexp = StringMap.t_of_sexp ~v:bif_t_of_sexp
-let sexp_of_bif_env_t = StringMap.sexp_of_t ~v:sexp_of_bif_t
+let bif_env_t_of_sexp = StringMap.t_of_sexp bif_t_of_sexp
+let sexp_of_bif_env_t = StringMap.sexp_of_t sexp_of_bif_t
         
 (* just a mapping of connectives onto Z3 functions *)
 type rel_interp_t = string StringMap.t
-let rel_interp_t_of_sexp = StringMap.t_of_sexp ~v:string_of_sexp
-let sexp_of_rel_interp_t = StringMap.sexp_of_t ~v:sexp_of_string
+let rel_interp_t_of_sexp = StringMap.t_of_sexp string_of_sexp
+let sexp_of_rel_interp_t = StringMap.sexp_of_t sexp_of_string
 
 type interp_t = {
   op_interp: RefinementTypes.funtype StringMap.t; (** Map from bif name to refinement function type for that bif *)
