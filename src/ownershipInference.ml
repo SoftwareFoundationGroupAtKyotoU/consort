@@ -792,13 +792,13 @@ let analyze_fn ctxt fn =
 let infer ~opts (simple_types,iso) (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
-      lift_to_ownership loc (P.arg i) t ~o_arity
+      lift_to_ownership loc (P.arg i) t ~o_arity:opts.ArgOptions.ownership_arity
     ) l
   in
   let lift_simple_ft nm ft =
     let%bind arg_types = lift_plist (MArg nm) ft.SimpleTypes.arg_types
     and output_types = lift_plist (MOut nm) ft.SimpleTypes.arg_types
-    and result_type = lift_to_ownership (MRet nm) P.ret ft.SimpleTypes.ret_type in
+    and result_type = lift_to_ownership (MRet nm) P.ret ft.SimpleTypes.ret_type ~o_arity:opts.ArgOptions.ownership_arity in
     return RefinementTypes.{ arg_types; output_types; result_type }
   in
   let rec lift_reft loc p =
