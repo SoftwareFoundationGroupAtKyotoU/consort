@@ -245,16 +245,15 @@ let rec unfold_simple arg mu =
 let rec constrain_wf_loop o t ctxt =
   match t with
   | TVar _
-  | Int -> (ctxt,())
+  | Int
+  | IntList _ -> (ctxt,())
   | Tuple tl ->
     miter (constrain_wf_loop o) tl ctxt
-  | Mu (_,t) -> constrain_wf_loop o t ctxt
   | Ref (t',o')
   | Array (t',o') ->
     constrain_wf_loop o' t' {
         ctxt with ocons = Wf (o,o')::ctxt.ocons
       }
-  | IntList -> assert false
 
 (** Like constrain_wf_above, but only begin emitting wf constraints
    when the first ownership variable is encountered *)
@@ -479,17 +478,14 @@ let rec split_type loc p =
   in
   function
   | (Int as t)
-  | (TVar _ as t) -> return (t,t)
-  | Mu (id,t) ->
-    let%bind (t1,t2) = split_type loc p t in
-    return @@ (Mu (id,t1),Mu (id,t2))
+  | (TVar _ as t)
+  | (IntList _ as t) -> return (t,t)
   | Tuple tl ->
     let%bind split_list = mtmap p (split_type loc) tl in
     let (tl1,tl2) = List.split split_list in
     return @@ (Tuple tl1,Tuple tl2)
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
-  | IntList -> assert false
 
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
