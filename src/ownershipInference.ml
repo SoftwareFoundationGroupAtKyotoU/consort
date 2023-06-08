@@ -490,28 +490,20 @@ let rec split_type loc p =
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
-let%lm constrain_rel (*~e_id*) ~rel ~src:t1 ~dst:t2 ctxt =
-  let dst_unfld =
-    (* let open SimpleChecker.SideAnalysis in
-    if (IntSet.mem e_id ctxt.iso.unfold_locs) ||
-       (IntSet.mem e_id ctxt.iso.fold_locs) then
-      unfold t2
-    else *)
-      t2
-  in
+let%lm constrain_rel ~rel ~src:t1 ~dst:t2 ctxt =
   let rec loop t1 t2 ctxt =
     match t1, t2 with
     | TVar _,TVar _
-    | Int, Int -> ctxt
+    | Int, Int
+    | IntList _, IntList _ -> ctxt
     | Ref (t1',o1), Ref (t2',o2)
     | Array (t1',o1), Array (t2',o2) ->
       loop t1' t2' { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
-    | Mu (_,t1'), Mu (_,t2') -> loop t1' t2' ctxt
     | Tuple tl1,Tuple tl2 ->
       List.fold_left2 (fun acc t1 t2 -> loop t1 t2 acc) ctxt tl1 tl2
     | _,_ -> failwith "Type mismatch (simple checker broken B?)"
   in
-  loop t1 dst_unfld ctxt
+  loop t1 t2 ctxt
 
 let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1,o2))
 
@@ -600,10 +592,10 @@ let rec process_expr ~output ((e_id,_),expr) =
     let () = assert (output <> None) in
     let (output_types, return_type) = Option.get output in
     let%bind t2 = lkp_split (SRet e_id) v in
-    constrain_eq (*~e_id*) ~src:t2 ~dst:return_type
+    constrain_eq ~src:t2 ~dst:return_type
     >> miter (fun (v,out_t) ->
         let%bind curr_t = lkp v in
-        constrain_eq (*~e_id*) ~src:curr_t ~dst:out_t
+        constrain_eq ~src:curr_t ~dst:out_t
       ) output_types
     >> return `Return
   | Unit -> return `Cont
@@ -633,7 +625,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     in
     begin%m
         constrain_wf_loop o' vt';
-         constrain_eq (*~e_id*) ~src:t2 ~dst:vt';
+         constrain_eq ~src:t2 ~dst:vt';
          update_type v @@ Ref (vt',o');
          constrain_write o;
          constrain_write o';
@@ -645,7 +637,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     begin%m
          constrain_wf_loop o new_cts;
          constrain_write o;
-         constrain_eq (*~e_id*) ~src:cts ~dst:new_cts;
+         constrain_eq ~src:cts ~dst:new_cts;
          update_type base @@ Array (new_cts,o);
          process_expr ~output nxt
     end
@@ -653,7 +645,7 @@ let rec process_expr ~output ((e_id,_),expr) =
     let%bind (src_up,st,st') = fresh_ap e_id src
     and (dst_up,dt,dt') = fresh_ap e_id dst in
     begin%m
-        shuffle_types (*~e_id*) ~src:(st,st') ~dst:(dt,dt');
+        shuffle_types ~src:(st,st') ~dst:(dt,dt');
          src_up;
          dst_up;
          process_expr ~output nxt
@@ -662,10 +654,10 @@ let rec process_expr ~output ((e_id,_),expr) =
   | Let (PVar v,Mkref (RVar src),body) ->
     let%bind t2 = lkp_split (SBind e_id) src in
     begin
-      match%bind get_type_scheme (*e_id v*) with
+      match%bind get_type_scheme with
       | (Ref (ref_cont,o)) as t' ->
         begin%m
-            constrain_eq (*~e_id*) ~src:t2 ~dst:ref_cont;
+            constrain_eq ~src:t2 ~dst:ref_cont;
              add_constraint @@ Write o;
              with_types [(v,t')] @@ process_expr ~output body
         end
