@@ -133,33 +133,6 @@ type infr_options = bool
 
 let infr_opts_default = false
 
-(* let unfold =
-  let rec subst_once id sub = function
-    | TVar id' when id = id' -> sub
-    | (Int as t)
-    | (TVar _ as t) -> t
-    | Ref (t,o) -> Ref (subst_once id sub t,o)
-    | Array (t,o) -> Array (subst_once id sub t,o)
-    | Tuple tl -> Tuple (List.map (subst_once id sub) tl)
-    | Mu (id',t) -> assert (id' <> id); Mu (id',subst_once id sub t)
-    | IntList -> assert false
-  in
-  let rec unfold_loop ~unfld = function
-    | TVar id -> assert (IntSet.mem id unfld); TVar id
-    | Int -> Int
-    | Ref (t,o) -> Ref (unfold_loop ~unfld t,o)
-    | Array (t,o) -> Array (unfold_loop ~unfld t,o)
-    | Mu (id,t) when IntSet.mem id unfld ->
-      Mu (id,unfold_loop ~unfld t)
-    | Tuple tl ->
-      Tuple (List.map (unfold_loop ~unfld) tl)
-    | (Mu (id,t)) as mu ->
-      let t' = subst_once id mu t in
-      unfold_loop ~unfld:(IntSet.add id unfld) t'
-    | IntList -> assert false
-  in
-  unfold_loop ~unfld:IntSet.empty *)
-
 (** The optional relaxed argument indicates whether the passed in
    constraint should be applied only if the relaxed flag is in the indicated state.
    otherwise the constraint is added unconditionally.*)
@@ -174,15 +147,15 @@ let%lm add_constraint ?relaxed c ctxt =
 (** Shuffle the ownership between two source types (t1 and t2) and two destination
    types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
    parallel, at references the ownerships are shuffled with the Shuff constraint. *)
-let%lm shuffle_types (*~e_id*) ~src:(t1,t1') ~dst:(t2,t2') ctxt =
-  (* check whether we need to unfold the "destination", which in this case is t2/t2', not t1/t1'.
-     This confusing naming arises from this functions use in returning ownership to a recursive
-     data structure, in that case, t2/t2' represents the destination for the return operation. *)
-  let unfold_dst =
-    (* if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
-      unfold
-    else *)
-      Fun.id
+let%lm shuffle_types ~src:(t1,t1') ~dst:(t2,t2') ctxt =
+  let rec shuffle_intlist ol1 ol2 ol1' ol2' ctxt =
+    match ol1,ol2,ol1',ol2' with
+    | [],[],[],[] -> ctxt
+    | h1 :: r1, h2 :: r2, h1' :: r1', h2' :: r2' ->
+      shuffle_intlist r1 r2 r1' r2' @@
+        { ctxt with
+          ocons = Shuff ((h1,h2),(h1',h2')) :: ctxt.ocons }
+    | _ -> failwith "Ownership arity is different between IntList types"
   in
   let rec loop t1 t2 t1' t2' ctxt =
     match t1,t2,t1',t2' with
@@ -198,12 +171,12 @@ let%lm shuffle_types (*~e_id*) ~src:(t1,t1') ~dst:(t2,t2') ctxt =
       List.fold_left2 (fun ctxt' (te1,te2) (te1',te2') ->
         loop te1 te2 te1' te2' ctxt'
       ) ctxt orig_tl new_tl
-    | Mu (_,m1), Mu (_,m2), Mu (_,m1'), Mu (_,m2') ->
-      loop m1 m2 m1' m2' ctxt
     | TVar _, TVar _, TVar _, TVar _ -> ctxt
+    | IntList ol1, IntList ol2, IntList ol1', IntList ol2' ->
+      shuffle_intlist ol1 ol2 ol1' ol2' ctxt
     | _ -> failwith "Type mismatch (simple checker broken D?)"
   in
-  loop t1 (unfold_dst t2) t1' (unfold_dst t2') ctxt
+  loop t1 t2 t1' t2' ctxt
 
 (** Like shuffle above, but no unfolding occurs, and the destination type [out] must
    have an ownership equal to the "pointwise" sum of ownerships in [t1] and [t2]. *)
@@ -245,8 +218,7 @@ let rec unfold_simple arg mu =
 let rec constrain_wf_loop o t ctxt =
   match t with
   | TVar _
-  | Int
-  | IntList _ -> (ctxt,())
+  | Int -> (ctxt,())
   | Tuple tl ->
     miter (constrain_wf_loop o) tl ctxt
   | Ref (t',o')
@@ -254,6 +226,15 @@ let rec constrain_wf_loop o t ctxt =
     constrain_wf_loop o' t' {
         ctxt with ocons = Wf (o,o')::ctxt.ocons
       }
+  | IntList ol ->
+    let rec loop ctxt = function
+      | []
+      | [_] -> ctxt
+      | h1 :: h2 :: r -> loop {
+          ctxt with ocons = Wf (h1, h2)::ctxt.ocons
+        } (h2::r)
+    in
+    (loop ctxt ol, ())
 
 (** Like constrain_wf_above, but only begin emitting wf constraints
    when the first ownership variable is encountered *)
@@ -361,6 +342,13 @@ let mtmap p f tl =
    allocated are done so in magic context [loc] *)
 (* This needs to record *)
 let make_fresh_type loc root t =
+  let rec make_fresh_ownership_list loc root = function
+    | [] -> return []
+    | _ :: r ->
+      let%bind o = alloc_ovar loc root in
+      let%bind r' = make_fresh_ownership_list loc root r in
+      return (o :: r')
+  in
   let rec loop root = function
   | Int -> return Int
   | Array (t,_) ->
@@ -375,10 +363,9 @@ let make_fresh_type loc root t =
   | Tuple tl ->
     let%bind tl' = mtmap root loop tl in
     return @@ Tuple tl'
-  | Mu (id,t) ->
-    let%bind t' = loop root t in
-    return @@ Mu (id,t')
-  | IntList -> assert false
+  | IntList ol ->
+    let%bind ol' = make_fresh_ownership_list loc root ol in
+      return @@ IntList ol'
   in
   let%bind t' = loop root t in
   constrain_well_formed t' >> return t'
