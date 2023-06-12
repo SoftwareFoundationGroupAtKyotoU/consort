@@ -178,28 +178,6 @@ let%lm shuffle_types ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   in
   loop t1 t2 t1' t2' ctxt
 
-(** Like shuffle above, but no unfolding occurs, and the destination type [out] must
-   have an ownership equal to the "pointwise" sum of ownerships in [t1] and [t2]. *)
-let%lm sum_ownership t1 t2 out ctxt =
-  let rec loop t1 t2 out ctxt =
-    match t1,t2,out with
-    | Int, Int, Int -> ctxt
-    | Ref (r1,o1), Ref (r2,o2), Ref (ro,oo) ->
-      loop r1 r2 ro
-        { ctxt with ocons = (Split (oo,(o1,o2)))::ctxt.ocons}
-    | Tuple tl1, Tuple tl2, Tuple tl_out ->
-      fold_left3i (fun ctxt _ e1 e2 e_out ->
-          loop e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
-    | Mu (_,t1'), Mu (_,t2'), Mu (_,out') ->
-      loop t1' t2' out' ctxt
-    | TVar _,TVar _, TVar _ -> ctxt
-    | Array (et1,o1), Array (et2,o2), Array (et3,o3) ->
-      loop et1 et2 et3
-        { ctxt with ocons = Split (o3,(o1,o2))::ctxt.ocons }
-    | _ -> failwith "Mismatched types (simple checker broken C?)"
-  in
-  loop t1 t2 out ctxt
-    
 let rec unfold_simple arg mu =
   function
   | `Int -> `Int
@@ -234,6 +212,10 @@ let rec constrain_wf_loop o t ctxt =
           ctxt with ocons = Wf (h1, h2)::ctxt.ocons
         } (h2::r)
     in
+    let ctxt = match ol with
+      [] -> ctxt
+    | h :: _ -> {ctxt with ocons = Wf (o,h)::ctxt.ocons}
+    in
     (loop ctxt ol, ())
 
 (** Like constrain_wf_above, but only begin emitting wf constraints
@@ -242,10 +224,11 @@ let rec constrain_well_formed = function
   | TVar _
   | Int -> return ()
   | Tuple tl -> miter constrain_well_formed tl
-  | Mu (_,t) -> constrain_well_formed t
   | Ref (t,o)
   | Array (t,o) -> constrain_wf_loop o t
-  | IntList -> assert false
+  | IntList ol -> match ol with
+      [] -> return ()
+    | h :: r -> constrain_wf_loop h (IntList r)
 
 (** Record the allocation of an ownership variable in the context
    of a magic operation. Updates the gen map *)
@@ -512,26 +495,30 @@ let lkp_split loc v =
   let%bind (t1,t2) = split_type loc (P.var v) t in
   update_type v t1 >> return t2
 
-(* let%lq is_unfold eid ctxt =
-  let open SimpleChecker.SideAnalysis in
-  IntSet.mem eid ctxt.iso.unfold_locs *)
-
 let%lq theta f ctxt = SM.find f ctxt.theta
 
 (** Functionally quite similar to split type, but rather than splitting a type
    in place and giving the two result types, constrains t1 and t2 to be the result
    of splitting out *)
 let%lm sum_types t1 t2 out ctxt =
+  let rec sum_ownership_list ol1 ol2 outl ctxt =
+    match ol1, ol2, outl with
+      [],[],[] -> ctxt
+    | h1 :: r1, h2 :: r2, outh :: outr ->
+      sum_ownership_list r1 r2 outr { ctxt with ocons = Split (outh, (h1, h2))::ctxt.ocons }
+    | _ -> failwith "Ownership arity is different between IntList types"
+  in
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
     | TVar _,TVar _,TVar _
     | Int,Int,Int -> ctxt
-    | Mu (_,t1), Mu (_,t2), Mu (_,t3) -> loop t1 t2 t3 ctxt
     | Tuple tl1,Tuple tl2, Tuple tl3 ->
       fold_left3i (fun ctxt _ t1 t2 t3 -> loop t1 t2 t3 ctxt) ctxt tl1 tl2 tl3
     | Ref (t1,o1), Ref (t2,o2), Ref (out,oout)
     | Array (t1,o1), Array (t2,o2), Array (out,oout) ->
       loop t1 t2 out { ctxt with ocons = Split (oout,(o1,o2))::ctxt.ocons }
+    | IntList ol1, IntList ol2, IntList outl ->
+      sum_ownership_list ol1 ol2 outl ctxt
     | _,_,_ -> failwith "type mismatch (simple checker broken A?)"
   in
   loop t1 t2 out ctxt
@@ -544,12 +531,11 @@ let%lm max_ovar ov ctxt =
 let rec max_type = function
   | Array (_,o) -> max_ovar o
   | Int | TVar _ -> return ()
-  | Mu (_,t) -> max_type t
   | Tuple tl ->
     miter max_type tl
   | Ref (t,o) ->
     max_ovar o >> max_type t
-  | IntList -> assert false
+  | IntList ol -> miter max_ovar ol
 
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
@@ -678,14 +664,7 @@ let rec process_expr ~output ((e_id,_),expr) =
         end
       | Deref v -> 
         let%bind (t,o) = lkp_ref v in
-        let%bind (t1,t2_pre) = split_type (SBind e_id) (P.deref (P.var v)) t in
-        (* let%bind uf = is_unfold e_id in *)
-        let t2 =
-          (* if uf then
-            unfold t2_pre
-          else *)
-            t2_pre
-        in
+        let%bind (t1,t2) = split_type (SBind e_id) (P.deref (P.var v)) t in
         begin%m
             update_type v @@ Ref (t1,o);
              (* only require the ownership to be non-zero in relaxed mode (the relaxed argument) *)
