@@ -447,8 +447,8 @@ let rec split_type loc p =
   in
   function
   | (Int as t)
-  | (TVar _ as t)
-  | (IntList _ as t) -> return (t,t)
+  | (TVar _ as t) -> return (t,t)
+  | (IntList ol) -> assert false
   | Tuple tl ->
     let%bind split_list = mtmap p (split_type loc) tl in
     let (tl1,tl2) = List.split split_list in
