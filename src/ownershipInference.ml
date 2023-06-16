@@ -654,6 +654,16 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
         add_constraint @@ Write new_var;
          with_types [(v,Ref (Int, new_var))] @@ process_expr ~output body ~o_arity
     end
+  | Let (PVar v, Nil, body) ->
+    let rec loop ol ~o_arity =
+      if o_arity <= 0 then return ol
+      else
+        let%bind o = alloc_ovar (MGen e_id) (P.var v) in
+        loop (o :: ol) ~o_arity:(o_arity - 1)
+    in
+    let%bind o_list = loop [] ~o_arity in
+    let t = IntList o_list in
+    with_types [(v,t)] @@ process_expr ~output body ~o_arity
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
@@ -697,8 +707,8 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
           ) t_init in
         return @@ Tuple tl
       | Call c -> process_call e_id c
-      | Cons _
-      | Nil -> return IntList
+      | Cons _ -> assert false
+      | Nil -> assert false
     in
     let rec assign_patt_loop acc patt ty =
       match patt,ty with
@@ -710,7 +720,17 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
     in
     let bindings = assign_patt_loop [] patt to_bind in
     with_types bindings @@ process_expr ~output body ~o_arity
-  | Match (_, _, _, _, _) -> assert false
+  | Match (e1, e2, h, r, e3) ->
+    let v = match e1 with
+        Var v -> v
+      | _ -> failwith "Not implemented"
+    in
+    let%bind t = lkp v in
+    let t = match t with
+        IntList _ -> t
+      | _ -> failwith "The value pattern matched must be IntList"
+    in
+    
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
   let (ctxt_tpre,()) = tr_branch ctxt in
   let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre ~o_arity in
