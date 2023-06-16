@@ -441,14 +441,24 @@ let rec split_type loc p =
     and (o1,o2) = alloc_split loc p o in
     begin%m
         constrain_wf_loop o1 t1;
-         constrain_wf_loop o2 t2;
-         return @@ (k o1 t1,k o2 t2)
+        constrain_wf_loop o2 t2;
+        return @@ (k o1 t1,k o2 t2)
     end
   in
+  let rec split_ownership_list ol =
+    match ol with
+    | [] -> return ([],[])
+    | o :: r ->
+      let%bind (o1,o2) = alloc_split loc p o in
+      let%bind (r1,r2) = split_ownership_list r in
+      return @@ (o1 :: r1,o2 :: r2)
+    in
   function
   | (Int as t)
   | (TVar _ as t) -> return (t,t)
-  | (IntList ol) -> assert false
+  | (IntList ol) ->
+    let%bind (ol1, ol2) = split_ownership_list ol in
+    return @@ (IntList ol1,IntList ol2)
   | Tuple tl ->
     let%bind split_list = mtmap p (split_type loc) tl in
     let (tl1,tl2) = List.split split_list in
