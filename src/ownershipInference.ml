@@ -456,15 +456,15 @@ let rec split_type loc p =
   function
   | (Int as t)
   | (TVar _ as t) -> return (t,t)
-  | (IntList ol) ->
-    let%bind (ol1, ol2) = split_ownership_list ol in
-    return @@ (IntList ol1,IntList ol2)
   | Tuple tl ->
     let%bind split_list = mtmap p (split_type loc) tl in
     let (tl1,tl2) = List.split split_list in
     return @@ (Tuple tl1,Tuple tl2)
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
+  | (IntList ol) ->
+    let%bind (ol1, ol2) = split_ownership_list ol in
+    return @@ (IntList ol1,IntList ol2)
 
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
