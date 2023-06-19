@@ -727,11 +727,12 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
       | _ -> failwith "Not implemented"
     in
     let%bind t = lkp v in
-    let t = match t with
-        IntList _ -> t
-      | _ -> failwith "The value pattern matched must be IntList"
+    let type_of_r = match t with
+        IntList ol -> Ref(IntList (List.tl ol @ [List.hd @@ List.rev ol]), List.hd ol)
+      | _ -> failwith "The value pattern matched msust be IntList"
     in
-    
+  (* TODO: implement process pattern matching with reference to process_conditional *)
+  with_types [(h, Int); (r, type_of_r)] @@ process_expr ~output e3 ~o_arity
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
   let (ctxt_tpre,()) = tr_branch ctxt in
   let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre ~o_arity in
