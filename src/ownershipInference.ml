@@ -731,8 +731,7 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
         IntList ol -> Ref(IntList (List.tl ol @ [List.hd @@ List.rev ol]), List.hd ol)
       | _ -> failwith "The value pattern matched msust be IntList"
     in
-  (* TODO: implement process pattern matching with reference to process_conditional *)
-  with_types [(h, Int); (r, type_of_r)] @@ process_expr ~output e3 ~o_arity
+    process_pattern_matching ~e_id ~output e2 h r type_of_r e3 ~o_arity
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
   let (ctxt_tpre,()) = tr_branch ctxt in
   let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre ~o_arity in
@@ -753,10 +752,10 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
         end
       ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in
     ctxt,`Cont
-and process_pattern_matching ~e_id ~output e1 h r e2 ctxt ~o_arity =
+and process_pattern_matching ~e_id ~output e1 h r type_of_r e2 ctxt ~o_arity =
   let (ctxt_n, nfl) = process_expr ~output e1 ctxt ~o_arity in
-  let (ctxt_c, cfl) = process_expr ~output e2 { ctxt_n with gamma = StringMap.add h ctxt.gamma } ~o_arity in
-  match nfl,cfl with
+  let (ctxt_c, cfl) = (with_types [(h, Int); (r, type_of_r)] @@ process_expr ~output e2 ~o_arity) { ctxt_n with gamma = ctxt.gamma } in
+  match nfl, cfl with
   | `Return, f -> ctxt_c, f
   | `Cont, `Return -> { ctxt_c with gamma = ctxt_n.gamma }, `Cont
   | `Cont, `Cont ->
