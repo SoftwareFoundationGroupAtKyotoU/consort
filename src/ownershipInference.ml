@@ -707,6 +707,7 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
           ) t_init in
         return @@ Tuple tl
       | Call c -> process_call e_id c
+      (* these should not be possible *)
       | Cons _ -> assert false
       | Nil -> assert false
     in
@@ -751,6 +752,25 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
         end
       ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in
     ctxt,`Cont
+and process_pattern_matching ~e_id ~output e1 h r e2 ctxt ~o_arity =
+  let (ctxt_n, nfl) = process_expr ~output e1 ctxt ~o_arity in
+  let (ctxt_c, cfl) = process_expr ~output e2 { ctxt_n with gamma = StringMap.add h ctxt.gamma } ~o_arity in
+  match nfl,cfl with
+  | `Return, f -> ctxt_c, f
+  | `Cont, `Return -> { ctxt_c with gamma = ctxt_n.gamma }, `Cont
+  | `Cont, `Cont ->
+    let ctxt, () = miter (fun (k,ft) ->
+        let%bind t' = make_fresh_type (MJoin e_id) (P.var k) ft in
+        let tt = StringMap.find k ctxt_n.gamma in
+        let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
+        begin%m
+          (* notice that we allow ownership to be discarded at join points, the reason for MJoin *)
+          constrain_ge ~src:tt ~dst:t';
+          constrain_ge ~src:ft ~dst:t';
+          update_type k t'
+        end
+      ) (StringMap.bindings ctxt_c.gamma) { ctxt_c with gamma = StringMap.empty } in
+    ctxt, `Cont
 
 module Result = struct
   type t = {
