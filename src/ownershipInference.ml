@@ -24,6 +24,7 @@ type ocon =
   | Write of ownership (** Constraint ownership variable n to be 1 *)
   | Shuff of (ownership * ownership) * (ownership * ownership) (** ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
   | Split of ownership * (ownership * ownership) (** Split (o,(s,t)) is the constraint that o = s + t *)
+  | WeakSplit of ownership * (ownership * ownership) (** WeakSplit (o,(s,t)) is the constraint that o >= s + t *)
   | Eq of ownership * ownership (** o1 = o2 *)
   | Wf of ownership * ownership (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership (** o1 >= o2 *)
@@ -282,17 +283,17 @@ let alloc_split,alloc_ovar =
   in
   alloc_split,alloc_ovar
 
+let rec alloc_ovar_list loc p ~o_arity =
+  if o_arity <= 0 then return []
+  else (
+    let%bind o = alloc_ovar loc p in
+    let%bind o_list = alloc_ovar_list loc p ~o_arity:(o_arity - 1) in
+    return (o :: o_list)
+  )
+
 (** Lift a simple type into an ownership type (of type otype) *)
 (* this must record *)
 let lift_to_ownership loc root t_simp ~o_arity =
-  let rec lift_list_to_ownership loc root ~o_arity =
-    if o_arity <= 0 then return []
-      else (
-        let%bind o = alloc_ovar loc root in
-        let%bind o_list = lift_list_to_ownership loc root ~o_arity:(o_arity - 1) in
-        return (o :: o_list)
-      )
-  in
   let rec simple_lift ~unfld root =
     function
     | `Array `Int ->
@@ -310,7 +311,7 @@ let lift_to_ownership loc root t_simp ~o_arity =
         ) tl in
       return @@ Tuple tl'
     | `IntList ->
-      let%bind o_list = lift_list_to_ownership loc root ~o_arity in
+      let%bind o_list = alloc_ovar_list loc root ~o_arity in
       return @@ IntList o_list
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
@@ -655,15 +656,11 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
          with_types [(v,Ref (Int, new_var))] @@ process_expr ~output body ~o_arity
     end
   | Let (PVar v, Nil, body) ->
-    let rec loop ol ~o_arity =
-      if o_arity <= 0 then return ol
-      else
-        let%bind o = alloc_ovar (MGen e_id) (P.var v) in
-        loop (o :: ol) ~o_arity:(o_arity - 1)
-    in
-    let%bind o_list = loop [] ~o_arity in
+    let%bind o_list = alloc_ovar_list (MGen e_id) (P.var v) ~o_arity in
     let t = IntList o_list in
     with_types [(v,t)] @@ process_expr ~output body ~o_arity
+  | Let (PVar v, Cons (h, r), body) ->
+    let ol_x = alloc_ovar_list (MGen) ~o_arity in
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
