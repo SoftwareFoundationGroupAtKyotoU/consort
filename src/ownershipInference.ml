@@ -256,7 +256,7 @@ let%lm record_split loc p o1 o2 ctxt =
    instrumented to record using the functions above. [alloc_ovar] is to generate
    a fresh ownership variable (always??? in the context of a generation op) and
    alloc_split generates two ownership variables in the context of a split operation. *)
-let alloc_split,alloc_ovar =
+let alloc_split,alloc_ovar,alloc_weak_split,alloc_weak_split_with_another =
   let alloc_ovar_inner ctxt =
     let new_ovar = ctxt.v_counter in
     let max_vars =
@@ -281,7 +281,20 @@ let alloc_split,alloc_ovar =
     let%bind o = alloc_ovar_inner in
     record_alloc loc p o >> return o
   in
-  alloc_split,alloc_ovar
+  let alloc_weak_split loc p o =
+    let%bind o1 = alloc_ovar_inner
+    and o2 = alloc_ovar_inner in
+    add_constraint (WeakSplit (o,(o1,o2))) >>
+    record_split loc p o1 o2 >>
+    return (o1,o2)
+  in
+  let alloc_weak_split_with_another loc p o1 o2 =
+    let%bind o3 = alloc_ovar_inner in
+    add_constraint (WeakSplit (o1,(o2,o3))) >>
+    record_split loc p o2 o3 >>
+    return o3
+  in
+  alloc_split,alloc_ovar,alloc_weak_split,alloc_weak_split_with_another
 
 let rec alloc_ovar_list loc p ~o_arity =
   if o_arity <= 0 then return []
@@ -660,7 +673,18 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
     let t = IntList o_list in
     with_types [(v,t)] @@ process_expr ~output body ~o_arity
   | Let (PVar v, Cons (h, r), body) ->
-    let ol_x = alloc_ovar_list (MGen) ~o_arity in
+    let split_type_cons = function
+      | IntList ol -> (
+          let rec loop ol ~o_arity ol1 ol2 =
+            match ol with
+            | [o] -> 
+            | [h :: r] -> 
+          in
+          let ol1, ol2 = loop ol ~o_arity [] [] in
+
+      )
+      | _ -> failwith "The type of second argument of Cons must be IntList."
+    in
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
