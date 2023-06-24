@@ -674,17 +674,31 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
     with_types [(v,t)] @@ process_expr ~output body ~o_arity
   | Let (PVar v, Cons (h, r), body) ->
     let split_type_cons = function
-      | IntList ol -> (
-          let rec loop ol ~o_arity ol1 ol2 =
+      | Ref(IntList ol, o) -> (
+          let rec split_loop ol ol1 ol2 =
             match ol with
-            | [o] -> 
-            | [h :: r] -> 
+            | [o] -> return (List.rev ol1, List.rev ol2, o)
+            | h :: r ->
+              let%bind (o1, o2) = alloc_weak_split (SBind e_id) (P.var v) h in
+              return @@ split_loop r (o1 :: ol1) (o2 :: ol2)
+            | [] -> assert false
           in
-          let ol1, ol2 = loop ol ~o_arity [] [] in
-
-      )
-      | _ -> failwith "The type of second argument of Cons must be IntList."
+          let%bind (ol1, ol2, o_not_splited) = split_loop ol [] [] in
+          let%bind (ol1_head, ol2_outer_ref) = alloc_weak_split (SBind e_id) (P.var v) o in
+          let%bind ol2_tail = alloc_weak_split_with_another (SBind e_id) (P.var v) o_not_splited (List.hd @@ List.rev ol1) in
+          return (IntList(ol1_head :: ol1), Ref(IntList(ol2 @ [ol2_tail]), ol2_outer_ref))
+        )
+      | _ -> failwith "The type of second argument of Cons must be Ref IntList."
     in
+    match r with
+      | Var v' -> (
+          let (t1, t2) = split_type_cons @@ lkp v' in
+          begin%m
+            update_type v t1;
+            with_types [(v, t2)] @@ process_expr ~output body ~o_arity
+          end
+        )
+      | _ -> failwith("Not implemented.")
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
