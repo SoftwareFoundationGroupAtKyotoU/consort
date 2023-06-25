@@ -53,7 +53,7 @@ let pcomment ~body =
   let open PrettyPrint in
   pblock ~nl:true ~op:(ps "/*") ~body ~close:(ps "*/")
 
-(* let print_program ~o_map ~o_printer r ast =
+let print_program ~o_map ~o_printer r ast =
   let open PrettyPrint in
   let open OwnershipInference.Result in
   let rec print_type =
@@ -75,15 +75,14 @@ let pcomment ~body =
       pf "[%a]@ %a"
         (ul print_type) t
         (ul o_printer) (o_map o)
-    | Mu (id,t) ->
-      pf "%s '%d.@ %a"
-        Greek.mu
-        id
-        (ul print_type) t
     | TVar id ->
       pf "'%d" id
-    | IntList ->
-      ps "int list"
+    | IntList ol ->
+      pl [
+        ps "int list @[";
+        psep_gen (pf ", ") @@ List.map (fun o -> pf "%a" (ul o_printer) (o_map o)) ol;
+        ps "]"
+      ]
   in
   let print_type_binding (k, t) = pb [pf "%s: " k; print_type t] in
   let print_type_sep t = List.map print_type t |> psep_gen (pf ",@ ") in
@@ -113,7 +112,7 @@ let pcomment ~body =
       newline
     ]
   in
-  AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast *)
+  AstPrinter.pretty_print_program ~annot:pp_ty_env ~annot_fn:pp_f_type stdout ast
 
 (* let print_fold_locations simple_res =
   let open SimpleChecker.SideAnalysis in
@@ -122,16 +121,16 @@ let pcomment ~body =
   Std.IntSet.iter (Printf.printf "* %d\n") side.fold_locs;
   print_endline "<<<" *)
 
-(* let print_inference infer_res ast =
+let print_inference infer_res ast =
   let open PrettyPrint in
   let open OwnershipInference in
   let o_map o = o in
   let o_printer = function
     | OConst o -> pf "%f" o
     | OVar v -> pf "$%d" v in
-  print_program ~o_map ~o_printer infer_res ast *)
+  print_program ~o_map ~o_printer infer_res ast
 
-(* let print_ownership ownership_res infer_res ast =
+let print_ownership ownership_res infer_res ast =
   let open PrettyPrint in
   let open OwnershipInference in
   match ownership_res with
@@ -141,7 +140,7 @@ let pcomment ~body =
       | OConst o -> o
       | OVar o -> List.assoc o o_res in
     let o_printer = pf "%f" in
-    print_program ~o_map ~o_printer infer_res ast *)
+    print_program ~o_map ~o_printer infer_res ast
 
 let print_typecheck (f_types, side) ast =
   let open Ast in
@@ -213,16 +212,15 @@ let ownership ~opts file =
   let ast = AstUtil.parse_file file in
   let intr_op = (ArgOptions.get_intr opts).op_interp in
   let simple_op = RefinementTypes.to_simple_funenv intr_op in
-  let _ = SimpleChecker.typecheck_prog simple_op ast in
-  assert false
-  (* print_fold_locations simple_res;
+  let simple_res = SimpleChecker.typecheck_prog simple_op ast in
+  (* print_fold_locations simple_res; *)
   let infer_res = OwnershipInference.infer ~opts simple_res ast in
   print_inference infer_res ast;
   let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
   print_ownership ownership_res infer_res ast;
   match ownership_res with
   | None -> Unverified Aliasing
-  | Some _ -> Verified *)
+  | Some _ -> Verified
 
 let typecheck ~opts file =
   let ast = AstUtil.parse_file file in

@@ -672,7 +672,7 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
     let%bind o_list = alloc_ovar_list (MGen e_id) (P.var v) ~o_arity in
     let t = IntList o_list in
     with_types [(v,t)] @@ process_expr ~output body ~o_arity
-  | Let (PVar v, Cons (h, r), body) ->
+  | Let (PVar v, Cons (_, r), body) -> (
     let split_type_cons = function
       | Ref(IntList ol, o) -> (
           let rec split_loop ol ol1 ol2 =
@@ -680,7 +680,7 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
             | [o] -> return (List.rev ol1, List.rev ol2, o)
             | h :: r ->
               let%bind (o1, o2) = alloc_weak_split (SBind e_id) (P.var v) h in
-              return @@ split_loop r (o1 :: ol1) (o2 :: ol2)
+              split_loop r (o1 :: ol1) (o2 :: ol2)
             | [] -> assert false
           in
           let%bind (ol1, ol2, o_not_splited) = split_loop ol [] [] in
@@ -692,13 +692,14 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
     in
     match r with
       | Var v' -> (
-          let (t1, t2) = split_type_cons @@ lkp v' in
+          let%bind v'_name = lkp v' in
+          let%bind (t1, t2) = split_type_cons v'_name in
           begin%m
             update_type v t1;
-            with_types [(v, t2)] @@ process_expr ~output body ~o_arity
+            with_types [(v', t2)] @@ process_expr ~output body ~o_arity
           end
         )
-      | _ -> failwith("Not implemented.")
+      | _ -> failwith("Not implemented."))
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with

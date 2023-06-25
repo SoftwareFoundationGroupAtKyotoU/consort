@@ -76,6 +76,16 @@ let pp_oconstraint ff ocon =
             ]
           ]
         ]
+    | WeakSplit (o,(o1,o2)) ->
+      pg "assert" [
+          pg ">=" [
+            po o;
+            pg "+" [
+              po o1;
+              po o2
+            ]
+          ]
+        ]
     | Eq (o1,o2) ->
       pg "assert" [
           pg "=" [
