@@ -158,7 +158,7 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
           semi;
           pp_expr ~ip ~annot e
         ]
-    | Unit -> ps "()"
+    | Unit _ -> ps "()"
     | Return v -> pf "return%a %s" po_id id v
     | Fail -> ps "fail"
   in

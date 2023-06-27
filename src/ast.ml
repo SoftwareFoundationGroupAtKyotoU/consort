@@ -54,7 +54,10 @@ let position_of_sexp sexp =
   | _ -> Sexplib.Conv_error.tuple_of_size_n_expected "position" 2 sexp
 
 type raw_exp =
-  | Unit
+  | Unit of string option (* The constructor could be called Ignore, because the
+                             argument to this constructor is a variable name,
+                             whose value is just ignored by the analysis;
+                             it is used only by the interpreter. *)
   | Fail
   | Cond of string * exp * exp
   | NCond of string * exp * exp
