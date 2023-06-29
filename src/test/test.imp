@@ -1,0 +1,7 @@
+{
+    let x = mkref 1 in
+    let y = mkref x in
+    let a = Nil in
+    let b = mkref a in
+    ()
+}
