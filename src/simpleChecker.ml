@@ -329,7 +329,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     process_expr ret_type ctxt e1 res_acc
     >> process_expr ret_type ctxt e2
   | Assign (v1,IInt _,e) ->
-    unify_ref v1 `Int;
+    unify_ref v1 @@ `Ref `Int;
     process_expr ret_type ctxt e res_acc
   | Assign (v1,IVar v2,e) ->
     unify_var v1 @@ `Ref (lkp v2);
