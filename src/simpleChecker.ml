@@ -278,7 +278,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
   in
   let unify_var n typ = unify ~loc ctxt.sub (lkp n) typ in
   let unify_ref v t =
-    unify ~loc ctxt.sub (lkp v) @@ t
+    unify ~loc ctxt.sub (lkp v) @@ `Ref t
   in
   let fresh_var () =
     let t = UnionFind.new_node ctxt.sub.uf in
@@ -329,7 +329,7 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
     process_expr ret_type ctxt e1 res_acc
     >> process_expr ret_type ctxt e2
   | Assign (v1,IInt _,e) ->
-    unify_ref v1 @@ `Ref `Int;
+    unify_ref v1 @@ `Int;
     process_expr ret_type ctxt e res_acc
   | Assign (v1,IVar v2,e) ->
     unify_var v1 @@ `Ref (lkp v2);
