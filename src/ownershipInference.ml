@@ -156,7 +156,7 @@ let%lm shuffle_types ~src:(t1,t1') ~dst:(t2,t2') ctxt =
       shuffle_intlist r1 r2 r1' r2' @@
         { ctxt with
           ocons = Shuff ((h1,h2),(h1',h2')) :: ctxt.ocons }
-    | _ -> failwith "Ownership arity is different between IntList types"
+    | _ -> failwith "Ownership arities are different between IntList types"
   in
   let rec loop t1 t2 t1' t2' ctxt =
     match t1,t2,t1',t2' with
@@ -307,27 +307,27 @@ let rec alloc_ovar_list loc p ~o_arity =
 (** Lift a simple type into an ownership type (of type otype) *)
 (* this must record *)
 let lift_to_ownership loc root t_simp ~o_arity =
-  let rec simple_lift ~unfld root =
+  let rec simple_lift root =
     function
     | `Array `Int ->
       let%bind o = alloc_ovar loc root in
       return @@ Array (Int, o)
     | `Ref t ->
       let%bind o = alloc_ovar loc root in
-      let%bind t' = simple_lift ~unfld (P.deref root) t in
+      let%bind t' = simple_lift (P.deref root) t in
       return @@ Ref (t',o)
     | `Int -> return Int
     | `TVar id -> return @@ TVar id
     | `Tuple tl ->
       let%bind tl' = mmapi (fun i t ->
-          simple_lift ~unfld (P.t_ind root i) t
+          simple_lift (P.t_ind root i) t
         ) tl in
       return @@ Tuple tl'
     | `IntList ->
       let%bind o_list = alloc_ovar_list loc root ~o_arity in
       return @@ IntList o_list
   in
-  let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
+  let%bind t = simple_lift root t_simp in
   constrain_well_formed t >> return t
 
 let mtmap p f tl =
@@ -487,13 +487,21 @@ let%lm constrain_rel ~rel ~src:t1 ~dst:t2 ctxt =
   let rec loop t1 t2 ctxt =
     match t1, t2 with
     | TVar _,TVar _
-    | Int, Int
-    | IntList _, IntList _ -> ctxt
+    | Int, Int -> ctxt
     | Ref (t1',o1), Ref (t2',o2)
     | Array (t1',o1), Array (t2',o2) ->
       loop t1' t2' { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
     | Tuple tl1,Tuple tl2 ->
       List.fold_left2 (fun acc t1 t2 -> loop t1 t2 acc) ctxt tl1 tl2
+    | IntList ol1, IntList ol2 ->
+      let rec loop_ol ol1 ol2 ctxt =
+        match ol1,ol2 with
+        | [],[] -> ctxt
+        | o1::r1,o2::r2 ->
+          loop_ol r1 r2 { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
+        | _ -> failwith "Ownership arities are different between IntList types"
+      in
+      loop_ol ol1 ol2 ctxt
     | _,_ -> failwith "Type mismatch (simple checker broken B?)"
   in
   loop t1 t2 ctxt
@@ -529,7 +537,7 @@ let%lm sum_types t1 t2 out ctxt =
       [],[],[] -> ctxt
     | h1 :: r1, h2 :: r2, outh :: outr ->
       sum_ownership_list r1 r2 outr { ctxt with ocons = Split (outh, (h1, h2))::ctxt.ocons }
-    | _ -> failwith "Ownership arity is different between IntList types"
+    | _ -> failwith "Ownership arities are different between IntList types"
   in
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
