@@ -159,8 +159,6 @@ let rec occurs_check sub v (t2: typ) =
   | `IntList
   | `Var _
   | `Int -> ()
-  (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
-  (* TODO: Probably, TyCons is going to be deleted *)
 
 let assign sub var t =
   occurs_check sub var (t :> typ);

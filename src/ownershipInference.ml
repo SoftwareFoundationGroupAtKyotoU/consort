@@ -771,11 +771,20 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
       | _ -> failwith "Not implemented"
     in
     let%bind t = lkp v in
-    let type_of_r = match t with
-        IntList ol -> Ref(IntList (List.tl ol @ [List.hd @@ List.rev ol]), List.hd ol)
-      | _ -> failwith "The value pattern matched msust be IntList"
+    let%bind type_of_v, type_of_r = match t with
+        IntList ol ->
+          let rec split_loop ol ol1 ol2 =
+            match ol with
+            | [] -> return (List.rev ol1, List.rev ol2)
+            | h :: r ->
+              let%bind (o1, o2) = alloc_weak_split (SBind e_id) (P.var v) h in
+              split_loop r (o1 :: ol1) (o2 :: ol2)
+          in
+          let%bind (ol1, ol2) = split_loop ol [] [] in
+          return (IntList ol1, Ref(IntList((List.tl ol2) @ [(List.hd @@ List.rev ol2)]), List.hd ol2))
+      | _ -> failwith "The value pattern matched must be IntList"
     in
-    process_pattern_matching ~e_id ~output e2 h r type_of_r e3 ~o_arity
+    process_pattern_matching ~e_id ~output v type_of_v e2 h r type_of_r e3 ~o_arity
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
   let (ctxt_tpre,()) = tr_branch ctxt in
   let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre ~o_arity in
@@ -796,9 +805,9 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
         end
       ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in
     ctxt,`Cont
-and process_pattern_matching ~e_id ~output e1 h r type_of_r e2 ctxt ~o_arity =
+and process_pattern_matching ~e_id ~output v type_of_v e1 h r type_of_r e2 ctxt ~o_arity =
   let (ctxt_n, nfl) = process_expr ~output e1 ctxt ~o_arity in
-  let (ctxt_c, cfl) = (with_types [(h, Int); (r, type_of_r)] @@ process_expr ~output e2 ~o_arity) { ctxt_n with gamma = ctxt.gamma } in
+  let (ctxt_c, cfl) = (with_types [(h, Int); (r, type_of_r)] @@ process_expr ~output e2 ~o_arity) { ctxt_n with gamma = update_map v type_of_v ctxt.gamma } in
   match nfl, cfl with
   | `Return, f -> ctxt_c, f
   | `Cont, `Return -> { ctxt_c with gamma = ctxt_n.gamma }, `Cont

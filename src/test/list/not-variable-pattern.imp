@@ -1,8 +1,8 @@
 {
     let x = mkref Nil in
     let y = mkref (Cons 1 x) in
-    let z = mkref (Cons 2 y) in
-    match Cons 3 z with
+    let z = Cons 2 y in
+    match z with
       Nil -> ()
     | Cons h r -> ()
 }
