@@ -179,17 +179,6 @@ let%lm shuffle_types ~src:(t1,t1') ~dst:(t2,t2') ctxt =
   in
   loop t1 t2 t1' t2' ctxt
 
-let rec unfold_simple arg mu =
-  function
-  | `Int -> `Int
-  | `Ref t' -> `Ref (unfold_simple arg mu t')
-  | `TVar id when id = arg -> mu
-  | `TVar id -> `TVar id
-  | `Array `Int -> `Array `Int
-  | `Tuple tl_list -> `Tuple (List.map (unfold_simple arg mu) tl_list)
-  | `Mu (id,t) -> `Mu (id, unfold_simple arg mu t)
-  | `IntList -> assert false
-
 (** Walk a type, constraining the first occurrence of an
    ownership variable to be well-formed w.r.t [o]. 
    Recall well-formedness requires that if o = 0 => o' = 0
