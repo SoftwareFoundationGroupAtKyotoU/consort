@@ -118,6 +118,7 @@ let ap :=
 let ap_prim :=
   | v = ID; { Paths.var v }
   | a1 = ap_prim; DOT; ind = INT; { Paths.t_ind a1 ind }
+  | a1 = ap_prim; DOT; CONS; DOT; ind = INT; { Paths.t_cons a1 "Cons" ind }
   | LPAREN; ~ = ap; RPAREN; <>
 
 let patt :=

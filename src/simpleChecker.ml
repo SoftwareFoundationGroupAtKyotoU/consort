@@ -360,6 +360,12 @@ let rec process_expr ret_type ctxt ((id,loc),e) res_acc =
             unify (`Var content_v) tau;
             record_tcons tuple_v i content_v >>
             find_loop (`Var tuple_v) rest
+          | `Cons(s, i) :: rest ->
+            if s = "Cons" && i = 2 then (
+                unify tau @@ `Ref `IntList;
+                find_loop `IntList rest
+              )
+            else failwith "Unsupported aliasing (currently, only .Cons.2 is supported)"
         in
         let aliased_type = fresh_var () in
         let%bind () = find_loop aliased_type steps in

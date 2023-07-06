@@ -47,6 +47,8 @@ let pp_ap r =
       | `Proj i::l ->
         pf "%a.%d" (ul loop) l i
       | `Deref::l -> pf "*%a" (ul loop) l
+      | `Cons(con, i) :: l ->
+        pf "%a.%s.%d" (ul loop) l con i
     in
     loop steps
   | _ -> failwith "Unsupported operation ap"

@@ -22,6 +22,7 @@ type root = private
 type steps = [
   | `Deref (** Follow a (non-null) memory address *)
   | `Proj of int (** The ith element of a tuple *)
+  | `Cons of string * int (** The constructor and index of it of data types. For example, in case of LinkedList = Nil | Cons of int * ref LinkedList, the reference part of Cons is represented as Cons("Cons", 2) *)
 ] [@@deriving sexp]
 
 (** A path is a tuple consisting of a root, a series of steps through the heap, followed by an (optional) final path. This type is
@@ -63,6 +64,8 @@ val to_null : path -> path
 (** Extend the path with an element of [steps] *)
 val extend : path -> steps -> path
     
+(** Extend the path with constructor and index of data types *)
+val t_cons : path -> string -> int -> path
 
 (** {2 Constructors}
 
@@ -141,7 +144,7 @@ val compare : path -> path -> int
    Otherwise, on a path with a non-[`None] suffix [s], returns [Some s].
    Otherwise, on a path with a [`None] suffix, returns the head element of steps (i.e., the last deref/projection in the path)
 *)
-val tail : path -> [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option
+val tail : path -> [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind | `Cons of string * int] option
 
 (** A (printable) set of paths *)
 module PathSet : Std.PRINTSET with type elt = path

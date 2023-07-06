@@ -430,6 +430,8 @@ let fresh_ap e_id (p: P.concr_ap) =
             return @@ (Tuple tl',lt, lt')
           | _ -> assert false
         ) l
+    | `Cons _ :: _ ->
+      assert false
   in
   loop (fun ?o t ->
     let%bind t' = make_fresh_type loc p t in

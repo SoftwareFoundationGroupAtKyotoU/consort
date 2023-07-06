@@ -3,8 +3,10 @@ sum(l, s) {
       Nil -> s
     | Cons h r -> {
         let s2 = s + h in
-        let r2 = *r in
-        sum(r2, s2)
+        let r2 = *r in {
+            alias(l.Cons.2 = r);
+            sum(r2, s2)
+        }
     }
 }
 
