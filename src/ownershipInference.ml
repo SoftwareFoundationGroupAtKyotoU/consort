@@ -419,8 +419,27 @@ let fresh_ap e_id (p: P.concr_ap) =
             return @@ (Tuple tl',lt, lt')
           | _ -> assert false
         ) l
-    | `Cons _ :: _ ->
-      assert false
+    | `Cons _ :: l ->
+      loop (fun ?o in_t ->
+          match in_t with
+          | IntList ol ->
+            let pull = Ref(IntList (List.tl ol @ [List.hd @@ List.rev ol]), List.hd ol) in
+            let%bind (new_sub, lt, lt') = k ?o pull in
+            let%bind push = match
+                new_sub with
+              | Ref (IntList ol', o) ->
+                let ol'_a = List.hd @@ List.rev ol' in
+                let ol'_a_minus_1 = List.hd @@ List.tl @@ List.rev ol' in
+                let ol'_rest = List.tl @@ List.tl ol' in
+                let%bind o_approximated = alloc_ovar loc p in
+                add_constraint(Ge(ol'_a, o_approximated)) >>
+                add_constraint(Ge(ol'_a_minus_1, o_approximated)) >>
+                return @@ IntList (o :: ol'_rest @ [o_approximated])
+              | _ -> assert false
+            in
+            return @@ (push, lt, lt')
+          | _ -> assert false
+        ) l
   in
   loop (fun ?o t ->
     let%bind t' = make_fresh_type loc p t in
