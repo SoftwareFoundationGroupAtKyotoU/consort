@@ -196,14 +196,13 @@ let consort ~opts file =
   let ast = AstUtil.parse_file file in
   let intr_op = (ArgOptions.get_intr opts).op_interp in
   let simple_typing = RefinementTypes.to_simple_funenv intr_op in
-  let _ = SimpleChecker.typecheck_prog simple_typing ast in
-  assert false
-  (* let infer_res = OwnershipInference.infer ~opts simple_res ast in
+  let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
+  let infer_res = OwnershipInference.infer ~opts simple_res ast in
   let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
   match ownership_res with
   | None -> Unverified Aliasing
-  | Some o_res ->
-    let o_hint = to_hint o_res infer_res.op_record in
+  | Some _ -> Verified
+    (* let o_hint = to_hint o_res infer_res.op_record in
     let solve = get_solve ~opts in
     let ans = solve ~opts simple_res o_hint ast in
     solver_result_to_check_result ans *)
