@@ -430,7 +430,7 @@ let fresh_ap e_id (p: P.concr_ap) =
               | Ref (IntList ol', o) ->
                 let ol'_a = List.hd @@ List.rev ol' in
                 let ol'_a_minus_1 = List.hd @@ List.tl @@ List.rev ol' in
-                let ol'_rest = List.tl @@ List.tl ol' in
+                let ol'_rest = List.rev @@ List.tl @@ List.tl @@ List.rev ol' in
                 let%bind o_approximated = alloc_ovar loc p in
                 add_constraint(Ge(ol'_a, o_approximated)) >>
                 add_constraint(Ge(ol'_a_minus_1, o_approximated)) >>
