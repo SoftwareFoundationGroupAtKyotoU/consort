@@ -12,11 +12,13 @@ module ExecMode = struct
     | Consort
     | Ownership
     | Typecheck
+    | ConvMoCHi
 
   let pairs = [
     ("consort", Consort);
     ("ownership", Ownership);
-    ("typecheck", Typecheck)
+    ("typecheck", Typecheck);
+    ("convmochi", ConvMoCHi)
   ]
   let default = "consort"
   let candidates = List.map (fun (s, _) -> s) pairs

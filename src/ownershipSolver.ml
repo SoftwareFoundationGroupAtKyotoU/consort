@@ -165,10 +165,11 @@ let solve_ownership ~opts result =
   end;
   finish o_buf;
   (* Print constraints of ownership variables *)
-  print_newline ();
+  (* TODO: Dump constraints of ownership variables only when -exec ownership *)
+  (* print_newline ();
   print_string (Buffer.contents o_buf.buf);
   print_newline ();
-  print_newline ();
+  print_newline (); *)
 
   let res =
     let opts : ArgOptions.t = {

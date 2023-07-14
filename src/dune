@@ -43,7 +43,8 @@
  (modules HornBackend SmtBackend
           Z3BasedBackend Consort
           HoiceBackend NullSolver
-          ExternalFileBackend EldaricaBackend ParallelBackend))
+          ExternalFileBackend EldaricaBackend ParallelBackend
+          ConvMoCHi))
 
 (executable
  (name test)

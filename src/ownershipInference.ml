@@ -18,6 +18,7 @@ module P = Paths
 type ownership =
     OVar of int (** A variable with id int *)
   | OConst of float (** a constant ownership with the given rational number *)
+  [@@deriving sexp]
 
 type ocon =
   | Live of ownership (** The ownership must be greater than 0 (only emitted in relaxed mode) *)
@@ -36,8 +37,10 @@ type 'a otype_ =
   | Tuple of 'a otype_ list
   | TVar of int
   | IntList of 'a list
+  [@@deriving sexp]
 
 type otype = ownership otype_
+[@@deriving sexp]
 
 (** For the most part, the ownership and refinement inference passes may be run independently. The only intersection is
 handling 0 ownership references; when a reference drops to 0 ownership, all refinements must go to top (although we use
