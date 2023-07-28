@@ -29,7 +29,7 @@ let is_builtin_fn = function
       else false
 
 module Mochi = struct
-  type adist = Left | Right | Nil [@@deriving sexp]
+  type adist = Left | Right | Niladist [@@deriving sexp]
   type atype = ABase of adist | ATuple of atype list [@@deriving sexp]
 
   type exp =
@@ -55,6 +55,9 @@ module Mochi = struct
         * patt
         * patt
         * exp
+    | Nil
+    | Cons of exp * exp
+    | Match of string * exp * string * string * exp
   [@@deriving sexp]
 
   type fn = { name : string; args : string list; body : exp } [@@deriving sexp]
@@ -176,6 +179,9 @@ module Mochi = struct
             nl;
             pp_exp e2;
           ]
+    | Nil
+    | Cons _
+    | Match _ -> assert false
 
   let pp_fn ff { name; args; body } ~first =
     pl
@@ -203,7 +209,7 @@ module Mochi = struct
     pp_prog prog std_formatter
 end
 
-let lhs_to_mochi (ri : OwnershipInference.Result.t) (ro : (int * float) list) i
+let rec lhs_to_mochi (ri : OwnershipInference.Result.t) (ro : (int * float) list) i
     =
   let open OwnershipInference in
   function
@@ -236,8 +242,8 @@ let lhs_to_mochi (ri : OwnershipInference.Result.t) (ro : (int * float) list) i
   | LengthOf x -> Mochi.LengthOf x
   | Read (x, y) -> Mochi.Read (x, y)
   | Null -> raise @@ Failure "null is not supported"
-  | Nil
-  | Cons _ -> assert false
+  | Nil -> Mochi.Nil
+  | Cons (h, t) -> Mochi.Cons (lhs_to_mochi ri ro i h, lhs_to_mochi ri ro i t)
 
 let map_o ro o =
   let open OwnershipInference in
@@ -271,7 +277,7 @@ let alias_to_adist (ro : (int * float) list)
     match (tl, tr) with
     | Array (tl', o1), Array (tr', o2) | Ref (tl', o1), Ref (tr', o2) ->
         let zl, zr = (map_o ro o1 = 0., map_o ro o2 = 0.) in
-        if zl then if zr then Nil else Left
+        if zl then if zr then Niladist else Left
         else if zr then Right
         else loop tl' tr'
     | Tuple tsl, Tuple tsr ->
@@ -281,15 +287,15 @@ let alias_to_adist (ro : (int * float) list)
             (fun (nl, nr, nn) -> function
               | Left -> (nl + 1, nr, nn)
               | Right -> (nl, nr + 1, nn)
-              | Nil -> (nl, nr, nn + 1))
+              | Niladist -> (nl, nr, nn + 1))
             (0, 0, 0) adists
         in
         let n = List.length adists in
-        if nn = n then Nil
+        if nn = n then Niladist
         else if nl + nn = n then Left
         else if nr + nn = n then Right
         else assert false
-    | Int, Int -> Nil
+    | Int, Int -> Niladist
     | t1, _ ->
         failwith
           (Printf.sprintf "ill type: %s" (sexp_of_otype t1 |> string_of_sexp))
@@ -439,7 +445,10 @@ let rec exp_to_mochi (ri : OwnershipInference.Result.t)
           in
           Mochi.Alias (xd, xs, p1, p2, p3, exp_to_mochi ri ro vs e)
       | _ -> assert false)
-  | Match _ -> assert false
+  | Match (e1, e2, h, t, e3) ->
+    match e1 with
+      Var x -> Mochi.Match (x, exp_to_mochi ri ro vs e2, h, t, exp_to_mochi ri ro vs e3)
+    | _ -> failwith "Not implemented"
 
 let fn_to_mochi (ri : OwnershipInference.Result.t) (ro : (int * float) list)
     { name; args; body } =
