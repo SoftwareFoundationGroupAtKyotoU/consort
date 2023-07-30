@@ -111,6 +111,7 @@ module Mochi = struct
         pf "%a@ &&@ %a" (ul pp_refinement) r1 (ul pp_refinement) r2
     | _ -> failwith @@ "Cannot annotate with relation " ^ string_of_refinement r
 
+(* TODO: Is the case of IntList needed? *)
   let rec pp_nondet_ot =
     let open OwnershipInference in
     function
@@ -179,9 +180,23 @@ module Mochi = struct
             nl;
             pp_exp e2;
           ]
-    | Nil
-    | Cons _
-    | Match _ -> assert false
+    | Nil -> ps "[]"
+    | Cons (h, t) ->
+      pl [
+        pp_exp h;
+        pf " :: ";
+        pp_exp t;
+      ]
+    | Match (x, e1, h, r, e2) ->
+      pl [
+        pf "match %s with " x;
+        pf "[] -> { ";
+        pp_exp e1;
+        ps " } ";
+        pf "| Cons %s (%s) -> { " h r;
+        pp_exp e2;
+        ps "}";
+      ]
 
   let pp_fn ff { name; args; body } ~first =
     pl
