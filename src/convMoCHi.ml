@@ -283,7 +283,14 @@ let alias_to_adist (ro : (int * float) list)
         match ty with
         | Tuple tys -> walk (List.nth tys i) ss
         | _ -> assert false)
-    | `Cons _ :: _ -> assert false
+    | `Cons (s, i) :: ss ->
+        if s = "Cons" && i = 2 then (
+          match ty with
+          | IntList ol ->
+              let ty' = Ref (IntList (List.tl ol @ [(List.hd @@ List.rev ol)]), List.hd ol) in
+              walk ty' ss
+          | _ -> assert false)
+        else failwith "Only .Cons.2 is supported in paths related to recursive types in alias statement"
   in
   let tl = walk tl rsl in
   let tr = walk tr rsr in
