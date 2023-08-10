@@ -119,13 +119,13 @@ module Mochi = struct
         pf "%a@ &&@ %a" (ul pp_refinement) r1 (ul pp_refinement) r2
     | _ -> failwith @@ "Cannot annotate with relation " ^ string_of_refinement r
 
-(* TODO: Is the case of IntList needed? *)
   let rec pp_nondet_ot =
     let open OwnershipInference in
     function
     | Int -> ps "Random.int 0"
     | Tuple ots -> pl [ ps "("; psep ", " @@ List.map pp_nondet_ot ots; ps ")" ]
     | Ref (ot, _) -> pp_nondet_ot ot
+    | IntList _ -> ps "_"
     | _ -> assert false
 
   let rec pp_aexp = function
@@ -152,12 +152,12 @@ module Mochi = struct
       ]
     | AListExp (x, h, t, ae) ->
       pl [
-        pf "match %s with" x;
+        pf "( match %s with" x;
         nl;
         pf "%s :: %s ->" h t;
         nl;
         pp_aexp ae;
-        ps " | _ -> assert false";
+        ps " | _ -> assert false )";
       ]
 
   let rec pp_exp = function
@@ -222,13 +222,13 @@ module Mochi = struct
     (* TODO: It is not right. We have to use monad to use variables that is defined or updated in branch *)
     | Match (x, e1, h, r, e2) ->
       pl [
-        pf "match %s with " x;
-        pf "[] -> { ";
+        pf "( match %s with " x;
+        pf "[] -> ( ";
         pp_exp e1;
-        ps " } ";
-        pf "| Cons %s (%s) -> { " h r;
+        ps " ) ";
+        pf "| %s :: %s -> ( " h r;
         pp_exp e2;
-        ps "}";
+        ps " ) ) ";
       ]
 
   let pp_fn ff { name; args; body } ~first =
