@@ -125,6 +125,7 @@ module Mochi = struct
     | Int -> ps "Random.int 0"
     | Tuple ots -> pl [ ps "("; psep ", " @@ List.map pp_nondet_ot ots; ps ")" ]
     | Ref (ot, _) -> pp_nondet_ot ot
+    (* TODO: What should it be? *)
     | IntList _ -> ps "_"
     | _ -> assert false
 
@@ -154,10 +155,10 @@ module Mochi = struct
       pl [
         pf "( match %s with" x;
         nl;
-        pf "%s :: %s ->" h t;
-        nl;
+        pf "%s :: %s -> " h t;
         pp_aexp ae;
-        ps " | _ -> assert false )";
+        nl;
+        ps "| _ -> assert false )";
       ]
 
   let rec pp_exp = function
@@ -226,6 +227,7 @@ module Mochi = struct
         pf "[] -> ( ";
         pp_exp e1;
         ps " ) ";
+        nl;
         pf "| %s :: %s -> ( " h r;
         pp_exp e2;
         ps " ) ) ";
