@@ -62,7 +62,7 @@ module Mochi = struct
     | Read of string * string
     | Assert of relation * exp
     | Update of string * string * string * exp
-    | Alias of string * aexp
+    | Alias of string * aexp * exp
     | Nil
     | Cons of exp * exp
     | Match of string * exp * string * string * exp
@@ -195,11 +195,14 @@ module Mochi = struct
     | Call (callee, arg_names) ->
         let pp_callee = fn_to_mochi callee in
         pf "(%s %s)" pp_callee @@ String.concat " " arg_names
-    | Alias (x, ae) ->
+    | Alias (x, ae, e) ->
         pl
           [
             pf "let %s = " x;
             pp_aexp ae;
+            ps " in";
+            nl;
+            pp_exp e;
           ]
     | Cond (x, e1, e2) ->
         pblock ~nl:false ~op:(pf "if %s = 0 then (" x) ~body:(pp_exp e1)
@@ -373,7 +376,7 @@ let alias_to_mochi (ro : (int * float) list)
     ((xr, tr, sr) : string * OwnershipInference.otype * Paths.steps list)
     (e : Mochi.exp) : Mochi.exp =
   let open OwnershipInference in
-  let rec conv_alias_rhs xs ts rss e acc =
+  let rec conv_alias_rhs xs ts rss acc =
     match rss with
     | [] -> Mochi.AVarExp (List.rev (xs :: acc))
     | `Deref :: ss -> (
@@ -381,7 +384,7 @@ let alias_to_mochi (ro : (int * float) list)
       | Ref (_, o) ->
         assert (map_o ro o > 0.);
         let ty' = pull_type ts "" 0 in
-        conv_alias_rhs xs ty' ss e acc
+        conv_alias_rhs xs ty' ss acc
       | _ -> assert false)
     | `Proj i :: ss -> (
       match ts with
@@ -389,7 +392,7 @@ let alias_to_mochi (ro : (int * float) list)
         let xspats = List.mapi (fun j _ -> if i = j then Printf.sprintf "%s'%i" xs j else "_") tys in
         let xsi = Printf.sprintf "%s'%i" xs i in
         let ty' = pull_type ts "" i in
-        Mochi.ATupleRhsExp (xspats, xs, conv_alias_rhs xsi ty' ss e acc)
+        Mochi.ATupleRhsExp (xspats, xs, conv_alias_rhs xsi ty' ss acc)
       | _ -> assert false)
     | `Cons (s, i) :: ss -> (
       match ts with
@@ -397,17 +400,17 @@ let alias_to_mochi (ro : (int * float) list)
         let ty' = pull_type ts s i in
         let h = Printf.sprintf "%s'1" xs in
         let t = Printf.sprintf "%s'2" xs in
-        Mochi.AListExp (xs, h, t, conv_alias_rhs t ty' ss e acc)
+        Mochi.AListExp (xs, h, t, conv_alias_rhs t ty' ss acc)
       | _ -> assert false)
   in
-  let rec conv_alias xd td rsd xs ts rss e acc =
+  let rec conv_alias xd td rsd xs ts rss acc =
     match rsd with
-      | [] -> conv_alias_rhs xs ts rss e acc
+      | [] -> conv_alias_rhs xs ts rss acc
       | `Deref :: ss -> (
         match td with
         | Ref (t', o) ->
           assert (map_o ro o > 0.);
-          conv_alias xd t' ss xs ts rss e acc
+          conv_alias xd t' ss xs ts rss acc
         | _ -> assert false)
       | `Proj i :: ss -> (
         match td with
@@ -416,7 +419,7 @@ let alias_to_mochi (ro : (int * float) list)
           let xdpats' = List.mapi (fun j _ -> Printf.sprintf (if i = j then "%s''%i" else "%s'%i") xd j) tys in
           let xdi' = Printf.sprintf "%s''%i" xd i in
           let ty' = pull_type td "" i in
-          Mochi.ATupleLhsExp (xdpats, xd, xdi', conv_alias xdi' ty' ss xs ts rss e acc, xdpats')
+          Mochi.ATupleLhsExp (xdpats, xd, xdi', conv_alias xdi' ty' ss xs ts rss acc, xdpats')
         | _ -> assert false)
       | `Cons (s, i) :: ss -> (
         match td with
@@ -424,13 +427,13 @@ let alias_to_mochi (ro : (int * float) list)
           let ty' = pull_type td s i in
           let h = Printf.sprintf "%s'1" xd in
           let t = Printf.sprintf "%s'2" xd in
-          Mochi.AListExp(xd, h, t, conv_alias t ty' ss xs ts rss e (h :: acc))
+          Mochi.AListExp(xd, h, t, conv_alias t ty' ss xs ts rss (h :: acc))
         | _ -> assert false)
   in
   let rsl, rsr, adist = alias_to_adist ro (tl, sl) (tr, sr) in
   match adist with
-  | Left -> Mochi.Alias(xl, conv_alias xl tl rsl xr tr rsr e [])
-  | Right -> Mochi.Alias(xr, conv_alias xr tr rsr xl tl rsl e [])
+  | Left -> Mochi.Alias(xl, conv_alias xl tl rsl xr tr rsr [], e)
+  | Right -> Mochi.Alias(xr, conv_alias xr tr rsr xl tl rsl [], e)
   | None -> e
 
 let rec exp_to_mochi (ri : OwnershipInference.Result.t)
