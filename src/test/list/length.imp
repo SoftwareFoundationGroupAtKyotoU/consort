@@ -1,0 +1,20 @@
+mklist(n) {
+    if n = 0 then Nil else {
+        let h = _ in
+        let m = n + -1 in
+        let t = mkref mklist(m) in
+        Cons h t
+    }
+}
+
+len(l) {
+    match l with
+      Nil -> 0
+    | Cons h t -> 1 + len(*t)
+}
+
+{
+    let n = ( _ : ~ >= 0) in
+    let l = mklist(n) in
+    assert(len(l) = n)
+}
