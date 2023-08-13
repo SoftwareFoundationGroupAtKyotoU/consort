@@ -71,7 +71,7 @@ module Mochi = struct
   type fn = { name : string; args : string list; body : exp } [@@deriving sexp]
   type prog = fn list * exp [@@deriving sexp]
 
-  let arrfuns =
+  let builtin =
     "let eq' x y = if x = y then 0 else 1\n\
      let ne' x y = if x <> y then 0 else 1\n\
      let lt' x y = if x < y then 0 else 1\n\
@@ -82,7 +82,14 @@ module Mochi = struct
      let lor' x y = if x = 0 || y = 0 then 0 else 1\n\
      let mkarray' n = (n, fun i -> assert (0 <= i && i < n); 0)\n\
      let update' arr i x = let a = snd arr in (a i; (fst arr, fun j -> a j; if j = i \
-     then x else a j))\n"
+     then x else a j))\n\
+     let rec undetlist' =\n\
+      let rand' = Random.int 0 in\n\
+      if rand' >= 0 then (\n\
+        let rec mk' n =\n\
+          if n = 0 then [] else (Random.int 0) :: mk'(n - 1)\n\
+        in mk' rand'\n\
+      ) else undetlist'\n"
 
   let ap_to_string (root, steps, _) =
     let open Paths in
@@ -125,8 +132,7 @@ module Mochi = struct
     | Int -> ps "Random.int 0"
     | Tuple ots -> pl [ ps "("; psep ", " @@ List.map pp_nondet_ot ots; ps ")" ]
     | Ref (ot, _) -> pp_nondet_ot ot
-    (* TODO: What should it be? *)
-    | IntList _ -> ps "_"
+    | IntList _ -> ps "undetlist'"
     | _ -> assert false
 
   let rec pp_aexp = function
@@ -258,7 +264,7 @@ module Mochi = struct
     pp_force_newline ff ()
 
   let print_prog prog =
-    print_endline arrfuns;
+    print_endline builtin;
     pp_prog prog std_formatter
 end
 
