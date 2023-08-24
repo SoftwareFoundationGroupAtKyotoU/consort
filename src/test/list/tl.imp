@@ -1,0 +1,39 @@
+mklist(n) {
+    if n = 0 then Nil else {
+        let h = _ in
+        let m = n + -1 in
+        let t = mkref mklist(m) in
+        Cons h t
+    }
+}
+
+assert_eq(l1, l2) {
+    match l1 with
+      Nil -> {
+        match l2 with
+          Nil -> ()
+        | Cons h2 t2 -> fail
+      }
+    | Cons h1 t1 -> {
+        match l2 with
+          Nil -> fail
+        | Cons h2 t2 -> {
+            assert(h1 = h2);
+            assert_eq(*t1, *t2)
+          }
+      }
+}
+
+tl(l) {
+    match l with
+      Nil -> fail
+    | Cons h t -> return *t
+}
+
+{
+    let n = ( _ : ~ > 0) in
+    let l = mklist(n) in
+    match l with
+      Nil -> fail
+    | Cons h t -> assert_eq(tl(l), *t)
+}

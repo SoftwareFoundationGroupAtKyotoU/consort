@@ -169,7 +169,7 @@ module Mochi = struct
 
   let rec pp_exp = function
     | Unit -> ps "()"
-    | Fail -> ps "Fail"
+    | Fail -> ps "assert false"
     | Tuple es -> pl [ ps "("; psep ", " @@ List.map pp_exp es; ps ")" ]
     | Var x ->
         assert (String.get x 0 > 'Z');

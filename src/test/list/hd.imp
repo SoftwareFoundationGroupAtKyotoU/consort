@@ -7,17 +7,16 @@ mklist(n) {
     }
 }
 
-len(l) {
+hd(l) {
     match l with
-      Nil -> return 0
-    | Cons h t -> {
-        let n = 1 + len(*t) in
-        return n
-    }
+      Nil -> fail
+    | Cons h t -> return h
 }
 
 {
-    let n = ( _ : ~ >= 0) in
+    let n = ( _ : ~ > 0) in
     let l = mklist(n) in
-    assert(len(l) = n)
+    match l with
+      Nil -> fail
+    | Cons h t -> assert(hd(l) = h)
 }
