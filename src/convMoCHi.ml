@@ -83,13 +83,9 @@ module Mochi = struct
      let mkarray' n = (n, fun i -> assert (0 <= i && i < n); 0)\n\
      let update' arr i x = let a = snd arr in (a i; (fst arr, fun j -> a j; if j = i \
      then x else a j))\n\
-     let rec undetlist' =\n\
+     let rec undetlist' () =\n\
       let rand' = Random.int 0 in\n\
-      if rand' >= 0 then (\n\
-        let rec mk' n =\n\
-          if n = 0 then [] else (Random.int 0) :: mk'(n - 1)\n\
-        in mk' rand'\n\
-      ) else undetlist'\n"
+      if rand' > 0 then (Random.int 0) :: (undetlist' ()) else []\n"
 
   let ap_to_string (root, steps, _) =
     let open Paths in
@@ -132,7 +128,7 @@ module Mochi = struct
     | Int -> ps "Random.int 0"
     | Tuple ots -> pl [ ps "("; psep ", " @@ List.map pp_nondet_ot ots; ps ")" ]
     | Ref (ot, _) -> pp_nondet_ot ot
-    | IntList _ -> ps "undetlist'"
+    | IntList _ -> ps "(undetlist' ())"
     | _ -> assert false
 
   let rec pp_aexp = function
