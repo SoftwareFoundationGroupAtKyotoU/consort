@@ -555,19 +555,26 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
           unify t ty;
           (res_acc, true))
   | LetNewlock (v, expr) ->
-    let v_type = `Lock in
-    let ctxt' = add_var v v_type ctxt in
-    process_expr ret_type ctxt' expr @@ save_let v_type res_acc
-  | LetFork (v, e1, e2) -> 
-    let v_type = `ThreadID in
-    let ctxt' = add_var v v_type ctxt in
-    let (res_acc', _) = process_expr ret_type ctxt' e1 @@ save_let v_type res_acc in
-    process_expr ret_type ctxt' e2 res_acc'
-  | Freelock (x, e) | Acq (x, e) | Rel (x, e) -> 
-      unify_var x `Lock;
+      (* PTE is the type environment when `newlock()` is called. *)
+      let pte = ctxt.tyenv in
+      let t = `Lock pte in
+      let ctxt' = add_var v t ctxt in
+      process_expr ret_type ctxt' expr @@ save_let t res_acc
+  | LetFork (v, e1, e2) ->
+      let res_acc', _ = process_expr ret_type ctxt e1 res_acc in
+      let pte = ctxt.tyenv in
+      let t = `ThreadID pte in
+      let ctxt' = add_var v t ctxt in
+      process_expr ret_type ctxt' e2 @@ save_let t res_acc'
+  | Freelock (v, e) | Acq (v, e) | Rel (v, e) ->
+      (* PTE is not considered here.
+         It is only important that the type is lock. *)
+      let pte = SM.empty in
+      unify_var v (`Lock pte);
       process_expr ret_type ctxt e res_acc
-  | Wait (x, e) -> 
-      unify_var x `ThreadID;
+  | Wait (v, e) ->
+      let pte = SM.empty in
+      unify_var v (`ThreadID pte);
       process_expr ret_type ctxt e res_acc
 
 let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
