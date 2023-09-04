@@ -50,6 +50,7 @@ end = struct
   let weight = unwrap
 end
 
+(* String representation in error messages *)
 let rec string_of_typ = function
   | `Var i -> Printf.sprintf "'%d" i
   | `TyCons t -> Printf.sprintf "$%s" @@ TyCons.to_string t
@@ -57,8 +58,16 @@ let rec string_of_typ = function
   | `Tuple pl ->
       Printf.sprintf "(%s)" @@ String.concat ", " @@ List.map string_of_typ pl
   | `Array t' -> Printf.sprintf "[%s]" @@ string_of_typ t'
-  | `Lock -> "lock"
-  | `ThreadID -> "tid"
+  | `Lock pte ->
+      let l =
+        StringMap.fold (fun v t l -> (v ^ ": " ^ string_of_typ t) :: l) pte []
+      in
+      Printf.sprintf "(%s)lock" @@ String.concat ", " l
+  | `ThreadID pte ->
+      let l =
+        StringMap.fold (fun v t l -> (v ^ ": " ^ string_of_typ t) :: l) pte []
+      in
+      Printf.sprintf "(%s)tid" @@ String.concat ", " l
   [@@ocaml.warning "-32"]
 
 type 'a c_typ = [ `Int | `TyCons of TyCons.t | `Tuple of 'a list | `Array of 'a | `Lock | `ThreadID ]
