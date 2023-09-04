@@ -19,7 +19,14 @@ assert_eq(l1, l2) {
           Nil -> fail
         | Cons h2 t2 -> {
             assert(h1 = h2);
-            assert_eq(*t1, *t2)
+            let t1_deref = *t1 in
+            let t2_deref = *t2 in {
+            assert_eq(t1_deref, t2_deref);
+              alias(t1_deref = *t1);
+              alias(l1.Cons.2 = t1);
+              alias(t2_deref = *t2);
+              alias(l2.Cons.2 = t2)
+            }
           }
       }
 }

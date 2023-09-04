@@ -12,8 +12,8 @@ len(l) {
       Nil -> return 0
     | Cons h t -> {
         let t_der = *t in
-        let n = 1 + len(t_der) in {
-            alias(t_der = *t);
+        let n = 1 + len(t_deref) in {
+            alias(t_deref = *t);
             alias(l.Cons.2 = t);
             return n
         }
