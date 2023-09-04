@@ -225,7 +225,6 @@ module Mochi = struct
         pf " :: ";
         pp_exp t;
       ]
-    (* TODO: It is not right. We have to use monad to use variables that is defined or updated in branch *)
     | Match (x, e1, h, r, e2) ->
       pl [
         pf "( match %s with " x;
