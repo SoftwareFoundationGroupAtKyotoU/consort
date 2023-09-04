@@ -208,10 +208,10 @@ let rec occurs_check sub v (t2 : typ) =
   | `Tuple tl -> List.iter (occurs_check sub v) tl
   | `Array t' -> occurs_check sub v t'
   | `Var _ | `Int
-  | `Lock | `ThreadID 
   (* Notice that we do not check reference contents for recursion. Recursion under a reference constructor is fine *)
   | `TyCons _ ->
       ()
+  | `Lock pte | `ThreadID pte -> SM.iter (fun _ t -> occurs_check sub v t) pte
 
 let assign sub var t =
   occurs_check sub var (t :> typ);
