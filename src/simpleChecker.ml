@@ -70,7 +70,13 @@ let rec string_of_typ = function
       Printf.sprintf "(%s)tid" @@ String.concat ", " l
   [@@ocaml.warning "-32"]
 
-type 'a c_typ = [ `Int | `TyCons of TyCons.t | `Tuple of 'a list | `Array of 'a | `Lock | `ThreadID ]
+type 'a c_typ =
+  [ `Int
+  | `TyCons of TyCons.t
+  | `Tuple of 'a list
+  | `Array of 'a
+  | `Lock of 'a StringMap.t
+  | `ThreadID of 'a StringMap.t ]
 [@@deriving sexp]
 
 type typ = [ typ c_typ | `Var of int ] [@@deriving sexp]
