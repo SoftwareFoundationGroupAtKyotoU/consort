@@ -250,8 +250,8 @@ let rec unify ~loc sub_ctxt t1 t2 =
      union find/resolution map *)
   | `TyCons c1, `TyCons c2 -> unify_tycons ~loc sub_ctxt c1 c2
   | `Array t1', `Array t2' -> unify ~loc sub_ctxt t1' t2'
-  | `Lock, `Lock -> ()
-  | `ThreadID, `ThreadID -> ()
+  (* disregard differences in PTE when unifying *)
+  | `Lock _, `Lock _ | `ThreadID _, `ThreadID _ -> ()
   | t1', t2' -> raise_ill_typed_error t1' t2'
 
 and unify_tycons ~loc sub_ctxt c1 c2 =
