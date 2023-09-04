@@ -68,7 +68,7 @@ module Mochi = struct
     | Match of string * exp * string * string * exp
   [@@deriving sexp]
 
-  type fn = { name : string; args : string list; body : exp } [@@deriving sexp]
+  type fn = { name : string; args : (string * OwnershipInference.otype) list; body : exp } [@@deriving sexp]
   type prog = fn list * exp [@@deriving sexp]
 
   let builtin =
@@ -237,13 +237,17 @@ module Mochi = struct
         ps " ) ) ";
       ]
 
+  let pp_arg = function
+    | (arg, OwnershipInference.IntList _) -> Printf.sprintf "(%s: int list)" arg
+    | (arg, _) -> arg
+
   let pp_fn ff { name; args; body } ~first =
     pl
       [
         pblock ~nl:true
           ~op:
             (pf "%s %s %s =" (if first then "let rec" else "and") name
-            @@ String.concat " " args)
+            @@ String.concat " " @@ List.map pp_arg args)
           ~body:(pp_exp body) ~close:null;
       ]
       ff
@@ -494,7 +498,12 @@ let rec exp_to_mochi (ri : OwnershipInference.Result.t)
 
 let fn_to_mochi (ri : OwnershipInference.Result.t) (ro : (int * float) list)
     { name; args; body } =
-  Mochi.{ name; args; body = exp_to_mochi ri ro args body }
+  let rec zip_list l1 l2 acc =
+    match l1, l2 with
+      h1 :: t1, h2 :: t2 -> zip_list t1 t2 ((h1, h2) :: acc)
+    | _ -> acc
+  in
+  Mochi.{ name; args = zip_list args (StringMap.find name ri.theta).arg_types []; body = exp_to_mochi ri ro args body }
 
 let prog_to_mochi (ri : OwnershipInference.Result.t) (ro : (int * float) list)
     (fns, exp) =
