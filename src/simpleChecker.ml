@@ -322,8 +322,16 @@ let rec resolve_with_rec sub v_set k t =
           | `Int -> k is @@ `Array `Int
           | _ -> failwith "Only integer arrays are supported")
         t'
-  | `Lock -> k IS.empty `Lock
-  | `ThreadID -> k IS.empty `ThreadID
+  | `Lock pte ->
+      let pte' =
+        SM.map (fun t -> resolve_with_rec sub v_set (fun _ t -> t) t) pte
+      in
+      k IS.empty @@ `Lock pte'
+  | `ThreadID pte ->
+      let pte' =
+        SM.map (fun t -> resolve_with_rec sub v_set (fun _ t -> t) t) pte
+      in
+      k IS.empty @@ `ThreadID pte'
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   let sorted_args = List.fast_sort String.compare arg_names in
