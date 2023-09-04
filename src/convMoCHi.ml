@@ -369,6 +369,7 @@ let alias_to_adist (ro : (int * float) list)
     | Int, Int -> None
     | IntList _, IntList _ -> loop (pull_type tl "Cons" 2) (pull_type tr "Cons" 2)
     | t1, _ ->
+      (* TODO: Maybe, error statement below does not support IntList. *)
         failwith
           (Printf.sprintf "ill type: %s" (sexp_of_otype t1 |> string_of_sexp))
   in
