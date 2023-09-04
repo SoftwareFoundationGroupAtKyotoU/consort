@@ -98,7 +98,7 @@ let default = {
   file_list = [];
   output_channel = ref None;
   intrinsics = ref None;
-  ownership_arity = 1;
+  ownership_arity = 2;
 }
 let close_output ~opts =
   Option.iter close_out !(opts.output_channel);
@@ -197,7 +197,7 @@ let parse anon_fun usage_msg =
     ("-files", Rest (fun s -> file_list := s::!file_list),
      "<file> ...\t Interpret all remaining arguments as files to test");
     ("-ownership-arity", Set_int ownership_arity,
-     "<integer>\t The number of different ownership variables used in recursive data structure (default: 1)");
+     "<integer>\t The number of different ownership variables used in recursive data structure (default: 2)");
   ] in
   Arg.parse spec anon_fun usage_msg;
   {
