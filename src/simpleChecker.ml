@@ -157,7 +157,7 @@ let fresh_cons_id sub_ctxt t =
 let fresh_cons sub_ctxt t = `TyCons (fresh_cons_id sub_ctxt t)
 
 (* Abstracts a simple type into an inference type (used to give types to instrinsics) *)
-let abstract_type sub_ctxt t =
+let abstract_type sub_ctxt (t : r_typ) : refined_typ =
   let rec loop = function
     | `TVar _ -> failwith "Not supported"
     | `Mu _ -> failwith "Not supported"
@@ -165,8 +165,8 @@ let abstract_type sub_ctxt t =
     | `Int -> `Int
     | `Tuple tl -> `Tuple (List.map loop tl |> List.map [%cast: typ])
     | `Array t -> `Array (loop (t :> SimpleTypes.r_typ) :> typ)
-    | `Lock -> `Lock
-    | `ThreadID -> `ThreadID
+    | `Lock pte -> `Lock (SM.map loop pte :> typ SM.t)
+    | `ThreadID pte -> `ThreadID (SM.map loop pte :> typ SM.t)
   in
   loop t
 
