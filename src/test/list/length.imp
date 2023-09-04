@@ -11,8 +11,12 @@ len(l) {
     match l with
       Nil -> return 0
     | Cons h t -> {
-        let n = 1 + len(*t) in
-        return n
+        let t_der = *t in
+        let n = 1 + len(t_der) in {
+            alias(t_der = *t);
+            alias(l.Cons.2 = t);
+            return n
+        }
     }
 }
 
