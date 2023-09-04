@@ -610,7 +610,7 @@ let is_rec_assign sub c t' =
         else check_loop (IS.add c_id h_rec) @@ TyConsResolv.find sub.cons_arg c
     | `Tuple tl -> List.exists (check_loop h_rec) tl
     | `Array t' -> check_loop h_rec t'
-    | `Lock | `ThreadID -> false
+    | `Lock _ | `ThreadID _ -> false
   in
   check_loop IS.empty t'
 
