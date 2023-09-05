@@ -358,7 +358,7 @@ let process_call ~loc lkp ctxt { callee; arg_names; _ } =
 let dump_sexp p t = p t |> Sexplib.Sexp.to_string_hum |> print_endline
   [@@ocaml.warning "-32"]
 
-let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
+let rec process_expr ?check_pte ret_type ctxt ((id, loc), e) res_acc =
   (* Find the representative of v in ctxt.sub.uf. *)
   let resolv = function
     | `Var v -> `Var (UnionFind.find ctxt.sub.uf v)
@@ -418,25 +418,28 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
   | Unit -> (res_acc, false)
   | Cond (v, e1, e2) ->
       unify_var v `Int;
-      process_expr ret_type ctxt e1 res_acc |&| process_expr ret_type ctxt e2
+      process_expr ?check_pte ret_type ctxt e1 res_acc
+      |&| process_expr ?check_pte ret_type ctxt e2
   | NCond (v, e1, e2) ->
       unify_ref v @@ fresh_var ();
-      process_expr ret_type ctxt e1 res_acc |&| process_expr ret_type ctxt e2
+      process_expr ?check_pte ret_type ctxt e1 res_acc
+      |&| process_expr ?check_pte ret_type ctxt e2
   | Seq (e1, e2) ->
-      process_expr ret_type ctxt e1 res_acc >> process_expr ret_type ctxt e2
+      process_expr ?check_pte ret_type ctxt e1 res_acc
+      >> process_expr ?check_pte ret_type ctxt e2
   | Assign (v1, IInt _, e) ->
       unify_ref v1 `Int;
-      process_expr ret_type ctxt e res_acc
+      process_expr ?check_pte ret_type ctxt e res_acc
   | Assign (v1, IVar v2, e) ->
       let acc, c_id = save_assign v2 in
       unify_var v1 @@ `TyCons c_id;
-      process_expr ret_type ctxt e acc
+      process_expr ?check_pte ret_type ctxt e acc
   | Update (v1, ind, u, e) ->
       let d = fresh_var () in
       unify_var v1 @@ `Array d;
       unify_var ind `Int;
       unify_var u @@ d;
-      process_expr ret_type ctxt e res_acc
+      process_expr ?check_pte ret_type ctxt e res_acc
   | Alias (ap1, ap2, e) ->
       let fresh_node () = UnionFind.new_node ctxt.sub.uf in
       let find (ap : Paths.concr_ap) =
@@ -469,15 +472,15 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
       let res_acc, t1 = find ap1 res_acc in
       let res_acc, t2 = find ap2 res_acc in
       unify t1 t2;
-      process_expr ret_type ctxt e res_acc
+      process_expr ?check_pte ret_type ctxt e res_acc
   | Assert ({ rop1; rop2; _ }, e) ->
       unify_imm rop1 `Int;
       unify_imm rop2 `Int;
-      process_expr ret_type ctxt e res_acc
+      process_expr ?check_pte ret_type ctxt e res_acc
   | Fail -> (res_acc, true)
   | Let (PVar v, Mkref (RVar v'), expr) ->
       let acc, c_id = save_assign v' in
-      process_expr ret_type (add_var v (`TyCons c_id) ctxt) expr
+      process_expr ?check_pte ret_type (add_var v (`TyCons c_id) ctxt) expr
       @@ save_let (`TyCons c_id) acc
   | Let (p, lhs, expr) ->
       let res_acc', v_type =
@@ -491,7 +494,11 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
             match i with
             | RNone | RInt _ -> fresh_cons `Int
             | RVar v -> fresh_cons (lkp v))
-        | Call c -> same @@ process_call ~loc lkp ctxt c
+        | Call c ->
+            Option.iter
+              (fun check_pte -> check_pte ~loc ctxt c.arg_names)
+              check_pte;
+            same @@ process_call ~loc lkp ctxt c
         | Nondet _ -> same `Int
         | LengthOf v ->
             let tv = fresh_var () in
@@ -546,7 +553,7 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
             acc''
       in
       let ctxt' = unify_patt ctxt p v_type in
-      process_expr ret_type ctxt' expr @@ save_let v_type res_acc'
+      process_expr ?check_pte ret_type ctxt' expr @@ save_let v_type res_acc'
   | Return v -> (
       match ret_type with
       | None -> Locations.raise_errorf ~loc "Returned %s in main expression" v
@@ -559,29 +566,29 @@ let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
       let pte = ctxt.tyenv in
       let t = `Lock pte in
       let ctxt' = add_var v t ctxt in
-      process_expr ret_type ctxt' expr @@ save_let t res_acc
+      process_expr ?check_pte ret_type ctxt' expr @@ save_let t res_acc
   | LetFork (v, e1, e2) ->
-      let res_acc', _ = process_expr ret_type ctxt e1 res_acc in
+      let res_acc', _ = process_expr ?check_pte ret_type ctxt e1 res_acc in
       let pte = ctxt.tyenv in
       let t = `ThreadID pte in
       let ctxt' = add_var v t ctxt in
-      process_expr ret_type ctxt' e2 @@ save_let t res_acc'
+      process_expr ?check_pte ret_type ctxt' e2 @@ save_let t res_acc'
   | Freelock (v, e) | Acq (v, e) | Rel (v, e) ->
       (* PTE is not considered here.
          It is only important that the type is lock. *)
       let pte = SM.empty in
       unify_var v (`Lock pte);
-      process_expr ret_type ctxt e res_acc
+      process_expr ?check_pte ret_type ctxt e res_acc
   | Wait (v, e) ->
       let pte = SM.empty in
       unify_var v (`ThreadID pte);
-      process_expr ret_type ctxt e res_acc
+      process_expr ?check_pte ret_type ctxt e res_acc
 
-let constrain_fn sub fenv acc ({ name; body; _ } as fn) =
+let constrain_fn ?check_pte sub fenv acc ({ name; body; _ } as fn) =
   let tyenv = init_tyenv fenv fn in
   let ctxt = { sub = { sub with fn_name = name }; fenv; tyenv } in
   let acc', _ =
-    process_expr
+    process_expr ?check_pte
       (Option.some @@ `Var (StringMap.find name fenv).ret_type_v)
       ctxt body acc
   in
@@ -619,9 +626,10 @@ let get_rec_loc sub p_ops =
     (fun acc (i, c, t') -> if is_rec_assign sub c t' then i :: acc else acc)
     [] p_ops
 
-let typecheck_prog_with sub fenv (fns, body) =
+let typecheck_prog_with ?check_pte sub fenv (fns, body) =
   let acc =
-    List.fold_left (constrain_fn sub fenv)
+    List.fold_left
+      (constrain_fn ?check_pte sub fenv)
       {
         t_cons = [];
         assign_locs = [];
@@ -631,7 +639,7 @@ let typecheck_prog_with sub fenv (fns, body) =
       fns
   in
   let acc', _ =
-    process_expr None
+    process_expr ?check_pte None
       { sub = { sub with fn_name = "<main>" }; fenv; tyenv = StringMap.empty }
       body acc
   in
