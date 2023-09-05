@@ -619,28 +619,7 @@ let get_rec_loc sub p_ops =
     (fun acc (i, c, t') -> if is_rec_assign sub c t' then i :: acc else acc)
     [] p_ops
 
-let typecheck_prog intr_types (fns, body) =
-  let (resolv : (int, refined_typ) Hashtbl.t) = Hashtbl.create 10 in
-  let cons_arg = TyConsResolv.create 10 in
-  let uf = UnionFind.mk () in
-  let cons_uf = TyConsUF.mk () in
-  let sub = { uf; cons_uf; resolv; cons_arg; fn_name = "" } in
-  let fenv_ : funenv = make_fenv uf fns in
-  let fenv =
-    let lift_const t =
-      let t_id = UnionFind.new_node uf in
-      Hashtbl.add resolv t_id @@ abstract_type sub t;
-      t_id
-    in
-    StringMap.fold
-      (fun k { arg_types; ret_type } ->
-        StringMap.add k
-          {
-            arg_types_v = List.map lift_const arg_types;
-            ret_type_v = lift_const ret_type;
-          })
-      intr_types fenv_
-  in
+let typecheck_prog_with sub fenv (fns, body) =
   let acc =
     List.fold_left (constrain_fn sub fenv)
       {
@@ -698,3 +677,30 @@ let typecheck_prog intr_types (fns, body) =
         fold_locs;
         let_types = Std.IntMap.map get_soln acc'.let_types;
       } )
+
+let create_sub_ctxt () =
+  let (resolv : (int, refined_typ) Hashtbl.t) = Hashtbl.create 10 in
+  let cons_arg = TyConsResolv.create 10 in
+  let uf = UnionFind.mk () in
+  let cons_uf = TyConsUF.mk () in
+  { uf; cons_uf; resolv; cons_arg; fn_name = "" }
+
+let typecheck_prog intr_types (fns, body) =
+  let sub = create_sub_ctxt () in
+  let fenv_ : funenv = make_fenv sub.uf fns in
+  let fenv =
+    let lift_const t =
+      let t_id = UnionFind.new_node sub.uf in
+      Hashtbl.add sub.resolv t_id @@ abstract_type sub t;
+      t_id
+    in
+    StringMap.fold
+      (fun k { arg_types; ret_type } ->
+        StringMap.add k
+          {
+            arg_types_v = List.map lift_const arg_types;
+            ret_type_v = lift_const ret_type;
+          })
+      intr_types fenv_
+  in
+  typecheck_prog_with sub fenv (fns, body)
