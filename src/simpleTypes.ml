@@ -28,8 +28,12 @@ let rec type_to_string = function
   | `Mu (v,t) -> Printf.sprintf "(%s '%d.%s)" Greek.mu v @@ type_to_string t
   | `TVar v -> Printf.sprintf "'%d" v
   | `Array at -> Printf.sprintf "[%s]" @@ array_type_to_string at
-  | `Lock _ -> "lock"
-  | `ThreadID _ -> "tid"
+  | `Lock pte -> 
+      let l = StringMap.fold (fun x t l -> (x ^ ": " ^ type_to_string t) :: l) pte [] in
+      Printf.sprintf "(%s)lock" @@ String.concat ", " l
+  | `ThreadID pte ->
+      let l = StringMap.fold (fun x t l -> (x ^ ": " ^ type_to_string t) :: l) pte [] in
+      Printf.sprintf "(%s)tid" @@ String.concat ", " l
 and array_type_to_string = function
   | `Int -> "int"
 

@@ -256,7 +256,7 @@ let rec unfold_simple arg mu = function
   | `Array `Int -> `Array `Int
   | `Tuple tl_list -> `Tuple (List.map (unfold_simple arg mu) tl_list)
   | `Mu (id, t) -> `Mu (id, unfold_simple arg mu t)
-  | `Lock | `ThreadID -> failwith "not implemented in ownershipinference"
+  | `Lock _ | `ThreadID _ -> failwith "not implemented in ownershipinference"
 
 (** Walk a type, constraining the first occurrence of an
    ownership variable to be well-formed w.r.t [o].
@@ -352,7 +352,7 @@ let lift_to_ownership loc root t_simp =
           mmapi (fun i t -> simple_lift ~unfld (P.t_ind root i) t) tl
         in
         return @@ Tuple tl'
-    | `Lock | `ThreadID -> failwith "not implemented in ownershipinference"
+    | `Lock _ | `ThreadID _ -> failwith "not implemented in ownershipinference"
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
   constrain_well_formed t >> return t
