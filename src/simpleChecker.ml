@@ -184,6 +184,7 @@ let make_fenv uf fns =
           acc)
     StringMap.empty fns
 
+(* Construct a type environment from function parameters *)
 let init_tyenv fenv { name; args; _ } =
   let { arg_types_v; _ } = StringMap.find name fenv in
   List.fold_left2
@@ -380,9 +381,8 @@ let rec process_expr ?check_pte ret_type ctxt ((id, loc), e) res_acc =
   in
   let unify t1 t2 = unify ~loc ctxt.sub t1 t2 in
   let fresh_cons t1 = fresh_cons ctxt.sub t1 in
-  let save_assign v = (* for mkref and assign *)
-    let assign_t = lkp v in (* the type of the right-hand side *)
-    (* Create a new type variable of a reference to the right-hand side *)
+  let save_assign v =
+    let assign_t = lkp v in
     let c_id = fresh_cons_id ctxt.sub @@ assign_t in
     ( { res_acc with assign_locs = (id, c_id, assign_t) :: res_acc.assign_locs },
       c_id )
