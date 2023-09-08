@@ -712,3 +712,74 @@ let typecheck_prog intr_types (fns, body) =
       intr_types fenv_
   in
   typecheck_prog_with sub fenv (fns, body)
+
+(* Canonicalize the type of variable `v` under `ctxt`. *)
+let find_type ctxt v =
+  match SM.find v ctxt.tyenv |> canonicalize ctxt.sub with
+  | `Var v -> Hashtbl.find ctxt.sub.resolv v
+  | #refined_typ as t -> t
+
+(* Check if any argument to the left of a lock and a tid is included in their PTEs. *)
+let check_pte ~loc ctxt arg_names =
+  List.fold_left
+    (fun left_args v ->
+      match find_type ctxt v with
+      | `Lock pte | `ThreadID pte -> (
+          let not_in_pte a = not @@ SM.mem a pte in
+          match List.find_opt not_in_pte left_args with
+          | Some a ->
+              Locations.raise_errorf ~loc "%s is not included in the PTE of %s"
+                a v
+          | _ -> v :: left_args)
+      | _ -> v :: left_args)
+    [] arg_names
+  |> ignore
+
+let tyenv_from_args args arg_types =
+  List.fold_left2 (fun tyenv v t -> SM.add v t tyenv) SM.empty args arg_types
+
+(* Check the correctness of function calls with respect to PTEs.
+   The parameter `fenv` is the function type environment already type inferred except for PTEs.
+   Reconstruct the function type environment (`fenv'`) considering the PTEs and
+   inspect function calls. *)
+let ptecheck_prog fenv (fns, body) =
+  let sub = create_sub_ctxt () in
+
+  let lift_const t =
+    let t_id = UnionFind.new_node sub.uf in
+    Hashtbl.add sub.resolv t_id @@ abstract_type sub t;
+    t_id
+  in
+
+  (* Reconstruct the function type environment so that
+     the set of all variables to the left of a paremter lock and tid
+     becomes their PTE. *)
+  let fenv' =
+    List.fold_left
+      (fun fenv' { name; args; _ } ->
+        let { arg_types; _ } = StringMap.find name fenv in
+        let _, rev_arg_types =
+          List.fold_left2
+            (fun (args, arg_types) v t ->
+              match t with
+              | `Lock _ ->
+                  let pte = tyenv_from_args args arg_types in
+                  let t = `Lock pte in
+                  (v :: args, t :: arg_types)
+              | `ThreadID _ ->
+                  let pte = tyenv_from_args args arg_types in
+                  let t = `ThreadID pte in
+                  (v :: args, t :: arg_types)
+              | _ -> (v :: args, t :: arg_types))
+            ([], []) args arg_types
+        in
+        let arg_types_v = List.rev_map lift_const rev_arg_types in
+        let ret_type_v = UnionFind.new_node sub.uf in
+        SM.add name { arg_types_v; ret_type_v } fenv')
+      SM.empty fns
+  in
+  typecheck_prog_with ~check_pte sub fenv' (fns, body)
+
+let typecheck_prog intr_types prog =
+  let fenv, _ = typecheck_prog intr_types prog in
+  ptecheck_prog fenv prog
