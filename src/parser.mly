@@ -107,7 +107,7 @@ let expr :=
   | RETURN; lbl = expr_label; e = lhs; {
 		Return ((lbl,$startpos),e)
 	  }
-  | MATCH; lbl = expr_label; e1 = lhs; WITH; NIL; ARROW; e2 = expr; BAR; CONS; h = ID; r = ID; ARROW; e3 = expr; {
+  | MATCH; lbl = expr_label; e1 = lhs; WITH; NIL; ARROW; e2 = expr; BAR; CONS; LPAREN; h = ID; COMMA; r = ID; RPAREN; ARROW; e3 = expr; {
     Match ((lbl,$startpos),e1,e2,h,r,e3)
     }
 
@@ -143,7 +143,7 @@ let op :=
   | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
   | ~ = array_expr; <`Read>
   | ~ = op; DOT; LENGTH; <`LengthOf>
-  | CONS; h = lhs; r = op; <`Cons>
+  | CONS; LPAREN; h = lhs; COMMA; r = op; RPAREN; <`Cons>
   | NIL; { `Nil }
 
 let tuple_rest :=

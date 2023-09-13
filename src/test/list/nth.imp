@@ -3,14 +3,14 @@ mklist(n) {
         let h = _ in
         let m = n + -1 in
         let t = mkref mklist(m) in
-        Cons h t
+        Cons (h, t)
     }
 }
 
 nth(l, n) {
     match l with
       Nil -> fail
-    | Cons h t -> {
+    | Cons (h, t) -> {
         let m = n + -1 in
         if n = 1 then h else nth(*t, m)
     }

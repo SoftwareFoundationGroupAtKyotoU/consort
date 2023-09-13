@@ -3,14 +3,14 @@ mklist(n) {
         let h = _ in
         let m = n + -1 in
         let t = mkref mklist(m) in
-        Cons h t
+        Cons (h, t)
     }
 }
 
 hd(l) {
     match l with
       Nil -> fail
-    | Cons h t -> return h
+    | Cons (h, t) -> return h
 }
 
 {
@@ -18,5 +18,5 @@ hd(l) {
     let l = mklist(n) in
     match l with
       Nil -> fail
-    | Cons h t -> assert(hd(l) = h)
+    | Cons (h, t) -> assert(hd(l) = h)
 }

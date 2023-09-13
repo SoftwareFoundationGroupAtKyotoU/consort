@@ -3,14 +3,14 @@ mklist(n) {
         let h = _ in
         let m = n + -1 in
         let t = mkref mklist(m) in
-        Cons h t
+        Cons (h, t)
     }
 }
 
 len(l) {
     match l with
       Nil -> return 0
-    | Cons h t -> {
+    | Cons (h, t) -> {
         let t_deref = *t in
         let n = 1 + len(t_deref) in {
             alias(t_deref = *t);
