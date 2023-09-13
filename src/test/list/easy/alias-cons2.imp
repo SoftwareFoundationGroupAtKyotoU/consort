@@ -1,9 +1,9 @@
 insert_second(l, x) {
   match l with
     Nil -> ()
-  | Cons h r -> {
+  | Cons (h, r) -> {
     let r2 = mkref *r in {
-      r := Cons x r2;
+      r := Cons (x, r2);
       alias(l.Cons.2 = r)
     }
   }
@@ -11,7 +11,7 @@ insert_second(l, x) {
 
 {
   let n = mkref Nil in
-  let l = Cons 0 n in {
+  let l = Cons (0, n) in {
     insert_second(l, 1);
     insert_second(l, 2);
   }
