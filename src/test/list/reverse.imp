@@ -40,7 +40,6 @@ _reverse(l, l_next) {
     | Cons(h, t) -> {
         let t_deref = *t in {
             t := l;
-            alias(t_deref = *t);
             alias(l_next.Cons.2 = t);
             let reversed = _reverse(l_next, t_deref) in
             reversed
