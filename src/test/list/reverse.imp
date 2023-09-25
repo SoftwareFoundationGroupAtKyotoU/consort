@@ -33,29 +33,24 @@ assert_eq(l1, l2) {
 
 _reverse(l, l_next) {
     match l_next with
-      Nil -> ()
+      Nil -> {
+        alias(*(l.Cons.2) = l_next);
+        return l
+      }
     | Cons(h, t) -> {
         let t_deref = *t in {
             t := l;
-            _reverse(l_next, t_deref);
             alias(t_deref = *t);
-            alias(l_next.Cons.2 = t)
+            alias(l_next.Cons.2 = t);
+            let reversed = _reverse(l_next, t_deref) in
+            reversed
         }
     }
 }
 
 reverse(l) {
-    match l with
-      Nil -> l
-    | Cons(h, t) -> {
-        let t_deref = *t in {
-            t := Nil;
-            _reverse(l, t_deref);
-            alias(t_deref = *t);
-            alias(l.Cons.2 = t);
-            return l
-        }
-    }
+    let reversed = _reverse(Nil, l) in
+    reversed
 }
 
 {
