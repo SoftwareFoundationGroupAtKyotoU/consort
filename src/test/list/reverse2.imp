@@ -1,0 +1,55 @@
+mklist(n) {
+    if n = 0 then Nil else {
+        let h = _ in
+        let m = n + -1 in
+        let t = mkref mklist(m) in
+        Cons (h, t)
+    }
+}
+
+_reverse(l, l_next) {
+    match l_next with
+      Nil -> {
+        alias(*(l.Cons.2) = l_next);
+        return l
+      }
+    | Cons(h, t) -> {
+        let t_deref = *t in {
+            t := l;
+            alias(l_next.Cons.2 = t);
+            let reversed = _reverse(l_next, t_deref) in
+            reversed
+        }
+    }
+}
+
+reverse(l) {
+    match l with
+      Nil -> l
+    | Cons(h, r) -> {
+        let reversed = _reverse(Nil, l) in
+        reversed
+    }
+}
+
+len(l) {
+    match l with
+      Nil -> return 0
+    | Cons (h, t) -> {
+        let t_deref = *t in
+        let n = 1 + len(t_deref) in {
+            alias(t_deref = *t);
+            alias(l.Cons.2 = t);
+            return n
+        }
+    }
+}
+
+{
+    let n = ( _ : ~ >= 0) in
+    let l = mklist(n) in
+    let rev_l = reverse(l) in {
+        alias(l = rev_l);
+        assert(len(l) = len(rev_l))
+    }
+}

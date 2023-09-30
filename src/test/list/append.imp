@@ -1,0 +1,62 @@
+mklist(n) {
+    if n = 0 then Nil else {
+        let h = _ in
+        let m = n + -1 in
+        let t = mkref mklist(m) in
+        Cons (h, t)
+    }
+}
+
+len(l) {
+    match l with
+      Nil -> return 0
+    | Cons (h, t) -> {
+        let t_deref = *t in
+        let n = 1 + len(t_deref) in {
+            alias(t_deref = *t);
+            alias(l.Cons.2 = t);
+            return n
+        }
+    }
+}
+
+_append(l, r) {
+    match l with
+      Nil -> ()
+    | Cons(h1, t1) -> {
+        let t1_deref = *t1 in
+        match t1_deref with
+          Nil -> {
+            t1 := r;
+            alias(t1_deref = *t1);
+            alias(l.Cons.2 = t1)
+          }
+        | Cons(h2, t2) -> {
+            _append(t1_deref, r);
+            alias(t1_deref = *t1);
+            alias(l.Cons.2 = t1)
+          }
+
+    }
+}
+
+append(l, r){
+    match l with
+      Nil -> return r
+    | Cons(h, t) -> {
+        _append(l, r);
+        return l
+    }
+}
+
+{
+    let m = ( _ : ~ >= 0) in
+    let n = ( _ : ~ >= 0) in
+    let l1 = mklist(m) in
+    let l2 = mklist(n) in
+    let l = append(l1, l2) in
+    let sum_length = len(l1) + len(l2) in {
+        alias(l = l1);
+        assert(len(l) = sum_length)
+    }
+}

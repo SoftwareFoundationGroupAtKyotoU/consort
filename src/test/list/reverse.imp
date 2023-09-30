@@ -48,8 +48,12 @@ _reverse(l, l_next) {
 }
 
 reverse(l) {
-    let reversed = _reverse(Nil, l) in
-    reversed
+    match l with
+      Nil -> l
+    | Cons(h, t) -> {
+        let reversed = _reverse(Nil, l) in
+        reversed
+    }
 }
 
 {
