@@ -54,9 +54,9 @@ append(l, r){
     let n = ( _ : ~ >= 0) in
     let l1 = mklist(m) in
     let l2 = mklist(n) in
-    let l = append(l1, l2) in
-    let sum_length = len(l1) + len(l2) in {
-        alias(l = l1);
-        assert(len(l) = sum_length)
+    let sum_length = len(l1) + len(l2) in
+    let l = append(l1, l2) in {
+      alias(l = l1);
+      assert(len(l) = sum_length)
     }
 }

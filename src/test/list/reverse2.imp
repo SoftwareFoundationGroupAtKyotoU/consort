@@ -48,8 +48,7 @@ len(l) {
 {
     let n = ( _ : ~ >= 0) in
     let l = mklist(n) in
-    let rev_l = reverse(l) in {
-        alias(l = rev_l);
-        assert(len(l) = len(rev_l))
-    }
+    let len_l = len(l) in
+    let rev_l = reverse(l) in
+    assert(len_l = len(rev_l))
 }
