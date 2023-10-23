@@ -167,11 +167,25 @@ let abstract_type sub_ctxt t =
   in
   loop t
 
+let find_opt_duplicate_vars vars =
+  let sorted_vars = List.fast_sort String.compare vars in
+  let rec find_dup l = match l with
+    | [_]
+    | [] -> None
+    | h::h'::_ when h = h' -> Some h
+    | _::t -> find_dup t
+  in
+  find_dup sorted_vars
+
 let make_fenv uf fns =
   List.fold_left (fun acc {name; args; _} ->
     if StringMap.mem name acc then
       failwith @@ "Duplicate function definitions for: " ^ name
     else
+      match find_opt_duplicate_vars args with 
+      | Some v -> failwith @@ "Duplicate parameters of function " ^ name ^ ": " ^ v
+      | _ -> ();
+
       StringMap.add name {
         arg_types_v = List.map (fun _ -> UnionFind.new_node uf) args;
         ret_type_v = UnionFind.new_node uf
