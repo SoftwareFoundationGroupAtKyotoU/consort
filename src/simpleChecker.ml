@@ -761,16 +761,19 @@ let ptecheck_prog fenv (fns, body) =
         let _, rev_arg_types =
           List.fold_left2
             (fun (args, arg_types) v t ->
-              match t with
-              | `Lock _ ->
-                  let pte = tyenv_from_args args arg_types in
-                  let t = `Lock pte in
-                  (v :: args, t :: arg_types)
-              | `ThreadID _ ->
-                  let pte = tyenv_from_args args arg_types in
-                  let t = `ThreadID pte in
-                  (v :: args, t :: arg_types)
-              | _ -> (v :: args, t :: arg_types))
+              let rec construct_pte (t : r_typ) : r_typ =
+                match t with
+                | `Lock _ ->
+                    let pte = tyenv_from_args args arg_types in
+                    `Lock pte
+                | `ThreadID _ ->
+                    let pte = tyenv_from_args args arg_types in
+                    `ThreadID pte
+                | `Tuple tl -> `Tuple (List.map construct_pte tl)
+                | `Ref t -> `Ref (construct_pte t)
+                | _ -> t
+              in
+              (v :: args, construct_pte t :: arg_types))
             ([], []) args arg_types
         in
         let arg_types_v = List.rev_map lift_const rev_arg_types in
