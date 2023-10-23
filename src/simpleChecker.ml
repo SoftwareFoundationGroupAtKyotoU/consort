@@ -343,15 +343,11 @@ let rec resolve_with_rec sub v_set k t =
       ) t'
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
-  let sorted_args = List.fast_sort String.compare arg_names in
-  let rec find_dup l = match l with
-    | [_]
-    | [] -> false
-    | h::h'::_ when h = h' -> true
-    | _::t -> find_dup t
-  in
-  if find_dup sorted_args then
-    failwith "Duplicate variable names detected";
+  match find_opt_duplicate_vars arg_names with 
+  | Some v -> 
+    Locations.raise_errorf ~loc "Duplicate arguments in function %s call: %s" callee v
+  | _ -> ();
+
   let { arg_types_v; ret_type_v } =
     try
       StringMap.find callee ctxt.fenv
