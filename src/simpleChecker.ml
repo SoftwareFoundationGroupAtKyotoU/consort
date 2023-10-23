@@ -814,5 +814,6 @@ let check_pte_domain fenv (fns, _) =
 
 let typecheck_prog intr_types prog =
   let fenv, _ = typecheck_prog intr_types prog in
+  let ((fenv, _) as res) = ptecheck_prog fenv prog in
   check_pte_domain fenv prog;
-  ptecheck_prog fenv prog
+  res
