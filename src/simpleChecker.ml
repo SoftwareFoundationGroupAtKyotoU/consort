@@ -167,11 +167,25 @@ let abstract_type sub_ctxt t =
   in
   loop t
 
+let find_opt_duplicate_vars vars =
+  let sorted_vars = List.fast_sort String.compare vars in
+  let rec find_dup l = match l with
+    | [_]
+    | [] -> None
+    | h::h'::_ when h = h' -> Some h
+    | _::t -> find_dup t
+  in
+  find_dup sorted_vars
+
 let make_fenv uf fns =
   List.fold_left (fun acc {name; args; _} ->
     if StringMap.mem name acc then
       failwith @@ "Duplicate function definitions for: " ^ name
     else
+      match find_opt_duplicate_vars args with 
+      | Some v -> failwith @@ "Duplicate parameters of function " ^ name ^ ": " ^ v
+      | _ -> ();
+
       StringMap.add name {
         arg_types_v = List.map (fun _ -> UnionFind.new_node uf) args;
         ret_type_v = UnionFind.new_node uf
@@ -329,15 +343,11 @@ let rec resolve_with_rec sub v_set k t =
       ) t'
 
 let process_call ~loc lkp ctxt { callee; arg_names; _ } =
-  let sorted_args = List.fast_sort String.compare arg_names in
-  let rec find_dup l = match l with
-    | [_]
-    | [] -> false
-    | h::h'::_ when h = h' -> true
-    | _::t -> find_dup t
-  in
-  if find_dup sorted_args then
-    failwith "Duplicate variable names detected";
+  match find_opt_duplicate_vars arg_names with 
+  | Some v -> 
+    Locations.raise_errorf ~loc "Duplicate arguments in function %s call: %s" callee v
+  | _ -> ();
+
   let { arg_types_v; ret_type_v } =
     try
       StringMap.find callee ctxt.fenv
