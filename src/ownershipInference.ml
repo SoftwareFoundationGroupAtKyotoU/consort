@@ -30,6 +30,10 @@ type ocon =
   | Wf of ownership * ownership
       (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership  (** o1 >= o2 *)
+  | Acquire of ownership (** The release ownership must be 1 (released) *)
+  | Release of ownership  (** The release ownership must be 0 (released) *)
+  | Full of ownership  (** The ownership must be 1 *)
+  | Empty of ownership  (** The ownership must be 0 (out of PTE) *)
 
 type 'a otype_ =
   | Array of 'a otype_ * 'a
