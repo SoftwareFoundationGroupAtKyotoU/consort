@@ -159,6 +159,12 @@ type context = {
       (** Save the ownership types at
                                           each point in the program;
                                           only used for debugging *)
+  fn_params : string list StringMap.t;
+    (** Mapping from function names to their parameters.
+        This is used to replace parameters with arguments at function calls. 
+        Since PTEs of parameters consist of parameters, 
+        their names must be replaced by actual arguments at function calls.
+    *)
 }
 
 type infr_options = bool
