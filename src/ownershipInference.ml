@@ -42,6 +42,9 @@ type 'a otype_ =
   | Tuple of 'a otype_ list
   | TVar of int
   | Mu of int * 'a otype_
+  | Lock of 'a otype_ SM.t * 'a * 'a
+      (** Lock(PTE, Lock Ownership, Release Ownership) *)
+  | ThreadID of 'a otype_ SM.t * 'a  (** ThreadID(PTE, Ownership) *)
 
 type otype = ownership otype_
 
