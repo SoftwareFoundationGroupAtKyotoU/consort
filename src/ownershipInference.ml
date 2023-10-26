@@ -818,10 +818,10 @@ let process_call e_id c =
 
         (* Eventual ownerships of arguments after function call
            t' = t + out_type' *)
-        let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
+        let%bind t' = combine_types e_id (P.var arg_name) t out_type' in
 
         (* explicitly flag the residual type as one to maximize *)
-        max_type t >> sum_types t out_type' t' >> update_type arg_name t')
+        max_type t >> update_type arg_name t')
       c.arg_names;
     return fun_type.result_type]
 
