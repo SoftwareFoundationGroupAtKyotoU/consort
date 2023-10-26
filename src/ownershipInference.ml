@@ -499,6 +499,15 @@ let make_fresh_type loc root t =
     | Mu (id, t) ->
         let%bind t' = loop root t in
         return @@ Mu (id, t')
+    | Lock (pte, _, _) ->
+        let%bind ro' = alloc_ovar loc root in
+        let%bind lo' = alloc_ovar loc root in
+        (* No recursive calls to PTEs. 
+           This is because we want to create a lock type with the exact same PTE. *)
+        return @@ Lock (pte, ro', lo')
+    | ThreadID (pte, _) ->
+        let%bind o' = alloc_ovar loc root in
+        return @@ ThreadID (pte, o')
   in
   let%bind t' = loop root t in
   constrain_well_formed t' >> return t'
