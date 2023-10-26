@@ -617,6 +617,15 @@ let rec split_type loc p =
       return @@ (Tuple tl1, Tuple tl2)
   | Ref (t, o) -> split_mem o t P.deref tref
   | Array (t, o) -> split_mem o t P.elem tarray
+  | Lock (pte, ro, lo) ->
+      (* The PTE of a lock does not change when the lock is splitted.
+         Therefore, we don't recusively call [split_type] to [pte]. *)
+      let%bind ro1, ro2 = alloc_split loc p ro in
+      let%bind lo1, lo2 = alloc_split loc p lo in
+      return (Lock (pte, ro1, lo1), Lock (pte, ro2, lo2))
+  | ThreadID (pte, o) ->
+      let%bind o1, o2 = alloc_split loc p o in
+      return (ThreadID (pte, o1), ThreadID (pte, o2))
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
