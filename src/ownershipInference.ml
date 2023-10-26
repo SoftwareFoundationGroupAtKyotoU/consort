@@ -705,6 +705,21 @@ let%lm sum_types t1 t2 out ctxt =
     | Array (t1, o1), Array (t2, o2), Array (out, oout) ->
         loop t1 t2 out
           { ctxt with ocons = Split (oout, (o1, o2)) :: ctxt.ocons }
+    | Lock (pte1, ro1, lo1), Lock (pte2, ro2, lo2), Lock (pte3, ro3, lo3) ->
+        ctxt
+        |> [%m
+             equiv_ptes pte1 pte2;
+             equiv_ptes pte2 pte3;
+             add_constraint @@ Split (ro3, (ro1, ro2));
+             add_constraint @@ Split (lo3, (lo1, lo2))]
+        |> fst
+    | ThreadID (pte1, o1), ThreadID (pte2, o2), ThreadID (pte3, o3) ->
+        ctxt
+        |> [%m
+             equiv_ptes pte1 pte2;
+             equiv_ptes pte2 pte3;
+             add_constraint @@ Split (o3, (o1, o2))]
+        |> fst
     | _, _, _ -> failwith "type mismatch (simple checker broken A?)"
   in
   loop t1 t2 out ctxt
