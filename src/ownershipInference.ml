@@ -785,18 +785,36 @@ let create_subst_map ~params ~args =
 let%lq find_params fn_name ctxt = SM.find fn_name ctxt.fn_params
 
 let process_call e_id c =
+  (* Partial ownerships of arguments that are passed to the function *)
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
+
+  let%bind params = find_params c.callee in
+  let subst_map = create_subst_map ~args:c.arg_names ~params in
+
   [%m
-    miter (fun (i, a) -> constrain_eq ~e_id ~src:i ~dst:a)
+    (* Equivalence of types of parameters and arguments BEFORE the call *)
+    miter (fun (arg, param) ->
+        let param' = rename_type subst_map param in
+        constrain_eq ~e_id ~src:arg ~dst:param')
     @@ List.combine arg_types fun_type.arg_types;
+
+    (* Equivalence of types of parameters and arguments AFTER the call *)
     miteri
       (fun i arg_name ->
+        (* Remaining ownerships of arguments not passed to the function *)
         let%bind t = lkp arg_name in
-        let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
+
+        (* Ownerships of arguments after function call *)
         let out_type = List.nth fun_type.output_types i in
+        let out_type' = rename_type subst_map out_type in
+
+        (* Eventual ownerships of arguments after function call
+           t' = t + out_type' *)
+        let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
+
         (* explicitly flag the residual type as one to maximize *)
-        max_type t >> sum_types t out_type t' >> update_type arg_name t')
+        max_type t >> sum_types t out_type' t' >> update_type arg_name t')
       c.arg_names;
     return fun_type.result_type]
 
