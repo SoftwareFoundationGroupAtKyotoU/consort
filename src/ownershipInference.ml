@@ -208,6 +208,16 @@ let%lm add_constraint ?relaxed c ctxt =
   | None -> { ctxt with ocons = c :: ctxt.ocons }
   | _ -> ctxt
 
+let constrain_empty o = add_constraint @@ Empty o
+
+let rec constrain_empty_type t =
+  match t with
+  | Int | TVar _ -> return ()
+  | Ref (_, o) | Array (_, o) | Lock (_, _, o) | ThreadID (_, o) ->
+      constrain_empty o
+  | Tuple tl -> miter constrain_empty_type tl
+  | Mu (_, _) -> failwith "Mu type not supported"
+
 (** Shuffle the ownership between two source types (t1 and t2) and two destination
    types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
    parallel, at references the ownerships are shuffled with the Shuff constraint. *)
