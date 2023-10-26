@@ -782,6 +782,8 @@ and rename_pte subst_map pte =
 let create_subst_map ~params ~args =
   List.fold_left2 (fun acc param arg -> SM.add param arg acc) SM.empty params args
 
+let%lq find_params fn_name ctxt = SM.find fn_name ctxt.fn_params
+
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
