@@ -649,6 +649,14 @@ let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
     | Mu (_, t1'), Mu (_, t2') -> loop t1' t2' ctxt
     | Tuple tl1, Tuple tl2 ->
         List.fold_left2 (fun acc t1 t2 -> loop t1 t2 acc) ctxt tl1 tl2
+    | Lock (pte1, ro1, lo1), Lock (pte2, ro2, lo2) ->
+        (* Since the subtyping rule for lock does not allow release ownership to be decreased,
+           [ro1] and [ro2] must be always equal. *)
+        let ctxt', () = equiv_ptes pte1 pte2 ctxt in
+        { ctxt' with ocons = Eq (ro1, ro2) :: rel lo1 lo2 :: ctxt'.ocons }
+    | ThreadID (pte1, o1), ThreadID (pte2, o2) ->
+        let ctxt', () = equiv_ptes pte1 pte2 ctxt in
+        { ctxt' with ocons = rel o1 o2 :: ctxt'.ocons }
     | _, _ -> failwith "Type mismatch (simple checker broken B?)"
   in
   loop t1 dst_unfld ctxt
