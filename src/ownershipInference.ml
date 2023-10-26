@@ -627,6 +627,10 @@ let rec split_type loc p =
       let%bind o1, o2 = alloc_split loc p o in
       return (ThreadID (pte, o1), ThreadID (pte, o2))
 
+let split_tyenv loc tyenv =
+  let%bind split_map = mmmap (split_type loc) tyenv in
+  return @@ SM.split2 split_map
+
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
 let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
