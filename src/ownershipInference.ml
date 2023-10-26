@@ -735,6 +735,16 @@ let rec max_type = function
   | Mu (_, t) -> max_type t
   | Tuple tl -> miter max_type tl
   | Ref (t, o) -> max_ovar o >> max_type t
+  | Lock (_, ro, lo) ->
+      (* No need to maximize types in PTE here.
+          If they need to be maximized,
+          [max_type] is imposed where they are used after the lock is acquired.
+
+          Release ownership must be maximized because
+          it must not be less than 1 while the lock is released.
+      *)
+      max_ovar ro >> max_ovar lo
+  | ThreadID (_, o) -> max_ovar o
 
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
