@@ -296,6 +296,29 @@ let%lm shuffle_types ~e_id ~src:(t1, t1') ~dst:(t2, t2') ctxt =
     | Mu (_, m1), Mu (_, m2), Mu (_, m1'), Mu (_, m2') ->
         loop m1 m2 m1' m2' ctxt
     | TVar _, TVar _, TVar _, TVar _ -> ctxt
+    | ( Lock (pte1, ro1, lo1),
+        Lock (pte2, ro2, lo2),
+        Lock (pte1', ro1', lo1'),
+        Lock (pte2', ro2', lo2') ) ->
+        ctxt
+        |> [%m
+             equiv_ptes pte1 pte2;
+             equiv_ptes pte2 pte1';
+             equiv_ptes pte1' pte2';
+             add_constraint @@ Shuff ((ro1, ro2), (ro1', ro2'));
+             add_constraint @@ Shuff ((lo1, lo2), (lo1', lo2'))]
+        |> fst
+    | ( ThreadID (pte1, o1),
+        ThreadID (pte2, o2),
+        ThreadID (pte1', o1'),
+        ThreadID (pte2', o2') ) ->
+        ctxt
+        |> [%m
+             equiv_ptes pte1 pte2;
+             equiv_ptes pte2 pte1';
+             equiv_ptes pte1' pte2';
+             add_constraint @@ Shuff ((o1, o2), (o1', o2'))]
+        |> fst
     | _ -> failwith "Type mismatch (simple checker broken D?)"
   in
   loop t1 (unfold_dst t2) t1' (unfold_dst t2') ctxt
