@@ -365,6 +365,9 @@ let rec constrain_wf_loop o t ctxt =
   | Mu (_, t) -> constrain_wf_loop o t ctxt
   | Ref (t', o') | Array (t', o') ->
       constrain_wf_loop o' t' { ctxt with ocons = Wf (o, o') :: ctxt.ocons }
+  | Lock (_, _, o') | ThreadID (_, o') ->
+      (* If we do not allow references to locks, this case is not reached. *)
+      add_constraint (Wf (o, o')) ctxt
 
 (** Like constrain_wf_above, but only begin emitting wf constraints
    when the first ownership variable is encountered *)
@@ -373,6 +376,11 @@ let rec constrain_well_formed = function
   | Tuple tl -> miter constrain_well_formed tl
   | Mu (_, t) -> constrain_well_formed t
   | Ref (t, o) | Array (t, o) -> constrain_wf_loop o t
+  | Lock (_, _, _)
+  (* todo: | Lock (_, ro, lo) -> add_constraint (Wf (lo, ro)) *)
+  | ThreadID (_, _) ->
+      (* No constraints on PTE even if ownership is 0  *)
+      return ()
 
 (** Record the allocation of an ownership variable in the context
    of a magic operation. Updates the gen map *)
