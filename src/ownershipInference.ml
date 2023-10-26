@@ -746,6 +746,39 @@ let rec max_type = function
       max_ovar ro >> max_ovar lo
   | ThreadID (_, o) -> max_ovar o
 
+(** Rename a type by [subst_map].
+  [subst_map] is intuitively in the form [[a1 / x1] [a2 / x2] ... [an / xn]].
+  [rename_type] replaces a type [t] with [t [a1 / x1] [a2 / x2] ... [an / xn]].
+
+  Since we introduced types with PTEs,
+  function types can contain parameter names.
+  At function calls, we have to replace parameter names with actual arguments
+
+  For example, 
+    t := (x: int ref 0, y: (x: int ref 1, 0) lock 1)
+    subst_map := [a / x] [b / y]
+    rename_type subst_map t -> (a: int ref 0, b: (a: int ref 1, 0) lock 1)
+
+  Note: [rename_type] does not change ownership variables.
+  Therefore, constraints on ownership variables of the type after renaming
+  are also constraints on those before renaming.
+*)
+let rec rename_type subst_map = function
+  | (Int | TVar _) as t -> t
+  | Ref (t, o) -> Ref (rename_type subst_map t, o)
+  | Array (t, o) -> Array (rename_type subst_map t, o)
+  | Tuple tl -> Tuple (List.map (rename_type subst_map) tl)
+  | Lock (pte, ro, lo) -> Lock (rename_pte subst_map pte, ro, lo)
+  | ThreadID (pte, o) -> ThreadID (rename_pte subst_map pte, o)
+  | Mu _ -> failwith "Mu type not supported"
+
+and rename_pte subst_map pte =
+  SM.fold
+    (fun param t ->
+      let arg = SM.find param subst_map in
+      SM.add arg @@ rename_type subst_map t)
+    pte SM.empty
+
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
