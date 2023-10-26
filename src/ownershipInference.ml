@@ -456,7 +456,19 @@ let lift_to_ownership loc root t_simp =
           mmapi (fun i t -> simple_lift ~unfld (P.t_ind root i) t) tl
         in
         return @@ Tuple tl'
-    | `Lock _ | `ThreadID _ -> failwith "not implemented in ownershipinference"
+    | `Lock pte ->
+        let%bind ro = alloc_ovar loc root in
+        let%bind lo = alloc_ovar loc root in
+        let%bind pte' = lift_pte ~unfld pte in
+        return @@ Lock (pte', ro, lo)
+    | `ThreadID pte ->
+        let%bind o = alloc_ovar loc root in
+        let%bind pte' = lift_pte ~unfld pte in
+        return @@ ThreadID (pte', o)
+  and lift_pte ~unfld pte =
+    (* todo: which is correct *)
+    (* StateMonadForStringMap.mmap (simple_lift ~unfld root) pte *)
+    StateMonadForStringMap.mmapi (fun v -> simple_lift ~unfld (P.var v)) pte
   in
   let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
   constrain_well_formed t >> return t
