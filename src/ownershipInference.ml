@@ -527,6 +527,11 @@ let%lq lkp_array v ctxt =
   | Array (t, o) -> (t, o)
   | _ -> failwith "Not an array"
 
+let%lq lkp_lock v ctxt =
+  match SM.find v ctxt.gamma with
+  | Lock (pte, ro, lo) -> (pte, ro, lo)
+  | _ -> failwith "Not a lock"
+
 (** Map the type bound to v according to continuation k. k
    is stateful function (aka a monadic operation) which
    returns a 3-ary tuple. The first element is the new type for
