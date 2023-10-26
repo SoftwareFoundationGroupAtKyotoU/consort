@@ -218,6 +218,56 @@ let rec constrain_empty_type t =
   | Tuple tl -> miter constrain_empty_type tl
   | Mu (_, _) -> failwith "Mu type not supported"
 
+(** Generate type equivalence constraints.
+
+    Type equivalence is essentially about ownership equality.
+    When it comes to PTEs, we apply the following constraints:
+    - the ownerships of any variable in the intersection must be equal and
+    - the ownership of any variable in the symmetric difference must zero.
+*)
+let%lm equiv_ptes pte1 pte2 ctxt =
+  let rec equiv_types t1 t2 ctxt =
+    match (t1, t2) with
+    | Int, Int | TVar _, TVar _ -> ctxt
+    | Ref (t1', o1), Ref (t2', o2) | Array (t1', o1), Array (t2', o2) ->
+        equiv_types t1' t2' { ctxt with ocons = Eq (o1, o2) :: ctxt.ocons }
+    | Mu (_, _), Mu (_, _) -> failwith "Mu type not supported"
+    | Tuple tl1, Tuple tl2 ->
+        List.fold_left2 (fun acc t1 t2 -> equiv_types t1 t2 acc) ctxt tl1 tl2
+    | Lock (pte1, ro1, lo1), Lock (pte2, ro2, lo2) ->
+        let ctxt' = equiv_ptes pte1 pte2 ctxt in
+        { ctxt' with ocons = Eq (ro1, ro2) :: Eq (lo1, lo2) :: ctxt.ocons }
+    | ThreadID (pte1, o1), ThreadID (pte2, o2) ->
+        let ctxt' = equiv_ptes pte1 pte2 ctxt in
+        { ctxt' with ocons = Eq (o1, o2) :: ctxt.ocons }
+    | _, _ -> failwith "Type mismatch"
+  and equiv_ptes pte1 pte2 ctxt =
+    (* diff         = { t1 | x:t1 in pte1 and x not in dom(pte2) }
+       intersection = { (t1, t2) | x:t1 in pte1 and x:t2 in pte2 } *)
+    let diff, intersection =
+      SM.fold
+        (fun v t1 (d, i) ->
+          match SM.find_opt v pte2 with
+          | Some t2 -> (d, (t1, t2) :: i)
+          | None -> (t1 :: d, i))
+        pte1 ([], [])
+    in
+
+    (* symm_diff = diff U { t2 | x:t2 in pte2 and x not in dom(pte1) } *)
+    let symm_diff =
+      SM.fold (fun v t2 d -> if SM.mem v pte1 then d else t2 :: d) pte2 diff
+    in
+
+    (* Set the types of variables that are included in only one of the two PTEs to [empty] *)
+    let ctxt', () = miter constrain_empty_type symm_diff ctxt in
+
+    (* Apply equivalence constraints to the types of variables contained in both  *)
+    List.fold_left
+      (fun acc (t1, t2) -> equiv_types t1 t2 acc)
+      ctxt' intersection
+  in
+  equiv_ptes pte1 pte2 ctxt
+
 (** Shuffle the ownership between two source types (t1 and t2) and two destination
    types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
    parallel, at references the ownerships are shuffled with the Shuff constraint. *)
