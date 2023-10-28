@@ -181,8 +181,7 @@ let unfold =
     | Mu (id', t) ->
         assert (id' <> id);
         Mu (id', subst_once id sub t)
-    | Lock _ -> failwith "Unfolding not supported for lock type"
-    | ThreadID _ -> failwith "Unfolding not supported for thread id type"
+    | (Lock _ | ThreadID _) as t -> t
   in
   let rec unfold_loop ~unfld = function
     | TVar id ->
@@ -196,8 +195,7 @@ let unfold =
     | Mu (id, t) as mu ->
         let t' = subst_once id mu t in
         unfold_loop ~unfld:(IntSet.add id unfld) t'
-    | Lock _ -> failwith "Unfolding not supported for lock type"
-    | ThreadID _ -> failwith "Unfolding not supported for thread id type"
+    | (Lock _ | ThreadID _) as t -> t
   in
   unfold_loop ~unfld:IntSet.empty
 
