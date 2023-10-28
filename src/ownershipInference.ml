@@ -240,10 +240,10 @@ let%lm equiv_ptes pte1 pte2 ctxt =
         List.fold_left2 (fun acc t1 t2 -> equiv_types t1 t2 acc) ctxt tl1 tl2
     | Lock (pte1, ro1, lo1), Lock (pte2, ro2, lo2) ->
         let ctxt' = equiv_ptes pte1 pte2 ctxt in
-        { ctxt' with ocons = Eq (ro1, ro2) :: Eq (lo1, lo2) :: ctxt.ocons }
+        { ctxt' with ocons = Eq (ro1, ro2) :: Eq (lo1, lo2) :: ctxt'.ocons }
     | ThreadID (pte1, o1), ThreadID (pte2, o2) ->
         let ctxt' = equiv_ptes pte1 pte2 ctxt in
-        { ctxt' with ocons = Eq (o1, o2) :: ctxt.ocons }
+        { ctxt' with ocons = Eq (o1, o2) :: ctxt'.ocons }
     | _, _ -> failwith "Type mismatch"
   and equiv_ptes pte1 pte2 ctxt =
     (* diff         = { t1 | x:t1 in pte1 and x not in dom(pte2) }
