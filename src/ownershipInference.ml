@@ -743,6 +743,18 @@ let combine_types e_id v t1 t2 =
   let%bind t3 = make_fresh_type (MGen e_id) (P.var v) t1 in
   sum_types t1 t2 t3 >> return t3
 
+let%lq lkp_opt v ctxt = StringMap.find_opt v ctxt.gamma
+
+let inject_tyenv e_id tyenv =
+  StateMonadForStringMap.miter
+    (fun v t ->
+      match%bind lkp_opt v with
+      | Some t' ->
+          let%bind t3 = combine_types e_id v t t' in
+          update_type v t3
+      | None -> return ())
+    tyenv
+
 let%lm max_ovar ov ctxt =
   match ov with
   | OVar i -> { ctxt with max_vars = IntSet.add i ctxt.max_vars }
