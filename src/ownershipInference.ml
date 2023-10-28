@@ -476,6 +476,7 @@ let lift_to_ownership loc root t_simp =
   constrain_well_formed t >> return t
 
 let mtmap p f tl = mmapi (fun i e -> f (P.t_ind p i) e) tl
+let mmmap f m = StateMonadForStringMap.mmapi (fun v -> f (P.var v)) m
 
 (* This needs to record *)
 
