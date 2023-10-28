@@ -29,12 +29,13 @@ let pp_oconstraint ff ocon =
   begin
     let open OwnershipInference in
     match ocon with
-    | Write o -> pg "assert" [
-                     pg "=" [
-                       po o;
-                       plift "1.0"
-                     ]
-                   ]
+    | Write o | Acquire o | Full o ->
+      pg "assert" [
+        pg "=" [
+          po o;
+          plift "1.0"
+        ]
+      ]
     | Live o -> pg "assert" [
                     pg ">" [
                       po o;
@@ -97,6 +98,11 @@ let pp_oconstraint ff ocon =
             pg "=" [ po o2; pl "0.0" ]
           ]
         ]
+    | Empty o | Release o ->
+      pg "assert" [
+        pg "=" [ po o; pl "0.0" ]
+      ]
+
   end ff.printer;
   break ff
 
