@@ -1151,6 +1151,10 @@ let infer ~opts (simple_types, iso) (fn, prog) =
       op_record = { splits = SplitMap.empty; gen = GenMap.empty };
       save_env = IntMap.empty;
       max_vars = IntSet.empty;
+      fn_params =
+        List.fold_left
+          (fun acc { name; args; _ } -> SM.add name args acc)
+          SM.empty fn;
     }
   in
   let ctxt =
