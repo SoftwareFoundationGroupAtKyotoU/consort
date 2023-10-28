@@ -739,8 +739,8 @@ let%lm sum_types t1 t2 out ctxt =
 (** Returns a composite type of types [t1] and [t2].
 
     Reverse operation of [split_type] *)
-let combine_types e_id root t1 t2 =
-  let%bind t3 = make_fresh_type (MGen e_id) root t1 in
+let combine_types e_id v t1 t2 =
+  let%bind t3 = make_fresh_type (MGen e_id) (P.var v) t1 in
   sum_types t1 t2 t3 >> return t3
 
 let%lm max_ovar ov ctxt =
