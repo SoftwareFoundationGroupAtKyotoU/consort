@@ -346,7 +346,7 @@ let%lm sum_ownership t1 t2 out ctxt =
   in
   loop t1 t2 out ctxt
 
-let rec unfold_simple arg mu = function
+let rec unfold_simple arg mu : SimpleTypes.r_typ -> SimpleTypes.r_typ = function
   | `Int -> `Int
   | `Ref t' -> `Ref (unfold_simple arg mu t')
   | `TVar id when id = arg -> mu
@@ -354,7 +354,7 @@ let rec unfold_simple arg mu = function
   | `Array `Int -> `Array `Int
   | `Tuple tl_list -> `Tuple (List.map (unfold_simple arg mu) tl_list)
   | `Mu (id, t) -> `Mu (id, unfold_simple arg mu t)
-  | `Lock _ | `ThreadID _ -> failwith "not implemented in ownershipinference"
+  | (`Lock _ | `ThreadID _) as t -> t
 
 (** Walk a type, constraining the first occurrence of an
    ownership variable to be well-formed w.r.t [o].
