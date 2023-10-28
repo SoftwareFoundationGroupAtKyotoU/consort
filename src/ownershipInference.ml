@@ -535,6 +535,11 @@ let%lq lkp_lock v ctxt =
   | Lock (pte, ro, lo) -> (pte, ro, lo)
   | _ -> failwith "Not a lock"
 
+let%lq lkp_tid v ctxt =
+  match SM.find v ctxt.gamma with
+  | ThreadID (pte, o) -> (pte, o)
+  | _ -> failwith "Not a thread id"
+
 (** Map the type bound to v according to continuation k. k
    is stateful function (aka a monadic operation) which
    returns a 3-ary tuple. The first element is the new type for
