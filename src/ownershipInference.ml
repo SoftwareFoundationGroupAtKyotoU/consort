@@ -830,7 +830,7 @@ let process_call e_id c =
 
         (* Eventual ownerships of arguments after function call
            t' = t + out_type' *)
-        let%bind t' = combine_types e_id (P.var arg_name) t out_type' in
+        let%bind t' = combine_types e_id arg_name t out_type' in
 
         (* explicitly flag the residual type as one to maximize *)
         max_type t >> update_type arg_name t')
@@ -978,12 +978,70 @@ let rec process_expr ~output ((e_id, _), expr) =
       in
       let bindings = assign_patt_loop [] patt to_bind in
       with_types bindings @@ process_expr ~output body
-  | LetNewlock _ -> failwith "not implemented in ownershipinference"
-  | LetFork _ -> failwith "not implemented in ownershipinference"
-  | Freelock _ -> failwith "not implemented in ownershipinference"
-  | Acq _ -> failwith "not implemented in ownershipinference"
-  | Rel _ -> failwith "not implemented in ownershipinference"
-  | Wait _ -> failwith "not implemented in ownershipinference"
+  | LetNewlock (v, body) -> (
+      (* Split the current type environment into [tyenv1] and [tyenv2], and update to [tyenv1].
+         [tyenv2] is the PTE of the lock [v]. *)
+      let%bind tyenv2 = extract_tyenv e_id in
+      match%bind get_type_scheme e_id v with
+      | Lock (pte, ro, lo) as t ->
+          [%m
+            equiv_ptes pte tyenv2;
+            add_constraint @@ Release ro;
+            add_constraint @@ Full lo;
+            with_types [ (v, t) ] @@ process_expr ~output body]
+      | _ -> assert false)
+  | LetFork (v, e1, e2) -> (
+      (* Split the current type environment into [tyenv1] and [tyenv2], and update to [tyenv1].
+         The forked thread is typed under [tyenv1] and returns [tyenv1'].
+         [tyenv1'] is the PTE of the thread id [v].
+         The parent thread is typed under [tyenv2] + [v: ThreadID(pte, o)]. *)
+      let%bind tyenv2 = extract_tyenv e_id in
+      let%bind _ = process_expr ~output e1 in
+      let%bind tyenv1' = get_tyenv in
+      match%bind get_type_scheme e_id v with
+      | ThreadID (pte, o) as t ->
+          [%m
+            equiv_ptes pte tyenv1';
+            add_constraint @@ Full o;
+            update_tyenv tyenv2;
+            with_types [ (v, t) ] @@ process_expr ~output e2]
+      | _ -> assert false)
+  | Freelock (v, e) ->
+      (* Return the PTE of the lock [v] to the current thread by [inject_tyenv]. *)
+      let%bind pte, ro, lo = lkp_lock v in
+      [%m
+        add_constraint @@ Release ro;
+        add_constraint @@ Full lo;
+        update_type v (Lock (pte, ro, empty_ownership ()));
+        inject_tyenv e_id pte;
+        process_expr ~output e]
+  | Acq (v, e) ->
+      (* Temporarily give the PTE of the lock [v] to the current thread. *)
+      let%bind pte, ro, lo = lkp_lock v in
+      [%m
+        add_constraint @@ Release ro;
+        add_constraint @@ Live lo;
+        update_type v @@ Lock (pte, full_ownership (), lo);
+        inject_tyenv e_id pte;
+        process_expr ~output e]
+  | Rel (v, e) ->
+      (* Return the PTE of the lock [v] to [v]. *)
+      let%bind pte, ro, lo = lkp_lock v in
+      let%bind tyenv2 = extract_tyenv e_id in
+      [%m
+        add_constraint @@ Acquire ro;
+        add_constraint @@ Live lo;
+        equiv_ptes pte tyenv2;
+        update_type v @@ Lock (pte, empty_ownership (), lo);
+        process_expr ~output e]
+  | Wait (v, e) ->
+      (* Return the PTE of the thread id [v] to the current thread by [inject_tyenv]. *)
+      let%bind pte, o = lkp_tid v in
+      [%m
+        add_constraint @@ Full o;
+        update_type v (ThreadID (pte, empty_ownership ()));
+        inject_tyenv e_id pte;
+        process_expr ~output e]
 
 and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
   let ctxt_tpre, () = tr_branch ctxt in
