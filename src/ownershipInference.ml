@@ -634,6 +634,15 @@ let split_tyenv loc tyenv =
   let%bind split_map = mmmap (split_type loc) tyenv in
   return @@ SM.split2 split_map
 
+let%lq get_tyenv ctxt = ctxt.gamma
+let%lm update_tyenv tyenv ctxt = { ctxt with gamma = tyenv }
+
+(** tyenv version of [lkp_split] *)
+let extract_tyenv e_id =
+  let%bind tyenv = get_tyenv in
+  let%bind tyenv1, tyenv2 = split_tyenv (SBind e_id) tyenv in
+  update_tyenv tyenv1 >> return tyenv2
+
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
 let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
