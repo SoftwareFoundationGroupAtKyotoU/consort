@@ -433,6 +433,53 @@ let alloc_split, alloc_ovar =
   in
   (alloc_split, alloc_ovar)
 
+module StateMonadForStringMap = struct
+  let mmap f m =
+    SM.fold
+      (fun k v m' ->
+        let%bind m'' = m' in
+        let%bind v' = f v in
+        return @@ SM.add k v' m'')
+      m (return SM.empty)
+
+  let _mmap f m ctxt =
+    SM.fold
+      (fun k v (ctxt', m') ->
+        let ctxt'', v' = f v ctxt' in
+        (ctxt'', SM.add k v' m'))
+      m (ctxt, SM.empty)
+
+  let mmapi f m =
+    SM.fold
+      (fun k v m' ->
+        let%bind m'' = m' in
+        let%bind v' = f k v in
+        return @@ SM.add k v' m'')
+      m (return SM.empty)
+
+  let _mmapi f m ctxt =
+    SM.fold
+      (fun k v (ctxt', m') ->
+        let ctxt'', v' = f k v ctxt' in
+        (ctxt'', SM.add k v' m'))
+      m (ctxt, SM.empty)
+
+  let miter f m = SM.fold (fun k v acc -> acc >> f k v) m (return ())
+
+  let _miter f m ctxt =
+    SM.fold (fun k v (ctxt', _) -> f k v ctxt') m @@ (ctxt, ())
+
+  let mfold f m init =
+    SM.fold
+      (fun k v acc ->
+        let%bind acc' = acc in
+        f k v acc')
+      m (return init)
+
+  let _mfold f m init ctxt =
+    SM.fold (fun k v (ctxt', acc) -> f k v acc ctxt') m (ctxt, init)
+end
+
 (* this must record *)
 
 (** Lift a simple type into an ownership type (of type otype) *)
