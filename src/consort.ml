@@ -82,8 +82,23 @@ let print_program ~o_map ~o_printer r ast =
         (ul print_type) t
     | TVar id ->
       pf "'%d" id
-  in
-  let print_type_binding (k, t) = pb [pf "%s: " k; print_type t] in
+    | Lock (pte, ro, lo) -> 
+      pf "(%a,@ %a)@ lock@ %a"
+        (ul pp_pte) pte
+        (ul o_printer) (o_map ro) 
+        (ul o_printer) (o_map lo)
+    | ThreadID (pte, o) ->
+      pf "%a@ tid@ %a"
+        (ul pp_pte) pte
+        (ul o_printer) (o_map o) 
+  and pp_pte pte =
+    let pp_env =
+      StringMap.bindings pte
+      |> List.map print_type_binding
+      |> psep_gen (pf ",@ ")
+    in
+    pl [ ps "("; pp_env; ps ")" ]
+  and print_type_binding (k, t) = pb [pf "%s: " k; print_type t] in
   let print_type_sep t = List.map print_type t |> psep_gen (pf ",@ ") in
   let pp_ty_env (i, _) _ =
     let ty_env = Std.IntMap.find i r.ty_envs in
