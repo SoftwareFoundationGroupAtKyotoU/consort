@@ -153,7 +153,11 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
         (fun c tvar ->
           A.Cond (tvar, simplify_expr ~is_tail c e1, simplify_expr ~is_tail c e2)
           |> tag_with i)
-  | Seq (_, ((Assign _ | Alias _ | Assert _ | Update _) as ue), e1) ->
+  | Seq
+      ( _,
+        (( Assign _ | Alias _ | Assert _ | Update _ | Freelock _ | Acq _ | Rel _
+         | Wait _ ) as ue),
+        e1 ) ->
       simplify_expr ~next:e1 ~is_tail count ue
   | Seq (pos, e1, e2) ->
       A.Seq
