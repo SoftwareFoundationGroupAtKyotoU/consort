@@ -1206,6 +1206,19 @@ let infer ~opts (simple_types, iso) (fn, prog) =
         result_type = ret_type;
       }
   in
+  let fn_params =
+    List.fold_left
+      (fun acc { name; args; _ } -> SM.add name args acc)
+      SM.empty fn
+    |> SM.fold
+         (fun name it acc ->
+           let args =
+             List.init (RefinementTypes.get_args_length it) (fun i ->
+                 Char.escaped @@ char_of_int (int_of_char 'a' + i))
+           in
+           SM.add name args acc)
+         (ArgOptions.get_intr opts).op_interp
+  in
   let init_context =
     {
       relaxed = opts.ArgOptions.relaxed_max;
@@ -1218,10 +1231,7 @@ let infer ~opts (simple_types, iso) (fn, prog) =
       op_record = { splits = SplitMap.empty; gen = GenMap.empty };
       save_env = IntMap.empty;
       max_vars = IntSet.empty;
-      fn_params =
-        List.fold_left
-          (fun acc { name; args; _ } -> SM.add name args acc)
-          SM.empty fn;
+      fn_params;
     }
   in
   let ctxt =

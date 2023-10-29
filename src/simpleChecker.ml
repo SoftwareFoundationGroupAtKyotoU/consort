@@ -742,9 +742,8 @@ let tyenv_from_args args arg_types =
    The parameter `fenv` is the function type environment already type inferred except for PTEs.
    Reconstruct the function type environment (`fenv'`) considering the PTEs and
    inspect function calls. *)
-let ptecheck_prog fenv (fns, body) =
+let ptecheck_prog intr_types (fns, body) fenv =
   let sub = create_sub_ctxt () in
-
   let lift_const t =
     let t_id = UnionFind.new_node sub.uf in
     Hashtbl.add sub.resolv t_id @@ abstract_type sub t;
@@ -780,6 +779,14 @@ let ptecheck_prog fenv (fns, body) =
         let ret_type_v = UnionFind.new_node sub.uf in
         SM.add name { arg_types_v; ret_type_v } fenv')
       SM.empty fns
+    |> StringMap.fold
+         (fun k { arg_types; ret_type } ->
+           StringMap.add k
+             {
+               arg_types_v = List.map lift_const arg_types;
+               ret_type_v = lift_const ret_type;
+             })
+         intr_types
   in
   typecheck_prog_with ~check_pte sub fenv' (fns, body)
 
@@ -817,6 +824,6 @@ let check_pte_domain fenv (fns, _) =
 
 let typecheck_prog intr_types prog =
   let fenv, _ = typecheck_prog intr_types prog in
-  let ((fenv, _) as res) = ptecheck_prog fenv prog in
+  let ((fenv, _) as res) = ptecheck_prog intr_types prog fenv in
   check_pte_domain fenv prog;
   res
