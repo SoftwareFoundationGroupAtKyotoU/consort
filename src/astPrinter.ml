@@ -169,10 +169,13 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
       ]) body
     | LetFork (x, e, body) ->
       maybe_brace ~ip ~annot ~all_seq:true ~pre:(pl [
-        pf "let%a %s = fork(%a) in "
+        pf "let%a %s = fork("
           po_id id
-          x
-          (fun f e -> pp_expr ~ip ~annot e f) e (* 合ってる？ *)
+          x;
+        newline;
+        pp_expr ~ip ~annot e;
+        newline;
+        ps ") in "
       ]) body
     | Freelock (x, e) ->
       pl [
