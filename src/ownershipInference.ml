@@ -18,6 +18,7 @@ type ownership =
   | OVar of int  (** A variable with id int *)
   | OConst of float  (** a constant ownership with the given rational number *)
 
+(** Ownership constraints *)
 type ocon =
   | Live of ownership
       (** The ownership must be greater than 0 (only emitted in relaxed mode) *)
@@ -30,10 +31,10 @@ type ocon =
   | Wf of ownership * ownership
       (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership  (** o1 >= o2 *)
-  | Acquire of ownership (** The release ownership must be 1 (released) *)
+  | Acquire of ownership  (** The release ownership must be 1 (acquired) *)
   | Release of ownership  (** The release ownership must be 0 (released) *)
   | Full of ownership  (** The ownership must be 1 *)
-  | Empty of ownership  (** The ownership must be 0 (out of PTE) *)
+  | Empty of ownership  (** The ownership must be 0 (after use or out of PTE) *)
 
 type 'a otype_ =
   | Array of 'a otype_ * 'a
@@ -494,7 +495,6 @@ let lift_to_ownership loc root t_simp =
         let%bind o = alloc_ovar loc root in
         return @@ Array (Int, o)
     | `Ref t ->
-        (* todo: Check that lock and thread id are not contained *)
         let%bind o = alloc_ovar loc root in
         let%bind t' = simple_lift ~unfld (P.deref root) t in
         return @@ Ref (t', o)
@@ -728,6 +728,9 @@ let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
 let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1, o2))
 let constrain_write o = add_constraint @@ Write o
 
+(** + Add [bindings] to the type environment ([ctxt.gamma]), 
+    + Execute the continuation ([cont]), and 
+    + Remove the domain of [bindings] from the post type envrionment. *)
 let with_types bindings cont ctxt =
   let ctxt', fl =
     cont
@@ -744,6 +747,14 @@ let with_types bindings cont ctxt =
     },
     fl )
 
+(** Split the type for variable [v] under the current type environment and 
+    return part of it.
+    The type of [v] is updated with the remaining type in the type environemnt.
+    
+    i.e.
+      [Γ(x) = t1 + t2; 
+      Γ(x) <- t1; 
+      return t2;] *)
 let lkp_split loc v =
   let%bind t = lkp v in
   let%bind t1, t2 = split_type loc (P.var v) t in
