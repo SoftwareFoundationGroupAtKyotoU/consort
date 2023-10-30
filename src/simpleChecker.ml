@@ -770,31 +770,34 @@ let ptecheck_prog intr_types (fns, body) fenv =
   in
   typecheck_prog_with sub fenv' (fns, body)
 
-(* Checks that if the return type of a function contains a lock type or a thread ID type inside, 
-   the domain contains no variables other than the arguments. *)
-let check_pte_domain fenv (fns, _) =
-  let rec check ({ name; args; _ } as fn) (t : r_typ) =
+(* Check if a return type of a function does not contain a lock type or a thread ID type inside. *)
+let check_return_type fenv (fns, _) =
+  let rec check fn (t : r_typ) =
     match t with
     | `Int -> ()
     | `TVar _ -> failwith "Unexpected type variable found"
     | `Tuple tl -> List.iter (check fn) tl
     | `Ref t -> check fn t
-    | `Mu _ -> ()
+    | `Mu _ -> failwith "Mu type not supported"
     | `Array t -> check fn (t :> r_typ)
-    | `Lock pte | `ThreadID pte ->
-        (* There is no need to recursively check the types of variables in PTE. 
-           This is because they are function parameters(, which we check HERE),
-           and even if their types are lock types or threadID types, 
-            the PTEs do not contain variables local to the function. *)
-        SM.iter
-          (fun v _ ->
-            if not @@ List.mem v args then
-              failwith
-              @@ Printf.sprintf
-                   "Function %s cannot return a type that includes the local \
-                    variable %s in the PTE"
-                   name v)
-          pte
+    | `Lock _ | `ThreadID _ ->
+        failwith "A function that returns a type with PTE is not yet supported"
+    (* TODO: When we support functions that return types with PTEs,
+       the commented out program below needs to be enabled. *)
+
+    (* There is no need to recursively check the types of variables in PTE.
+       This is because they are function parameters(, which we check HERE),
+       and even if their types are lock types or threadID types,
+        the PTEs do not contain variables local to the function. *)
+    (* SM.iter
+       (fun v _ ->
+         if not @@ List.mem v args then
+           failwith
+           @@ Printf.sprintf
+                "Function %s cannot return a type that includes the local \
+                 variable %s in the PTE"
+                name v)
+       pte *)
   in
   List.iter
     (fun ({ name; _ } as fn) ->
@@ -805,5 +808,5 @@ let check_pte_domain fenv (fns, _) =
 let typecheck_prog intr_types prog =
   let fenv, _ = typecheck_prog intr_types prog in
   let ((fenv, _) as res) = ptecheck_prog intr_types prog fenv in
-  check_pte_domain fenv prog;
+  check_return_type fenv prog;
   res
