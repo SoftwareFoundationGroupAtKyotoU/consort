@@ -302,7 +302,11 @@ let rec resolve_with_rec sub v_set k t =
         resolve_with_rec sub (IS.add id v_set)
           (fun is t ->
             if IS.mem id is then k (IS.remove id is) @@ `Mu (id, `Ref t)
-            else k is @@ `Ref t)
+            else
+              match t with
+              | `Lock _ | `ThreadID _ ->
+                  failwith "References to locks or thread ids not supported"
+              | _ -> k is @@ `Ref t)
           arg_type
   | `Tuple tl ->
       List.fold_left
