@@ -63,9 +63,12 @@ below are used for uniquely identify an ownership operation.
 *)
 type magic_loc =
   | MGen of int
-      (** When an ownership is created in the context of processing expression with id. Examples include null pointer, computing the result ownership after a call, etc.*)
+      (** When an ownership is created in the context of processing expression with id.
+          Examples include null pointer, computing the result ownership after a call, etc.*)
   | MJoin of int
-      (** Describes the ownership values computed at a control-flow join point. This has to be a separate constructor because an ifnull condition may be the source of two ownerships; the new ownership to assign in the ifnull branch, and the ownerships at the join point. *)
+      (** Describes the ownership values computed at a control-flow join point.
+          This has to be a separate constructor because an ifnull condition may be the source of two ownerships;
+            the new ownership to assign in the ifnull branch, and the ownerships at the join point. *)
   | MArg of string  (** The ownership of an argument to function nm *)
   | MOut of string  (** The ownership of the result to function nm *)
   | MRet of string  (** The ownership of the return value from nm *)
@@ -161,9 +164,9 @@ type context = {
                                           each point in the program;
                                           only used for debugging *)
   fn_params : string list StringMap.t;
-    (** Mapping from function names to their parameters.
-        This is used to replace parameters with arguments at function calls. 
-        Since PTEs of parameters consist of parameters, 
+      (** Mapping from function names to their parameters.
+        This is used to replace parameters with arguments at function calls.
+        Since PTEs of parameters consist of parameters,
         their names must be replaced by actual arguments at function calls.
     *)
 }
@@ -552,7 +555,7 @@ let make_fresh_type loc root t =
     | Lock (pte, _, _) ->
         let%bind ro' = alloc_ovar loc root in
         let%bind lo' = alloc_ovar loc root in
-        (* No recursive calls to PTEs. 
+        (* No recursive calls to PTEs.
            This is because we want to create a lock type with the exact same PTE. *)
         return @@ Lock (pte, ro', lo')
     | ThreadID (pte, _) ->
@@ -563,7 +566,6 @@ let make_fresh_type loc root t =
   constrain_well_formed t' >> return t'
 
 let update_map v t m = SM.remove v m |> SM.add v t
-
 let%lm update_type v t ctxt = { ctxt with gamma = update_map v t ctxt.gamma }
 let%lq lkp v ctxt = StringMap.find v ctxt.gamma
 
@@ -831,11 +833,11 @@ let rec max_type = function
   | Ref (t, o) -> max_ovar o >> max_type t
   | Lock (_, ro, lo) ->
       (* No need to maximize types in PTE here.
-          If they need to be maximized,
-          [max_type] is imposed where they are used after the lock is acquired.
+         If they need to be maximized,
+         [max_type] is imposed where they are used after the lock is acquired.
 
-          Release ownership must be maximized because
-          it must not be less than 1 while the lock is released.
+           Release ownership must be maximized because
+           it must not be less than 1 while the lock is released.
       *)
       max_ovar ro >> max_ovar lo
   | ThreadID (_, o) -> max_ovar o
@@ -874,7 +876,9 @@ and rename_pte subst_map pte =
     pte SM.empty
 
 let create_subst_map ~params ~args =
-  List.fold_left2 (fun acc param arg -> SM.add param arg acc) SM.empty params args
+  List.fold_left2
+    (fun acc param arg -> SM.add param arg acc)
+    SM.empty params args
 
 let%lq find_params fn_name ctxt = SM.find fn_name ctxt.fn_params
 
