@@ -635,7 +635,7 @@ let typecheck_prog_with sub fenv (fns, body) =
       fns
   in
   let acc', _ =
-    process_expr ?check_pte None
+    process_expr None
       { sub = { sub with fn_name = "<main>" }; fenv; tyenv = StringMap.empty }
       body acc
   in
