@@ -68,7 +68,7 @@ let rec string_of_typ = function
         StringMap.fold (fun v t l -> (v ^ ": " ^ string_of_typ t) :: l) pte []
       in
       Printf.sprintf "(%s)tid" @@ String.concat ", " l
-  [@@ocaml.warning "-32"]
+[@@ocaml.warning "-32"]
 
 type 'a c_typ =
   [ `Int
@@ -361,7 +361,7 @@ let process_call ~loc lkp ctxt { callee; arg_names; _ } =
   `Var ret_type_v
 
 let dump_sexp p t = p t |> Sexplib.Sexp.to_string_hum |> print_endline
-  [@@ocaml.warning "-32"]
+[@@ocaml.warning "-32"]
 
 let rec process_expr ret_type ctxt ((id, loc), e) res_acc =
   (* Find the representative of v in ctxt.sub.uf. *)
@@ -731,7 +731,7 @@ let ptecheck_prog intr_types (fns, body) fenv =
   in
 
   (* Reconstruct the function type environment so that
-     the set of all variables to the left of a paremter lock and tid
+     the set of all variables to the left of a parameter lock and tid
      becomes their PTE. *)
   let fenv' =
     List.fold_left
