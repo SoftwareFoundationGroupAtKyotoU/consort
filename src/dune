@@ -33,7 +33,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (wrapped false)
  (libraries lang util solving)
- (modules OwnershipInference OwnershipSolver))
+ (modules OwnershipInference OwnershipSolver CleanPTE))
 
 (library
  (name consort)

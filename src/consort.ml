@@ -212,10 +212,11 @@ let consort ~opts file =
   match ownership_res with
   | None -> Unverified Aliasing
   | Some o_res ->
-    let o_hint = to_hint o_res infer_res.op_record in
-    let solve = get_solve ~opts in
-    let ans = solve ~opts simple_res o_hint ast in
-    solver_result_to_check_result ans
+      let simple_res', _ = CleanPTE.clean o_res simple_res infer_res in
+      let o_hint = to_hint o_res infer_res.op_record in
+      let solve = get_solve ~opts in
+      let ans = solve ~opts simple_res' o_hint ast in
+      solver_result_to_check_result ans
 
 let ownership ~opts file =
   let ast = AstUtil.parse_file file in
@@ -226,10 +227,12 @@ let ownership ~opts file =
   let infer_res = OwnershipInference.infer ~opts simple_res ast in
   print_inference infer_res ast;
   let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
-  print_ownership ownership_res infer_res ast;
   match ownership_res with
   | None -> Unverified Aliasing
-  | Some _ -> Verified
+  | Some o_res ->
+      let _, infer_res' = CleanPTE.clean o_res simple_res infer_res in
+      print_ownership ownership_res infer_res' ast;
+      Verified
 
 let typecheck ~opts file =
   let ast = AstUtil.parse_file file in

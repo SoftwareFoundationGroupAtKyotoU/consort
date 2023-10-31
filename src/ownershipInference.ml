@@ -169,6 +169,7 @@ type context = {
         Since PTEs of parameters consist of parameters,
         their names must be replaced by actual arguments at function calls.
     *)
+  let_types : otype Std.IntMap.t;
 }
 
 type infr_options = bool
@@ -923,6 +924,9 @@ let empty_ownership () = OConst 0.0
 let full_ownership () = OConst 1.0
 
 let rec process_expr ~output ((e_id, _), expr) =
+  let%lm save_let ty ctxt =
+    { ctxt with let_types = Std.IntMap.add e_id ty ctxt.let_types }
+  in
   save_type e_id
   >>
   match expr with
@@ -994,15 +998,17 @@ let rec process_expr ~output ((e_id, _), expr) =
           [%m
             constrain_eq ~e_id ~src:t2 ~dst:ref_cont;
             add_constraint @@ Write o;
+            save_let t';
             with_types [ (v, t') ] @@ process_expr ~output body]
       | _ -> assert false)
   | Let (PVar v, (Null | MkArray _), body) ->
       let%bind t = get_type_scheme e_id v in
-      with_types [ (v, t) ] @@ process_expr ~output body
+      save_let t >> with_types [ (v, t) ] @@ process_expr ~output body
   | Let (PVar v, Mkref (RNone | RInt _), body) ->
       let%bind new_var = alloc_ovar (MGen e_id) (P.var v) in
       [%m
         add_constraint @@ Write new_var;
+        save_let @@ Ref (Int, new_var);
         with_types [ (v, Ref (Int, new_var)) ] @@ process_expr ~output body]
   | Let (patt, rhs, body) ->
       let%bind to_bind =
@@ -1059,7 +1065,7 @@ let rec process_expr ~output ((e_id, _), expr) =
         | PTuple _, _ -> assert false
       in
       let bindings = assign_patt_loop [] patt to_bind in
-      with_types bindings @@ process_expr ~output body
+      save_let to_bind >> with_types bindings @@ process_expr ~output body
   | LetNewlock (v, body) -> (
       (* Split the current type environment into [tyenv1] and [tyenv2], and update to [tyenv1].
          [tyenv2] is the PTE of the lock [v]. *)
@@ -1070,7 +1076,7 @@ let rec process_expr ~output ((e_id, _), expr) =
             equiv_ptes pte tyenv2;
             add_constraint @@ Release ro;
             add_constraint @@ Full lo;
-            with_types [ (v, t) ] @@ process_expr ~output body]
+            save_let t >> with_types [ (v, t) ] @@ process_expr ~output body]
       | _ -> assert false)
   | LetFork (v, e1, e2) -> (
       (* Split the current type environment into [tyenv1] and [tyenv2], and update to [tyenv1].
@@ -1086,7 +1092,7 @@ let rec process_expr ~output ((e_id, _), expr) =
             equiv_ptes pte tyenv1';
             add_constraint @@ Full o;
             update_tyenv tyenv2;
-            with_types [ (v, t) ] @@ process_expr ~output e2]
+            save_let t >> with_types [ (v, t) ] @@ process_expr ~output e2]
       | _ -> assert false)
   | Freelock (v, e) ->
       (* Return the PTE of the lock [v] to the current thread by [inject_tyenv]. *)
@@ -1159,6 +1165,7 @@ module Result = struct
     ty_envs : otype StringMap.t IntMap.t;
     theta : otype RefinementTypes._funtype StringMap.t;
     max_vars : IntSet.t;
+    let_types : otype Std.IntMap.t;
   }
 end
 
@@ -1248,6 +1255,7 @@ let infer ~opts (simple_types, iso) (fn, prog) =
       save_env = IntMap.empty;
       max_vars = IntSet.empty;
       fn_params;
+      let_types = Std.IntMap.empty;
     }
   in
   let ctxt =
@@ -1271,4 +1279,5 @@ let infer ~opts (simple_types, iso) (fn, prog) =
     Result.ty_envs = ctxt.save_env;
     Result.theta = ctxt.theta;
     Result.max_vars = ctxt.max_vars;
+    Result.let_types = ctxt.let_types;
   }
