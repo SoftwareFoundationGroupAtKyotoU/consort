@@ -709,12 +709,6 @@ let typecheck_prog intr_types (fns, body) =
   in
   typecheck_prog_with sub fenv (fns, body)
 
-(* Canonicalize the type of variable `v` under `ctxt`. *)
-let find_type ctxt v =
-  match SM.find v ctxt.tyenv |> canonicalize ctxt.sub with
-  | `Var v -> Hashtbl.find ctxt.sub.resolv v
-  | #refined_typ as t -> t
-
 let tyenv_from_args args arg_types =
   List.fold_left2 (fun tyenv v t -> SM.add v t tyenv) SM.empty args arg_types
 
@@ -799,6 +793,7 @@ let check_return_type fenv (fns, _) =
                 name v)
        pte *)
   in
+
   List.iter
     (fun ({ name; _ } as fn) ->
       let { ret_type; _ } = SM.find name fenv in
