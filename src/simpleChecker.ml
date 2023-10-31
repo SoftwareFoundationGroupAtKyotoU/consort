@@ -689,24 +689,25 @@ let create_sub_ctxt () =
   let cons_uf = TyConsUF.mk () in
   { uf; cons_uf; resolv; cons_arg; fn_name = "" }
 
+let add_intr_types sub intr_types =
+  let lift_const t =
+    let t_id = UnionFind.new_node sub.uf in
+    Hashtbl.add sub.resolv t_id @@ abstract_type sub t;
+    t_id
+  in
+  StringMap.fold
+    (fun k { arg_types; ret_type } ->
+      StringMap.add k
+        {
+          arg_types_v = List.map lift_const arg_types;
+          ret_type_v = lift_const ret_type;
+        })
+    intr_types
+
 let typecheck_prog intr_types (fns, body) =
   let sub = create_sub_ctxt () in
   let fenv_ : funenv = make_fenv sub.uf fns in
-  let fenv =
-    let lift_const t =
-      let t_id = UnionFind.new_node sub.uf in
-      Hashtbl.add sub.resolv t_id @@ abstract_type sub t;
-      t_id
-    in
-    StringMap.fold
-      (fun k { arg_types; ret_type } ->
-        StringMap.add k
-          {
-            arg_types_v = List.map lift_const arg_types;
-            ret_type_v = lift_const ret_type;
-          })
-      intr_types fenv_
-  in
+  let fenv = add_intr_types sub intr_types fenv_ in
   typecheck_prog_with sub fenv (fns, body)
 
 let tyenv_from_args args arg_types =
@@ -753,14 +754,7 @@ let ptecheck_prog intr_types (fns, body) fenv =
         let ret_type_v = UnionFind.new_node sub.uf in
         SM.add name { arg_types_v; ret_type_v } fenv')
       SM.empty fns
-    |> StringMap.fold
-         (fun k { arg_types; ret_type } ->
-           StringMap.add k
-             {
-               arg_types_v = List.map lift_const arg_types;
-               ret_type_v = lift_const ret_type;
-             })
-         intr_types
+    |> add_intr_types sub intr_types
   in
   typecheck_prog_with sub fenv' (fns, body)
 
