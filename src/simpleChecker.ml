@@ -713,30 +713,43 @@ let typecheck_prog intr_types (fns, body) =
 let tyenv_from_args args arg_types =
   List.fold_left2 (fun tyenv v t -> SM.add v t tyenv) SM.empty args arg_types
 
+let r_typ_to_typ sub =
+  let rec loop : r_typ -> typ = function
+    | `TVar _ | `Mu _ | `Ref _ -> `Var (UnionFind.new_node sub.uf)
+    | `Int -> `Int
+    | `Array `Int -> `Array `Int
+    | `Tuple tl -> `Tuple (List.map loop tl)
+    | `Lock pte -> `Lock (SM.map loop pte)
+    | `ThreadID pte -> `ThreadID (SM.map loop pte)
+  in
+  loop
+
 (* Check the correctness of function calls with respect to PTEs.
    The parameter `fenv` is the function type environment already type inferred except for PTEs.
    Reconstruct the function type environment (`fenv'`) considering the PTEs and
    inspect function calls. *)
 let ptecheck_prog intr_types (fns, body) fenv =
   let sub = create_sub_ctxt () in
-  let lift_const t =
-    let t_id = UnionFind.new_node sub.uf in
-    Hashtbl.add sub.resolv t_id @@ abstract_type sub t;
-    t_id
-  in
 
   (* Reconstruct the function type environment so that
      the set of all variables to the left of a parameter lock and tid
      becomes their PTE. *)
   let fenv' =
+    let lift_const = function
+      | `Var t_id -> t_id
+      | #refined_typ as t ->
+          let t_id = UnionFind.new_node sub.uf in
+          Hashtbl.add sub.resolv t_id t;
+          t_id
+    in
     List.fold_left
       (fun fenv' { name; args; _ } ->
         let { arg_types; _ } = StringMap.find name fenv in
+        let arg_types' = List.map (r_typ_to_typ sub) arg_types in
         let _, rev_arg_types =
           List.fold_left2
             (fun (args, arg_types) v t ->
-              let rec construct_pte (t : r_typ) : r_typ =
-                match t with
+              let rec construct_pte = function
                 | `Lock _ ->
                     let pte = tyenv_from_args args arg_types in
                     `Lock pte
@@ -744,11 +757,10 @@ let ptecheck_prog intr_types (fns, body) fenv =
                     let pte = tyenv_from_args args arg_types in
                     `ThreadID pte
                 | `Tuple tl -> `Tuple (List.map construct_pte tl)
-                | `Ref t -> `Ref (construct_pte t)
-                | _ -> t
+                | #typ as t -> t
               in
               (v :: args, construct_pte t :: arg_types))
-            ([], []) args arg_types
+            ([], []) args arg_types'
         in
         let arg_types_v = List.rev_map lift_const rev_arg_types in
         let ret_type_v = UnionFind.new_node sub.uf in
