@@ -774,11 +774,10 @@ let ptecheck_prog intr_types (fns, body) fenv =
 let check_return_type fenv (fns, _) =
   let rec check fn (t : r_typ) =
     match t with
-    | `Int -> ()
-    | `TVar _ -> failwith "Unexpected type variable found"
+    | `Int | `TVar _ -> ()
     | `Tuple tl -> List.iter (check fn) tl
     | `Ref t -> check fn t
-    | `Mu _ -> failwith "Mu type not supported"
+    | `Mu (_, t) -> check fn t
     | `Array t -> check fn (t :> r_typ)
     | `Lock _ | `ThreadID _ ->
         failwith "A function that returns a type with PTE is not yet supported"
