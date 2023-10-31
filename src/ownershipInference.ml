@@ -1222,13 +1222,14 @@ let infer ~opts (simple_types, iso) (fn, prog) =
       }
   in
   let fn_params =
+    let open RefinementTypes in
     List.fold_left
       (fun acc { name; args; _ } -> SM.add name args acc)
       SM.empty fn
     |> SM.fold
          (fun name it acc ->
            let args =
-             List.init (RefinementTypes.get_args_length it) (fun i ->
+             List.init (List.length it.arg_types) (fun i ->
                  Char.escaped @@ char_of_int (int_of_char 'a' + i))
            in
            SM.add name args acc)

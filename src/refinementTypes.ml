@@ -61,8 +61,6 @@ type 'a _funtype = {
 
 type funtype = ftyp _funtype [@@deriving sexp]
 
-let get_args_length fn = List.length fn.arg_types
-
 let rec to_simple_type = function
   | Ref (t,_,_) -> `Ref (to_simple_type t)
   | Int _ -> `Int
