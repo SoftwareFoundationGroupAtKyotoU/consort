@@ -226,7 +226,7 @@ type res_t =
   * string (* entry point relation *)
   * P.PathSet.t StringMap.t (* omit sets (used in relax mode only) *)
 
-let rec unfold_fltype subst = function
+let rec unfold_fltype subst : fltype -> fltype = function
   | `TVar -> subst
   | `Mu _ -> assert false
   | `Int -> `Int
@@ -234,9 +234,10 @@ let rec unfold_fltype subst = function
   | `Ref (true, _) -> failwith "Already unfolded ref under a mu binder?!?!?"
   | `Tuple tl -> `Tuple (List.map (unfold_fltype subst) tl)
   | `IntArray -> `IntArray
+  | (`Lock _ | `ThreadID _) as t -> t
 
 (** walks the type, unfolding all mu binders once *)
-let rec deep_type_normalization = function
+let rec deep_type_normalization : fltype -> fltype = function
   | `Mu (`Ref (false, t)) -> `Ref (true, unfold_fltype (`Mu (`Ref (false, t))) t)
   | `Mu (`Ref (true, _)) -> failwith "broken invariant"
   | `Mu _ -> assert false
@@ -245,7 +246,7 @@ let rec deep_type_normalization = function
   | `Ref (b, t) -> `Ref (b, deep_type_normalization t)
   | `IntArray -> `IntArray
   | `TVar -> assert false
-  | `Lock _ | `ThreadID _ -> failwith "not implemented in flowinference"
+  | (`Lock _ | `ThreadID _) as t -> t
 
 let rec simple_to_fltype ?tvar = function
   | `Mu (id, t) ->
