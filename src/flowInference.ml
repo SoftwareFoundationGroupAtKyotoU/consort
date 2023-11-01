@@ -159,7 +159,9 @@ type fltype =
   | `Int
   | `Tuple of fltype list
   | `Mu of fltype
-  | `TVar ]
+  | `TVar
+  | `Lock of fltype SM.t
+  | `ThreadID of fltype SM.t ]
 
 let rec fltype_to_string = function
   | `IntArray -> "[int]"
