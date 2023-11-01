@@ -62,7 +62,7 @@ let funtypes_to_funtyps =
     + [tyenvs](type environment) and [theta](function type environment) in [OwnershipInference]
     + [let_types] and function type environment in [SimpleChecker]
 *)
-let clean ownership_res (_simple_theta, simple_results) (infer_res : Result.t) =
+let clean ownership_res (simple_theta, simple_results) (infer_res : Result.t) =
   let o_map = function OVar v -> List.assoc v ownership_res | OConst c -> c in
   let clean_otype = clean_otype_with o_map in
 
@@ -72,8 +72,12 @@ let clean ownership_res (_simple_theta, simple_results) (infer_res : Result.t) =
   let infer_res' = { infer_res with theta; ty_envs } in
 
   (* For SimpleChecker *)
-  let simple_theta =
-    theta_map otype_to_simple_type theta |> funtypes_to_funtyps
+  let simple_theta' =
+    theta
+    |> SM.filter (fun name _ -> SM.mem name simple_theta)
+       (* Remove intricated types *)
+    |> theta_map otype_to_simple_type
+    |> funtypes_to_funtyps
   in
   let let_types =
     Std.IntMap.map
@@ -81,7 +85,7 @@ let clean ownership_res (_simple_theta, simple_results) (infer_res : Result.t) =
       infer_res.let_types
   in
   let simple_res' : SimpleChecker.simple_results =
-    (simple_theta, { simple_results with let_types })
+    (simple_theta', { simple_results with let_types })
   in
 
   (simple_res', infer_res')
