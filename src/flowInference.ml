@@ -173,6 +173,14 @@ let rec fltype_to_string = function
       Printf.sprintf "(%s)" @@ String.concat ", "
       @@ List.map fltype_to_string tl
   | `TVar -> Greek.alpha
+  | `Lock pte -> Printf.sprintf "(%s) lock" @@ pte_to_string pte
+  | `ThreadID pte -> Printf.sprintf "(%s) tid" @@ pte_to_string pte
+
+and pte_to_string pte =
+  let l =
+    StringMap.fold (fun v t l -> (v ^ ": " ^ fltype_to_string t) :: l) pte []
+  in
+  String.concat ", " l
 
 type funtype = fltype _funtyp
 
