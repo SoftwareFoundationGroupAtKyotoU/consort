@@ -229,18 +229,18 @@ let typecheck ~opts file =
   print_typecheck simple_res ast;
   Verified
 
-  let convmochi ~opts file =
-    let ast = AstUtil.parse_file file in
-    (* print_endline @@ Sexplib.Sexp.to_string @@ Ast.sexp_of_prog ast; *)
-    let intr_op = (ArgOptions.get_intr opts).op_interp in
-    let simple_op = RefinementTypes.to_simple_funenv intr_op in
-    let simple_res = SimpleChecker.typecheck_prog simple_op ast in
-    let infer_res = OwnershipInference.infer ~opts simple_res ast in
-    let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
-    let prog =
-      ConvMoCHi.prog_to_mochi infer_res
-        ((function Some x -> x | None -> assert false) ownership_res)
-        ast
-    in
-    ConvMoCHi.Mochi.print_prog prog;
-    match ownership_res with None -> Unverified Aliasing | Some _ -> Verified
+let convmochi ~opts file =
+  let ast = AstUtil.parse_file file in
+  (* print_endline @@ Sexplib.Sexp.to_string @@ Ast.sexp_of_prog ast; *)
+  let intr_op = (ArgOptions.get_intr opts).op_interp in
+  let simple_op = RefinementTypes.to_simple_funenv intr_op in
+  let simple_res = SimpleChecker.typecheck_prog simple_op ast in
+  let infer_res = OwnershipInference.infer ~opts simple_res ast in
+  let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
+  let prog =
+    ConvMoCHi.prog_to_mochi infer_res
+      ((function Some x -> x | None -> assert false) ownership_res)
+      ast
+  in
+  ConvMoCHi.Mochi.print_prog prog;
+  match ownership_res with None -> Unverified Aliasing | Some _ -> Verified
