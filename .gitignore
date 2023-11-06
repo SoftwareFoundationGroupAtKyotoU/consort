@@ -27,3 +27,4 @@ paper/related_work.tex
 paper/semantics.tex
 paper/typesystem.tex
 paper/wf_rules.tex
+src/test/to_mochi.ml

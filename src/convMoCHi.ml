@@ -265,6 +265,10 @@ module Mochi = struct
   let print_prog prog =
     print_endline builtin;
     pp_prog prog std_formatter
+
+  let write_to_channel_prog prog file =
+    Printf.fprintf file "%s\n" builtin;
+    pp_prog prog (Format.formatter_of_out_channel file);
 end
 
 let pull_type ty con i =
