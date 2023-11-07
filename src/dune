@@ -50,6 +50,7 @@
  (name test)
  (preprocess (pps ppx_sexp_conv ppx_let with_monad ppx_custom_printf ppx_cast))
  (libraries consort yaml)
+ (flags (-linkall))
  (modules Test))
 
 (executable

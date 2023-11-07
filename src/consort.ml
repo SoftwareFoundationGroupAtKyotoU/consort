@@ -1,3 +1,5 @@
+open Sexplib.Std
+
 type reason =
   | Timeout
   | Unsafe
@@ -193,6 +195,7 @@ let consort ~opts file =
   let simple_res = SimpleChecker.typecheck_prog simple_typing ast in
   let infer_res = OwnershipInference.infer ~opts simple_res ast in
   let ownership_res = OwnershipSolver.solve_ownership ~opts infer_res in
+  Log.debug ~src:"OWNERSHIP" !"Mapping from ownership variable to value: %{sexp:(int * float) list option}" ownership_res;
   match ownership_res with
   | None -> Unverified Aliasing
   | Some o_res ->

@@ -322,12 +322,17 @@ let add_assert_cond assert_cond curr_relation =
    null flag of [v] happens to be represented as an extension (and thus "beneath") [v]; this requires an annoying special
    case when doing havoc queries, but *believe me*, it's far more annoying to use another strategy.
  *)
+
+let show_map m = OI.GenMap.fold (fun k d rest -> Printf.sprintf !"%{sexp:OI.magic_loc * P.path}" k ^ " -> " ^ string_of_float d ^ ", " ^ rest) m ""
+
 let rec havoc_oracle ctxt ml p =
   Log.debug ~src:"FLOW-OWN" !"Looking for %{P} @ %{sexp:OI.magic_loc}" p ml;
   let from_path p_ =
+    Log.debug ~src:"FLOW-OWN" !"Searching %{sexp:OI.magic_loc * P.path} in %s" (ml,p_) (show_map ctxt.o_hints.OI.gen);
     let o = OI.GenMap.find (ml,p_) ctxt.o_hints.OI.gen in
     o = 0.0
   in
+  Log.debug ~src:"FLOW-OWN" !"P.tail p is %s" (P.string_of_tail (P.tail p));
   match P.tail p with
   | Some `Deref
   | Some `Ind
@@ -2284,6 +2289,7 @@ let%lq get_iso_at e_id ctxt =
    labelled return statements) is described by the output argument.
 *)
 let rec process_expr ~output (((relation : relation),tyenv) as st) continuation ((e_id,_),e) =
+  Log.debug ~src:"DEBUG" !"processing %d: %{sexp:raw_exp}" e_id e;
   (* execute two branches, and then bring their results into sync. analyzes branch 1, b2 analyzes branch 2 *)
   let scoped_effect ~b1 ~b2 ctxt =
     (* some trickery here; we abuse the context to record information about the current
@@ -2911,6 +2917,7 @@ let analyze_main start_rel main ctxt =
   let ctxt,_ = process_expr (start_rel,[]) ~output:None None main ctxt in
   ctxt
 
+(* Take options "~opts", a result of simple type checking "(simple_theta,side_results)", ownership information "o_hints", and AST "(fns, main)" as arguments. *)
 let infer ~opts (simple_theta,side_results) o_hints (fns,main) =
   let lift_and_unfold = (fun p -> deep_type_normalization @@ simple_to_fltype p) in
   let simple_theta = StringMap.map (fun ft ->

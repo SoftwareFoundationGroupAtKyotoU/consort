@@ -28,6 +28,7 @@ type steps = [
 private (to protect crucial invariants), but may still be pattern matched over. To make extension O(1), the steps are stored in _reverse_ order
 in the path representation; i.e., the last step is the head of the list, etc. *)
 type path = private root * steps list * suff [@@deriving sexp]
+(* type path = root * steps list * suff [@@deriving sexp] *)
 type concr_ap = path [@@deriving sexp]
 
 (** Give a string representation of the path, suitable for use as a z3 identifier *)
@@ -142,6 +143,8 @@ val compare : path -> path -> int
    Otherwise, on a path with a [`None] suffix, returns the head element of steps (i.e., the last deref/projection in the path)
 *)
 val tail : path -> [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option
+
+val string_of_tail: [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ] option -> string
 
 (** A (printable) set of paths *)
 module PathSet : Std.PRINTSET with type elt = path

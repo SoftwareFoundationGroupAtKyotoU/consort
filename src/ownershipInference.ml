@@ -18,6 +18,7 @@ module P = Paths
 type ownership =
     OVar of int (** A variable with id int *)
   | OConst of float (** a constant ownership with the given rational number *)
+[@@deriving sexp]
 
 type ocon =
   | Live of ownership (** The ownership must be greater than 0 (only emitted in relaxed mode) *)
@@ -35,8 +36,9 @@ type 'a otype_ =
   | Tuple of 'a otype_ list
   | TVar of int
   | Mu of int * 'a otype_
+[@@deriving sexp]
 
-type otype = ownership otype_
+type otype = ownership otype_ [@@deriving sexp]
 
 (** For the most part, the ownership and refinement inference passes may be run independently. The only intersection is
 handling 0 ownership references; when a reference drops to 0 ownership, all refinements must go to top (although we use
@@ -110,6 +112,13 @@ type 'a ownership_ops = {
    the function parameters, and b) the ownership returned back to the function.
  *) 
 
+type gamma = otype StringMap.t
+let sexp_of_gamma = StringMap.sexp_of_t ~v:sexp_of_otype
+
+(** Save the ownership types at each point in the program; only used for debugging *)
+type save_env = otype StringMap.t IntMap.t
+let sexp_of_save_env = IntMap.sexp_of_t ~v:(StringMap.sexp_of_t ~v:sexp_of_otype)
+
 type context = {
   relaxed : bool;
   ovars: int list;
@@ -121,12 +130,10 @@ type context = {
   v_counter: int;
   iso: SimpleChecker.SideAnalysis.results;
   ocons: ocon list;
-  gamma: otype StringMap.t;
+  gamma: gamma;
   theta: (otype RefinementTypes._funtype) StringMap.t;
   op_record: ownership ownership_ops;
-  save_env: otype StringMap.t IntMap.t (** Save the ownership types at
-                                          each point in the program;
-                                          only used for debugging *)
+  save_env: save_env
 }
 
 type infr_options = bool
@@ -838,6 +845,8 @@ let infer ~opts (simple_types,iso) (fn,prog) =
   in
   let ctxt = List.fold_left analyze_fn ctxt fn in
   let (ctxt,_) = process_expr ~output:None prog ctxt in
+  Log.debug ~src:"OWNERSHIP" !"Gamma: %{sexp:gamma}" ctxt.gamma;
+  Log.debug ~src:"OWNERSHIP" !"Owenrship types at each point: %{sexp:save_env}" ctxt.save_env;
   {
     Result.ocons = ctxt.ocons;
     Result.ovars = ctxt.ovars;
