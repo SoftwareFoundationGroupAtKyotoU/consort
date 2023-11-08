@@ -586,7 +586,7 @@ let is_rec_assign sub c t' =
       Hashtbl.find_opt sub.resolv v
       |> Option.map [%cast: typ]
       |> Option.map @@ check_loop h_rec
-      |> Option.value ~default:true
+      |> Option.value ~default:false
     | `Int -> false
     | `TyCons c ->
       let c_id = TyCons.unwrap c in
