@@ -256,7 +256,7 @@ let rec deep_type_normalization : fltype -> fltype = function
   | `TVar -> assert false
   | (`Lock _ | `ThreadID _) as t -> t
 
-let rec simple_to_fltype ?tvar = function
+let rec simple_to_fltype ?tvar : r_typ -> fltype = function
   | `Mu (id, t) ->
       assert (tvar = None);
       `Mu (simple_to_fltype ~tvar:id t)
@@ -267,7 +267,8 @@ let rec simple_to_fltype ?tvar = function
       assert (Option.map (( = ) id) tvar |> Option.value ~default:false);
       `TVar
   | `Tuple tl -> `Tuple (List.map (simple_to_fltype ?tvar) tl)
-  | `Lock _ | `ThreadID _ -> failwith "not implemented in flowinference"
+  | `Lock pte -> `Lock (SM.map simple_to_fltype pte)
+  | `ThreadID pte -> `ThreadID (SM.map simple_to_fltype pte)
 
 let%lq get_function_type f_name ctxt =
   let { f_type; _ } = StringMap.find f_name ctxt.fenv in
