@@ -2749,10 +2749,11 @@ let rec process_expr ~output (((relation : relation), tyenv) as st) continuation
          ensuring the values in the result of the fold reflects any information from the
          unfolded type being aliased in.
       *)
-      let rec has_mu_binder = function
+      let rec has_mu_binder : fltype -> bool = function
         | `Int | `TVar | `IntArray | `Ref _ -> false
         | `Mu _ -> true
         | `Tuple tl -> List.exists has_mu_binder tl
+        | `Lock _ | `ThreadID _ -> false
       in
       (* TODO: add null ante pre *)
       (* If we have an isounfold here, then one of the alias
