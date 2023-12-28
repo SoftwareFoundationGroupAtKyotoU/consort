@@ -203,6 +203,14 @@ type state_snapshot = {
   relation : relation;
 }
 
+module StringPairMap = Map.Make (struct
+  type t = string * string
+
+  let compare = compare
+end)
+
+module SPM = StringPairMap
+
 type ctxt = {
   null_checks : bool;
       (** whether to emit checks that all read/written pointers are provably null *)
