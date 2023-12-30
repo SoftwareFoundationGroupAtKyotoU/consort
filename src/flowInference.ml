@@ -298,6 +298,7 @@ let%lq copy_state ctxt = ctxt
 (** Get the name of the given relation *)
 let get_relation_ident ((n, _, _) : relation) = n
 
+(** [omit_map[rel] |= set]; Add omit set *)
 let merge_havoc_omit rel set omit_map =
   StringMap.update rel
     (function None -> Some set | Some x -> Some (P.PathSet.union x set))
