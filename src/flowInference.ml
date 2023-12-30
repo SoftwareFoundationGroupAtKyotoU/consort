@@ -417,9 +417,9 @@ let%lq split_oracle sl ctxt =
 let%lq gen_for_alias e_id ctxt = havoc_oracle ctxt (OI.MAlias e_id)
 let%lq gen_oracle ml ctxt = havoc_oracle ctxt ml
 
-let rec lift_refinement ?(map = Fun.id) ?nu_arg =
+let rec lift_refinement ?(map = Fun.id) ?nu_arg : RT.refinement -> clause list =
   let lift_symbolic_ap = map in
-  let lift_symbolic_imm = function
+  let lift_symbolic_imm : RT.rel_imm -> concr_arg = function
     | RT.RConst i -> IConst i
     | RT.RAp p -> Ap (lift_symbolic_ap p)
   in
@@ -430,12 +430,13 @@ let rec lift_refinement ?(map = Fun.id) ?nu_arg =
         lift_refinement ~map ?nu_arg r1 @ lift_refinement ~map ?nu_arg r2
     | ConstEq i ->
         [ rel ~ty:ZInt @@ mk_relation (Ap (Option.get nu_arg)) "=" (IConst i) ]
-    | Relation r when r.rel_op1 = Nu ->
+    | Relation ({ rel_op1 = Nu; _ } as r) ->
         [
           rel ~ty:ZInt
             {
               r with
               rel_op1 = Ap (Option.get nu_arg);
+              (* Replace [Nu] with the concrete access path [nu_arg] *)
               rel_op2 = lift_symbolic_imm r.rel_op2;
             };
         ]
@@ -452,8 +453,7 @@ let rec lift_refinement ?(map = Fun.id) ?nu_arg =
         let nu_arg = Option.get nu_arg in
         let named_args = List.map lift_symbolic_ap sym_names in
         let val_args = List.map (fun l -> Ap l) @@ (nu_arg :: named_args) in
-        [ NamedRel (nm, val_args) ]
-    | _ -> failwith "Refinement form not supported")
+        [ NamedRel (nm, val_args) ])
 
 (** Extract the type referred to by the [path] in [tyenv] *)
 let path_simple_type tyenv path =
