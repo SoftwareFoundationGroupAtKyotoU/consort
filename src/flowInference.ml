@@ -575,8 +575,13 @@ let flow_to_subst (i : int) : flow -> P.path * concr_arg = function
   | Copy (p1, p2) -> (p2, Ap p1)
   | NullConst (p, b) -> (p, BConst b)
 
-let%lm add_relation_flow ?out_ctxt ?(pre = []) subst in_rel out_rel ctxt =
-  let lifted_subst = List.mapi flow_to_subst subst in
+(** Generate the constraint [in_rel => out_rel].
+    Substitute the arguments of [out_rel] using [subst]. *)
+let%lm add_relation_flow ?out_ctxt ?(pre = []) (subst : flow list)
+    (in_rel : relation) (out_rel : relation) ctxt =
+  let lifted_subst : (P.path * concr_arg) list =
+    List.mapi flow_to_subst subst
+  in
   let ante = PRelation (in_rel, [], None) :: pre in
   let conseq = PRelation (out_rel, lifted_subst, out_ctxt) in
   { ctxt with impl = (ante, conseq) :: ctxt.impl }
