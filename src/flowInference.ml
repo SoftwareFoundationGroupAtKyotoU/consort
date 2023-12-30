@@ -598,9 +598,10 @@ let type_to_paths ?(pre = false) root (ty : fltype) =
     in
     paths @ acc
   in
-  let rec loop under_ref under_mu acc p = function
+  let rec loop under_ref under_mu acc p : fltype -> P.path list = function
     | `Int -> add_path pre under_ref under_mu acc p
     | `Ref (_, t) ->
+        (* Add the null flag of the reference which the path [p] points to, to [acc] *)
         let acc = add_path pre under_ref under_mu acc (P.to_null p) in
         loop true under_mu acc (P.deref p) t
     | `Tuple tl ->
@@ -614,6 +615,9 @@ let type_to_paths ?(pre = false) root (ty : fltype) =
           [ P.len p; P.ind p; P.elem p ]
     | `Mu t -> loop under_ref true acc p t
     | `TVar -> acc
+    | `Lock _ | `ThreadID _ ->
+        (* No integer or null flag reachable from lock or thread id *)
+        acc
   in
   loop false false [] root ty
 
