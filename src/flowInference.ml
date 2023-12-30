@@ -495,6 +495,9 @@ let%lm add_null_path_check curr_rel null_flag_path ctxt =
         :: ctxt.impl;
     }
 
+(** [add_null_check curr_rel pointer_path]
+    - [curr_rel]: Current relation
+    - [pointer_path]: Path of reference guaranteed not to be null *)
 let add_null_check curr_rel pointer_path =
   add_null_path_check curr_rel @@ P.to_null pointer_path
 
