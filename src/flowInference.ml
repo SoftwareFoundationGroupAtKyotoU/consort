@@ -461,7 +461,9 @@ let path_simple_type tyenv path =
     match P.tail path with
     | None -> (
         match (path : P.path :> P.root * 'a * 'b) with
-        | P.Var v, _, _ -> k @@ List.assoc v tyenv
+        | P.Var v, _, _ ->
+            k @@ List.assoc v tyenv
+            (* Get the type of the root [v], follow the given path [path] by continuation [k], and get its type *)
         | _ -> failwith "not supported")
     | Some `Deref ->
         loop (P.parent path) (function
