@@ -569,7 +569,7 @@ let%lm add_implication ante conseq ctxt =
    are then compiled down to the necessary substitutions on the output
    relation.
 *)
-let flow_to_subst i = function
+let flow_to_subst (i : int) : flow -> P.path * concr_arg = function
   | Havoc p -> (p, Ap (havoc_ap i p))
   | Const (p, c) -> (p, IConst c)
   | Copy (p1, p2) -> (p2, Ap p1)
