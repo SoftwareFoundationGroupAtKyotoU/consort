@@ -925,6 +925,10 @@ let ccat a1 a2 =
     weak_copies = a1.weak_copies @ a2.weak_copies;
   }
 
+(** Return the flow from [in_ap] to [out_ap] as [copy_spec].
+    Note: [in_ap] and [out_ap] are not necessarily a path to a single integer value, 
+          but they may be the one to a tuple or to something more complicated.
+          Therefore, [parallel_type_walk] is needed to follow all the paths reachable from [in_ap] and [out_ap]. *)
 let compute_copies in_ap out_ap ty : copy_spec =
   parallel_type_walk in_ap out_ap ty
     (fun k (in_ap, out_ap) () ->
