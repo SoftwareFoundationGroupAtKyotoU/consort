@@ -311,6 +311,13 @@ let%lm set_havoc_state ~rel havoc_state ctxt =
     omit_set = merge_havoc_omit rel havoc_state ctxt.omit_set;
   }
 
+let%lm add_havoc_state ~rel havoc_state ctxt =
+  {
+    ctxt with
+    havoc_set = P.PathSet.union ctxt.havoc_set havoc_state;
+    omit_set = merge_havoc_omit rel havoc_state ctxt.omit_set;
+  }
+
 let%lq get_havoc_state ctxt = ctxt.havoc_set
 let%lq get_bound_type e_id ctxt = IntMap.find e_id ctxt.let_types
 let mk_relation lhs op rhs = RT.{ rel_op1 = lhs; rel_cond = op; rel_op2 = rhs }
