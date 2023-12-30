@@ -562,6 +562,7 @@ let havoc_ap d p =
 let to_pass_ap = P.map_root (fun s -> "pass!" ^ s)
 let lift_copy (s, d) = (s, Ap d)
 
+(** Add the constraint [ante => conseq] *)
 let%lm add_implication ante conseq ctxt =
   { ctxt with impl = (ante, conseq) :: ctxt.impl }
 
