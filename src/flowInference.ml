@@ -329,6 +329,17 @@ let%lq get_bound_type e_id ctxt = IntMap.find e_id ctxt.let_types
 
 (** Get the name of the current function being inferred *)
 let%lq get_curr_fun ctxt = Option.value ~default:"main-fn" ctxt.curr_fun
+
+(** [get_pte_relation ?fn v ctxt ]: Get the PTE relation held by [v] in function [fn] *)
+let%lq get_pte_relation ?fn v ctxt =
+  let _, curr_fun = get_curr_fun ctxt in
+  let fn = Option.value ~default:curr_fun fn in
+  try SPM.find (fn, v) ctxt.pte_rel
+  with _ ->
+    failwith
+    @@ Printf.sprintf
+         "In function %s, %s is neither a lock type nor a thread ID type" fn v
+
 let mk_relation lhs op rhs = RT.{ rel_op1 = lhs; rel_cond = op; rel_op2 = rhs }
 
 (** [ty] tracks the type of the arguments (used for "type inference" when dumping SMT clauses) *)
