@@ -352,6 +352,7 @@ let path_type p = if P.is_nullity p then ZBool else ZInt
 let type_paths : P.path list -> (P.path * z3_types) list =
   List.map (fun p -> (p, path_type p))
 
+(** Add the constraint [curr_relation => op1 cond op2] *)
 let%lm add_assert op1 cond op2 curr_relation ctxt =
   let ante = [ PRelation (curr_relation, [], None) ] in
   let relation = rel ~ty:ZInt @@ mk_relation op1 cond op2 in
