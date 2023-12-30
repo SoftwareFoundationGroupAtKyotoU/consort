@@ -232,8 +232,9 @@ type ctxt = {
       (** The set of mu relations at each mu binder *)
   snapshots : state_snapshot IntMap.t;
   omit_set : P.PathSet.t StringMap.t;
-  pte_rel : relation SPM.t; (** Mapping from variables to PTE relations *)
-  fn_params : string list StringMap.t; (** Mapping from function names to their parameters *)
+      (** Mapping from relation names to paths sets.
+          The set is the one of the paths which will be not used as arguments of the given relation.
+          Used in relaxed mode. *)
 }
 
 type res_t =
