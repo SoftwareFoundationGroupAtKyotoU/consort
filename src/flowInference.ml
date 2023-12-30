@@ -980,7 +980,8 @@ let to_mu_copies { weak_copies; _ } =
                ty )))
     weak_copies
 
-let compute_patt_copies path patt ty =
+(** For {[let patt = path in ... ]}, return the flow from [path] to [patt] as [copy_spec]. *)
+let compute_patt_copies path patt ty : copy_spec =
   let rec loop patt path ty acc =
     match (patt, ty) with
     | PNone, _ -> acc
