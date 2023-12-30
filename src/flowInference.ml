@@ -235,6 +235,9 @@ type ctxt = {
       (** Mapping from relation names to paths sets.
           The set is the one of the paths which will be not used as arguments of the given relation.
           Used in relaxed mode. *)
+  pte_rel : relation SPM.t;  (** Mapping from variables to PTE relations *)
+  fn_params : string list StringMap.t;
+      (** Mapping from function names to their parameters *)
 }
 
 type res_t =
