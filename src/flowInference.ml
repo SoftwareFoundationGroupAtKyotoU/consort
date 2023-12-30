@@ -326,6 +326,9 @@ let%lq get_havoc_state ctxt = ctxt.havoc_set
 
 (** [get_bound_type e_id ctxt]: Get the type of the expression at [e_id] *)
 let%lq get_bound_type e_id ctxt = IntMap.find e_id ctxt.let_types
+
+(** Get the name of the current function being inferred *)
+let%lq get_curr_fun ctxt = Option.value ~default:"main-fn" ctxt.curr_fun
 let mk_relation lhs op rhs = RT.{ rel_op1 = lhs; rel_cond = op; rel_op2 = rhs }
 
 (** [ty] tracks the type of the arguments (used for "type inference" when dumping SMT clauses) *)
