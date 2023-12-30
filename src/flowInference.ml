@@ -294,6 +294,8 @@ let%lq get_out_relation f_name ctxt =
 
 let%lq get_function_info f_name ctxt = StringMap.find f_name ctxt.fenv
 let%lq copy_state ctxt = ctxt
+
+(** Get the name of the given relation *)
 let get_relation_ident ((n, _, _) : relation) = n
 
 let merge_havoc_omit rel set omit_map =
