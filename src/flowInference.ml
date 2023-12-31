@@ -1067,6 +1067,10 @@ let augment_havocs flows havoc_set =
   List.filter (fun (p, _) -> not (P.PathSet.mem p havoc_set)) flows
   |> P.PathSet.fold (fun p acc -> (p, Ap (havoc_ap 0 p)) :: acc) havoc_set
 
+(* Generate flows from a set of paths to be havoced *)
+let havoc_set_to_subst : P.PathSet.t -> (P.path * concr_arg) list =
+  augment_havocs []
+
 (**
    Compute the the substitutions necessary for the copy spec as described below.
 
