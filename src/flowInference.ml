@@ -2279,6 +2279,9 @@ let bind_return ~fn ~e_id ~cid out_patt ret_type =
   in
   return (List.map (fun (s, d, _) -> (s, Ap d)) direct_copies, havoc_ret)
 
+(** Get a list of arguments for function [fn_name] *)
+let%lq find_params fn_name ctxt = SM.find fn_name ctxt.fn_params
+
 let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let callee = call_expr.callee in
   let%bind callee_type = get_function_type callee in
