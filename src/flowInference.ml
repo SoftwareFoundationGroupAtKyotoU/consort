@@ -1147,11 +1147,19 @@ let%lm apply_copies ?out_rec_rel ~havoc:havoc_flag ~sl ?(flows = []) ?pre copies
   (* The mu binders that are copied *)
   let mu_copies = to_mu_copies copies in
   let havoc_set = ctxt.havoc_set in
-  (* update the havoc set according to the new havoc info computed by compute copies *)
+  (* update the havoc set according to the new havoc info computed by compute copies
+
+     [havoc_set := havoc + (havoc_set - stable)]
+     - havoc_set: a set of currently havoced paths
+     - havoc: a set of newly havoced paths
+     - stable: a set of newly non-havoced paths *)
   let havoc_set =
     P.PathSet.union hstate.H.havoc @@ P.PathSet.diff havoc_set hstate.H.stable
   in
-  (* which paths should be havoc? *)
+  (* which paths should be havoc?
+
+     If [havoc_flag] then havoc all the paths to be havoced
+     Else havoc only paths which turned out to be havoced just now *)
   let applied_havocs = if havoc_flag then havoc_set else hstate.H.havoc in
   let flows = List.mapi flow_to_subst flows in
   (* the output substitution; augments direct copies with those produced by the high level flows optional argument
