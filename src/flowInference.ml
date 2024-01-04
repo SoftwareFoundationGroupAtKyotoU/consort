@@ -2525,6 +2525,12 @@ let fresh_alias_relation ~e_id ~name ~args ctxt =
   let to_ret = (name, args, AliasUnfold e_id) in
   ({ ctxt with relations = to_ret :: ctxt.relations }, to_ret)
 
+(** Generate a fresh relation name: [<function name>-<e_id>-<postfix>]  *)
+let%lq relation_name_with e_id postfix ctxt =
+  Printf.sprintf "%s-%d-%s"
+    (Option.value ~default:"main-fn" ctxt.curr_fun)
+    e_id postfix
+
 let to_cont k = Some k
 
 (* This creates a relation and type environment which extends
