@@ -2546,6 +2546,11 @@ let%lm add_pte_rel v rel ctxt =
   let _, curr_fun = get_curr_fun ctxt in
   { ctxt with pte_rel = SPM.add (curr_fun, v) rel ctxt.pte_rel }
 
+(* Generate a fresh relation for PTE. *)
+let fresh_relation_for_pte ~e_id ~args ~key =
+  let%bind rel = fresh_relation ~e_id ~args ~postfix:"pte" in
+  add_pte_rel key rel >> return rel
+
 let to_cont k = Some k
 
 (* This creates a relation and type environment which extends
