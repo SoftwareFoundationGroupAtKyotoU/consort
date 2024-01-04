@@ -2628,6 +2628,15 @@ let%lq split_paths ~sl paths ctxt =
     (P.PathSet.empty, P.PathSet.empty)
     paths
 
+(* The set of haved paths among the paths whose ownerships are created at location [ml] *)
+let%lq join_paths ~ml paths ctxt =
+  let havoc_oracle = havoc_oracle ctxt ml in
+  List.fold_left
+    (fun havoc_state path ->
+      let havoced = havoc_oracle path in
+      H.add_havoc path havoced havoc_state)
+    H.empty_havoc_state paths
+
 (** Process expression is a monadic function that "returns" a boolean indicating
    whether execution within the current function can proceed after executing e.
    This is false iff e must return along all paths. The continuation indicates
