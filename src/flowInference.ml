@@ -2381,17 +2381,23 @@ let add_indexing_assertion arr_ap ind_ap relation =
   @@ rel ~ty:ZInt (mk_relation (Ap array_len) ">" (IConst 0))
 
 let nonnull_flow p = NullConst (P.to_null p, is_nonnull_flag)
+(** [apply_patt ~e_id tyenv patt rhs]:
 
-let apply_patt ~e_id tyenv patt rhs =
+  {[let patt = rhs in ...]}
+
+  Process flow from paths reachable from [rhs] into those from [patt] *)
+let apply_patt ~e_id tyenv patt rhs :
+    relation -> relation -> ctxt -> ctxt * unit =
   match (patt, rhs) with
   | _, Call c -> process_call ~e_id patt c
   | PNone, _ -> apply_identity_flow ?pre:None
   | _, Var s ->
       let path = P.var s in
       apply_copies ~havoc:false ~sl:(OI.SBind e_id)
-      @@ compute_patt_copies path patt
-      @@ path_simple_type tyenv path
-  | PVar s, Const n -> add_relation_flow [ Const (P.var s, n) ]
+      (* 3. Update [ctxt] base on [copy_spec] and havoc state *)
+      @@ compute_patt_copies path patt (* 2. Convert to [copy_spec] *)
+      @@ path_simple_type tyenv path (* 1. Find [fltype] *)
+  | PVar s, Const n -> add_relation_flow [ Const (P.var s, n) ] (* [s = n] *)
   | PVar s, Mkref RNone ->
       add_relation_flow [ Havoc (vderef s); nonnull_flow @@ P.var s ]
   | PVar s, Mkref (RInt n) ->
