@@ -2531,6 +2531,15 @@ let%lq relation_name_with e_id postfix ctxt =
     (Option.value ~default:"main-fn" ctxt.curr_fun)
     e_id postfix
 
+(** Add [rel] to the set of PTE relations.
+  
+    Variable [v] has the type of lock or tid.
+    NOTE: If you want to allow creating aliases of locks and thread ids by [let] expressions
+          and storing them in tuples, use path names instead of variable names. *)
+let%lm add_pte_rel v rel ctxt =
+  let _, curr_fun = get_curr_fun ctxt in
+  { ctxt with pte_rel = SPM.add (curr_fun, v) rel ctxt.pte_rel }
+
 let to_cont k = Some k
 
 (* This creates a relation and type environment which extends
