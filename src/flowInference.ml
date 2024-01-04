@@ -2553,7 +2553,7 @@ let fresh_relation_for_pte ~e_id ~args ~key =
 
 let to_cont k = Some k
 
-(* This creates a relation and type environment which extends
+(** This creates a relation and type environment which extends
    the current relation and type environment with the result
    of binding a value given by the rhs side value recorded in
    the let binding map to [patt].
@@ -2563,15 +2563,25 @@ let to_cont k = Some k
    and the recursive mu relations when these paths fall out of scope.
 *)
 let fresh_bind_relation e_id (relation, tyenv) patt k ctxt =
+  (* Arguments of the current relation [relation] *)
   let _, curr_args, _ = relation in
+
+  (* [fltype] of the right-hand side in [let] expression *)
   let bound_type = IntMap.find e_id ctxt.let_types in
+
+  (* Add each path reachable from [patt] into [tyenv], and
+     accumulate those paths in [args] *)
   let rec destruct_loop (tyenv, args, rec_paths) patt ty =
     match (patt, ty) with
     | PVar v, ty ->
-        let ty = ty in
+        (* Add [v: ty] into [tyenv] *)
         let ty_env = (v, ty) :: tyenv in
+
+        (* List all the paths reachable from [v] *)
         let paths = List.rev @@ type_to_paths (P.var v) ty in
         let rec_paths = RecRelations.get_mu_binders (P.var v) ty @ rec_paths in
+
+        (* Give paths [z3_types] and accumulate them in [args] *)
         let args = List.map (fun p -> (p, path_type p)) paths @ args in
         (ty_env, args, rec_paths)
     | PTuple pl, `Tuple tl ->
@@ -2580,8 +2590,13 @@ let fresh_bind_relation e_id (relation, tyenv) patt k ctxt =
     | PNone, _ -> (tyenv, args, rec_paths)
   in
   let tyenv', args, mu_paths = destruct_loop (tyenv, [], []) patt bound_type in
+
+  (* Newly created paths by [let] expression *)
   let bound_paths = List.map (fun (p, _) -> p) args |> P.PathSet.of_list in
+
+  (* Extended arguments for the new relation *)
   let new_args = curr_args @ List.rev args in
+
   let name = relation_name k ctxt in
   let relation = (name, new_args, Expr e_id) in
   ( { ctxt with relations = relation :: ctxt.relations },
