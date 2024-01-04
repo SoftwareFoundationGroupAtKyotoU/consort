@@ -2514,10 +2514,11 @@ let relation_name ((e_id, _), expr) ctxt =
   in
   prefix ^ kind
 
-let fresh_relation_for curr_relation (((e_id, _), _) as k) ctxt =
+(** Generate a relation with the same arguments as [curr_relation] *)
+let fresh_relation_for (curr_relation : relation) (((e_id, _), _) as k) ctxt =
   let rel = relation_name k ctxt in
   let _, args, _ = curr_relation in
-  let to_ret = (rel, args, Expr e_id) in
+  let to_ret : relation = (rel, args, Expr e_id) in
   ({ ctxt with relations = to_ret :: ctxt.relations }, to_ret)
 
 let fresh_alias_relation ~e_id ~name ~args ctxt =
