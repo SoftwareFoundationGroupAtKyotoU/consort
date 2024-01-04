@@ -2531,6 +2531,12 @@ let%lq relation_name_with e_id postfix ctxt =
     (Option.value ~default:"main-fn" ctxt.curr_fun)
     e_id postfix
 
+(* Generate a fresh relation and register it in [ctxt] *)
+let fresh_relation ~e_id ~args ~postfix ctxt =
+  let ctxt, name = relation_name_with e_id postfix ctxt in
+  let rel : relation = (name, args, Expr e_id) in
+  ({ ctxt with relations = rel :: ctxt.relations }, rel)
+
 (** Add [rel] to the set of PTE relations.
   
     Variable [v] has the type of lock or tid.
