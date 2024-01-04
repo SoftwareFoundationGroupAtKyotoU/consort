@@ -2614,6 +2614,20 @@ let tyenv_to_paths tyenv =
     (fun acc (v, t) -> List.rev_append (type_to_paths (P.var v) t) acc)
     [] tyenv
 
+(** The two sets of havoced paths among the paths whose ownerships are split at location [sl] *)
+let%lq split_paths ~sl paths ctxt =
+  let _, split_oracle = split_oracle sl ctxt in
+  List.fold_left
+    (fun (h_src, h_dst) path ->
+      (* It may look strange to give the same two [paths].
+         When the type environment is split to create a PTE, 
+         each path is duplicated into the two paths whose names are the same [path]. *)
+      let h_in, h_out = split_oracle path path in
+      let add_havoc h hs = if h = `Havoc then P.PathSet.add path hs else hs in
+      (add_havoc h_in h_src, add_havoc h_out h_dst))
+    (P.PathSet.empty, P.PathSet.empty)
+    paths
+
 (** Process expression is a monadic function that "returns" a boolean indicating
    whether execution within the current function can proceed after executing e.
    This is false iff e must return along all paths. The continuation indicates
