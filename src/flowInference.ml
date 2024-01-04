@@ -2486,6 +2486,8 @@ let apply_patt ~e_id tyenv patt rhs :
         >> H.update_null_havoc ~e_id ~ty:null_types v
         >> add_relation_flow ?pre:None flows in_rel out_rel
 
+(** Generate a fresh relation name:
+    Simply generate [<relation name>-<e_id>-<expression name>] *)
 let relation_name ((e_id, _), expr) ctxt =
   let prefix =
     Printf.sprintf "%s-%d-" (Option.value ~default:"main-fn" ctxt.curr_fun) e_id
