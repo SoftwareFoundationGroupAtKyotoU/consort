@@ -2608,6 +2608,12 @@ let%lq get_iso_at e_id ctxt =
   assert (fold <> unfold || not fold);
   if fold then `IsoFold else if unfold then `IsoUnfold else `None
 
+(** Return a set of typed paths reachable from each variable in [tyenv]  *)
+let tyenv_to_paths tyenv =
+  List.fold_left
+    (fun acc (v, t) -> List.rev_append (type_to_paths (P.var v) t) acc)
+    [] tyenv
+
 (** Process expression is a monadic function that "returns" a boolean indicating
    whether execution within the current function can proceed after executing e.
    This is false iff e must return along all paths. The continuation indicates
