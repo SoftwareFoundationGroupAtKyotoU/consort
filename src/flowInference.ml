@@ -2282,18 +2282,23 @@ let bind_return ~fn ~e_id ~cid out_patt ret_type =
 (** Get a list of arguments for function [fn_name] *)
 let%lq find_params fn_name ctxt = SM.find fn_name ctxt.fn_params
 
+(** Process calls for user-defined functions *)
 let bind_args ~e_id out_patt call_expr curr_rel body_rel =
   let callee = call_expr.callee in
   let%bind callee_type = get_function_type callee in
   let%bind in_rel = get_in_relation callee in
   let%bind out_rel = get_out_relation callee in
+
+  (* Actual arguments *)
   let args = call_expr.arg_names in
+
   let%bind havoc, stable, in_bindings, out_bindings, pre_bindings =
     fold_left2i
       (fun i acc arg_name arg_ty ->
         let%bind acc = acc in
-        bind_arg ~fn:callee ~cid:call_expr.label ~e_id acc (P.var arg_name)
-          (P.arg i) arg_ty)
+        bind_arg ~fn:callee ~cid:call_expr.label ~e_id acc
+          (P.var arg_name (* Actual argument *))
+          (P.arg i (* Parameter *)) arg_ty)
       (return (P.PathSet.empty, P.PathSet.empty, [], [], []))
       args callee_type.arg_types
   in
@@ -2311,9 +2316,62 @@ let bind_args ~e_id out_patt call_expr curr_rel body_rel =
     P.PathSet.elements havoc_state
     |> List.mapi (fun i p -> (p, Ap (havoc_ap i p)))
   in
+
+  (* Parameter *)
+  let%bind params = find_params callee in
+
+  (* Substitution from paths of parameters to those of arguments *)
+  let params_to_args =
+    (* $i -> x: Convert paths of parameters from the information of "[i]-th" to concrete parameter names [x] *)
+    let subst : P.path -> P.path =
+      let subst_map =
+        fold_lefti
+          (fun i acc param -> SM.add (P.arg_name i) param acc)
+          SM.empty params
+      in
+      P.map_root (fun param -> SM.find param subst_map)
+    in
+    List.map
+      (fun (p, arg) ->
+        ( (try subst p
+           with _ ->
+             failwith
+             @@ Printf.sprintf "Invalid parameter path at %s: %s" callee
+             @@ P.to_string p),
+          arg ))
+      in_bindings
+  in
+
   [%m
+    (* Invariant just before function call *)
     add_implication [ PRelation (curr_rel, [], None) ]
     @@ PRelation (in_rel, in_bindings, Some call_expr.label);
+
+    (* Invariants on PTEs of arguments *)
+    miter (fun (arg, (param, t)) ->
+        match t with
+        | `Lock _ | `ThreadID _ ->
+            let%bind arg_rel = get_pte_relation arg in
+            let%bind param_rel = get_pte_relation ~fn:callee param in
+            add_implication
+              [
+                PRelation (arg_rel, [], None);
+                PRelation (curr_rel, [], None)
+                (* Use the information from the current thread *);
+              ]
+            @@ PRelation (param_rel, params_to_args, Some call_expr.label)
+            >> add_implication
+                 [
+                   PRelation (param_rel, params_to_args, Some call_expr.label);
+                   PRelation (curr_rel, [], None);
+                   (* Use the information from the current thread *)
+                 ]
+               @@ PRelation (arg_rel, [], None)
+        | _ -> return ())
+    @@ List.combine args
+    @@ List.combine params callee_type.arg_types;
+
+    (* Invariant just after function call *)
     add_implication
       [
         (* the copy of the pre relation, which is used to provide information about the
