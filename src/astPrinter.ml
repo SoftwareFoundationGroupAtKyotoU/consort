@@ -169,11 +169,13 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
       ]) body
     | LetFork (x, e, body) ->
       maybe_brace ~ip ~annot ~all_seq:true ~pre:(pl [
+        indent_from_here;
         pf "let%a %s = fork("
           po_id id
           x;
         newline;
         pp_expr ~ip ~annot e;
+        dedent;
         newline;
         ps ") in "
       ]) body
