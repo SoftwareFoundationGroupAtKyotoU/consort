@@ -1,0 +1,13 @@
+f(x, x) {
+    x := 1
+}
+
+{
+    let a = mkref 1 in
+    let b = mkref 1 in {
+        f(a, b);
+        fail
+    }
+}
+
+// unsafe

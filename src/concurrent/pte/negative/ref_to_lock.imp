@@ -1,0 +1,4 @@
+{
+    let l = newlock() in
+    let a = mkref l in ()
+}

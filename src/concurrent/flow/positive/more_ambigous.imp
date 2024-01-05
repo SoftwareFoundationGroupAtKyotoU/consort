@@ -1,0 +1,21 @@
+{
+    let a = _ in
+    let b = mkref a in
+    let c = _ in
+    let d = _ in
+    let l = newlock() in 
+    
+    let t = fork({
+        acq(l);
+        b := c;
+        rel(l);
+    }) in {
+        acq(l);
+        b := d;
+        rel(l);
+        
+        wait(t);
+        freelock(l);
+        assert((((*b = a) || (*b = c)) || (*b = d)) = 0)
+    }
+}

@@ -1,0 +1,25 @@
+f(x, l) {
+    acq(l);
+    x := 1;
+    rel(l)
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let l = newlock() in
+    let l2 = newlock() in
+    let t = fork({
+        f(a, l)
+    }) in {
+        f(b, l2);
+    
+        acq(l);
+        a := 1;
+        rel(l);
+    
+        wait(t);
+        freelock(l);
+        freelock(l2);
+    } 
+}

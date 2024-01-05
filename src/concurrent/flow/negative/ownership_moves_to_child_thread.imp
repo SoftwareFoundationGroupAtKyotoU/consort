@@ -1,0 +1,10 @@
+{
+    let a = mkref 1 in
+    let t = fork({
+        a := 1;
+    }) in {
+        // The current thread has no ownership of `a` and 
+        // the following assertion cannot be verified.
+        assert(*a = 1); 
+    }
+}

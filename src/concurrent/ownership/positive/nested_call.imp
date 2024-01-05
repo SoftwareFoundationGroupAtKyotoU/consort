@@ -1,0 +1,14 @@
+f(af, bf, lf) {
+    g(bf, lf)
+}
+
+g(ag, lg) {
+    0
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let l = newlock() in 
+    f(a, b, l)
+}

@@ -1,0 +1,11 @@
+f(x, y, l) {
+    acq(l);
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let l = newlock() in
+    let c = mkref 0 in
+    f(a, c, l)
+}

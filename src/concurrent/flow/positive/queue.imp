@@ -1,0 +1,116 @@
+mkqueue(capacity) {
+  let array = mkarray capacity in
+  let reverse = 0 in
+  let head = 0 in
+  let tail = 0 in
+  mkref (capacity, array, reverse, head, tail)
+} 
+
+check(q) {
+  let (capacity, array, reverse, head, tail) = *q in {
+    assert(0 <= head);
+    assert(head < capacity);
+    assert(0 <= tail);
+    assert(tail < capacity);
+    if reverse = 0 then {
+        assert(reverse = 0);
+        assert(head <= tail);
+      } else {
+        assert(reverse = 1);
+        assert(tail <= head);
+    };
+  }
+}
+
+push_aux(q, x) {
+  let (capacity, array, reverse, head, tail) = *q in {
+    array[tail] <- x;
+    if (tail + 1) = capacity then {
+        q := (capacity, array, 1, head, 0);
+    } else {
+        q := (capacity, array, reverse, head, tail + 1);
+    };
+    check(q);
+  };
+}
+
+push(q, x, l) {
+  acq(l); check(q);
+  let (capacity, _, reverse, head, tail) = *q in
+  if reverse = 1 then {
+    if head = tail then {
+      assert(reverse = 1);
+      assert(head = tail);
+      rel(l); push(q, x, l);
+    } else {
+      assert(reverse = 1);
+      assert(tail < head);
+      push_aux(q, x);
+      rel(l);
+    };
+  } else {
+    assert(reverse = 0);
+    assert(head <= tail);
+    push_aux(q, x);
+    rel(l);
+  };
+}
+
+pop_aux(q) {
+  let (capacity, array, reverse, head, tail) = *q in
+  let ret = array[head] in {
+    if (head + 1) = capacity then {
+      q := (capacity, array, 0, 0, tail);
+    } else {
+      q := (capacity, array, reverse, head + 1, tail);
+    };
+    ret
+  }
+}
+
+pop(q, l) {
+  acq(l);
+  check(q);
+  let (capacity, _, reverse, head, tail) = *q in
+  if reverse = 0 then {
+    if head = tail then {
+      assert(reverse = 0);
+      assert(head = tail);
+      rel(l);
+      pop(q, l)
+    } else {
+      assert(reverse = 0);
+      assert(head < tail);
+      let ret = pop_aux(q) in {
+        check(q);
+        rel(l);
+        ret
+      }
+    }
+  } else {
+      assert(reverse = 1);
+      assert(tail <= head);
+      let ret = pop_aux(q) in {
+        check(q);
+        rel(l);
+        ret
+      }
+  }
+}
+
+{
+  let q = mkqueue(2) in
+  let l = newlock() in
+  let t = fork({
+    push(q, _, l);
+    push(q, _, l);
+    push(q, _, l);
+  }) in {
+    pop(q, l);
+    pop(q, l);
+    pop(q, l);
+    wait(t);
+    freelock(l);
+    check(q)
+  }
+}

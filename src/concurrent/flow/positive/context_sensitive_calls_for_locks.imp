@@ -1,0 +1,37 @@
+f(x, l, y) {
+    acq(l);
+    x := y;
+    rel(l);
+}
+
+positive_integer() {
+    (_: ~ > 0)
+}
+
+negative_integer() {
+    (_: ~ < 0)
+}
+
+{
+    let a = mkref (positive_integer()) in
+    let b = mkref (negative_integer()) in
+    let al = newlock() in
+    let bl = newlock() in {
+        let t = fork({
+            // In two calls, different references, locks, new values are passed.
+            f(a, al, (positive_integer()));
+            f(b, bl, (negative_integer()));
+        }) in {
+            f(a, al, (positive_integer()));
+            f(b, bl, (negative_integer()));
+
+            wait(t);
+            freelock(al);
+            freelock(bl);
+
+            // We can verify different properties for the contents of `a` and `b`
+            assert(*a > 0);
+            assert(*b < 0);
+        }
+    }
+}

@@ -1,0 +1,32 @@
+// x: int ref 0, y: int ref 0, (x: int ref 1, y: int ref 1) lock 1
+// -> int
+f(x, y, l) { 
+    acq(l);
+    x := 1;
+    y := 1;
+    rel(l)
+}
+
+// x: int ref 0, (x: int ref 1) lock 1 
+// -> int
+g(x, l) { 
+    acq(l);
+    x := 1;
+    rel(l)
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let c = mkref 0 in
+
+    let l = newlock() in {
+        let t = fork({
+            f(a, c, l);
+            g(b, l)
+        }) in {
+            f(a, c, l);
+            g(b, l)
+        }
+    }
+}

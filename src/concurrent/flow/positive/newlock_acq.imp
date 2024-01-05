@@ -1,0 +1,10 @@
+{
+    let x = mkref 0 in
+    let l = newlock() in {
+        acq(l);
+        x := 1;
+        assert(*x = 1);
+        rel(l);
+        
+    }
+}

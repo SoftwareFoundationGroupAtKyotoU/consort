@@ -1,0 +1,10 @@
+{
+    let x = mkref _ in 
+    let t = fork({
+        let y = mkref _ in {
+            x := _;
+            y := _;
+        }
+    }) in
+    wait(t)
+}

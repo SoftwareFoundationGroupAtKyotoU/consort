@@ -1,0 +1,7 @@
+{
+    let a = mkref 0 in
+    let t = fork(
+        a := 1
+    ) in
+    a := 1
+}

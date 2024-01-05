@@ -1,0 +1,33 @@
+f(x, yl) {
+    let (y, l) = yl in {
+        acq(l);
+        x := 1;
+        rel(l);
+        alias(y = yl.0);
+        alias(l = yl.1);
+    }
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let c = mkref 0 in
+    let l = newlock() in
+    let t = fork({
+        let bl = (b, l) in {
+            f(a, bl);
+            alias(b = bl.0);
+            alias(l = bl.1);
+        }
+    }) in {
+        c := 1;
+        let bl = (b, l) in {
+            f(a, bl);
+            alias(b = bl.0);
+            alias(l = bl.1);
+        };
+        wait(t);
+        freelock(l);
+        b := 1;
+    }
+}

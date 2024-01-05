@@ -1,0 +1,12 @@
+f(a, x, l){ // l: (a: int ref, x: int ref) lock
+    0
+}
+
+{
+    let x = mkref 0 in
+    let y = mkref 0 in
+    let l = newlock() in // (x: int ref, y: int ref) lock
+    // ((a: ..., b: ...) lock) [x / a] [y / x]
+    // このときに，(y: ...) lock にならないようになっている
+    f(x, y, l)
+}

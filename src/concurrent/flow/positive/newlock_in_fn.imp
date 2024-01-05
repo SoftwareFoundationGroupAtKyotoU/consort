@@ -1,0 +1,8 @@
+f(x) {
+    let l = newlock () in ()
+}
+
+{
+    let a = mkref _ in
+    f(a)
+}

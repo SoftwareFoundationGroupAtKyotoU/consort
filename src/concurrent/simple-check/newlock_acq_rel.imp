@@ -1,0 +1,8 @@
+{
+    let x = mkref 2 in
+    let l = newlock() in {
+        acq(l);
+        x := 3;
+        rel(l);
+    }
+}

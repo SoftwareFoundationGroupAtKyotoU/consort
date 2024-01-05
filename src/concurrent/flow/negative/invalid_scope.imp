@@ -1,0 +1,28 @@
+{
+    let a = _ in
+    let b = mkref a in
+    
+    // The PTE of `l` includes `b`, 
+    // but the refinement can only refer to `a` (, not to `c`).
+    let l = newlock() in 
+    
+    let c = _ in
+    let t = fork({
+        acq(l);
+        // `c` is assigned to `b`,
+        // but the PTE of `l` cannot refer to `c`.
+        b := c;
+        rel(l);
+    }) in {
+        let d = _ in {
+            acq(l);
+            b := d;
+            rel(l);
+            wait(t);
+            freelock(l);
+
+            // The following assertion cannot be verified.
+            assert((((*b = a) || (*b = c)) || (*b = d)) = 0)
+        }
+    }
+}

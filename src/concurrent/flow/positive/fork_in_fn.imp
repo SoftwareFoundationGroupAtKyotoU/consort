@@ -1,0 +1,13 @@
+// Check not_found error never occurs
+// x!call
+f(x){
+    let t = fork({
+        ()
+    }) in
+    ()
+}
+
+{
+    let a = mkref _ in
+    f(a)
+}

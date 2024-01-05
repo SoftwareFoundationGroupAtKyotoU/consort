@@ -1,0 +1,14 @@
+f(x, l) { // l: (x: int ref) lock
+    acq(l);
+    x := 0;
+    rel(l);
+}
+
+{
+    let a = mkref 0 in 
+    let l = newlock() in
+    let b = mkref 0 in {
+        f(a, l);
+        f(b, l);
+    }
+}

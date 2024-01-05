@@ -1,0 +1,17 @@
+f(x, l) {
+    let l3 = l in ()
+}
+
+g(a, b, l) {
+    let l2 = l in
+    f(b, l2)
+}
+
+{
+    let e = mkref 0 in
+    let f = mkref 0 in
+    let h = mkref 0 in
+    let l = newlock() in {
+        g(e, f, l)
+    }
+}

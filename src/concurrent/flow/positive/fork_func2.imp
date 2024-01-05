@@ -1,0 +1,30 @@
+// assert (*a = 0 \/ *a = 1)
+check_zero_or_one(a) {
+    if *a = 1 then () 
+    else ()
+}
+
+f(x, l, a) {
+    acq(l);
+    x := a;
+    rel(l);
+}
+
+{
+    let x = mkref 0 in
+    let l = newlock() in {
+        //  assert(*x = 0); // add: unsafe
+        let t = fork({
+            // assert(*x >= 0); // add: unsafe
+            // f(x, l, 1);
+            ()
+        }) in {
+            f(x, l, 1);
+            wait(t); // delete: unverified ownership
+            freelock(l); // delete: unsafe
+            // assert(*x = 0); // 偽証
+            check_zero_or_one(x); // x が 0 か 1 であることを検証できている
+        };
+    }
+
+}

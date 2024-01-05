@@ -1,0 +1,10 @@
+f(){
+    let x = mkref 0 in
+    let l = newlock() in
+    (l, 0)
+}
+
+{
+    let l = f() in
+    ()
+}

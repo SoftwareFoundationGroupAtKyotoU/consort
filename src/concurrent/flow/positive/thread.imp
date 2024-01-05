@@ -1,0 +1,12 @@
+{
+    let a = (_: ~ > 0) in
+    let b = mkref _ in
+    let t = fork({
+        b := a; // Assignment in child thread
+    }) in {
+        wait(t);
+
+        // We can accurately verify the contents of `b`.
+        assert(*b = a);
+    }
+}

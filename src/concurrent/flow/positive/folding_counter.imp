@@ -1,0 +1,71 @@
+{
+    let min = 0 in
+    let max = 2 in
+    let x = mkref min in
+    let l = newlock() in
+    let t = fork({
+        acq(l);
+        assert(min <= *x);
+        if min < *x then {
+            x := *x - 1;
+            assert(min <= *x);
+            rel(l);
+        } else {
+            rel(l);
+        };
+        acq(l);
+        assert(min <= *x);
+        if min < *x then {
+            x := *x - 1;
+            assert(min <= *x);
+            rel(l);
+        } else {
+            rel(l);
+        };
+        acq(l);
+        assert(min <= *x);
+        if min < *x then {
+            x := *x - 1;
+            assert(min <= *x);
+            rel(l);
+        } else {
+            rel(l);
+        };
+    }) in {
+        acq(l);
+        assert(*x <= max);
+        if *x < max then {
+            x := *x + 1;
+            assert(*x <= max);
+            rel(l);
+        } else {
+            rel(l);
+            // incr(x, max, l);
+        };
+        acq(l);
+        assert(*x <= max);
+        if *x < max then {
+            x := *x + 1;
+            assert(*x <= max);
+            rel(l);
+        } else {
+            rel(l);
+            // incr(x, max, l);
+        };
+        acq(l);
+        assert(*x <= max);
+        if *x < max then {
+            x := *x + 1;
+            assert(*x <= max);
+            rel(l);
+        } else {
+            rel(l);
+            // incr(x, max, l);
+        };
+        wait(t);
+        freelock(l);
+        assert(*x <= 2);
+        assert(0 <= *x);
+        // assert(1 <= *x); // 外すと unsafe
+    }
+}

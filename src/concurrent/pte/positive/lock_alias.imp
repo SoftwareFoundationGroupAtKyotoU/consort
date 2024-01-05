@@ -1,0 +1,11 @@
+f(x, l) {
+    let l2 = l in
+    l2
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let l = newlock() in
+    f(a, l)
+}

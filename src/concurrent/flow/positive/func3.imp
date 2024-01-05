@@ -1,0 +1,30 @@
+    // 呼び出し場所に応じて，仮引数側の l の PTE 内の x のrefinement 自体が変わっていそう
+// forked thread 呼び出しの 仮引数側: y - 2 <= x->* <= y
+// main thread 呼び出しの仮引数側:    y     <= x->* <= y + 2
+// main thread での l の PTE 内の x: a - 1 <= x <= a + 1
+f(x, l, y) {
+    acq(l);
+    x := y;
+    rel(l);
+}
+
+assert_(flag) {
+    assert(flag = 0)
+}
+
+{
+    let a = _ in
+    let x = mkref a in
+    let l = newlock() in 
+    let t = fork({
+        f(x, l, (a + 1));
+    }) in {
+        let b = a - 1 in
+        f(x, l, b);
+        wait(t);
+        freelock(l);
+        assert_((((a - 1) <= *x) && (*x <= (a + 1))));
+        // assert(*x >= a); // add: unsafe
+        // assert(*x <= a); // add: unsafe
+    }
+}

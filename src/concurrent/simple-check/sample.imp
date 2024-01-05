@@ -1,0 +1,13 @@
+{
+    let n = (_: ~ > 0) in
+    let a = mkref n in
+    let b = mkref _ in
+    let l = newlock() in {
+        b := _;
+        acq(l);
+        a := n;
+        rel(l);
+        freelock(l); 
+        assert(*a > 0)
+    }
+}

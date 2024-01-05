@@ -1,0 +1,18 @@
+{
+    let a = _ in
+    let x = mkref (_: ~ > a) in
+    let l = newlock() in
+    let t = fork({
+        acq(l);
+        x := a - 2;
+        rel(l);
+    }) in {
+        acq(l);
+        x := a - 1;
+        rel(l);
+        wait(t);
+        freelock(l);
+        assert(*x >= (a - 2));
+        // assert(*x >= (a - 1)); // add: unsafe
+    }
+}

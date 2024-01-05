@@ -1,0 +1,7 @@
+{
+    let a = newlock() in
+    let b = newlock() in
+    let c = newlock() in
+    let d = newlock() in 
+    let e = newlock() in ()
+}

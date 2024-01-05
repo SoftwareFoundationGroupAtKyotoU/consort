@@ -1,0 +1,15 @@
+// xl の invariant はここで弱まる
+f(x, xl) {
+    acq(xl);
+    x := 1;
+    rel(xl);
+}
+
+{
+    let a = mkref 0 in
+    let al = newlock() in {
+        f(a, al);
+        freelock(al);
+        assert(((*a = 0) || (*a = 1)) = 0);
+    }
+}

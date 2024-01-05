@@ -1,0 +1,28 @@
+f(x, l) {
+    let l2 = newlock() in {
+        g(l, l2);
+        h(x, l, l2);
+    }
+}
+
+g(l, l2) {
+    acq(l2);
+    acq(l);
+    rel(l);
+    rel(l2);
+}
+
+h(a, l, l2) {
+    acq(l2);
+    acq(l);
+    a := 1;
+    rel(l);
+    rel(l2);
+}
+
+{
+    let a = mkref 0 in
+    let b = mkref 0 in
+    let l = newlock() in
+    f(a, l)
+}

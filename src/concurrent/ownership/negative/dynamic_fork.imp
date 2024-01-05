@@ -1,0 +1,19 @@
+f(x, l) {
+    if _ then ()
+    else {
+        let t = fork({
+            acq(l);
+            x := _;
+            rel(l);
+        }) in {
+            f(x, l);
+            wait(t);
+        }
+    }
+}
+
+{
+    let a = mkref _ in
+    let l = newlock() in 
+    f(a, l)
+}

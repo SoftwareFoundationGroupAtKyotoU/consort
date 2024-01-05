@@ -11,31 +11,16 @@ incr(x, max, l) {
     }
 }
 
-decr(x, min, l) {
-    acq(l);
-    assert(min <= *x);
-    if min < *x then {
-        x := *x - 1;
-        assert(min <= *x);
-        rel(l);
-    } else {
-        rel(l);
-        decr(x, min, l);
-    }
-}
-
 {
     let min = 0 in
     let max = 2 in
     let x = mkref min in
     let l = newlock() in
     let t = fork({
-        decr(x, min, l);
-        decr(x, min, l);
-        decr(x, min, l);
+        incr(x, max, l);
     }) in {
         incr(x, max, l);
-        incr(x, max, l);
-        incr(x, max, l);
+        wait(t);
+        freelock(l);
     }
 }

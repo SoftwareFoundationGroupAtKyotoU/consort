@@ -1,0 +1,15 @@
+{
+    let l = newlock() in {
+        acq(l);
+        let l2 = l in {
+            alias(l = l2); // l regains the full lock owership
+            
+            // l2 still has the full "release" ownership, 
+            // but freelock can be done.
+
+            // l1: (, 0) lock 1, l2: (, 1) lock 0
+            freelock(l);
+            // l1: (, 0) lock 0, l2: (, 1) lock 0
+        }
+    }
+}

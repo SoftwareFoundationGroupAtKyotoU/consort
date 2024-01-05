@@ -1,0 +1,15 @@
+f(x, x) {
+    x := _
+}
+
+{
+    let a = mkref _ in
+    let b = mkref _ in {
+        if *a != *b then {
+            f(a, b);
+            fail
+        } else ();
+    }
+}
+
+// safe

@@ -1,0 +1,17 @@
+f(a, b, l) {
+    acq(l);
+    assert(*b = 2);
+    rel(l);
+}
+
+{
+    let a = mkref 1 in
+    let b = mkref 2 in
+    let l = newlock() in // `b` not in the PTE of `l`
+    let t = fork({
+        b := 2;
+    }) in {
+        // The current thread has no ownership of `b`
+        f(a, b, l)
+    }
+}

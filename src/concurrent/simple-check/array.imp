@@ -1,0 +1,6 @@
+{
+    let x = mkref 0 in
+    let a = mkarray 3 in {
+        a[1] <- x;
+    }
+}

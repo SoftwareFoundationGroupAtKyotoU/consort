@@ -1,0 +1,29 @@
+f(pair, c) {
+    let (a, b) = pair in {
+        a := c;
+        b := (_: ~ > c);
+        alias(a = pair.0);
+        alias(b = pair.1);
+    }
+}
+
+{
+    let n = _ in
+    let pair = (mkref n, mkref (_: ~ > n)) in
+    let l = newlock() in
+    let t = fork({
+        acq(l);
+        f(pair, _);
+        rel(l);
+    }) in {
+        acq(l);
+        f(pair, _);
+        rel(l);
+
+        wait(t);
+        freelock(l);
+        let (x, y) = pair in {
+            assert(*x < *y);
+        }
+    }
+}

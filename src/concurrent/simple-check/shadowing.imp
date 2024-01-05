@@ -1,0 +1,8 @@
+{
+    let x = mkref 0 in
+    let l = newlock() in
+    let t = fork({
+        let x = mkref 0 in
+        ()
+    }) in ()
+}

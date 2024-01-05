@@ -1,0 +1,18 @@
+{
+    let x = mkref 0 in
+    let y = mkref 0 in
+    let l = newlock() in
+    let t = fork({
+        acq(l); 
+        x := 1;
+        y := 1; 
+        rel(l);
+    }) in { 
+        acq(l); 
+        x := 1;
+        rel(l);
+        wait(t);
+        y := 1;
+        freelock(l)
+    }
+}

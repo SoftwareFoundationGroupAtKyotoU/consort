@@ -1,0 +1,20 @@
+// f(x, y) { // This causes `UNVERIFIED (unsafe)`
+f(x, x) {
+    ()
+}
+
+{
+    let a = mkref _ in
+    let b = mkref _ in {
+        if *a != *b then {
+            // assert(0 = 1); // This causes `UNVERIFIED (unsafe)`
+            f(a, b);
+            assert(0 = 1);
+        } else {
+            // assert(0 = 1); // This causes `UNVERIFIED (unsafe)`
+            ()
+        };
+    }
+}
+
+// safe
