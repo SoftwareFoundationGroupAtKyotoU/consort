@@ -706,7 +706,7 @@ let rec walk_type ty step f st acc =
                   let acc = f st' acc in
                   let mst = step `Elem st in
                   continue ~acc mst f)))
-  | `Lock _ | `ThreadID _ -> failwith "not implemented in flowinference"
+  | `Lock _ | `ThreadID _ -> acc
 
 (** Walk two paths in parallel according to the type ty. Unlike type_walk, this
    walk function only calls the step function when:
