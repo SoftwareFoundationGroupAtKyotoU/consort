@@ -75,7 +75,7 @@ let clean ownership_res (simple_theta, simple_results) (infer_res : Result.t) =
   let simple_theta' =
     theta
     |> SM.filter (fun name _ -> SM.mem name simple_theta)
-       (* Remove intricated types *)
+       (* Remove intrinsic types *)
     |> theta_map otype_to_simple_type
     |> funtypes_to_funtyps
   in
