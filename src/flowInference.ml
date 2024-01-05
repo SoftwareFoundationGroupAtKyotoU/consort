@@ -113,6 +113,7 @@ type relation_source =
   | ExprMu of int * P.concr_ap * [ `Null | `Join | `Flow ]
   | AliasUnfold of int
   | Start
+  | PTE of string * string
 [@@deriving sexp]
 
 (** Describes the flows from a source state to the output state. Compiled into substitutions on relation arguments *)

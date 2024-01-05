@@ -15,7 +15,8 @@ type relation_source =
   | FunMu of string * [`In | `Out] * P.concr_ap
   | ExprMu of int * P.concr_ap * [ `Null | `Join | `Flow ]
   | AliasUnfold of int
-  | Start [@@deriving sexp]
+  | Start 
+  | PTE of string * string [@@deriving sexp]
 
 type relation = string * (P.concr_ap * z3_types) list * relation_source [@@deriving sexp]
 
