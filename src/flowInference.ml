@@ -3259,12 +3259,127 @@ let rec process_expr ~output (((relation : relation), tyenv) as st) continuation
       >> alias_recursive
       >> add_implication ante @@ PRelation (k_rel, out_subst, None)
       >> process_expr ~output (k_rel, tyenv) continuation k
-  | LetNewlock _ -> failwith "not implemented in flowinference"
-  | LetFork _ -> failwith "not implemented in flowinference"
-  | Freelock _ -> failwith "not implemented in flowinference"
-  | Acq _ -> failwith "not implemented in flowinference"
-  | Rel _ -> failwith "not implemented in flowinference"
-  | Wait _ -> failwith "not implemented in flowinference"
+  | LetNewlock (v, k) ->
+      (* Generate a fresh relation [k_rel] and add a lock [v] into [tyenv'] *)
+      let%bind k_rel, tyenv', bind_info =
+        fresh_bind_relation e_id st (PVar v) k
+      in
+
+      (* [bind_info] is the set of paths reachable from a lock [v]: empty set *)
+      assert (bind_info = (P.PathSet.empty, []));
+
+      (* paths reachable from variables in [tyenv'] *)
+      let paths = tyenv_to_paths tyenv' in
+
+      (* Relation for the PTE of lock [v] *)
+      let%bind pte_relation =
+        fresh_relation_for_pte ~e_id ~args:(type_paths paths) ~key:v
+      in
+
+      (* Havoced paths when the type environment is split and the PTE is created. *)
+      let%bind havoc_set_thread, havoc_set_pte =
+        split_paths ~sl:(SBind e_id) paths
+      in
+
+      (* print_endline @@ P.PathSet.to_string havoc_set_pte; *)
+      [%m
+        add_havoc_state ~rel:(get_relation_ident k_rel) havoc_set_thread;
+        add_implication [ PRelation (relation, [], None) ]
+        @@ PRelation (k_rel, havoc_set_to_subst havoc_set_thread, None);
+        add_implication [ PRelation (relation, [], None) ]
+        @@ PRelation (pte_relation, havoc_set_to_subst havoc_set_pte, None);
+        process_expr ~output (k_rel, tyenv') continuation k]
+  | LetFork (v, e, k) ->
+      (* Generate a fresh relation [k_rel] and add a lock [v] into [tyenv'] *)
+      let%bind k_rel, tyenv', bind_info =
+        fresh_bind_relation e_id st (PVar v) k
+      in
+
+      (* [bind_info] is the set of paths reachable from a lock [v]: empty set *)
+      assert (bind_info = (P.PathSet.empty, []));
+
+      (* paths reachable from variables in the current environment *)
+      let paths = tyenv_to_paths tyenv' in
+
+      let _, args, _ = relation in
+
+      (* Pre-relation of the child thread *)
+      let%bind thread_pre_relation =
+        fresh_relation ~e_id ~args ~postfix:"thread-pre"
+      in
+
+      (* Post-relation of the child thread *)
+      (* child thread 終了時の関係(ただし，PTE から到達可能なパスのみについて)  *)
+      let%bind thread_post_relation =
+        fresh_relation ~e_id ~args ~postfix:"thread-post"
+      in
+      add_pte_rel v thread_post_relation
+      >>
+      (* The current havoc set *)
+      let%bind havoc_set = get_havoc_state in
+
+      (* havoc sets of the child thread and the parent one *)
+      let%bind havoc_set_child, havoc_set_parent =
+        split_paths ~sl:(SBind e_id) paths
+      in
+
+      (* Process the child thread *)
+      add_havoc_state
+        ~rel:(get_relation_ident thread_pre_relation)
+        havoc_set_child
+      >>
+      let%bind _flg =
+        process_expr ~output:None
+          (thread_pre_relation, tyenv)
+          (Some thread_post_relation) e
+      in
+
+      [%m
+        (* roll back *)
+        set_havoc_state ~rel:(get_relation_ident k_rel)
+        @@ P.PathSet.union havoc_set havoc_set_parent;
+
+        add_implication [ PRelation (relation, [], None) ]
+        @@ PRelation
+             (thread_pre_relation, havoc_set_to_subst havoc_set_child, None);
+        add_implication [ PRelation (relation, [], None) ]
+        @@ PRelation (k_rel, havoc_set_to_subst havoc_set_parent, None);
+        process_expr ~output (k_rel, tyenv') continuation k]
+  | Freelock (v, k) | Acq (v, k) | Wait (v, k) ->
+      (* Generate a fresh relation [k_rel] *)
+      let%bind k_rel = fresh_relation_for relation k in
+
+      let paths = tyenv_to_paths tyenv in
+      let%bind hstate = join_paths ~ml:(MGen e_id) paths in
+      let%bind havoc_set = get_havoc_state in
+      let havoc_set =
+        P.PathSet.union hstate.H.havoc
+        @@ P.PathSet.diff havoc_set hstate.H.stable
+      in
+
+      let%bind pte_rel = get_pte_relation v in
+      [%m
+        set_havoc_state ~rel:(get_relation_ident k_rel) havoc_set;
+        apply_identity_flow
+          ~pre:[ PRelation (pte_rel, [], None) ]
+          relation k_rel;
+        process_expr ~output (k_rel, tyenv) continuation k]
+  | Rel (v, k) ->
+      (* Generate a fresh relaton [k_rel] *)
+      let%bind k_rel = fresh_relation_for relation k in
+
+      let paths = tyenv_to_paths tyenv in
+
+      (* [_havoc_set_pte] is the set of paths which root variables are not included in the PTE. *)
+      let%bind havoc_set, _havoc_set_pte = split_paths ~sl:(SBind e_id) paths in
+
+      let%bind pte_rel = get_pte_relation v in
+      [%m
+        add_havoc_state ~rel:(get_relation_ident k_rel) havoc_set;
+        add_implication [ PRelation (relation, [], None) ]
+        @@ PRelation (k_rel, havoc_set_to_subst havoc_set, None);
+        apply_identity_flow relation pte_rel;
+        process_expr ~output (k_rel, tyenv) continuation k]
 
 let analyze_function fn ctxt =
   let {
