@@ -3605,9 +3605,61 @@ let infer ~opts (simple_theta, side_results) o_hints (fns, main) =
       simple_theta
       (StringMap.empty, [], StringMap.empty)
   in
+
+  (* Mapping from pairs of function names and variable names to relations.
+
+     For parameters of functions which types have PTEs, generate fresh relations for the PTEs. *)
+  let pte_rel =
+    List.fold_left
+      (fun acc fn ->
+        let fn_name = fn.name in
+        let params = fn.args in
+        let ty = SM.find fn_name simple_theta in
+        assert (List.length params = List.length ty.arg_types);
+
+        (* Paths reachable from parameters of function [fn_name] *)
+        let args =
+          let tyenv = List.combine params ty.arg_types in
+          tyenv |> tyenv_to_paths |> type_paths
+        in
+        List.fold_left2
+          (fun acc v t ->
+            match t with
+            | `Lock _ | `ThreadID _ ->
+                let pte_rel : relation =
+                  let rel_name = Printf.sprintf "%s-%s-pte" fn_name v in
+                  (rel_name, args, PTE (fn_name, v))
+                in
+                SPM.add (fn_name, v) pte_rel acc
+            | _ -> acc)
+          acc params ty.arg_types)
+      StringPairMap.empty fns
+  in
+
+  let relations =
+    let pte_relations = snd @@ List.split @@ SPM.bindings pte_rel in
+    List.rev_append pte_relations relations
+  in
+
   let start_name = "program-start" in
   let entry_relation = (start_name, [], Start) in
   let relations = entry_relation :: relations in
+
+  let fn_params =
+    let open RefinementTypes in
+    List.fold_left
+      (fun acc { name; args; _ } -> SM.add name args acc)
+      SM.empty fns
+    |> SM.fold
+         (fun name it acc ->
+           let args =
+             List.init (List.length it.arg_types) (fun i ->
+                 Char.escaped @@ char_of_int (int_of_char 'a' + i))
+           in
+           SM.add name args acc)
+         (ArgOptions.get_intr opts).op_interp
+  in
+
   let empty_ctxt =
     {
       null_checks = opts.ArgOptions.check_null;
@@ -3626,6 +3678,8 @@ let infer ~opts (simple_theta, side_results) o_hints (fns, main) =
       recursive_rel = P.PathMap.empty;
       snapshots = IntMap.empty;
       omit_set;
+      pte_rel;
+      fn_params;
     }
   in
   let ctxt =
