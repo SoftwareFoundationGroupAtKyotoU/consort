@@ -98,19 +98,32 @@ pop(q, l) {
   }
 }
 
+repeat_push(q, l) {
+  if _ then ()
+  else {
+      push(q, _, l);
+      repeat_push(q, l)
+  }
+}
+
+repeat_pop(q, l) {
+  if _ then ()
+  else {
+      push(q, _, l);
+      repeat_push(q, l)
+  }
+}
+
 {
-  let q = mkqueue(2) in
+  let n = (_: ~ > 0) in
+  let q = mkqueue(n) in
   let l = newlock() in
   let t = fork({
-    push(q, _, l);
-    push(q, _, l);
-    push(q, _, l);
+    repeat_push(q, l);
   }) in {
-    pop(q, l);
-    pop(q, l);
-    pop(q, l);
+    repeat_pop(q, l);
     wait(t);
     freelock(l);
-    check(q)
+    check(q);
   }
 }

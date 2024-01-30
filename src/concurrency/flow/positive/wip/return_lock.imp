@@ -1,0 +1,29 @@
+create(init){
+    let x = mkref init in
+    let l = newlock() in
+    (x, l) 
+}
+
+blocking_update(xl, y) {
+    let (x, l) = xl in {
+        acq(l);
+        x := y;
+        rel(l);
+        alias(xl.0 = x);
+        alias(xl.1 = l);
+    }
+}
+
+{
+    let xl = create(3) in
+    let t = fork(
+        blocking_update(xl, 2)
+    ) in {
+        blocking_update(xl, 4);
+        wait(t);
+        let (x, l) = xl in {
+            freelock(l);
+            assert(*x > 0);
+        }
+    }
+}

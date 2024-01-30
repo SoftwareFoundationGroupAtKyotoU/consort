@@ -1,43 +1,77 @@
-incr(x, max, l) {
+// Increment `x` while satisfying `x <= max`
+incr(x, min_max, l) {
     acq(l);
-    assert(*x <= max);
+    check(x, min_max);
+    let (_, max) = min_max in
     if *x < max then {
         x := *x + 1;
-        assert(*x <= max);
+        check(x, min_max);
         rel(l);
     } else {
         rel(l);
-        incr(x, max, l);
+        incr(x, min_max, l);
     }
 }
 
-decr(x, min, l) {
+// Increment `x` nondeterminstic times
+repeat_incr(x, min_max, l) {
+    if _ then ()
+    else {
+        incr(x, min_max, l);
+        repeat_incr(x, min_max, l)
+    }
+}
+
+// Decrement `x` while satisfying `min <= x`
+decr(x, min_max, l) {
     acq(l);
-    assert(min <= *x);
+    check(x, min_max);
+    let (min, _) = min_max in
     if min < *x then {
         x := *x - 1;
-        assert(min <= *x);
+        check(x, min_max);
         rel(l);
     } else {
         rel(l);
-        decr(x, min, l);
+        decr(x, min_max, l);
     }
 }
 
+// Decrement `x` nondeterminstic times
+repeat_decr(x, min_max, l) {
+    if _ then ()
+    else {
+        decr(x, min_max, l);
+        repeat_decr(x, min_max, l)
+    }
+}
+
+check(x, min_max) {
+    let (min, max) = min_max in {
+        assert(min <= *x);
+        assert(*x <= max);
+    }
+}
+
+// Limited Counter:
+// Repeat increment and decrement the counter nondeterministic times
+// while keeping the value between `min` and `max`.
 {
-    let min = 0 in
-    let max = 2 in
-    let x = mkref min in
-    let l = newlock() in
-    let t = fork({
-        decr(x, min, l);
-        decr(x, min, l);
-        decr(x, min, l);
-    }) in {
-        incr(x, max, l);
-        incr(x, max, l);
-        incr(x, max, l);
-        wait(t);
-        freelock(l)
+    let min = (_: ~ >= 0) in
+    let max = (_: ~ >= min) in
+    let min_max = (min, max) in
+    let counter = mkref min in {
+        check(counter, min_max);
+        let l = newlock() in
+        let t = fork({
+            repeat_decr(counter, min_max, l);
+        }) in {
+            repeat_incr(counter, min_max, l);
+
+            wait(t);
+            freelock(l);
+            
+            check(counter, min_max);
+        }
     }
 }
