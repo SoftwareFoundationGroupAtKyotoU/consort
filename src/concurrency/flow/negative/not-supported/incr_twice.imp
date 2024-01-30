@@ -1,0 +1,16 @@
+{
+    let a = mkref 2 in
+    let l = newlock() in
+    let t = fork({
+        acq(l);
+        a := *a + 1;
+        rel(l);
+    }) in {
+        acq(l);
+        a := *a + 1;
+        rel(l);
+        wait(t);
+        freelock(l);
+        assert(*a = 4);
+    }
+}
