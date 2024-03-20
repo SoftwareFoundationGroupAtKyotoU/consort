@@ -794,8 +794,8 @@ let rec process_expr ~output ((e_id,_),expr) ~o_arity =
               split_loop r (o1 :: ol1) (o2 :: ol2)
           in
           let%bind (ol1, ol2) = split_loop ol [] [] in
-          let%bind o_copied = alloc_ovar (SBind e_id) (P.var v) in
-          constrain_eq ~src:o_copied ~dst:List.hd @@ List.rev ol2 >>
+          let%bind o_copied = alloc_ovar (MGen e_id) (P.var v) in
+          add_constraint (Eq (o_copied, List.hd @@ List.rev ol1)) >>
           return (IntList ol1, Ref(IntList((List.tl ol2) @ [o_copied]), List.hd ol2))
       | _ -> failwith "The value pattern matched must be IntList"
     in
