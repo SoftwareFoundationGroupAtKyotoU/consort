@@ -44,7 +44,7 @@
           Z3BasedBackend Consort
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
-          ConvMoCHi CallMoCHi))
+          ConvMoCHi))
 
 (executable
  (name test)

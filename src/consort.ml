@@ -246,7 +246,4 @@ let convmochi ~opts file =
   let file = open_out "./test/to_mochi.ml" in
   ConvMoCHi.Mochi.write_to_channel_prog prog file;
   Out_channel.close file;
-  (* let (res_out, res_err) = CallMoCHi.call_mochi in
-  print_endline res_out;
-  print_endline res_err; *)
   match ownership_res with None -> Unverified Aliasing | Some _ -> Verified
