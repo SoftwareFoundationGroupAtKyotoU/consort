@@ -10,6 +10,7 @@ mklist(n) {
 _reverse(l, l_next) {
     match l_next with
       Nil -> {
+        // FIXME: this alias statement is (maybe) wrong
         // alias(*(l.Cons.2) = l_next);
         return l
       }
