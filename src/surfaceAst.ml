@@ -38,6 +38,8 @@ type lhs = [
   | `Tuple of lhs list
   | `Read of lhs * lhs
   | `LengthOf of lhs
+  | `Nil
+  | `Cons of lhs * lhs
 ] and call = string * int * (lhs list)
 
 type relation = {
@@ -63,6 +65,7 @@ type exp =
   | Assert of pos * relation
   | Seq of Lexing.position * exp * exp
   | Return of pos * lhs
+  | Match of pos * lhs * exp * string * string * exp
 
 type fn = string * string list * exp
 type prog = fn list * exp
@@ -185,6 +188,11 @@ let rec simplify_expr ?next ~is_tail count e : pos * A.raw_exp =
     lift_to_var ~ctxt:i count rval (fun _ tvar ->
         A.Return tvar |> tag_with i
       )
+  | Match (i, e1, e2, h, r, e3) ->
+    lift_to_lhs ~ctxt:i count e1 (fun c e1' ->
+        A.Match (e1', simplify_expr ~is_tail c e2, h, r, simplify_expr ~is_tail c e3)
+        |> tag_with i
+      )
 
 and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
   let k r = rest count r in
@@ -224,6 +232,11 @@ and lift_to_lhs ~ctxt count (lhs : lhs) (rest: int -> A.lhs -> A.exp) =
         )
       )
   | `OBool f -> k @@ A.Const (if f then 0 else 1)
+  | `Cons (h, r) -> lift_to_lhs ~ctxt count h (fun c h' ->
+                      lift_to_lhs ~ctxt c r (fun c' r' ->
+                        rest c' @@ A.Cons (h', r'))
+                      )
+  | `Nil -> k @@ A.Nil
 
 and lift_to_rinit ~ctxt count (r: lhs) rest =
   let k = rest count in

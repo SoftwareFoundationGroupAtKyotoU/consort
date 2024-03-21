@@ -1,0 +1,8 @@
+{
+  let p = mkref (0, mkref 0) in {
+    let (_, p2) = *p in {
+      p2 := *p2 + 1;
+      alias(p2 = (*p).1)
+    };
+  }
+}

@@ -12,11 +12,13 @@ module ExecMode = struct
     | Consort
     | Ownership
     | Typecheck
+    | ConvMoCHi
 
   let pairs = [
     ("consort", Consort);
     ("ownership", Ownership);
-    ("typecheck", Typecheck)
+    ("typecheck", Typecheck);
+    ("convmochi", ConvMoCHi)
   ]
   let default = "consort"
   let candidates = List.map (fun (s, _) -> s) pairs
@@ -69,6 +71,7 @@ type t = {
   file_list : Arg.usage_msg list;
   output_channel : out_channel Cache.t;
   intrinsics : Intrinsics.interp_t Cache.t;
+  ownership_arity : int;
 }
 
 let default = {
@@ -95,6 +98,7 @@ let default = {
   file_list = [];
   output_channel = ref None;
   intrinsics = ref None;
+  ownership_arity = 2;
 }
 let close_output ~opts =
   Option.iter close_out !(opts.output_channel);
@@ -132,6 +136,7 @@ let parse anon_fun usage_msg =
   let cfa = ref default.cfa in
   let intrinsics_file = ref None in
   let file_list = ref default.file_list in
+  let ownership_arity = ref default.ownership_arity in
   let show_all () =
     List.iter (fun r -> r := true) show_all_flags; Log.all () in
   let debug s =
@@ -191,6 +196,8 @@ let parse anon_fun usage_msg =
      "<file>\t Load definitions of standard operations from <file>");
     ("-files", Rest (fun s -> file_list := s::!file_list),
      "<file> ...\t Interpret all remaining arguments as files to test");
+    ("-ownership-arity", Set_int ownership_arity,
+     "<integer>\t The number of different ownership variables used in recursive data structure (default: 2)");
   ] in
   Arg.parse spec anon_fun usage_msg;
   {
@@ -217,4 +224,5 @@ let parse anon_fun usage_msg =
     file_list = !file_list;
     output_channel = default.output_channel;
     intrinsics = default.intrinsics;
+    ownership_arity = !ownership_arity;
   }

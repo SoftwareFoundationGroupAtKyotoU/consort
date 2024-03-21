@@ -12,6 +12,7 @@ type root =
 type steps = [
   | `Deref
   | `Proj of int
+  | `Cons of string * int
 ] [@@deriving sexp]
 
 type path = root * steps list * suff [@@deriving sexp]
@@ -36,6 +37,7 @@ let to_z3_ident (root,steps,suff) =
       match s with
       | `Deref -> "->*" ^ acc
       | `Proj i -> Printf.sprintf "->%d%s" i acc
+      | `Cons(s, i) -> Printf.sprintf "->%s%d%s" s i acc
     ) (string_of_suff suff) steps in
   (root_to_string root) ^ st
 
@@ -71,6 +73,9 @@ let t_ind p i =
   check_extend (`Proj i) p
 
 let deref = check_extend `Deref
+
+let t_cons p s i =
+  check_extend (`Cons (s,i)) p
 
 let var v = (Var v,[],`None)
 
@@ -162,7 +167,7 @@ let root_at ~child:(r,steps,suff) ~parent:(root,steps2,suff2) =
 
 let is_root (_,l,f) = l = [] && f = `None
 
-type tail_ret = [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind ]
+type tail_ret = [`Null | `Deref | `Proj of int | `Len | `Elem | `Ind | `Cons of string * int]
 type inh_tags = [`Len | `Null | `Ind | `Elem ]
 
 let tail (_,l,f) =

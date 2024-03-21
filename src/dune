@@ -44,7 +44,7 @@
           Z3BasedBackend Consort
           HoiceBackend NullSolver
           ExternalFileBackend EldaricaBackend ParallelBackend
-          FlowInference FlowBackend))
+          ConvMoCHi))
 
 (executable
  (name test)

@@ -5,6 +5,7 @@ let choose_exec =
   | Consort -> consort
   | Ownership -> ownership
   | Typecheck -> typecheck
+  | ConvMoCHi -> convmochi
 
 let result_to_yaml =
   let (<<) f g x = f (g x) in

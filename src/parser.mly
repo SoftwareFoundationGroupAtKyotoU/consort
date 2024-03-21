@@ -44,6 +44,9 @@
 %token ARROW
 %token NU AND
 
+// pattern match of list
+%token CONS NIL MATCH WITH BAR
+
 %left AND
 
 %type <SurfaceAst.lhs> lhs
@@ -104,6 +107,9 @@ let expr :=
   | RETURN; lbl = expr_label; e = lhs; {
 		Return ((lbl,$startpos),e)
 	  }
+  | MATCH; lbl = expr_label; e1 = lhs; WITH; NIL; ARROW; e2 = expr; BAR; CONS; LPAREN; h = ID; COMMA; r = ID; RPAREN; ARROW; e3 = expr; {
+    Match ((lbl,$startpos),e1,e2,h,r,e3)
+    }
 
 let ap :=
   | STAR; a = ap_prim; { Paths.deref a }
@@ -112,6 +118,7 @@ let ap :=
 let ap_prim :=
   | v = ID; { Paths.var v }
   | a1 = ap_prim; DOT; ind = INT; { Paths.t_ind a1 ind }
+  | a1 = ap_prim; DOT; CONS; DOT; ind = INT; { Paths.t_cons a1 "Cons" ind }
   | LPAREN; ~ = ap; RPAREN; <>
 
 let patt :=
@@ -136,6 +143,8 @@ let op :=
   | LPAREN; l = tuple_contents; RPAREN; <`Tuple>
   | ~ = array_expr; <`Read>
   | ~ = op; DOT; LENGTH; <`LengthOf>
+  | CONS; LPAREN; h = lhs; COMMA; r = op; RPAREN; <`Cons>
+  | NIL; { `Nil }
 
 let tuple_rest :=
   | l = lhs; COMMA; { [l] }

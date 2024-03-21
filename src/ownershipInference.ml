@@ -18,12 +18,14 @@ module P = Paths
 type ownership =
     OVar of int (** A variable with id int *)
   | OConst of float (** a constant ownership with the given rational number *)
+  [@@deriving sexp]
 
 type ocon =
   | Live of ownership (** The ownership must be greater than 0 (only emitted in relaxed mode) *)
   | Write of ownership (** Constraint ownership variable n to be 1 *)
   | Shuff of (ownership * ownership) * (ownership * ownership) (** ((r1, r2),(r1',r2')) is the shuffling of permissions s.t. r1 + r2 = r1' + r2' *)
   | Split of ownership * (ownership * ownership) (** Split (o,(s,t)) is the constraint that o = s + t *)
+  | WeakSplit of ownership * (ownership * ownership) (** WeakSplit (o,(s,t)) is the constraint that o >= s + t *)
   | Eq of ownership * ownership (** o1 = o2 *)
   | Wf of ownership * ownership (** For well-formedness: if o1 = 0, then o2 = 0 *)
   | Ge of ownership * ownership (** o1 >= o2 *)
@@ -34,9 +36,11 @@ type 'a otype_ =
   | Ref of 'a otype_ * 'a
   | Tuple of 'a otype_ list
   | TVar of int
-  | Mu of int * 'a otype_
+  | IntList of 'a list
+  [@@deriving sexp]
 
 type otype = ownership otype_
+[@@deriving sexp]
 
 (** For the most part, the ownership and refinement inference passes may be run independently. The only intersection is
 handling 0 ownership references; when a reference drops to 0 ownership, all refinements must go to top (although we use
@@ -133,31 +137,6 @@ type infr_options = bool
 
 let infr_opts_default = false
 
-let unfold =
-  let rec subst_once id sub = function
-    | TVar id' when id = id' -> sub
-    | (Int as t)
-    | (TVar _ as t) -> t
-    | Ref (t,o) -> Ref (subst_once id sub t,o)
-    | Array (t,o) -> Array (subst_once id sub t,o)
-    | Tuple tl -> Tuple (List.map (subst_once id sub) tl)
-    | Mu (id',t) -> assert (id' <> id); Mu (id',subst_once id sub t)
-  in
-  let rec unfold_loop ~unfld = function
-    | TVar id -> assert (IntSet.mem id unfld); TVar id
-    | Int -> Int
-    | Ref (t,o) -> Ref (unfold_loop ~unfld t,o)
-    | Array (t,o) -> Array (unfold_loop ~unfld t,o)
-    | Mu (id,t) when IntSet.mem id unfld ->
-      Mu (id,unfold_loop ~unfld t)
-    | Tuple tl ->
-      Tuple (List.map (unfold_loop ~unfld) tl)
-    | (Mu (id,t)) as mu ->
-      let t' = subst_once id mu t in
-      unfold_loop ~unfld:(IntSet.add id unfld) t'
-  in
-  unfold_loop ~unfld:IntSet.empty
-
 (** The optional relaxed argument indicates whether the passed in
    constraint should be applied only if the relaxed flag is in the indicated state.
    otherwise the constraint is added unconditionally.*)
@@ -172,14 +151,15 @@ let%lm add_constraint ?relaxed c ctxt =
 (** Shuffle the ownership between two source types (t1 and t2) and two destination
    types (t1' and t2'). The two types must be iso-recursively equal; they are walked in
    parallel, at references the ownerships are shuffled with the Shuff constraint. *)
-let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
-  (* check whether we need to unfold the "destination", which in this case is t2/t2', not t1/t1'.
-     This confusing naming arises from this functions use in returning ownership to a recursive
-     data structure, in that case, t2/t2' represents the destination for the return operation. *)
-  let unfold_dst =
-    if IntSet.mem e_id ctxt.iso.SimpleChecker.SideAnalysis.unfold_locs then
-      unfold
-    else Fun.id
+let%lm shuffle_types ~src:(t1,t1') ~dst:(t2,t2') ctxt =
+  let rec shuffle_intlist ol1 ol2 ol1' ol2' ctxt =
+    match ol1,ol2,ol1',ol2' with
+    | [],[],[],[] -> ctxt
+    | h1 :: r1, h2 :: r2, h1' :: r1', h2' :: r2' ->
+      shuffle_intlist r1 r2 r1' r2' @@
+        { ctxt with
+          ocons = Shuff ((h1,h2),(h1',h2')) :: ctxt.ocons }
+    | _ -> failwith "Ownership arities are different between IntList types"
   in
   let rec loop t1 t2 t1' t2' ctxt =
     match t1,t2,t1',t2' with
@@ -195,44 +175,12 @@ let%lm shuffle_types ~e_id ~src:(t1,t1') ~dst:(t2,t2') ctxt =
       List.fold_left2 (fun ctxt' (te1,te2) (te1',te2') ->
         loop te1 te2 te1' te2' ctxt'
       ) ctxt orig_tl new_tl
-    | Mu (_,m1), Mu (_,m2), Mu (_,m1'), Mu (_,m2') ->
-      loop m1 m2 m1' m2' ctxt
     | TVar _, TVar _, TVar _, TVar _ -> ctxt
+    | IntList ol1, IntList ol2, IntList ol1', IntList ol2' ->
+      shuffle_intlist ol1 ol2 ol1' ol2' ctxt
     | _ -> failwith "Type mismatch (simple checker broken D?)"
   in
-  loop t1 (unfold_dst t2) t1' (unfold_dst t2') ctxt
-
-(** Like shuffle above, but no unfolding occurs, and the destination type [out] must
-   have an ownership equal to the "pointwise" sum of ownerships in [t1] and [t2]. *)
-let%lm sum_ownership t1 t2 out ctxt =
-  let rec loop t1 t2 out ctxt =
-    match t1,t2,out with
-    | Int, Int, Int -> ctxt
-    | Ref (r1,o1), Ref (r2,o2), Ref (ro,oo) ->
-      loop r1 r2 ro
-        { ctxt with ocons = (Split (oo,(o1,o2)))::ctxt.ocons}
-    | Tuple tl1, Tuple tl2, Tuple tl_out ->
-      fold_left3i (fun ctxt _ e1 e2 e_out ->
-          loop e1 e2 e_out ctxt) ctxt tl1 tl2 tl_out
-    | Mu (_,t1'), Mu (_,t2'), Mu (_,out') ->
-      loop t1' t2' out' ctxt
-    | TVar _,TVar _, TVar _ -> ctxt
-    | Array (et1,o1), Array (et2,o2), Array (et3,o3) ->
-      loop et1 et2 et3
-        { ctxt with ocons = Split (o3,(o1,o2))::ctxt.ocons }
-    | _ -> failwith "Mismatched types (simple checker broken C?)"
-  in
-  loop t1 t2 out ctxt
-    
-let rec unfold_simple arg mu =
-  function
-  | `Int -> `Int
-  | `Ref t' -> `Ref (unfold_simple arg mu t')
-  | `TVar id when id = arg -> mu
-  | `TVar id -> `TVar id
-  | `Array `Int -> `Array `Int
-  | `Tuple tl_list -> `Tuple (List.map (unfold_simple arg mu) tl_list)
-  | `Mu (id,t) -> `Mu (id, unfold_simple arg mu t)
+  loop t1 t2 t1' t2' ctxt
 
 (** Walk a type, constraining the first occurrence of an
    ownership variable to be well-formed w.r.t [o]. 
@@ -244,12 +192,24 @@ let rec constrain_wf_loop o t ctxt =
   | Int -> (ctxt,())
   | Tuple tl ->
     miter (constrain_wf_loop o) tl ctxt
-  | Mu (_,t) -> constrain_wf_loop o t ctxt
   | Ref (t',o')
   | Array (t',o') ->
     constrain_wf_loop o' t' {
         ctxt with ocons = Wf (o,o')::ctxt.ocons
       }
+  | IntList ol ->
+    let rec loop ctxt = function
+      | []
+      | [_] -> ctxt
+      | h1 :: h2 :: r -> loop {
+          ctxt with ocons = Wf (h1, h2)::ctxt.ocons
+        } (h2::r)
+    in
+    let ctxt = match ol with
+      [] -> ctxt
+    | h :: _ -> {ctxt with ocons = Wf (o,h)::ctxt.ocons}
+    in
+    (loop ctxt ol, ())
 
 (** Like constrain_wf_above, but only begin emitting wf constraints
    when the first ownership variable is encountered *)
@@ -257,9 +217,11 @@ let rec constrain_well_formed = function
   | TVar _
   | Int -> return ()
   | Tuple tl -> miter constrain_well_formed tl
-  | Mu (_,t) -> constrain_well_formed t
   | Ref (t,o)
   | Array (t,o) -> constrain_wf_loop o t
+  | IntList ol -> match ol with
+      [] -> return ()
+    | h :: r -> constrain_wf_loop h (IntList r)
 
 (** Record the allocation of an ownership variable in the context
    of a magic operation. Updates the gen map *)
@@ -286,7 +248,7 @@ let%lm record_split loc p o1 o2 ctxt =
    instrumented to record using the functions above. [alloc_ovar] is to generate
    a fresh ownership variable (always??? in the context of a generation op) and
    alloc_split generates two ownership variables in the context of a split operation. *)
-let alloc_split,alloc_ovar =
+let alloc_split,alloc_ovar,alloc_weak_split,alloc_weak_split_with_another =
   let alloc_ovar_inner ctxt =
     let new_ovar = ctxt.v_counter in
     let max_vars =
@@ -311,33 +273,53 @@ let alloc_split,alloc_ovar =
     let%bind o = alloc_ovar_inner in
     record_alloc loc p o >> return o
   in
-  alloc_split,alloc_ovar
+  let alloc_weak_split loc p o =
+    let%bind o1 = alloc_ovar_inner
+    and o2 = alloc_ovar_inner in
+    add_constraint (WeakSplit (o,(o1,o2))) >>
+    record_split loc p o1 o2 >>
+    return (o1,o2)
+  in
+  let alloc_weak_split_with_another loc p o1 o2 =
+    let%bind o3 = alloc_ovar_inner in
+    add_constraint (WeakSplit (o1,(o2,o3))) >>
+    record_split loc p o2 o3 >>
+    return o3
+  in
+  alloc_split,alloc_ovar,alloc_weak_split,alloc_weak_split_with_another
+
+let rec alloc_ovar_list loc p ~o_arity =
+  if o_arity <= 0 then return []
+  else (
+    let%bind o = alloc_ovar loc p in
+    let%bind o_list = alloc_ovar_list loc p ~o_arity:(o_arity - 1) in
+    return (o :: o_list)
+  )
 
 (** Lift a simple type into an ownership type (of type otype) *)
 (* this must record *)
-let lift_to_ownership loc root t_simp =
-  let rec simple_lift ~unfld root =
+let lift_to_ownership loc root t_simp ~o_arity =
+  let rec simple_lift root =
     function
-    | `Mu (id,t) when IntSet.mem id unfld ->
-      let%bind t' = simple_lift ~unfld root t in
-      return @@ Mu (id, t')
-    | (`Mu (id,t) as mu) -> simple_lift ~unfld:(IntSet.add id unfld) root @@ unfold_simple id mu t
     | `Array `Int ->
       let%bind o = alloc_ovar loc root in
       return @@ Array (Int, o)
     | `Ref t ->
       let%bind o = alloc_ovar loc root in
-      let%bind t' = simple_lift ~unfld (P.deref root) t in
+      let%bind t' = simple_lift (P.deref root) t in
       return @@ Ref (t',o)
     | `Int -> return Int
     | `TVar id -> return @@ TVar id
     | `Tuple tl ->
       let%bind tl' = mmapi (fun i t ->
-          simple_lift ~unfld (P.t_ind root i) t
+          simple_lift (P.t_ind root i) t
         ) tl in
       return @@ Tuple tl'
+    | `IntList ->
+      let%bind o_list = alloc_ovar_list loc root ~o_arity in
+      return @@ IntList o_list
   in
-  let%bind t = simple_lift ~unfld:IntSet.empty root t_simp in
+  let%bind t = simple_lift root t_simp in
   constrain_well_formed t >> return t
 
 let mtmap p f tl =
@@ -349,6 +331,13 @@ let mtmap p f tl =
    allocated are done so in magic context [loc] *)
 (* This needs to record *)
 let make_fresh_type loc root t =
+  let rec make_fresh_ownership_list loc root = function
+    | [] -> return []
+    | _ :: r ->
+      let%bind o = alloc_ovar loc root in
+      let%bind r' = make_fresh_ownership_list loc root r in
+      return (o :: r')
+  in
   let rec loop root = function
   | Int -> return Int
   | Array (t,_) ->
@@ -363,9 +352,9 @@ let make_fresh_type loc root t =
   | Tuple tl ->
     let%bind tl' = mtmap root loop tl in
     return @@ Tuple tl'
-  | Mu (id,t) ->
-    let%bind t' = loop root t in
-    return @@ Mu (id,t')
+  | IntList ol ->
+    let%bind ol' = make_fresh_ownership_list loc root ol in
+      return @@ IntList ol'
   in
   let%bind t' = loop root t in
   constrain_well_formed t' >> return t'
@@ -433,6 +422,27 @@ let fresh_ap e_id (p: P.concr_ap) =
             return @@ (Tuple tl',lt, lt')
           | _ -> assert false
         ) l
+    | `Cons _ :: l ->
+      loop (fun ?o in_t ->
+          match in_t with
+          | IntList ol ->
+            let pull = Ref(IntList (List.tl ol @ [List.hd @@ List.rev ol]), List.hd ol) in
+            let%bind (new_sub, lt, lt') = k ?o pull in
+            let%bind push = match
+                new_sub with
+              | Ref (IntList ol', o) ->
+                let ol'_a = List.hd @@ List.rev ol' in
+                let ol'_a_minus_1 = List.hd @@ List.tl @@ List.rev ol' in
+                let ol'_rest = List.rev @@ List.tl @@ List.tl @@ List.rev ol' in
+                let%bind o_approximated = alloc_ovar loc p in
+                add_constraint(Ge(ol'_a, o_approximated)) >>
+                add_constraint(Ge(ol'_a_minus_1, o_approximated)) >>
+                return @@ IntList (o :: ol'_rest @ [o_approximated])
+              | _ -> assert false
+            in
+            return @@ (push, lt, lt')
+          | _ -> assert false
+        ) l
   in
   loop (fun ?o t ->
     let%bind t' = make_fresh_type loc p t in
@@ -445,9 +455,9 @@ let fresh_ap e_id (p: P.concr_ap) =
   ) steps
     
 (* this must record *)
-let get_type_scheme e_id v ctxt =
+let get_type_scheme e_id v ctxt ~o_arity =
   let st = IntMap.find e_id ctxt.iso.SimpleChecker.SideAnalysis.let_types in
-  lift_to_ownership (MGen e_id) (P.var v) st ctxt
+  lift_to_ownership (MGen e_id) (P.var v) st ctxt ~o_arity
 
 let tarray o t = Array (t,o)
 let tref o t = Ref (t,o)
@@ -458,35 +468,35 @@ let rec split_type loc p =
     and (o1,o2) = alloc_split loc p o in
     begin%m
         constrain_wf_loop o1 t1;
-         constrain_wf_loop o2 t2;
-         return @@ (k o1 t1,k o2 t2)
+        constrain_wf_loop o2 t2;
+        return @@ (k o1 t1,k o2 t2)
     end
   in
+  let rec split_ownership_list ol =
+    match ol with
+    | [] -> return ([],[])
+    | o :: r ->
+      let%bind (o1,o2) = alloc_split loc p o in
+      let%bind (r1,r2) = split_ownership_list r in
+      return @@ (o1 :: r1,o2 :: r2)
+    in
   function
   | (Int as t)
   | (TVar _ as t) -> return (t,t)
-  | Mu (id,t) ->
-    let%bind (t1,t2) = split_type loc p t in
-    return @@ (Mu (id,t1),Mu (id,t2))
   | Tuple tl ->
     let%bind split_list = mtmap p (split_type loc) tl in
     let (tl1,tl2) = List.split split_list in
     return @@ (Tuple tl1,Tuple tl2)
   | Ref (t,o) -> split_mem o t P.deref tref
   | Array (t,o) -> split_mem o t P.elem tarray
+  | (IntList ol) ->
+    let%bind (ol1, ol2) = split_ownership_list ol in
+    return @@ (IntList ol1,IntList ol2)
 
 
 (** Constrain to types to be pointwse constrained by the generator rel, which
    takes two ownerships and returns a constraint *)
-let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
-  let dst_unfld =
-    let open SimpleChecker.SideAnalysis in
-    if (IntSet.mem e_id ctxt.iso.unfold_locs) ||
-       (IntSet.mem e_id ctxt.iso.fold_locs) then
-      unfold t2
-    else
-      t2
-  in
+let%lm constrain_rel ~rel ~src:t1 ~dst:t2 ctxt =
   let rec loop t1 t2 ctxt =
     match t1, t2 with
     | TVar _,TVar _
@@ -494,12 +504,20 @@ let%lm constrain_rel ~e_id ~rel ~src:t1 ~dst:t2 ctxt =
     | Ref (t1',o1), Ref (t2',o2)
     | Array (t1',o1), Array (t2',o2) ->
       loop t1' t2' { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
-    | Mu (_,t1'), Mu (_,t2') -> loop t1' t2' ctxt
     | Tuple tl1,Tuple tl2 ->
       List.fold_left2 (fun acc t1 t2 -> loop t1 t2 acc) ctxt tl1 tl2
+    | IntList ol1, IntList ol2 ->
+      let rec loop_ol ol1 ol2 ctxt =
+        match ol1,ol2 with
+        | [],[] -> ctxt
+        | o1::r1,o2::r2 ->
+          loop_ol r1 r2 { ctxt with ocons = (rel o1 o2)::ctxt.ocons }
+        | _ -> failwith "Ownership arities are different between IntList types"
+      in
+      loop_ol ol1 ol2 ctxt
     | _,_ -> failwith "Type mismatch (simple checker broken B?)"
   in
-  loop t1 dst_unfld ctxt
+  loop t1 t2 ctxt
 
 let constrain_eq = constrain_rel ~rel:(fun o1 o2 -> Eq (o1,o2))
 
@@ -521,26 +539,30 @@ let lkp_split loc v =
   let%bind (t1,t2) = split_type loc (P.var v) t in
   update_type v t1 >> return t2
 
-let%lq is_unfold eid ctxt =
-  let open SimpleChecker.SideAnalysis in
-  IntSet.mem eid ctxt.iso.unfold_locs
-
 let%lq theta f ctxt = SM.find f ctxt.theta
 
 (** Functionally quite similar to split type, but rather than splitting a type
    in place and giving the two result types, constrains t1 and t2 to be the result
    of splitting out *)
 let%lm sum_types t1 t2 out ctxt =
+  let rec sum_ownership_list ol1 ol2 outl ctxt =
+    match ol1, ol2, outl with
+      [],[],[] -> ctxt
+    | h1 :: r1, h2 :: r2, outh :: outr ->
+      sum_ownership_list r1 r2 outr { ctxt with ocons = Split (outh, (h1, h2))::ctxt.ocons }
+    | _ -> failwith "Ownership arities are different between IntList types"
+  in
   let rec loop t1 t2 out ctxt =
     match t1,t2,out with
     | TVar _,TVar _,TVar _
     | Int,Int,Int -> ctxt
-    | Mu (_,t1), Mu (_,t2), Mu (_,t3) -> loop t1 t2 t3 ctxt
     | Tuple tl1,Tuple tl2, Tuple tl3 ->
       fold_left3i (fun ctxt _ t1 t2 t3 -> loop t1 t2 t3 ctxt) ctxt tl1 tl2 tl3
     | Ref (t1,o1), Ref (t2,o2), Ref (out,oout)
     | Array (t1,o1), Array (t2,o2), Array (out,oout) ->
       loop t1 t2 out { ctxt with ocons = Split (oout,(o1,o2))::ctxt.ocons }
+    | IntList ol1, IntList ol2, IntList outl ->
+      sum_ownership_list ol1 ol2 outl ctxt
     | _,_,_ -> failwith "type mismatch (simple checker broken A?)"
   in
   loop t1 t2 out ctxt
@@ -553,17 +575,17 @@ let%lm max_ovar ov ctxt =
 let rec max_type = function
   | Array (_,o) -> max_ovar o
   | Int | TVar _ -> return ()
-  | Mu (_,t) -> max_type t
   | Tuple tl ->
     miter max_type tl
   | Ref (t,o) ->
     max_ovar o >> max_type t
+  | IntList ol -> miter max_ovar ol
 
 let process_call e_id c =
   let%bind arg_types = mmap (lkp_split @@ SCall e_id) c.arg_names
   and fun_type = theta c.callee in
   begin%m
-      miter (fun (i,a) -> constrain_eq ~e_id ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
+      miter (fun (i,a) -> constrain_eq (*~e_id*) ~src:i ~dst:a) @@ List.combine arg_types fun_type.arg_types;
        miteri (fun i arg_name ->
          let%bind t = lkp arg_name in
          let%bind t' = make_fresh_type (MGen e_id) (P.var arg_name) t in
@@ -578,7 +600,7 @@ let process_call e_id c =
 let%lm save_type e_id ctxt =
   { ctxt with save_env = IntMap.add e_id ctxt.gamma ctxt.save_env }
 
-let rec process_expr ~output ((e_id,_),expr) =
+let rec process_expr ~output ((e_id,_),expr) ~o_arity =
   save_type e_id >>
   match expr with
   | Fail ->
@@ -587,29 +609,29 @@ let rec process_expr ~output ((e_id,_),expr) =
     let () = assert (output <> None) in
     let (output_types, return_type) = Option.get output in
     let%bind t2 = lkp_split (SRet e_id) v in
-    constrain_eq ~e_id ~src:t2 ~dst:return_type
+    constrain_eq ~src:t2 ~dst:return_type
     >> miter (fun (v,out_t) ->
         let%bind curr_t = lkp v in
-        constrain_eq ~e_id ~src:curr_t ~dst:out_t
+        constrain_eq ~src:curr_t ~dst:out_t
       ) output_types
     >> return `Return
   | Unit -> return `Cont
   | Seq (e1,e2) ->
-    let%bind stat = process_expr ~output e1 in
+    let%bind stat = process_expr ~output e1 ~o_arity in
     assert (stat <> `Return);
-    process_expr ~output e2
+    process_expr ~output e2 ~o_arity
   | NCond (v,e1,e2) ->
     process_conditional ~e_id ~tr_branch:(
         let%bind t = lkp v in
         let%bind t' = make_fresh_type (MGen e_id) (P.var v) t in
         update_type v t'
-      ) ~output e1 e2
+      ) ~output e1 e2 ~o_arity
   | Cond (_,e1,e2) ->
-    process_conditional ~e_id ~tr_branch:(return ()) ~output e1 e2
+    process_conditional ~e_id ~tr_branch:(return ()) ~output e1 e2 ~o_arity
   | Assign (v,IInt _,nxt) ->
     let%bind (t,o) = lkp_ref v in
     assert (t = Int);
-    constrain_write o >> process_expr ~output nxt
+    constrain_write o >> process_expr ~output nxt ~o_arity
   | Assign (v, IVar i,nxt) ->
     let%bind t2 = lkp_split (SBind e_id) i
     and (vt,o) = lkp_ref v in
@@ -620,11 +642,11 @@ let rec process_expr ~output ((e_id,_),expr) =
     in
     begin%m
         constrain_wf_loop o' vt';
-         constrain_eq ~e_id ~src:t2 ~dst:vt';
+         constrain_eq ~src:t2 ~dst:vt';
          update_type v @@ Ref (vt',o');
          constrain_write o;
          constrain_write o';
-         process_expr ~output nxt
+         process_expr ~output nxt ~o_arity
     end
   | Update (base,_,contents,nxt) ->
     let%bind (cts,o) = lkp_array base
@@ -632,41 +654,73 @@ let rec process_expr ~output ((e_id,_),expr) =
     begin%m
          constrain_wf_loop o new_cts;
          constrain_write o;
-         constrain_eq ~e_id ~src:cts ~dst:new_cts;
+         constrain_eq ~src:cts ~dst:new_cts;
          update_type base @@ Array (new_cts,o);
-         process_expr ~output nxt
+         process_expr ~output nxt ~o_arity
     end
   | Alias(src,dst,nxt) ->
     let%bind (src_up,st,st') = fresh_ap e_id src
     and (dst_up,dt,dt') = fresh_ap e_id dst in
     begin%m
-        shuffle_types ~e_id ~src:(st,st') ~dst:(dt,dt');
+        shuffle_types ~src:(st,st') ~dst:(dt,dt');
          src_up;
          dst_up;
-         process_expr ~output nxt
+         process_expr ~output nxt ~o_arity
     end
-  | Assert (_,nxt) -> process_expr ~output nxt
+  | Assert (_,nxt) -> process_expr ~output nxt ~o_arity
   | Let (PVar v,Mkref (RVar src),body) ->
     let%bind t2 = lkp_split (SBind e_id) src in
     begin
-      match%bind get_type_scheme e_id v with
+      match%bind get_type_scheme e_id v ~o_arity with
       | (Ref (ref_cont,o)) as t' ->
         begin%m
-            constrain_eq ~e_id ~src:t2 ~dst:ref_cont;
+            constrain_eq ~src:t2 ~dst:ref_cont;
              add_constraint @@ Write o;
-             with_types [(v,t')] @@ process_expr ~output body
+             with_types [(v,t')] @@ process_expr ~output body ~o_arity
         end
       | _ -> assert false
     end
   | Let (PVar v,(Null | MkArray _),body) ->
-    let%bind t = get_type_scheme e_id v in
-    with_types [(v,t)] @@ process_expr ~output body
+    let%bind t = get_type_scheme e_id v ~o_arity in
+    with_types [(v,t)] @@ process_expr ~output body ~o_arity
   | Let (PVar v,Mkref (RNone | RInt _), body) ->
     let%bind new_var = alloc_ovar (MGen e_id) (P.var v) in
     begin%m
         add_constraint @@ Write new_var;
-         with_types [(v,Ref (Int, new_var))] @@ process_expr ~output body
+         with_types [(v,Ref (Int, new_var))] @@ process_expr ~output body ~o_arity
     end
+  | Let (PVar v, Nil, body) ->
+    let%bind o_list = alloc_ovar_list (MGen e_id) (P.var v) ~o_arity in
+    let t = IntList o_list in
+    with_types [(v,t)] @@ process_expr ~output body ~o_arity
+  | Let (PVar v, Cons (_, r), body) -> (
+    let split_type_cons = function
+      | Ref(IntList ol, o) -> (
+          let rec split_loop ol ol1 ol2 =
+            match ol with
+            | [o] -> return (List.rev ol1, List.rev ol2, o)
+            | h :: r ->
+              let%bind (o1, o2) = alloc_weak_split (SBind e_id) (P.var v) h in
+              split_loop r (o1 :: ol1) (o2 :: ol2)
+            | [] -> assert false
+          in
+          let%bind (ol1, ol2, o_not_splited) = split_loop ol [] [] in
+          let%bind (ol1_head, ol2_outer_ref) = alloc_weak_split (SBind e_id) (P.var v) o in
+          let%bind ol2_tail = alloc_weak_split_with_another (SBind e_id) (P.var v) o_not_splited (List.hd @@ List.rev ol1) in
+          return (IntList(ol1_head :: ol1), Ref(IntList(ol2 @ [ol2_tail]), ol2_outer_ref))
+        )
+      | _ -> failwith "The type of second argument of Cons must be Ref IntList."
+    in
+    match r with
+      | Var v' -> (
+          let%bind v'_name = lkp v' in
+          let%bind (t1, t2) = split_type_cons v'_name in
+          begin%m
+            update_type v t1;
+            with_types [(v', t2)] @@ process_expr ~output body ~o_arity
+          end
+        )
+      | _ -> failwith("Not implemented."))
   | Let (patt,rhs,body) ->
     let%bind to_bind =
       match rhs with
@@ -686,14 +740,7 @@ let rec process_expr ~output ((e_id,_),expr) =
         end
       | Deref v -> 
         let%bind (t,o) = lkp_ref v in
-        let%bind (t1,t2_pre) = split_type (SBind e_id) (P.deref (P.var v)) t in
-        let%bind uf = is_unfold e_id in
-        let t2 =
-          if uf then
-            unfold t2_pre
-          else
-            t2_pre
-        in
+        let%bind (t1,t2) = split_type (SBind e_id) (P.deref (P.var v)) t in
         begin%m
             update_type v @@ Ref (t1,o);
              (* only require the ownership to be non-zero in relaxed mode (the relaxed argument) *)
@@ -717,6 +764,9 @@ let rec process_expr ~output ((e_id,_),expr) =
           ) t_init in
         return @@ Tuple tl
       | Call c -> process_call e_id c
+      (* these should not be possible *)
+      | Cons _ -> assert false
+      | Nil -> assert false
     in
     let rec assign_patt_loop acc patt ty =
       match patt,ty with
@@ -727,11 +777,33 @@ let rec process_expr ~output ((e_id,_),expr) =
       | PTuple _,_ -> assert false
     in
     let bindings = assign_patt_loop [] patt to_bind in
-    with_types bindings @@ process_expr ~output body
-and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
+    with_types bindings @@ process_expr ~output body ~o_arity
+  | Match (e1, e2, h, r, e3) ->
+    let v = match e1 with
+        Var v -> v
+      | _ -> failwith "Not implemented"
+    in
+    let%bind t = lkp v in
+    let%bind type_of_v, type_of_r = match t with
+        IntList ol ->
+          let rec split_loop ol ol1 ol2 =
+            match ol with
+            | [] -> return (List.rev ol1, List.rev ol2)
+            | h :: r ->
+              let%bind (o1, o2) = alloc_weak_split (SBind e_id) (P.var v) h in
+              split_loop r (o1 :: ol1) (o2 :: ol2)
+          in
+          let%bind (ol1, ol2) = split_loop ol [] [] in
+          let%bind o_copied = alloc_ovar (MGen e_id) (P.var v) in
+          add_constraint (Eq (o_copied, List.hd @@ List.rev ol2)) >>
+          return (IntList ol1, Ref(IntList((List.tl ol2) @ [o_copied]), List.hd ol2))
+      | _ -> failwith "The value pattern matched must be IntList"
+    in
+    process_pattern_matching ~e_id ~output v type_of_v e2 h r type_of_r e3 ~o_arity
+and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt ~o_arity =
   let (ctxt_tpre,()) = tr_branch ctxt in
-  let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre in
-  let (ctxt_f,ffl) = process_expr ~output e2 { ctxt_t with gamma = ctxt.gamma } in
+  let (ctxt_t,tfl) = process_expr ~output e1 ctxt_tpre ~o_arity in
+  let (ctxt_f,ffl) = process_expr ~output e2 { ctxt_t with gamma = ctxt.gamma } ~o_arity in
   match tfl,ffl with
   | `Return,f -> ctxt_f,f
   | `Cont,`Return -> { ctxt_f with gamma = ctxt_t.gamma },`Cont
@@ -742,12 +814,31 @@ and process_conditional ~e_id ~tr_branch ~output e1 e2 ctxt =
         let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
         begin%m
             (* notice that we allow ownership to be discarded at join points, the reason for MJoin *)
-            constrain_ge ~e_id ~src:tt ~dst:t';
-             constrain_ge ~e_id ~src:ft ~dst:t';
+            constrain_ge ~src:tt ~dst:t';
+             constrain_ge ~src:ft ~dst:t';
              update_type k t'
         end
       ) (StringMap.bindings ctxt_f.gamma) { ctxt_f with gamma = StringMap.empty } in
     ctxt,`Cont
+and process_pattern_matching ~e_id ~output v type_of_v e1 h r type_of_r e2 ctxt ~o_arity =
+  let (ctxt_n, nfl) = process_expr ~output e1 ctxt ~o_arity in
+  let (ctxt_c, cfl) = (with_types [(h, Int); (r, type_of_r)] @@ process_expr ~output e2 ~o_arity) { ctxt_n with gamma = update_map v type_of_v ctxt.gamma } in
+  match nfl, cfl with
+  | `Return, f -> ctxt_c, f
+  | `Cont, `Return -> { ctxt_c with gamma = ctxt_n.gamma }, `Cont
+  | `Cont, `Cont ->
+    let ctxt, () = miter (fun (k,ft) ->
+        let%bind t' = make_fresh_type (MJoin e_id) (P.var k) ft in
+        let tt = StringMap.find k ctxt_n.gamma in
+        let constrain_ge = constrain_rel ~rel:(fun o1 o2 -> Ge (o1, o2)) in
+        begin%m
+          (* notice that we allow ownership to be discarded at join points, the reason for MJoin *)
+          constrain_ge ~src:tt ~dst:t';
+          constrain_ge ~src:ft ~dst:t';
+          update_type k t'
+        end
+      ) (StringMap.bindings ctxt_c.gamma) { ctxt_c with gamma = StringMap.empty } in
+    ctxt, `Cont
 
 module Result = struct
   type t = {
@@ -760,25 +851,25 @@ module Result = struct
   }
 end
 
-let analyze_fn ctxt fn =
+let analyze_fn ctxt fn ~o_arity =
   let arg_names = fn.args in
   let fn_type = SM.find fn.name ctxt.theta in
   let start_gamma = SM.of_bindings @@ List.combine arg_names fn_type.arg_types in
   let out_type = List.combine arg_names fn_type.output_types in
   let ctxt = List.fold_left (fun ctxt ty -> fst @@ max_type ty ctxt) ctxt fn_type.output_types in
-  let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } in
+  let (ctxt,_) = process_expr ~output:(Some (out_type,fn_type.result_type)) fn.body { ctxt with gamma = start_gamma } ~o_arity in
   { ctxt with gamma = SM.empty }
 
 let infer ~opts (simple_types,iso) (fn,prog) =
   let lift_plist loc l =
     mmapi (fun i t ->
-      lift_to_ownership loc (P.arg i) t
+      lift_to_ownership loc (P.arg i) t ~o_arity:opts.ArgOptions.ownership_arity
     ) l
   in
   let lift_simple_ft nm ft =
     let%bind arg_types = lift_plist (MArg nm) ft.SimpleTypes.arg_types
     and output_types = lift_plist (MOut nm) ft.SimpleTypes.arg_types
-    and result_type = lift_to_ownership (MRet nm) P.ret ft.SimpleTypes.ret_type in
+    and result_type = lift_to_ownership (MRet nm) P.ret ft.SimpleTypes.ret_type ~o_arity:opts.ArgOptions.ownership_arity in
     return RefinementTypes.{ arg_types; output_types; result_type }
   in
   let rec lift_reft loc p =
@@ -836,8 +927,8 @@ let infer ~opts (simple_types,iso) (fn,prog) =
         { acc with theta = SM.add nm ft acc.theta }
       ) (ArgOptions.get_intr opts).op_interp
   in
-  let ctxt = List.fold_left analyze_fn ctxt fn in
-  let (ctxt,_) = process_expr ~output:None prog ctxt in
+  let ctxt = List.fold_left (analyze_fn ~o_arity:opts.ArgOptions.ownership_arity) ctxt fn in
+  let (ctxt,_) = process_expr ~output:None prog ctxt ~o_arity:opts.ArgOptions.ownership_arity in
   {
     Result.ocons = ctxt.ocons;
     Result.ovars = ctxt.ovars;

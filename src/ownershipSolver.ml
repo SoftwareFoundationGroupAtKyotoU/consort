@@ -76,6 +76,16 @@ let pp_oconstraint ff ocon =
             ]
           ]
         ]
+    | WeakSplit (o,(o1,o2)) ->
+      pg "assert" [
+          pg ">=" [
+            po o;
+            pg "+" [
+              po o1;
+              po o2
+            ]
+          ]
+        ]
     | Eq (o1,o2) ->
       pg "assert" [
           pg "=" [
@@ -154,6 +164,13 @@ let solve_ownership ~opts result =
     ] o_buf.printer
   end;
   finish o_buf;
+  (* Print constraints of ownership variables *)
+  (* TODO: Dump constraints of ownership variables only when -exec ownership *)
+  (* print_newline ();
+  print_string (Buffer.contents o_buf.buf);
+  print_newline ();
+  print_newline (); *)
+
   let res =
     let opts : ArgOptions.t = {
       opts with

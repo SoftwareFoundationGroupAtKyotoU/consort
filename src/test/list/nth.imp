@@ -1,0 +1,24 @@
+mklist(n) {
+    if n = 0 then Nil else {
+        let h = _ in
+        let m = n + -1 in
+        let t = mkref mklist(m) in
+        Cons (h, t)
+    }
+}
+
+nth(l, n) {
+    match l with
+      Nil -> fail
+    | Cons (h, t) -> {
+        let m = n + -1 in
+        if n = 1 then h else nth(*t, m)
+    }
+}
+
+{
+    let n = ( _ : ~ >= 1) in
+    let k = ( _ : ~ >= 1 /\ ~ <= n) in
+    let l = mklist(n) in
+    nth(l, k)
+}

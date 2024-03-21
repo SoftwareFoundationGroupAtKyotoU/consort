@@ -1,0 +1,66 @@
+mklist(n) {
+    if n = 0 then Nil else {
+        let h = _ in
+        let m = n + -1 in
+        let t = mkref mklist(m) in
+        Cons (h, t)
+    }
+}
+
+assert_eq(l1, l2) {
+    match l1 with
+      Nil -> {
+        match l2 with
+          Nil -> ()
+        | Cons (h2, t2) -> fail
+      }
+    | Cons (h1, t1) -> {
+        match l2 with
+          Nil -> fail
+        | Cons (h2, t2) -> {
+            assert(h1 = h2);
+            let t1_deref = *t1 in
+            let t2_deref = *t2 in {
+            assert_eq(t1_deref, t2_deref);
+              alias(t1_deref = *t1);
+              alias(l1.Cons.2 = t1);
+              alias(t2_deref = *t2);
+              alias(l2.Cons.2 = t2)
+            }
+          }
+      }
+}
+
+_reverse(l, l_next) {
+    match l_next with
+      Nil -> {
+        alias(*(l.Cons.2) = l_next);
+        return l
+      }
+    | Cons(h, t) -> {
+        let t_deref = *t in {
+            t := l;
+            alias(l_next.Cons.2 = t);
+            let reversed = _reverse(l_next, t_deref) in
+            reversed
+        }
+    }
+}
+
+reverse(l) {
+    match l with
+      Nil -> l
+    | Cons(h, t) -> {
+        let reversed = _reverse(Nil, l) in
+        reversed
+    }
+}
+
+{
+    let n = ( _ : ~ >= 0) in
+    let l = mklist(n) in
+    let rev_rev_l = reverse(reverse(l)) in {
+        alias(l = rev_rev_l);
+        assert_eq(l, rev_rev_l)
+    }
+}

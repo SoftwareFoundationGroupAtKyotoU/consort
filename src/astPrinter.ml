@@ -47,6 +47,8 @@ let pp_ap r =
       | `Proj i::l ->
         pf "%a.%d" (ul loop) l i
       | `Deref::l -> pf "*%a" (ul loop) l
+      | `Cons(con, i) :: l ->
+        pf "%a.%s.%d" (ul loop) l con i
     in
     loop steps
   | _ -> failwith "Unsupported operation ap"
@@ -75,7 +77,7 @@ let rec pp_ref_ast (r: RefinementTypes.concr_refinement) =
       (ul pp_ref_ast) r2
   | _ -> failwith @@ "Cannot annotate with relation " ^ (string_of_refinement r)
 
-let pp_lhs = function
+let rec pp_lhs = function
   | Var x -> pv x
   | Const i -> pi i
   | Mkref il -> pl [
@@ -104,6 +106,15 @@ let pp_lhs = function
     pf "%s[%s]" b i
   | LengthOf v ->
     pf "%s.length" v
+  | Cons (h, r) ->
+    pl [
+      ps "cons";
+      pp_lhs h;
+      ps "(";
+      pp_lhs r;
+      ps ")"
+    ]
+  | Nil -> ps "nil"
 
 let rec pp_patt = function
   | PVar v -> pv v
@@ -161,6 +172,16 @@ let rec pp_expr ~ip:((po_id,pr_id) as ip) ~annot (id,e) =
     | Unit -> ps "()"
     | Return v -> pf "return%a %s" po_id id v
     | Fail -> ps "fail"
+    | Match (e1, e2, h, r, e3) ->
+      pl [
+        pf "match %a with " (ul pp_lhs) e1;
+        pf "Nil -> { ";
+        pp_expr ~ip ~annot e2;
+        ps " } ";
+        pf "| Cons %s (%s) -> { " h r;
+        pp_expr ~ip ~annot e3;
+        ps "}";
+      ]
   in
   match e with
   | Seq _ -> e_printer

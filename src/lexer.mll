@@ -64,6 +64,11 @@ rule read =
   | '~' { NU }
   | ":=" { ASSIGN }
   | "null" { NULL }
+  | "Nil" { NIL }
+  | "Cons" { CONS }
+  | "match" { MATCH }
+  | "with" { WITH }
+  | "|" { BAR }
   | operators { OPERATOR (Lexing.lexeme lexbuf) }
   | '_' { UNDERSCORE }
   | id { ID (Lexing.lexeme lexbuf) }

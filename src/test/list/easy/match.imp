@@ -1,0 +1,20 @@
+sum(l, s) {
+    match l with
+      Nil -> s
+    | Cons (h, r) -> {
+        let s2 = s + h in
+        let r2 = *r in {
+            alias(l.Cons.2 = r);
+            sum(r2, s2)
+        }
+    }
+}
+
+{
+    let x = mkref Nil in
+    let y = mkref (Cons (1, x)) in
+    let z = mkref (Cons (2, y)) in
+    let l = Cons (3, z) in
+    let s = sum(l, 0) in
+    assert(s = 6)
+}
